@@ -1,3 +1,9 @@
+# v0.1.17-alpha.11.10 — Dialogue constructor compile hotfix
+
+- Fixed Stardew 1.6 `Dialogue` constructor argument order: `new Dialogue(speaker, text)`.
+- Before MiMi reveals her identity, the dialogue name remains `???` **while still using MiMi's portrait**.
+- Keeps alpha.11.9 broom arrival/departure and MiMi clarity pass.
+
 # v0.1.17-alpha.11.8 — MiMi visual pass + 6 portraits + test hours
 
 - Temporary mystery Town test window: 10:00–15:00.
@@ -46,7 +52,7 @@ This file is intentionally kept inside every future builder. Update it whenever 
 - alpha.10.1: source pose integration while preserving character design.
 - alpha.10.2: front broom hand-grip fix; hands closer together gripping shaft more naturally.
 - alpha.11: native Stardew NPC foundation for mystery `???` + persistent handoff/history files. Initial user compile exposed `CS0266` from assuming SMAPI dictionary data was a concrete `Dictionary`.
-- **alpha.11.1 CURRENT:** compile fix: use `IDictionary<string, CharacterData>` for `Data/Characters` asset edit; preserve native-NPC foundation and handoff/history files.
+- alpha.11.1: compile fix: use `IDictionary<string, CharacterData>` for `Data/Characters` asset edit.
 
 ## Locked design decisions
 - First story trigger is the **first natural Cardboard Scrap**, not a calendar day.
@@ -54,7 +60,6 @@ This file is intentionally kept inside every future builder. Update it whenever 
 - MiMi is story lead; Wizard is mentor/lore source.
 - ChaCha is MiMi's fairy bunny familiar and machine activation key.
 - Cardcha orb is transparent with one light core; avoid Poké Ball-like red/white split.
-- MiMi default town presence concept: 15:00–17:00.
 - Regular normal-enemy Shiny chance: 3%.
 - Card Seeker affects normal Scrap only.
 - Do not rapidly expand card count until story/core/UI are stable.
@@ -64,25 +69,21 @@ When user says “build”, do the build immediately and return a clickable ZIP 
 
 ## v0.1.17-alpha.11.2 — MiMi Timed Broom Arrival + Buff Lock
 - Disabled native schedule-driven Town placement and moved exact mystery-phase timing into C# runtime.
-- MiMi is hidden off-map before 15:00 and after 17:00.
-- 15:00 while player is in Town: broom arrival animation (Down/front row) -> native ??? actor lands in plaza.
-- 17:00 while player is in Town: native actor removed -> broom departure animation (Up/back row).
+- MiMi is hidden off-map before her arrival window and after departure.
 - Added vanilla-safe native `mimi_npc.png` (16x32 cells) and `mimi_npc_portraits.png` to fix half-face cropping.
-- Added native dialogue fallback asset; manual localized mystery dialogue interception remains.
+- Added native dialogue fallback asset.
 - Added `LoadoutService.CardEffectsActive`: equipped-card effects/HUD are locked until Machine + Binder are actually delivered.
-- Preserves old equipped loadout data instead of deleting it.
 
 ## v0.1.17-alpha.11.5 — MiMi 13–17 Mystery / Next-Day Farm Visit
 - Town mystery window widened to 13:00–17:00.
-- ChaCha now stays visibly beside MiMi before being lent.
+- ChaCha stays visibly beside MiMi before being lent.
 - Nearby villagers can react with speech bubbles to the unknown girl.
 - First Scrap no longer causes same-day MiMi visit; farm broom arrival is next day.
 - Farm dialogue waits until the visible broom landing finishes.
 - Wizard meetup moved to WizardHouse, 13:00–17:00.
 - Hard combat/HUD lock before the Wizard hands over Machine + Binder.
-- Explicit MiMi MugShotSourceRect for better minimap icon crop compatibility.
 
 ## v0.1.17-alpha.11.5 — Farm Arrival Scale Fix
 - Fixed next-day Farm MiMi broom scene being drawn at 1x and appearing tiny.
-- MiMi broom story event now uses 2x scale, consistent with Town broom arrival/departure.
+- MiMi broom story event uses readable 2x presentation scale.
 - Adjusted ChaCha story-event offset/scale to remain beside MiMi.
