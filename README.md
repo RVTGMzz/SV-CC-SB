@@ -1,28 +1,21 @@
-# Cardcha: Shardbound v0.1.17-alpha.11.8 — MiMi Visual Pass
+# Cardcha: Shardbound v0.1.17-alpha.11.10 — MiMi Dialogue Compile Fix
 
-This build keeps the alpha.11.3 story flow and fixes the pre-Scrap Town presentation.
+This build keeps the alpha.11.8 visual pass, alpha.11.9 broom arrival/departure fixes, and corrects the Stardew 1.6 `Dialogue` constructor used by the portrait flow.
 
-## Changes
-- MiMi now anchors at the Town central red-brick plaza area (`45,62`).
-- MiMi occasionally walks a short loop around the plaza instead of standing still.
-- Native MiMi sprite frames are advanced while moving for a real walk-cycle feel.
-- ChaCha remains beside MiMi and moves with her until he is lent to the player.
-- Mystery reaction bubbles are limited to a curated list of human Stardew villagers.
-- Pokémon, monsters, pets, and other creature NPCs are excluded from the reaction system.
-- For testing, the mystery Town broom window is temporarily 10:00–15:00. The next-day Farm visit, WizardHouse meetup, merchant routine, and pre-Binder buff lock remain unchanged.
+## Current test behavior
+- Mystery MiMi appears in Town during the temporary 10:00–15:00 test window.
+- MiMi arrives and departs by broom instead of disappearing instantly.
+- ChaCha remains beside MiMi until he is lent to the player.
+- MiMi world sprites have the +15% visual scale / clarity pass from alpha.11.8–11.9.
+- Floating `???` above MiMi is removed.
 
-## Handoff
-Always continue from `NEXT_SESSION_START_HERE.md`, `BUILD_HISTORY.md`, and `CARDCHA_PROJECT_STATE.json`.
+## Portrait rule
+Before MiMi reveals her identity, the dialogue name is still **`???`**, but the portrait must still be **MiMi's portrait**. The mystery is only in the displayed name; it does not hide or replace her face portrait.
 
-## Alpha.11.5
-Fixed the next-day Farm arrival where MiMi and ChaCha looked tiny. MiMi broom event now uses the same readable 2x presentation scale as the Town broom flight.
-
-## Alpha.11.8 visual pass
-- MiMi mystery test hours: 10:00–15:00 in Town.
-- MiMi visual scale +15% in story/broom scenes.
-- Six portrait expressions with context-sensitive portrait commands.
-- ChaCha 2x beside MiMi with safer spacing.
-- Floating `???` world label removed; mystery name is shown in dialogue UI.
+## alpha.11.10 compile hotfix
+- Fixed the Stardew 1.6 `Dialogue` constructor order from the invalid `new Dialogue(text, speaker)` to `new Dialogue(speaker, text)`.
+- MiMi remains the actual NPC speaker even while her display name is `???`, allowing Stardew's NPC dialogue box to load `Portraits/Ronvotri.Cardcha_MiMi`.
+- Keeps alpha.11.9 broom arrival/departure behavior and visual clarity pass.
 
 ## Full-source GitHub sync
-The alpha.11.8 Windows Builder contains `SYNC_TO_GITHUB.bat`. Run it once on the Windows PC to push the complete source + runtime assets into this private repository while preserving the repository history.
+The Windows Builder contains `SYNC_TO_GITHUB.bat`. Run it once on the Windows PC to push the complete source + runtime assets into this private repository while preserving repository history.
