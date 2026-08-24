@@ -1,0 +1,6 @@
+<Project>
+  <PropertyGroup>
+    <GamePath>E:\SteamLibrary\steamapps\common\Stardew Valley</GamePath>
+    <ModZipPath>$(MSBuildThisFileDirectory)_releases</ModZipPath>
+  </PropertyGroup>
+</Project>

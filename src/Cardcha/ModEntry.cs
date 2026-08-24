@@ -1,0 +1,638 @@
+using Cardcha.Models;
+using Cardcha.Patches;
+using Cardcha.Services;
+using Cardcha.UI;
+using HarmonyLib;
+using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
+using StardewValley.Menus;
+
+namespace Cardcha;
+
+internal sealed class ModEntry : Mod
+{
+    internal static IMonitor? StaticMonitor;
+    internal static IModHelper? StaticHelper;
+    private static readonly HashSet<string> LoggedErrors = new(StringComparer.OrdinalIgnoreCase);
+
+    private ModConfig Config = null!;
+    private CardRegistry Cards = null!;
+    private SaveService Save = null!;
+    private GachaService Gacha = null!;
+    private CardUpgradeService Upgrades = null!;
+    private LoadoutService Loadout = null!;
+    private ItemAssetService Items = null!;
+    private ResourceService Resources = null!;
+    private CombatService Combat = null!;
+    private CardRenderer Renderer = null!;
+    private ProgressionService Progression = null!;
+    private DropService Drops = null!;
+    private MonsterDeathService Deaths = null!;
+    private UniversalEnemyObserverService EnemyObserver = null!;
+    private CombatHudRenderer CombatHud = null!;
+    private CardchaBookTabService BookTab = null!;
+    private CardchaStoryService Story = null!;
+    private MimiMysteryTownService Mystery = null!;
+    private WorldActorService WorldActors = null!;
+
+    public override void Entry(IModHelper helper)
+    {
+        StaticMonitor = this.Monitor;
+        StaticHelper = helper;
+        this.Config = helper.ReadConfig<ModConfig>();
+        this.Cards = new CardRegistry(helper);
+        this.Save = new SaveService(helper);
+        this.Upgrades = new CardUpgradeService(this.Save, this.Cards);
+        this.Loadout = new LoadoutService(this.Save, this.Cards, this.Upgrades);
+        this.Gacha = new GachaService(this.Cards, this.Save, this.Config);
+        this.Items = new ItemAssetService(helper);
+        this.Resources = new ResourceService(this.Save);
+        this.Combat = new CombatService(this.Config, this.Loadout, this.Save, this.Cards, this.Upgrades);
+        this.Renderer = new CardRenderer(helper);
+        this.Progression = new ProgressionService(helper, this.Monitor, this.Save);
+        this.Drops = new DropService(
+            this.Config,
+            this.Loadout,
+            this.Upgrades,
+            this.Cards,
+            this.Resources,
+            this.Progression.OnFirstCardboardScrapDropped,
+            () => this.Progression.HasFirstScrapTriggered
+        );
+        this.Deaths = new MonsterDeathService(this.Drops, this.Combat);
+        this.EnemyObserver = new UniversalEnemyObserverService(this.Deaths);
+        this.CombatHud = new CombatHudRenderer(
+            this.Config,
+            this.Combat,
+            this.Loadout,
+            this.Save,
+            this.Cards,
+            this.Renderer
+        );
+        this.BookTab = new CardchaBookTabService(
+            helper,
+            this.Save,
+            this.OpenBinderFromMenu
+        );
+        this.WorldActors = new WorldActorService(this.Monitor);
+        this.Story = new CardchaStoryService(
+            helper,
+            this.Monitor,
+            this.Save,
+            this.Progression,
+            this.Resources,
+            this.Config,
+            this.WorldActors
+        );
+        this.Mystery = new MimiMysteryTownService(
+            helper,
+            this.Monitor,
+            this.Save,
+            this.OpenMimiShop,
+            this.WorldActors,
+            () => this.Story.OwnsMimiWorldActor
+        );
+
+        helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.Mystery.OnAssetRequested;
+        helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
+        helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
+        helper.Events.GameLoop.Saving += this.OnSaving;
+        helper.Events.GameLoop.DayStarted += this.OnDayStarted;
+        helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
+        helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
+        helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+        helper.Events.Display.RenderedHud += this.OnRenderedHud;
+        helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
+        helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
+        helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
+        helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
+        helper.Events.Player.Warped += this.Story.OnWarped;
+
+        helper.ConsoleCommands.Add("cardcha_status", "Show Cardcha prototype state.", this.CommandStatus);
+        helper.ConsoleCommands.Add("cardcha_pull", "Debug pull without resource cost: cardcha_pull [standard|premium] [count]", this.CommandPull);
+        helper.ConsoleCommands.Add("cardcha_unlock", "Unlock cards for testing: cardcha_unlock <card-id|all>", this.CommandUnlock);
+        helper.ConsoleCommands.Add("cardcha_equip", "Equip a prototype card by ID: cardcha_equip <card-id>", this.CommandEquip);
+        helper.ConsoleCommands.Add("cardcha_unequip", "Unequip a prototype card by ID.", this.CommandUnequip);
+        helper.ConsoleCommands.Add("cardcha_combat_status", "Show active Cardcha combat state.", this.CommandCombatStatus);
+        helper.ConsoleCommands.Add("cardcha_give_scrap", "Give prototype Scrap: cardcha_give_scrap [normal|shiny] [amount]", this.CommandGiveScrap);
+        helper.ConsoleCommands.Add("cardcha_give_machine", "Give the Cardcha! Machine prototype.", this.CommandGiveMachine);
+        helper.ConsoleCommands.Add("cardcha_open_machine", "Open the Cardcha! Machine UI for testing.", this.CommandOpenMachine);
+        helper.ConsoleCommands.Add("cardcha_open_binder", "Open the Cardcha! Binder UI for testing.", this.CommandOpenBinder);
+        helper.ConsoleCommands.Add("cardcha_test_report", "Show combat verification + save persistence report.", this.CommandTestReport);
+        helper.ConsoleCommands.Add("cardcha_test_reset", "Reset transient Cardcha combat verification counters.", this.CommandTestReset);
+        helper.ConsoleCommands.Add("cardcha_persistence_status", "Show the last save/reload persistence audit.", this.CommandPersistenceStatus);
+        helper.ConsoleCommands.Add("cardcha_progression_status", "Show normal-gameplay onboarding state.", this.CommandProgressionStatus);
+        helper.ConsoleCommands.Add("cardcha_drop_status", "Show monster-death and Scrap-drop diagnostics.", this.CommandDropStatus);
+        helper.ConsoleCommands.Add("cardcha_version", "Show the exact Cardcha build currently loaded.", this.CommandVersion);
+        helper.ConsoleCommands.Add("cardcha_enemy_status", "Show universal mod-enemy observer diagnostics.", this.CommandEnemyStatus);
+        helper.ConsoleCommands.Add("cardcha_machine_status", "Show Cardcha machine objects in inventory/current location.", this.CommandMachineStatus);
+        helper.ConsoleCommands.Add("cardcha_loot_rates", "Show the current Cardcha loot profile.", this.CommandLootRates);
+        helper.ConsoleCommands.Add("cardcha_hud_toggle", "Toggle Cardcha combat HUD on/off.", this.CommandHudToggle);
+        helper.ConsoleCommands.Add("cardcha_book_status", "Show Cardcha Book tab layout/controller diagnostics.", this.CommandBookStatus);
+        helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
+    }
+
+    private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
+    {
+        this.Cards.Load();
+
+        Harmony harmony = new(this.ModManifest.UniqueID);
+        MonsterDropPatch.Apply(harmony, this.Deaths);
+        MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths);
+        CriticalChancePatch.Apply(harmony, this.Combat);
+        FarmerDamagePatch.Apply(harmony, this.Combat);
+        MachineInteractionPatch.Apply(harmony, this.OpenMachineMenu);
+        BookNavigationPatch.Apply(harmony, this.BookTab);
+
+        this.Monitor.Log(
+            $"Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            LogLevel.Info
+        );
+    }
+
+    private void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    {
+        this.Cards.RefreshTranslations();
+        this.Save.Load();
+        (int migratedNormal, int migratedShiny) = this.Resources.MigrateInventoryScraps();
+        if (migratedNormal > 0 || migratedShiny > 0)
+        {
+            this.Monitor.Log(
+                $"Migrated backpack Scrap into Cardcha Binder wallet: normal={migratedNormal}, shiny={migratedShiny}.",
+                LogLevel.Info
+            );
+        }
+        this.Combat.ResetRuntime();
+        this.Combat.ResetVerificationTelemetry();
+        this.EnemyObserver.Reset();
+        this.Combat.SyncPassiveBuffs();
+        this.Progression.OnSaveLoaded();
+        this.Story.OnSaveLoaded();
+        this.Mystery.OnSaveLoaded();
+
+        this.Monitor.Log(
+            $"Save persistence audit: {this.Save.LastPersistenceMessage}",
+            this.Save.LastPersistenceCheckPassed ? LogLevel.Info : LogLevel.Warn
+        );
+    }
+
+    private void OnSaving(object? sender, SavingEventArgs e)
+    {
+        // ChaCha is a runtime-only world actor; remove it before Stardew serializes locations.
+        this.Story.OnSaving();
+        this.Save.Save();
+    }
+
+    private void OnDayStarted(object? sender, DayStartedEventArgs e)
+    {
+        this.Save.ResetForNewDay();
+        this.Combat.ResetRuntime();
+        this.Combat.ResetVerificationTelemetry();
+        this.EnemyObserver.Reset();
+        this.Combat.SyncPassiveBuffs();
+        this.Progression.OnDayStarted();
+        this.Story.OnDayStarted();
+        this.Mystery.OnDayStarted();
+        this.Save.Save();
+    }
+
+    private void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        this.Story.OnUpdateTicked(sender, e);
+        this.Mystery.OnUpdateTicked();
+
+        // Universal compatibility observer intentionally runs every tick so a custom
+        // enemy that is removed immediately on defeat can't disappear between samples.
+        this.EnemyObserver.Update(e.Ticks);
+
+        if (!e.IsMultipleOf(15))
+            return;
+
+        this.Combat.SyncPassiveBuffs();
+        this.Progression.OnUpdate();
+    }
+
+    private void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
+    {
+        this.Combat.ResetRuntime();
+        this.EnemyObserver.Reset();
+        this.Story.OnReturnedToTitle();
+        this.Mystery.OnReturnedToTitle();
+        this.Save.Clear();
+    }
+
+    private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+        => this.CombatHud.Draw(e.SpriteBatch);
+
+    private void OpenMachineMenu()
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+
+        Game1.activeClickableMenu = new CardchaMachineMenu(
+            this.Gacha,
+            this.Resources,
+            this.Save,
+            this.Cards,
+            this.Loadout,
+            this.Upgrades,
+            this.Config,
+            this.Renderer,
+            this.Combat.SyncPassiveBuffs,
+            this.Story.OnPullResolved
+        );
+    }
+
+    private void OpenMimiShop()
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+
+        Game1.activeClickableMenu = new MimiScrapShopMenu(
+            this.Resources,
+            this.Save
+        );
+    }
+
+    private void OpenBinderMenu()
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+
+        Game1.activeClickableMenu = new CardchaBinderMenu(
+            this.Cards,
+            this.Save,
+            this.Loadout,
+            this.Upgrades,
+            this.Renderer,
+            () => Game1.exitActiveMenu(),
+            this.Combat.SyncPassiveBuffs,
+            ModEntry.T("binder.back.close")
+        );
+    }
+
+    private void OpenBinderFromMenu(IClickableMenu previousMenu)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        string backLabel = previousMenu is StardewValley.Menus.ItemGrabMenu
+            ? ModEntry.T("binder.back.chest")
+            : ModEntry.T("binder.back.menu");
+
+        Game1.activeClickableMenu = new CardchaBinderMenu(
+            this.Cards,
+            this.Save,
+            this.Loadout,
+            this.Upgrades,
+            this.Renderer,
+            () =>
+            {
+                Game1.activeClickableMenu = previousMenu;
+
+                if (Game1.options.SnappyMenus
+                    && previousMenu.currentlySnappedComponent is null)
+                {
+                    previousMenu.snapToDefaultClickableComponent();
+                }
+            },
+            this.Combat.SyncPassiveBuffs,
+            backLabel
+        );
+    }
+
+    private void CommandStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        SaveData d = this.Save.Data;
+        this.Monitor.Log(
+            $"Owned: {d.OwnedCards.Count}/{this.Cards.All.Count} | Equipped: [{string.Join(", ", d.EquippedCards)}] | Slots: {d.ActiveCardSlotCount}/5 | Copies: {d.CardCopies.Values.Sum()} | SlotDust: {d.SuspiciousDust} | PullIndex: {d.PullIndex} | Standard Legendary Sympathy: {d.StandardSinceLegendary}/{this.Config.StandardLegendaryPity} | Premium: {d.PremiumSinceLegendary}/{this.Config.PremiumLegendaryPity}",
+            LogLevel.Info
+        );
+    }
+
+    private void CommandPull(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        PullType type = args.FirstOrDefault()?.Equals("premium", StringComparison.OrdinalIgnoreCase) == true
+            ? PullType.Premium
+            : PullType.Standard;
+        int count = args.Length >= 2 && int.TryParse(args[1], out int parsed) ? Math.Clamp(parsed, 1, 10) : 1;
+
+        for (int i = 0; i < count; i++)
+        {
+            PullResult result = this.Gacha.Pull(type);
+            string suffix = result.IsNew ? "NEW!" : $"duplicate -> +{result.DuplicateCopiesAwarded} same-card copy";
+            this.Monitor.Log($"[{type}] {result.Card.Rarity}: {result.Card.Name} — {suffix}", LogLevel.Alert);
+        }
+    }
+
+    private void CommandUnlock(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        string id = args.FirstOrDefault() ?? "";
+        if (id.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (CardDefinition card in this.Cards.All)
+                this.Save.Data.OwnedCards.Add(card.Id);
+
+            this.Save.Save();
+            this.Monitor.Log($"Unlocked all {this.Cards.All.Count} prototype cards. Responsible testing has ended.", LogLevel.Alert);
+            return;
+        }
+
+        CardDefinition? match = this.Cards.Get(id);
+        if (match is null)
+        {
+            this.Monitor.Log($"Unknown card '{id}'.", LogLevel.Warn);
+            return;
+        }
+
+        this.Save.Data.OwnedCards.Add(match.Id);
+        this.Save.Save();
+        this.Monitor.Log($"Unlocked {match.Name} ({match.Id}).", LogLevel.Info);
+    }
+
+    private void CommandEquip(string command, string[] args)
+    {
+        string id = args.FirstOrDefault() ?? "";
+        bool ok = this.Loadout.Equip(id);
+        if (ok)
+            this.Combat.SyncPassiveBuffs();
+
+        int slots = this.Upgrades.GetUnlockedSlotCount();
+        this.Monitor.Log(
+            ok
+                ? $"Equipped {id}."
+                : $"Couldn't equip '{id}' (not owned, unknown, or {slots} active slots full).",
+            ok ? LogLevel.Info : LogLevel.Warn
+        );
+    }
+
+    private void CommandUnequip(string command, string[] args)
+    {
+        string id = args.FirstOrDefault() ?? "";
+        bool ok = this.Loadout.Unequip(id);
+        if (ok)
+            this.Combat.SyncPassiveBuffs();
+
+        this.Monitor.Log(ok ? $"Unequipped {id}." : $"'{id}' wasn't equipped.", ok ? LogLevel.Info : LogLevel.Warn);
+    }
+
+    private void CommandCombatStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        this.Monitor.Log(
+            $"Combat cards: {(this.Config.EnableCombatCards ? "ON" : "OFF")} | Chain Hunter: {this.Combat.CurrentChainHunterStacks}/{this.Config.ChainHunterMaxStacks} stacks ({this.Combat.CurrentChainSecondsRemaining:0.0}s) | Phoenix used today: {this.Save.Data.PhoenixHeartUsedToday} | HP: {Game1.player.health}/{Game1.player.maxHealth}",
+            LogLevel.Info
+        );
+    }
+
+    private void CommandTestReport(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        SaveData d = this.Save.Data;
+        this.Monitor.Log(
+            "===== CARDCHA TEST REPORT =====\n" +
+            $"Owned: {d.OwnedCards.Count}/{this.Cards.All.Count}\n" +
+            $"Equipped: [{string.Join(", ", d.EquippedCards)}]\n" +
+            $"Dust: {d.SuspiciousDust} | PullIndex: {d.PullIndex}\n" +
+            $"Persistence: {this.Save.DescribePersistence()}\n" +
+            this.Combat.BuildVerificationReport(),
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandTestReset(string command, string[] args)
+    {
+        this.Combat.ResetVerificationTelemetry();
+        this.Monitor.Log("Cardcha combat verification counters reset. Go bonk something.", LogLevel.Info);
+    }
+
+    private void CommandPersistenceStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        this.Monitor.Log(
+            $"Persistence: {this.Save.DescribePersistence()}",
+            this.Save.LastPersistenceCheckPassed ? LogLevel.Info : LogLevel.Warn
+        );
+    }
+
+    private void CommandHudToggle(string command, string[] args)
+    {
+        this.Config.EnableCombatHud = !this.Config.EnableCombatHud;
+        this.Helper.WriteConfig(this.Config);
+
+        this.Monitor.Log(
+            ModEntry.T(
+                this.Config.EnableCombatHud ? "hud.toggle.on" : "hud.toggle.off"
+            ),
+            LogLevel.Info
+        );
+    }
+
+    private void CommandStoryStatus(string command, string[] args)
+    {
+        this.Monitor.Log(
+            "===== CARDCHA STORY STATUS =====\n" +
+            this.Progression.DescribeState() + "\n" +
+            this.Story.Describe() + "\n" +
+            this.Mystery.Describe(),
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandBookStatus(string command, string[] args)
+    {
+        this.Monitor.Log(
+            "===== CARDCHA BOOK STATUS =====\n" + this.BookTab.Describe(),
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandLootRates(string command, string[] args)
+    {
+        this.Monitor.Log(
+            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.32 =====\n" +
+            "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
+            "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
+            "Raw Max HP is NOT used to classify or scale rewards.",
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandMachineStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        List<string> lines = new();
+
+        for (int i = 0; i < Game1.player.Items.Count; i++)
+        {
+            Item? item = Game1.player.Items[i];
+            if (item is StardewValley.Object obj
+                && (MachineInteractionPatch.IsCardchaMachine(obj)
+                    || obj.Name.Contains("Cardcha", StringComparison.OrdinalIgnoreCase)))
+            {
+                lines.Add(
+                    $"Inventory[{i}]: Qualified={obj.QualifiedItemId} | ItemId={obj.ItemId} | " +
+                    $"Name={obj.Name} | Marker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)}"
+                );
+            }
+        }
+
+        if (Game1.currentLocation is not null)
+        {
+            foreach ((Microsoft.Xna.Framework.Vector2 tile, StardewValley.Object obj) in Game1.currentLocation.Objects.Pairs)
+            {
+                if (MachineInteractionPatch.IsCardchaMachine(obj)
+                    || obj.Name.Contains("Cardcha", StringComparison.OrdinalIgnoreCase))
+                {
+                    lines.Add(
+                        $"Placed[{tile.X:0},{tile.Y:0}]: Qualified={obj.QualifiedItemId} | ItemId={obj.ItemId} | " +
+                        $"Name={obj.Name} | Marker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)}"
+                    );
+                }
+            }
+        }
+
+        this.Monitor.Log(
+            "===== CARDCHA MACHINE STATUS =====\n" +
+            (lines.Count == 0 ? "No Cardcha-looking machine found." : string.Join("\n", lines)),
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandEnemyStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        this.Monitor.Log(
+            "===== CARDCHA UNIVERSAL ENEMY STATUS =====\n" +
+            this.EnemyObserver.Describe() + "\n" +
+            this.Deaths.Describe() + "\n" +
+            this.Drops.Describe(),
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandVersion(string command, string[] args)
+    {
+        this.Monitor.Log(
+            "Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS ACTIVE",
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandDropStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        this.Monitor.Log(
+            "===== CARDCHA DROP STATUS =====\n" +
+            this.Deaths.Describe() + "\n" +
+            this.Drops.Describe() + "\n" +
+            $"EnableMonsterDrops={this.Config.EnableMonsterDrops} | Multiplier={this.Config.PrototypeDropMultiplier:0.##}",
+            LogLevel.Alert
+        );
+    }
+
+    private void CommandProgressionStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        this.Monitor.Log(
+            $"Normal gameplay: {this.Progression.DescribeState()}",
+            LogLevel.Info
+        );
+    }
+
+    private void CommandGiveScrap(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        bool shiny = args.FirstOrDefault()?.Equals("shiny", StringComparison.OrdinalIgnoreCase) == true;
+        int amount = args.Length >= 2 && int.TryParse(args[1], out int parsed) ? Math.Clamp(parsed, 1, 999) : 10;
+        string id = shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId;
+        this.Resources.Add(id, amount);
+        this.Monitor.Log($"Added {amount} {(shiny ? "Shiny " : "")}Cardboard Scrap to the Binder wallet.", LogLevel.Info);
+    }
+
+    private void CommandGiveMachine(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        Item item = ItemRegistry.Create($"(BC){ItemAssetService.CardchaMachineId}");
+        Item? leftover = Game1.player.addItemToInventory(item);
+        if (leftover is not null)
+            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
+
+        this.Monitor.Log("Gave Cardcha! Machine. Please do not shake it.", LogLevel.Info);
+    }
+
+    private void CommandOpenMachine(string command, string[] args)
+        => this.OpenMachineMenu();
+
+    private void CommandOpenBinder(string command, string[] args)
+        => this.OpenBinderMenu();
+
+    internal static string T(string key)
+        => StaticHelper?.Translation.Get(key).ToString() ?? key;
+
+    internal static string T(string key, object tokens)
+        => StaticHelper?.Translation.Get(key, tokens).ToString() ?? key;
+
+    internal static void LogOnce(string key, string message)
+    {
+        if (!LoggedErrors.Add(key))
+            return;
+
+        StaticMonitor?.Log(message, LogLevel.Error);
+    }
+}

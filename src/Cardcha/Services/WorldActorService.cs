@@ -1,0 +1,308 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
+
+namespace Cardcha.Services;
+
+/// <summary>
+/// Owns Cardcha's in-world visual actors. These actors live in GameLocation.characters,
+/// so Stardew's own world SpriteBatch sorts them with the player, NPCs, trees, bushes,
+/// furniture, and other world layers. This intentionally replaces the old RenderedWorld
+/// overlay approach which could never depth-sort correctly against already-drawn vanilla actors.
+/// </summary>
+internal sealed class WorldActorService
+{
+    public const string MimiNpcId = MimiMysteryTownService.NpcId;
+    public const string MimiCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi";
+    public const string MimiBroomCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Broom";
+    public const string ChaChaNpcId = "Ronvotri.Cardcha_ChaCha";
+    public const string ChaChaCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha";
+    public const string ChaChaMachineCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_Machine";
+
+    private const string MimiBroomSheetPath = "assets/mimi_broom.png";
+    private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
+    private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
+
+    // Native NPC draw multiplies Character.Scale by 4. These values reproduce the previous
+    // approved visual sizes: MiMi 32x48 @ 2.3x, ChaCha 32x32 @ 1.8x.
+    private const float MimiNativeScale = 0.575f;
+    private const float ChaChaNativeScale = 0.45f;
+
+    private readonly IMonitor Monitor;
+    private NPC? ChaChaActor;
+
+    public WorldActorService(IMonitor monitor)
+    {
+        this.Monitor = monitor;
+    }
+
+    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.Name.IsEquivalentTo(MimiBroomCharacterAsset))
+        {
+            e.LoadFromModFile<Texture2D>(MimiBroomSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(ChaChaCharacterAsset))
+        {
+            e.LoadFromModFile<Texture2D>(ChaChaFollowSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(ChaChaMachineCharacterAsset))
+            e.LoadFromModFile<Texture2D>(ChaChaMachineSheetPath, AssetLoadPriority.Medium);
+    }
+
+    public NPC? FindMimiActor()
+    {
+        if (!Context.IsWorldReady)
+            return null;
+
+        NPC? found = null;
+        foreach (GameLocation location in Game1.locations)
+        {
+            foreach (NPC npc in location.characters
+                         .Where(p => string.Equals(p.Name, MimiNpcId, StringComparison.OrdinalIgnoreCase))
+                         .ToList())
+            {
+                if (found is null)
+                {
+                    found = npc;
+                    continue;
+                }
+
+                // Old experimental builds could leave a duplicate MiMi in another location.
+                // Keep one canonical native actor so depth/collision state can never split.
+                location.characters.Remove(npc);
+            }
+        }
+
+        return found;
+    }
+
+    public NPC? EnsureMimiActor()
+    {
+        NPC? existing = this.FindMimiActor();
+        if (existing is not null)
+            return existing;
+
+        if (!Context.IsWorldReady)
+            return null;
+
+        GameLocation? wizardHouse = Game1.getLocationFromName("WizardHouse");
+        if (wizardHouse is null)
+            return null;
+
+        try
+        {
+            NPC created = new(
+                new AnimatedSprite(MimiCharacterAsset, 0, 32, 48),
+                new Vector2(-6400f, -6400f),
+                2,
+                MimiNpcId
+            );
+            created.displayName = "???";
+            created.currentLocation = wizardHouse;
+            wizardHouse.characters.Add(created);
+            this.ConfigureMimiActor(created, broom: false, visible: false);
+            return created;
+        }
+        catch (Exception ex)
+        {
+            this.Monitor.Log($"Couldn't create MiMi native world actor: {ex}", LogLevel.Error);
+            return null;
+        }
+    }
+
+    public void MoveMimiActor(NPC actor, GameLocation target, Vector2 position, int facing, bool broom = false, bool visible = true)
+    {
+        if (actor.currentLocation != target)
+        {
+            actor.currentLocation?.characters.Remove(actor);
+            if (!target.characters.Contains(actor))
+                target.characters.Add(actor);
+            actor.currentLocation = target;
+        }
+
+        actor.Halt();
+        actor.Position = position;
+        actor.FacingDirection = facing;
+        this.ConfigureMimiActor(actor, broom, visible);
+        this.SetMimiFrame(actor, facing, 0);
+    }
+
+    public void ConfigureMimiActor(NPC actor, bool broom, bool visible)
+    {
+        string asset = broom ? MimiBroomCharacterAsset : MimiCharacterAsset;
+        if (actor.Sprite is null
+            || actor.Sprite.SpriteWidth != 32
+            || actor.Sprite.SpriteHeight != 48
+            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))
+        {
+            actor.Sprite = new AnimatedSprite(asset, 0, 32, 48);
+        }
+
+        actor.Scale = MimiNativeScale;
+        actor.forceOneTileWide.Value = true;
+        actor.farmerPassesThrough = false;
+        actor.collidesWithOtherCharacters.Value = true;
+        actor.willDestroyObjectsUnderfoot = false;
+        actor.followSchedule = false;
+        actor.ignoreScheduleToday = true;
+        actor.drawOnTop = false;
+        actor.drawOffset = Vector2.Zero;
+        actor.shouldShadowBeOffset = false;
+        actor.rotation = 0f;
+        actor.breather.Value = false;
+        actor.hideShadow.Value = false;
+        actor.isInvisible.Value = !visible;
+    }
+
+    public void SetMimiFrame(NPC actor, int facing, int stepFrame)
+    {
+        if (actor.Sprite is null)
+            return;
+
+        int row = facing switch
+        {
+            2 => 0, // down/front
+            1 => 1, // right
+            0 => 2, // up/back
+            3 => 3, // left
+            _ => 0
+        };
+
+        actor.FacingDirection = facing;
+        actor.Sprite.CurrentFrame = row * 4 + Math.Clamp(stepFrame, 0, 3);
+    }
+
+    public NPC? EnsureChaChaActor(GameLocation location, Vector2 position, int direction, int frame, bool machine = false)
+    {
+        NPC? actor = this.FindChaChaActor();
+        string asset = machine ? ChaChaMachineCharacterAsset : ChaChaCharacterAsset;
+
+        if (actor is null)
+        {
+            try
+            {
+                actor = new NPC(
+                    new AnimatedSprite(asset, 0, 32, 32),
+                    position,
+                    direction,
+                    ChaChaNpcId
+                )
+                {
+                    SimpleNonVillagerNPC = true,
+                    displayName = "ChaCha",
+                    currentLocation = location
+                };
+                location.characters.Add(actor);
+                this.ChaChaActor = actor;
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.Log($"Couldn't create ChaCha native world actor: {ex}", LogLevel.Error);
+                return null;
+            }
+        }
+        else if (actor.currentLocation != location)
+        {
+            actor.currentLocation?.characters.Remove(actor);
+            if (!location.characters.Contains(actor))
+                location.characters.Add(actor);
+            actor.currentLocation = location;
+        }
+
+        if (actor.Sprite is null
+            || actor.Sprite.SpriteWidth != 32
+            || actor.Sprite.SpriteHeight != 32
+            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))
+        {
+            actor.Sprite = new AnimatedSprite(asset, 0, 32, 32);
+        }
+
+        actor.SimpleNonVillagerNPC = true;
+        actor.displayName = "ChaCha";
+        actor.Halt();
+        actor.Position = position;
+        actor.FacingDirection = direction;
+        actor.Scale = ChaChaNativeScale;
+        actor.forceOneTileWide.Value = true;
+        actor.farmerPassesThrough = true;
+        actor.collidesWithOtherCharacters.Value = false;
+        actor.willDestroyObjectsUnderfoot = false;
+        actor.followSchedule = false;
+        actor.ignoreScheduleToday = true;
+        actor.drawOnTop = false;
+        actor.drawOffset = Vector2.Zero;
+        actor.shouldShadowBeOffset = false;
+        actor.breather.Value = false;
+        actor.hideShadow.Value = false;
+        actor.isInvisible.Value = false;
+        actor.Sprite.CurrentFrame = machine
+            ? Math.Clamp(direction, 0, 2) * 6 + Math.Clamp(frame, 0, 5)
+            : Math.Clamp(direction, 0, 3) * 4 + Math.Clamp(frame, 0, 3);
+        this.ChaChaActor = actor;
+        return actor;
+    }
+
+    public NPC? FindChaChaActor()
+    {
+        if (this.ChaChaActor is not null
+            && this.ChaChaActor.currentLocation is not null
+            && this.ChaChaActor.currentLocation.characters.Contains(this.ChaChaActor))
+        {
+            return this.ChaChaActor;
+        }
+
+        if (!Context.IsWorldReady)
+            return null;
+
+        NPC? found = null;
+        foreach (GameLocation location in Game1.locations)
+        {
+            foreach (NPC npc in location.characters
+                         .Where(p => string.Equals(p.Name, ChaChaNpcId, StringComparison.OrdinalIgnoreCase))
+                         .ToList())
+            {
+                if (found is null)
+                {
+                    found = npc;
+                    continue;
+                }
+
+                location.characters.Remove(npc);
+            }
+        }
+
+        this.ChaChaActor = found;
+        return found;
+    }
+
+    public void HideChaChaActor()
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.ChaChaActor = null;
+            return;
+        }
+
+        foreach (GameLocation location in Game1.locations)
+        {
+            foreach (NPC npc in location.characters
+                         .Where(p => string.Equals(p.Name, ChaChaNpcId, StringComparison.OrdinalIgnoreCase))
+                         .ToList())
+            {
+                location.characters.Remove(npc);
+            }
+        }
+
+        this.ChaChaActor = null;
+    }
+
+    public void OnReturnedToTitle()
+        => this.ChaChaActor = null;
+}

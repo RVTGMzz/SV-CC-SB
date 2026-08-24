@@ -1,0 +1,39 @@
+{
+  "project": "Cardcha!",
+  "version": "0.1.17-alpha.11.32",
+  "game_path": "E:\\SteamLibrary\\steamapps\\common\\Stardew Valley",
+  "story": {
+    "pre_scrap_mimi_name": "???",
+    "town_window": "10:00-15:00 (temporary test window)",
+    "town_arrival": "broom at 10:00 when player can see Town",
+    "town_departure": "broom at 15:00 when player can see Town",
+    "first_scrap_trigger": "natural Cardboard Scrap drop",
+    "farm_visit": "next day after first Scrap; visible broom landing before dialogue",
+    "meetup": "WizardHouse 13:00-17:00",
+    "chacha_before_loan": "always beside MiMi, including Town wander and story scenes",
+    "card_effect_unlock": "only after MiMiMeetupCompleted + MachineDelivered + BinderUnlocked",
+    "town_anchor": "Town 45,62 central red-brick plaza target",
+    "town_behavior": "broom arrival at 10:00; collision-aware plaza wander; broom departure at 15:00",
+    "villager_reactions": "disabled during mystery phase; CanGreetNearbyCharacters=false",
+    "post_meetup_mimi": "daily merchant from handoff onward; handoff-day routine begins after player leaves WizardHouse",
+    "merchant_window": "11:00-17:00",
+    "merchant_clear_weather": "Farm near farmhouse",
+    "merchant_rain": "WizardHouse",
+    "wizard_meetup_visual": "MiMi story sprite 2x / player-sized, then walks toward exit",
+    "chacha_follower": "1.8x scale; closer follow; fairy-style glide; sparkle trail; collision-aware safe slots; remains visible during dialogue",
+    "world_integration": "MiMi uses hidden native collision actor + visual footprint safety; ChaCha uses obstacle/actor-aware flight and ground-anchored shadow"
+  },
+  "currencies": {
+    "regular_shiny_enemy_rate": "3%",
+    "storage": "Binder wallet (no backpack slots)",
+    "shop_buy_price": "1000g per Scrap",
+    "shop_sell_price": "100g per Scrap"
+  },
+  "next_priority": "regression-test alpha.11.32 native depth sorting, shadows, MiMi portrait, broom flight, ChaCha fairy follower, Binder quick equip/unequip",
+  "handoff_files": [
+    "NEXT_SESSION_START_HERE.md",
+    "BUILD_HISTORY.md",
+    "CARDCHA_PROJECT_STATE.json"
+  ],
+  "latest_fix": "World integration pass: MiMi/ChaCha spacing and obstacle avoidance, MiMi native collision body, ChaCha fairy-style gliding flight, dialogue no-hide, ground-anchored shadows."
+}

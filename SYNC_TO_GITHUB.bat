@@ -4,7 +4,7 @@ cd /d "%~dp0"
 
 set "REPO=https://github.com/ronvotri/Cardcha-Shardbound.git"
 set "BRANCH=main"
-set "MSG=Sync full Cardcha source v0.1.17-alpha.11.30"
+set "MSG=Sync full Cardcha source v0.1.17-alpha.11.32"
 
 echo ============================================================
 echo   CARDCHA: SHARDBOUND - FULL SOURCE SYNC TO GITHUB

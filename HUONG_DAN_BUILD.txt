@@ -1,0 +1,21 @@
+CARDCHA! v0.1.4-alpha - WINDOWS BUILDER
+
+1. Giai nen TOAN BO file ZIP nay tren PC da cai Stardew Valley 1.6 + SMAPI.
+2. Bam dup BUILD_CARDCHA.bat.
+3. Neu hoi GamePath, dan duong dan thu muc Stardew Valley co ca:
+   - Stardew Valley.dll
+   - StardewModdingAPI.dll
+4. Build thanh cong -> mo thu muc _READY_TO_INSTALL.
+5. Giai nen file Cardcha 0.1.4-alpha.zip vao Stardew Valley\Mods.
+6. Khong can xoa save Cardcha cu; v0.1.4 dung lai SaveData cua v0.1.3.
+
+TEST NHANH v0.1.4
+- cardcha_open_binder
+- Bam mot card dang equip o hang tren -> xem chi tiet.
+- Bam dau X do -> unequip ngay.
+- Hoac right-click vao slot dang equip -> unequip.
+- Equip lai va chay cardcha_combat_status.
+- Pull 1 / Pull 10 de kiem tra card reveal van hoat dong.
+
+Neu build loi: gui build-log.txt cho ChatGPT.
+Neu vao game crash: gui SMAPI-latest.txt cho ChatGPT.
