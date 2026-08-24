@@ -1,6 +1,5 @@
 # LOCAL BUILD
 
-Build target: `Cardcha v0.1.17-alpha.11.32`
+Build target: `Cardcha v0.1.17-alpha.11.36`
 
-Run `BUILD_CARDCHA.bat`. User environment: .NET SDK 6.0.428, Stardew path `E:\SteamLibrary\steamapps\common\Stardew Valley`.
-`CS9057` analyzer/compiler warning is known and non-fatal.
+Close Stardew Valley and SMAPI, then run `BUILD_CARDCHA.bat`. The SDK warning CS9057 is non-fatal; send `build-log.txt` only if there are actual `error CS...` lines.

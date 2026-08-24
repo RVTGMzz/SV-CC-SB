@@ -1,0 +1,38 @@
+===== CARDCHA AUTO BUILD + INSTALL LOG =====
+ExpectedBuild: Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE
+Date: 25/08/2026  2:25:10,54
+Root: C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\
+GamePath: E:\SteamLibrary\steamapps\common\Stardew Valley
+
+.NET SDK: 6.0.428
+
+===== DOTNET RESTORE =====
+  Determining projects to restore...
+  Restored C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\Cardcha.csproj (in 84 ms).
+
+===== DOTNET BUILD =====
+MSBuild version 17.3.4+a400405ba for .NET
+CSC : warning CS9057: The analyzer assembly 'C:\Users\win\.nuget\packages\pathoschild.stardew.modbuildconfig\4.4.0\analyzers\dotnet\cs\SMAPI.ModBuildConfig.Analyzer.dll' references version '4.9.0.0' of the compiler, which is newer than the currently running version '4.3.0.0'. [C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\Cardcha.csproj]
+  Cardcha -> C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\bin\Release\net6.0\Cardcha.dll
+  [mod build package] Handling build with options BundleExtraAssemblies: null, EnableModDeploy: false, EnableModZip: true, GameModsDir: 'E:\SteamLibrary\steamapps\common\Stardew Valley\Mods', IgnoreModFilePaths: null, ModDllName: 'Cardcha', ModFolderName: 'Cardcha', ModZipPath: 'C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\_releases', ProjectDir: 'C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\', ProjectVersion: '0.1.17-alpha.11.36', TargetDir: 'C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\bin\Release\net6.0\'
+  [mod build package] Generating the release zip at C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\_releases\Cardcha 0.1.17-alpha.11.36.zip...
+
+Build succeeded.
+
+CSC : warning CS9057: The analyzer assembly 'C:\Users\win\.nuget\packages\pathoschild.stardew.modbuildconfig\4.4.0\analyzers\dotnet\cs\SMAPI.ModBuildConfig.Analyzer.dll' references version '4.9.0.0' of the compiler, which is newer than the currently running version '4.3.0.0'. [C:\Users\win\Downloads\Cardcha_v0.1.17_alpha11_36_MimiPlacement_LootToast_ShinyEconomy_HomeMachine_WindowsBuilder\src\Cardcha\Cardcha.csproj]
+    1 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:02.03
+
+===== AUTO INSTALL =====
+[BACKUP] E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\Cardcha
+[REMOVE] E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\Cardcha
+
+============================================================
+ CARDCHA INSTALLED FRESH
+ Version: 0.1.17-alpha.11.36
+ Folder : E:\SteamLibrary\steamapps\common\Stardew Valley\Mods\Cardcha
+============================================================
+
+===== SUCCESS =====

@@ -1,7 +1,7 @@
 {
   "Name": "Cardcha!",
   "Author": "Ronvotri",
-  "Version": "0.1.17-alpha.11.36",
+  "Version": "0.1.17-alpha.11.35",
   "Description": "Bonk monsters. Pull cardboard. Equip suspiciously powerful cards.",
   "UniqueID": "Ronvotri.Cardcha",
   "EntryDll": "Cardcha.dll",

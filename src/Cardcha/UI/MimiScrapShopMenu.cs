@@ -13,8 +13,13 @@ namespace Cardcha.UI;
 /// </summary>
 internal sealed class MimiScrapShopMenu : IClickableMenu
 {
-    private const int BuyPrice = 1000;
-    private const int SellPrice = 100;
+    // Player-facing prices. MiMi's own perspective is the reverse:
+    // normal: she buys for 100g / sells for 1,000g;
+    // shiny:  she buys for 1,000g / sells for 10,000g.
+    private const int NormalBuyPrice = 1000;
+    private const int NormalSellPrice = 100;
+    private const int ShinyBuyPrice = 10000;
+    private const int ShinySellPrice = 1000;
 
     private const int CloseId = 100;
     private const int NormalBuyId = 200;
@@ -143,21 +148,23 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
 
     private void Buy(string resourceId)
     {
-        if (Game1.player.Money < BuyPrice)
+        int price = GetBuyPrice(resourceId);
+        if (Game1.player.Money < price)
         {
             this.Status = ModEntry.T("mimi.shop.status.poor");
             Game1.playSound("cancel");
             return;
         }
 
-        Game1.player.Money -= BuyPrice;
+        Game1.player.Money -= price;
         this.Resources.Add(resourceId, 1);
-        this.Status = ModEntry.T("mimi.shop.status.bought", new { price = BuyPrice });
+        this.Status = ModEntry.T("mimi.shop.status.bought", new { price });
         Game1.playSound("coin");
     }
 
     private void Sell(string resourceId)
     {
+        int price = GetSellPrice(resourceId);
         if (!this.Resources.TryConsume(resourceId, 1))
         {
             this.Status = ModEntry.T("mimi.shop.status.empty");
@@ -165,11 +172,21 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             return;
         }
 
-        Game1.player.Money += SellPrice;
+        Game1.player.Money += price;
         this.Save.Save();
-        this.Status = ModEntry.T("mimi.shop.status.sold", new { price = SellPrice });
+        this.Status = ModEntry.T("mimi.shop.status.sold", new { price });
         Game1.playSound("coin");
     }
+
+    private static int GetBuyPrice(string resourceId)
+        => resourceId.Equals(DropService.ShinyScrapId, StringComparison.OrdinalIgnoreCase)
+            ? ShinyBuyPrice
+            : NormalBuyPrice;
+
+    private static int GetSellPrice(string resourceId)
+        => resourceId.Equals(DropService.ShinyScrapId, StringComparison.OrdinalIgnoreCase)
+            ? ShinySellPrice
+            : NormalSellPrice;
 
     public override void draw(SpriteBatch b)
     {
@@ -229,6 +246,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             0,
             ModEntry.T("item.cardboard.name"),
             this.Resources.Count(DropService.CardboardScrapId),
+            DropService.CardboardScrapId,
             this.NormalBuyButton,
             this.NormalSellButton
         );
@@ -238,6 +256,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             1,
             ModEntry.T("item.shiny.name"),
             this.Resources.Count(DropService.ShinyScrapId),
+            DropService.ShinyScrapId,
             this.ShinyBuyButton,
             this.ShinySellButton
         );
@@ -276,6 +295,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         int spriteIndex,
         string name,
         int count,
+        string resourceId,
         ClickableComponent buyButton,
         ClickableComponent sellButton)
     {
@@ -316,19 +336,21 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             maxScale: 1.00f
         );
 
-        bool canBuy = Game1.player.Money >= BuyPrice;
+        int buyPrice = GetBuyPrice(resourceId);
+        int sellPrice = GetSellPrice(resourceId);
+        bool canBuy = Game1.player.Money >= buyPrice;
         bool canSell = count > 0;
         CardchaUi.DrawButton(
             b,
             buyButton,
-            ModEntry.T("mimi.shop.buy", new { price = BuyPrice }),
+            ModEntry.T("mimi.shop.buy", new { price = buyPrice }),
             new Color(93, 124, 83),
             canBuy
         );
         CardchaUi.DrawButton(
             b,
             sellButton,
-            ModEntry.T("mimi.shop.sell", new { price = SellPrice }),
+            ModEntry.T("mimi.shop.sell", new { price = sellPrice }),
             new Color(139, 92, 73),
             canSell
         );

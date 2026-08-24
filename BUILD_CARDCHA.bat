@@ -2,11 +2,11 @@
 chcp 65001 >nul
 setlocal EnableExtensions DisableDelayedExpansion
 
-title Cardcha! v0.1.17-alpha.11.32 Auto Build + Install
+title Cardcha! v0.1.17-alpha.11.36 Auto Build + Install
 cd /d "%~dp0"
 
 set "ROOT=%~dp0"
-set "EXPECTED_BUILD=Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS + FAIRY FOLLOW"
+set "EXPECTED_BUILD=Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE"
 set "PROJECT=%ROOT%src\Cardcha\Cardcha.csproj"
 set "RELEASES=%ROOT%_releases"
 set "READY=%ROOT%_READY_TO_INSTALL"
@@ -16,7 +16,7 @@ set "INSTALLER=%ROOT%INSTALL_BUILT_CARDCHA.ps1"
 
 cls
 echo ============================================================
-echo   CARDCHA! v0.1.17-alpha.11.32 - AUTO BUILD + SAFE INSTALL
+echo   CARDCHA! v0.1.17-alpha.11.36 - AUTO BUILD + SAFE INSTALL
 echo ============================================================
 echo.
 echo Game:
@@ -126,7 +126,7 @@ echo Da build VA cai truc tiep vao:
 echo %GAME_PATH%\Mods\Cardcha
 echo.
 echo Khi mo SMAPI, phai thay:
-echo [Cardcha!] Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS ACTIVE...
+echo [Cardcha!] Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE ACTIVE...
 echo.
 echo Va lenh nay phai ton tai:
 echo cardcha_version

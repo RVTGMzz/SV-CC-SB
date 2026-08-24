@@ -49,8 +49,11 @@ internal sealed class CardchaStoryService
     private long SceneVisualStartedAt;
     private Vector2 ChaChaFollowerWorld;
     private Vector2 ChaChaFollowerVelocity;
+    private Vector2 ChaChaFollowerOffset = new(54f, -18f);
     private bool ChaChaFollowerInitialized;
     private int ChaChaFollowerDirection = 3;
+    private string ChaChaFollowerLocationKey = "";
+    private int ChaChaFollowerBlockedTicks;
     private bool MeetupExitPending;
     private Vector2 MeetupExitTarget;
 
@@ -301,7 +304,8 @@ internal sealed class CardchaStoryService
             ModEntry.T("story.meetup.5"),
             ModEntry.T("story.meetup.6"),
             ModEntry.T("story.meetup.7"),
-            ModEntry.T("story.meetup.8")
+            ModEntry.T("story.meetup.8"),
+            ModEntry.T("story.meetup.9")
         };
         this.DialogueIndex = 0;
         this.DialogueOpen = true;
@@ -365,6 +369,11 @@ internal sealed class CardchaStoryService
     {
         this.Progression.CompleteMimiIntro();
 
+        // The farm visit is a one-off story beat. Once MiMi has given the Wizard-house
+        // rendezvous, remove the native actor immediately so she can never linger at the
+        // player's front door for the rest of the day.
+        this.WorldActors.HideMimiActor();
+
         Game1.playSound("smallSelect");
         Game1.addHUDMessage(
             new HUDMessage(
@@ -377,6 +386,18 @@ internal sealed class CardchaStoryService
     private void FinishWizardMeetup()
     {
         this.Progression.CompleteWizardMeetup();
+
+        // This is the exact moment the Binder becomes the Scrap wallet. Preserve every
+        // fragment the player collected before meeting MiMi by moving physical stacks in.
+        (int absorbedNormal, int absorbedShiny) = this.Resources.ActivateBinderWallet();
+        if (absorbedNormal > 0 || absorbedShiny > 0)
+        {
+            this.Monitor.Log(
+                $"Binder handoff absorbed backpack Scrap: normal={absorbedNormal}, shiny={absorbedShiny}.",
+                LogLevel.Info
+            );
+        }
+
         int starterScraps = this.GrantStarterScrapForFirstPull();
         this.Save.Save();
 
@@ -670,8 +691,11 @@ internal sealed class CardchaStoryService
         this.SceneVisualStartedAt = 0;
         this.ChaChaFollowerWorld = Vector2.Zero;
         this.ChaChaFollowerVelocity = Vector2.Zero;
+        this.ChaChaFollowerOffset = new Vector2(54f, -18f);
         this.ChaChaFollowerInitialized = false;
         this.ChaChaFollowerDirection = 3;
+        this.ChaChaFollowerLocationKey = "";
+        this.ChaChaFollowerBlockedTicks = 0;
         this.MeetupExitPending = false;
         this.MeetupExitTarget = Vector2.Zero;
         this.WorldActors.HideChaChaActor();
@@ -694,80 +718,129 @@ internal sealed class CardchaStoryService
         if (location is null)
             return;
 
-        // Stardew-fairy style movement: ChaCha follows a slowly drifting target instead of
-        // hovering at one fixed point like a helicopter. The drift is intentionally small so
-        // the familiar still feels attached to the player while gently gliding around them.
-        double seconds = Game1.currentGameTime.TotalGameTime.TotalSeconds;
-        Vector2 offset = Game1.player.FacingDirection switch
+        float dt = Math.Clamp((float)Game1.currentGameTime.ElapsedGameTime.TotalSeconds, 1f / 120f, 1f / 20f);
+        string locationKey = location.NameOrUniqueName ?? location.Name ?? "";
+
+        // Keep the familiar on a stable side of the player and EASE the side change when the
+        // player turns. The old code swapped hard between several discrete safe slots; when the
+        // player briefly got too close, it also teleported ChaCha to a new slot. That created the
+        // blink/double-body effect seen in motion.
+        Vector2 wantedOffset = Game1.player.FacingDirection switch
         {
-            0 => new Vector2(-42f, 34f),
-            1 => new Vector2(-54f, -6f),
+            0 => new Vector2(-46f, 30f),
+            1 => new Vector2(-58f, -8f),
             2 => new Vector2(54f, -18f),
-            3 => new Vector2(54f, -6f),
+            3 => new Vector2(58f, -8f),
             _ => new Vector2(54f, -18f)
         };
-        Vector2 fairyDrift = new(
-            (float)Math.Sin(seconds * 1.15) * 7f,
-            (float)Math.Sin(seconds * 1.73 + 0.8) * 5f
+
+        float offsetBlend = Math.Clamp(4.2f * dt, 0f, 1f);
+        this.ChaChaFollowerOffset = Vector2.Lerp(this.ChaChaFollowerOffset, wantedOffset, offsetBlend);
+
+        double seconds = Game1.currentGameTime.TotalGameTime.TotalSeconds;
+        Vector2 slowFairyDrift = new(
+            (float)Math.Sin(seconds * 0.72 + 0.3) * 4.5f,
+            (float)Math.Sin(seconds * 0.91 + 1.1) * 3.0f
         );
-        Vector2 desired = Game1.player.Position + offset + fairyDrift;
+
+        Vector2 desired = Game1.player.Position + this.ChaChaFollowerOffset + slowFairyDrift;
         Vector2 target = this.ResolveSafeChaChaFollowerTarget(desired);
 
+        bool changedLocation = !string.Equals(
+            this.ChaChaFollowerLocationKey,
+            locationKey,
+            StringComparison.OrdinalIgnoreCase
+        );
+
+        // A true map warp or a huge separation may snap once. Normal player proximity NEVER
+        // teleports ChaCha anymore; it is resolved with smooth steering instead.
         if (!this.ChaChaFollowerInitialized
-            || Vector2.DistanceSquared(this.ChaChaFollowerWorld, target) > 300f * 300f
-            || !this.IsChaChaWorldSafe(location, this.ChaChaFollowerWorld, allowNearPlayer: true))
+            || changedLocation
+            || Vector2.DistanceSquared(this.ChaChaFollowerWorld, target) > 380f * 380f)
         {
             this.ChaChaFollowerWorld = target;
             this.ChaChaFollowerVelocity = Vector2.Zero;
             this.ChaChaFollowerInitialized = true;
+            this.ChaChaFollowerLocationKey = locationKey;
+            this.ChaChaFollowerBlockedTicks = 0;
             return;
         }
 
-        float dt = Math.Clamp((float)Game1.currentGameTime.ElapsedGameTime.TotalSeconds, 1f / 120f, 1f / 20f);
+        this.ChaChaFollowerLocationKey = locationKey;
         Vector2 toTarget = target - this.ChaChaFollowerWorld;
 
-        // Critically damped-ish flight spring in pixels/second. This gives ChaCha a soft
-        // curved catch-up motion, with a little inertia but without rubber-band overshoot.
-        this.ChaChaFollowerVelocity += toTarget * (7.5f * dt);
-        this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 4.8f * dt);
+        // Smooth spring flight. Lower acceleration and capped speed keep the little familiar
+        // gliding instead of flickering between points.
+        this.ChaChaFollowerVelocity += toTarget * (5.0f * dt);
+        this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 4.4f * dt);
 
-        float maxSpeed = 210f;
+        // If the player walks into ChaCha, push the familiar away smoothly rather than declaring
+        // its current position invalid and teleporting it.
+        Vector2 chachaCenter = this.ChaChaFollowerWorld + new Vector2(16f, 20f);
+        Vector2 playerCenter = Game1.player.Position + new Vector2(32f, 42f);
+        Vector2 away = chachaCenter - playerCenter;
+        float awayLenSq = away.LengthSquared();
+        if (awayLenSq > 0.001f && awayLenSq < 42f * 42f)
+        {
+            away.Normalize();
+            this.ChaChaFollowerVelocity += away * (72f * dt);
+        }
+
+        float maxSpeed = 165f;
         float speed = this.ChaChaFollowerVelocity.Length();
         if (speed > maxSpeed)
             this.ChaChaFollowerVelocity *= maxSpeed / speed;
 
-        if (toTarget.LengthSquared() < 6f * 6f)
-            this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 7.0f * dt);
+        if (toTarget.LengthSquared() < 5f * 5f)
+            this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 6.0f * dt);
 
         Vector2 step = this.ChaChaFollowerVelocity * dt;
         Vector2 candidate = this.ChaChaFollowerWorld + step;
 
         if (!this.IsChaChaWorldSafe(location, candidate, allowNearPlayer: true))
         {
-            // Slide around obstacles instead of phasing through trees, bushes, NPCs, or the player.
             Vector2 slideX = this.ChaChaFollowerWorld + new Vector2(step.X, 0f);
             Vector2 slideY = this.ChaChaFollowerWorld + new Vector2(0f, step.Y);
             if (this.IsChaChaWorldSafe(location, slideX, allowNearPlayer: true))
             {
                 candidate = slideX;
-                this.ChaChaFollowerVelocity.Y *= 0.25f;
+                this.ChaChaFollowerVelocity.Y *= 0.20f;
+                this.ChaChaFollowerBlockedTicks = 0;
             }
             else if (this.IsChaChaWorldSafe(location, slideY, allowNearPlayer: true))
             {
                 candidate = slideY;
-                this.ChaChaFollowerVelocity.X *= 0.25f;
+                this.ChaChaFollowerVelocity.X *= 0.20f;
+                this.ChaChaFollowerBlockedTicks = 0;
             }
             else
             {
                 candidate = this.ChaChaFollowerWorld;
-                this.ChaChaFollowerVelocity *= 0.25f;
+                this.ChaChaFollowerVelocity *= 0.35f;
+                this.ChaChaFollowerBlockedTicks++;
+
+                // Only after being genuinely trapped for a while do a tiny local recovery. This
+                // is intentionally NOT tied to player proximity and cannot fire every few frames.
+                if (this.ChaChaFollowerBlockedTicks > 90)
+                {
+                    Vector2 recovery = this.ResolveSafeChaChaFollowerTarget(
+                        Game1.player.Position + this.ChaChaFollowerOffset
+                    );
+                    if (Vector2.DistanceSquared(recovery, this.ChaChaFollowerWorld) < 150f * 150f)
+                        candidate = Vector2.Lerp(this.ChaChaFollowerWorld, recovery, 0.20f);
+                    this.ChaChaFollowerBlockedTicks = 0;
+                }
             }
+        }
+        else
+        {
+            this.ChaChaFollowerBlockedTicks = 0;
         }
 
         this.ChaChaFollowerWorld = candidate;
 
         Vector2 movement = this.ChaChaFollowerVelocity;
-        if (movement.LengthSquared() >= 16f)
+        if (movement.LengthSquared() >= 25f)
         {
             if (Math.Abs(movement.X) >= Math.Abs(movement.Y))
                 this.ChaChaFollowerDirection = movement.X >= 0f ? 3 : 1;
@@ -781,18 +854,22 @@ internal sealed class CardchaStoryService
         if (!Context.IsWorldReady)
             return;
 
+        GameLocation? currentLocation = Game1.currentLocation;
+        if (currentLocation is null)
+            return;
+
         bool broom = this.Visual == VisualMode.MimiOnBroom
-            && Game1.currentLocation == Game1.getFarm();
+            && currentLocation == Game1.getFarm();
         bool meetup = this.Visual == VisualMode.MimiMeetup
-            && Game1.currentLocation?.NameOrUniqueName.Equals(
+            && currentLocation.NameOrUniqueName.Equals(
                 "WizardHouse",
                 StringComparison.OrdinalIgnoreCase
-            ) == true;
+            );
 
         if (!broom && !meetup)
             return;
 
-        GameLocation location = Game1.currentLocation;
+        GameLocation location = currentLocation;
         NPC? mimi = this.WorldActors.EnsureMimiActor();
         if (mimi is null)
             return;
@@ -862,7 +939,7 @@ internal sealed class CardchaStoryService
             return;
 
         float speed = this.ChaChaFollowerVelocity.Length();
-        int frameMs = speed > 120f ? 90 : speed > 35f ? 125 : 175;
+        int frameMs = speed > 110f ? 130 : speed > 35f ? 155 : 190;
         int frame = (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / frameMs) % 4;
         NPC? chacha = this.WorldActors.EnsureChaChaActor(
             Game1.currentLocation,
@@ -880,7 +957,7 @@ internal sealed class CardchaStoryService
                 (float)Math.Sin(seconds * 3.6) * 2.5f - 5f
             );
             chacha.shouldShadowBeOffset = false;
-            chacha.rotation = Math.Clamp(this.ChaChaFollowerVelocity.X * 0.00045f, -0.055f, 0.055f);
+            chacha.rotation = 0f;
         }
     }
 
@@ -941,7 +1018,7 @@ internal sealed class CardchaStoryService
 
         Vector2 center = world + new Vector2(16f, 20f);
         Vector2 playerCenter = Game1.player.Position + new Vector2(32f, 42f);
-        float minPlayerDistance = allowNearPlayer ? 44f : 58f;
+        float minPlayerDistance = allowNearPlayer ? 34f : 58f;
         if (Game1.player.currentLocation == location
             && Vector2.DistanceSquared(center, playerCenter) < minPlayerDistance * minPlayerDistance)
         {
@@ -1040,6 +1117,13 @@ internal sealed class CardchaStoryService
             || mimi is null
             || !location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
         {
+            // If the player warps away before the short exit animation completes, the old
+            // code left MeetupExitPending=true forever. That made StoryService keep ownership
+            // of MiMi and could strand her in a stale location (including the farm).
+            this.MeetupExitPending = false;
+            this.Visual = VisualMode.None;
+            this.MeetupExitTarget = Vector2.Zero;
+            this.WorldActors.HideMimiActor();
             return;
         }
 
@@ -1065,7 +1149,7 @@ internal sealed class CardchaStoryService
         this.MeetupExitPending = false;
         this.Visual = VisualMode.None;
         this.MeetupExitTarget = Vector2.Zero;
-        mimi.isInvisible.Value = true;
+        this.WorldActors.HideMimiActor();
     }
 
     private static Vector2 FindNearestExitWorld(GameLocation location, Vector2 fallbackFrom)

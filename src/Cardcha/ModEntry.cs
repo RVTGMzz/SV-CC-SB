@@ -111,6 +111,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
+        helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
         helper.ConsoleCommands.Add("cardcha_status", "Show Cardcha prototype state.", this.CommandStatus);
         helper.ConsoleCommands.Add("cardcha_pull", "Debug pull without resource cost: cardcha_pull [standard|premium] [count]", this.CommandPull);
@@ -149,7 +150,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -158,21 +159,29 @@ internal sealed class ModEntry : Mod
     {
         this.Cards.RefreshTranslations();
         this.Save.Load();
-        (int migratedNormal, int migratedShiny) = this.Resources.MigrateInventoryScraps();
-        if (migratedNormal > 0 || migratedShiny > 0)
+
+        // Let progression self-heal old saves first (it may discover an existing Machine and
+        // unlock the Binder), then reconcile Scrap storage to the correct physical/wallet phase.
+        this.Progression.OnSaveLoaded();
+        (int storageNormal, int storageShiny) = this.Resources.SyncStorageModeOnLoad();
+        if (storageNormal > 0 || storageShiny > 0)
         {
+            string direction = this.Resources.IsBinderWalletActive
+                ? "backpack -> Binder wallet"
+                : "prototype wallet -> backpack";
             this.Monitor.Log(
-                $"Migrated backpack Scrap into Cardcha Binder wallet: normal={migratedNormal}, shiny={migratedShiny}.",
+                $"Reconciled Scrap storage ({direction}): normal={storageNormal}, shiny={storageShiny}.",
                 LogLevel.Info
             );
         }
+
         this.Combat.ResetRuntime();
         this.Combat.ResetVerificationTelemetry();
         this.EnemyObserver.Reset();
         this.Combat.SyncPassiveBuffs();
-        this.Progression.OnSaveLoaded();
         this.Story.OnSaveLoaded();
         this.Mystery.OnSaveLoaded();
+        this.NormalizeCardchaMachinePlacement();
 
         this.Monitor.Log(
             $"Save persistence audit: {this.Save.LastPersistenceMessage}",
@@ -226,6 +235,81 @@ internal sealed class ModEntry : Mod
         this.Story.OnReturnedToTitle();
         this.Mystery.OnReturnedToTitle();
         this.Save.Clear();
+    }
+
+    private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
+    {
+        if (!Context.IsWorldReady || IsMainFarmHouse(e.Location))
+            return;
+
+        foreach (var pair in e.Added.ToList())
+        {
+            if (!MachineInteractionPatch.IsCardchaMachine(pair.Value))
+                continue;
+
+            // The stationary Cardcha machine is intentionally a home appliance, not a field
+            // machine. If a modded map/placement path bypasses BigCraftableData's outdoor flag,
+            // take it straight back into the player's inventory instead of leaving a bad placement.
+            e.Location.Objects.Remove(pair.Key);
+            this.ReturnCardchaMachineToPlayer();
+            Game1.showGlobalMessage(ModEntry.T("machine.place.home-only"));
+            this.Monitor.Log(
+                $"Blocked Cardcha Machine placement outside the main FarmHouse ({e.Location.NameOrUniqueName}).",
+                LogLevel.Info
+            );
+        }
+    }
+
+    private void NormalizeCardchaMachinePlacement()
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
+        if (mainHouse is null)
+            return;
+
+        int recovered = 0;
+        foreach (GameLocation location in Game1.locations.ToList())
+        {
+            if (ReferenceEquals(location, mainHouse))
+                continue;
+
+            foreach (var pair in location.Objects.Pairs
+                         .Where(pair => MachineInteractionPatch.IsCardchaMachine(pair.Value))
+                         .ToList())
+            {
+                location.Objects.Remove(pair.Key);
+                recovered++;
+                this.ReturnCardchaMachineToPlayer();
+            }
+        }
+
+        if (recovered > 0)
+        {
+            Game1.showGlobalMessage(ModEntry.T("machine.place.home-only"));
+            this.Monitor.Log(
+                $"Recovered {recovered} Cardcha Machine(s) from non-main-house locations after the placement rule update.",
+                LogLevel.Info
+            );
+        }
+    }
+
+    private static bool IsMainFarmHouse(GameLocation location)
+    {
+        GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
+        return mainHouse is not null && ReferenceEquals(location, mainHouse);
+    }
+
+    private void ReturnCardchaMachineToPlayer()
+    {
+        Item machine = ItemRegistry.Create($"(BC){ItemAssetService.CardchaMachineId}");
+        if (machine is StardewValley.Object machineObject)
+            machineObject.modData[ItemAssetService.MachineMarkerKey] = "1";
+
+        Item? leftover = Game1.player.addItemToInventory(machine);
+        if (leftover is not null && Game1.currentLocation is not null)
+            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
     }
 
     private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
@@ -481,7 +565,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.32 =====\n" +
+            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.36 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -555,7 +639,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.1.17-alpha.11.32 NATIVE WORLD ACTORS ACTIVE",
+            "Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE ACTIVE",
             LogLevel.Alert
         );
     }
@@ -600,7 +684,8 @@ internal sealed class ModEntry : Mod
         int amount = args.Length >= 2 && int.TryParse(args[1], out int parsed) ? Math.Clamp(parsed, 1, 999) : 10;
         string id = shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId;
         this.Resources.Add(id, amount);
-        this.Monitor.Log($"Added {amount} {(shiny ? "Shiny " : "")}Cardboard Scrap to the Binder wallet.", LogLevel.Info);
+        string destination = this.Resources.IsBinderWalletActive ? "Binder wallet" : "backpack";
+        this.Monitor.Log($"Added {amount} {(shiny ? "Shiny " : "")}Cardboard Scrap to the {destination}.", LogLevel.Info);
     }
 
     private void CommandGiveMachine(string command, string[] args)

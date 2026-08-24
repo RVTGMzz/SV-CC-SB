@@ -169,7 +169,7 @@ internal sealed class DropService
 
         if (forceNormal || rng.NextDouble() < normalChance)
         {
-            this.AwardToWallet(CardboardScrapId, normalAmount);
+            this.AwardScrap(location, position, CardboardScrapId, normalAmount);
             this.NormalDropEvents++;
             this.LastNormalAmount = normalAmount;
             this.KillsSinceNormalScrap = 0;
@@ -187,7 +187,7 @@ internal sealed class DropService
 
         if (shinyChance > 0 && rng.NextDouble() < shinyChance)
         {
-            this.AwardToWallet(ShinyScrapId, shinyAmount);
+            this.AwardScrap(location, position, ShinyScrapId, shinyAmount);
             this.ShinyDropEvents++;
             this.LastShinyAmount = shinyAmount;
 
@@ -287,8 +287,35 @@ internal sealed class DropService
             $"LastShiny={this.LastShinyAmount} @ {this.LastShinyChance:P2} | {seekerText}";
     }
 
-    private void AwardToWallet(string itemId, int amount)
+    private void AwardScrap(GameLocation location, Microsoft.Xna.Framework.Vector2 position, string itemId, int amount)
     {
+        if (amount <= 0)
+            return;
+
+        // Before the Binder handoff, Scrap is a real world/backpack item so the player can
+        // inspect and count the strange fragments they found. Once the Binder exists, drops
+        // go directly into its wallet to avoid permanently consuming inventory slots.
+        if (!this.Resources.IsBinderWalletActive)
+        {
+            Item item = ItemRegistry.Create($"(O){itemId}");
+            item.Stack = amount;
+            Game1.createItemDebris(item, position, -1, location);
+            return;
+        }
+
         this.Resources.Add(itemId, amount);
+
+        // Once the Binder wallet is active there is no physical debris pickup for Stardew
+        // to announce, so reproduce the vanilla item-gained toast explicitly. This keeps
+        // feedback identical before/after the Wizard handoff.
+        try
+        {
+            Item gained = ItemRegistry.Create($"(O){itemId}");
+            Game1.addHUDMessage(HUDMessage.ForItemGained(gained, amount, $"Cardcha:{itemId}"));
+        }
+        catch (Exception ex)
+        {
+            ModEntry.LogOnce("scrap-wallet-toast", $"Couldn't show Scrap wallet pickup toast: {ex}");
+        }
     }
 }

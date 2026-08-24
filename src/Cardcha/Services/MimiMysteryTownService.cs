@@ -11,10 +11,10 @@ using StardewValley.Menus;
 namespace Cardcha.Services;
 
 /// <summary>
-/// v0.1.17-alpha.11.32: MiMi mystery + merchant NPC runtime.
+/// v0.1.17-alpha.11.36: MiMi mystery + merchant NPC runtime.
 /// Before the first Scrap she keeps the temporary 10:00-15:00 Town mystery routine for testing.
-/// After the Wizard handoff she becomes a daily 11:00-17:00 merchant: near the Farmhouse
-/// on normal days, or inside the WizardHouse on rainy days.
+/// After the Wizard handoff, trading starts the NEXT day and runs 11:00-17:00 Monday-Friday:
+/// Town on normal days, or inside the WizardHouse during rain/harsh weather.
 /// </summary>
 internal sealed class MimiMysteryTownService
 {
@@ -44,6 +44,7 @@ internal sealed class MimiMysteryTownService
     private const float TalkDistance = 190f;
     private const int ArrivalStartTime = 1000;
     private const int DepartureTime = 1500;
+    private const int LateDepartureGraceEndTime = 1600;
     private const int MerchantStartTime = 1100;
     private const int MerchantEndTime = 1700;
     private const int FlightDurationMs = 1800;
@@ -81,7 +82,6 @@ internal sealed class MimiMysteryTownService
     private long LastWanderUpdateAtMs;
     private int WanderTargetIndex;
     private int WanderFacing = 2;
-    private bool MerchantHandoffCleared;
 
     public MimiMysteryTownService(
         IModHelper helper,
@@ -159,9 +159,40 @@ internal sealed class MimiMysteryTownService
                 SetPointProperty(mimi, "Size", 32, 48);
                 SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 24);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
+                SetProperty(mimi, "Shadow", new CharacterShadowData
+                {
+                    Visible = true,
+                    Offset = Point.Zero,
+                    Scale = 0.55f
+                });
                 SetHome(mimi, "WizardHouse", 4, 6, "down");
 
                 data[NpcId] = mimi;
+
+                // ChaCha is also a real NPC actor now, so give Stardew explicit hidden character data
+                // and a deliberately smaller native shadow instead of the oversized default.
+                CharacterData chacha = new();
+                SetProperty(chacha, "DisplayName", "ChaCha");
+                SetProperty(chacha, "TextureName", WorldActorService.ChaChaNpcId);
+                SetProperty(chacha, "CanSocialize", "FALSE");
+                SetProperty(chacha, "CanReceiveGifts", false);
+                SetProperty(chacha, "CanGreetNearbyCharacters", false);
+                SetProperty(chacha, "IntroductionsQuest", false);
+                SetProperty(chacha, "PerfectionScore", false);
+                SetProperty(chacha, "Calendar", "HiddenAlways");
+                SetProperty(chacha, "SocialTab", "HiddenAlways");
+                SetProperty(chacha, "EndSlideShow", "Hidden");
+                SetProperty(chacha, "SpawnIfMissing", false);
+                SetProperty(chacha, "Breather", false);
+                SetProperty(chacha, "ForceOneTileWide", true);
+                SetPointProperty(chacha, "Size", 32, 32);
+                SetProperty(chacha, "Shadow", new CharacterShadowData
+                {
+                    Visible = true,
+                    Offset = Point.Zero,
+                    Scale = 0.55f
+                });
+                data[WorldActorService.ChaChaNpcId] = chacha;
             });
         }
     }
@@ -203,7 +234,6 @@ internal sealed class MimiMysteryTownService
         this.LastWanderUpdateAtMs = 0;
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
-        this.MerchantHandoffCleared = false;
     }
 
     public void OnTimeChanged(object? sender, TimeChangedEventArgs e)
@@ -227,9 +257,23 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
-        if (e.NewTime == DepartureTime)
+        if (e.NewTime >= DepartureTime && !this.DepartedToday && this.Flight == FlightState.None)
         {
-            StartDepartureFlight();
+            bool playerInTown = Game1.currentLocation?.NameOrUniqueName.Equals(
+                "Town",
+                StringComparison.OrdinalIgnoreCase) == true;
+
+            // Don't run the broom animation off-screen. Keep MiMi waiting in Town for a short
+            // grace window so arriving at 15:10/15:20 still lets the player actually see her leave.
+            if (playerInTown && e.NewTime < LateDepartureGraceEndTime)
+            {
+                StartDepartureFlight();
+            }
+            else if (e.NewTime >= LateDepartureGraceEndTime)
+            {
+                HideNativeOffMap();
+                this.DepartedToday = true;
+            }
         }
     }
 
@@ -329,7 +373,11 @@ internal sealed class MimiMysteryTownService
 
         if (native is not null)
         {
-            EnsureConversationSpacing(native);
+            // Native collision/depth is authoritative now. Never teleport MiMi just because the
+            // player pressed talk; pin her current position and simply turn her toward the player.
+            this.WanderTarget = native.Position;
+            this.NextWanderDecisionAtMs = CurrentGameMs() + 1800;
+            this.LastWanderUpdateAtMs = CurrentGameMs();
             native.faceTowardFarmerForPeriod(1600, 3, false, Game1.player);
         }
 
@@ -341,7 +389,7 @@ internal sealed class MimiMysteryTownService
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
     {
-        // Intentionally empty in alpha.11.32. MiMi and ChaCha are real world actors
+        // Intentionally empty in alpha.11.36. MiMi and ChaCha are real world actors
         // in GameLocation.characters; Stardew now owns their depth sorting.
     }
 
@@ -352,7 +400,7 @@ internal sealed class MimiMysteryTownService
         return $"MysteryNativeNpc={(native is not null)} | MysteryVisible={this.IsVisibleNow()} | " +
                $"Flight={this.Flight} | ArrivedToday={this.ArrivedToday} | DepartedToday={this.DepartedToday} | " +
                $"MysteryTalkIndex={this.TalkIndex} | NativeLocation={location} | " +
-               $"RuntimeWindow=Town@10:00-15:00 (temporary test) | Merchant=11:00-17:00 Farm/rain->WizardHouse | " +
+               $"RuntimeWindow=Town@10:00-15:00 + visible-departure grace to 16:00 | Merchant=Mon-Fri 11:00-17:00 Town/harsh-weather->WizardHouse, starts next day | " +
                $"MerchantActive={this.IsMerchantRoutineActive()} | PlazaAnchor=45,62 | Wander=True | HumanReactionsOnly=True | FirstScrap={this.Save.Data.FirstScrapTriggered}";
     }
 
@@ -361,7 +409,7 @@ internal sealed class MimiMysteryTownService
         this.TalkIndex = 0;
         this.LoggedNativeFound = false;
         this.ArrivedToday = Game1.timeOfDay >= ArrivalStartTime;
-        this.DepartedToday = Game1.timeOfDay >= DepartureTime;
+        this.DepartedToday = false;
         this.Flight = FlightState.None;
         this.FlightStartedMs = 0;
         this.WanderTarget = TownAnchor;
@@ -369,7 +417,6 @@ internal sealed class MimiMysteryTownService
         this.LastWanderUpdateAtMs = CurrentGameMs();
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
-        this.MerchantHandoffCleared = this.Save.Data.MimiMerchantUnlockedDay < Game1.Date.TotalDays;
     }
 
     private bool IsMerchantRoutineActive()
@@ -378,7 +425,8 @@ internal sealed class MimiMysteryTownService
             return false;
 
         int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;
-        return unlockedDay < 0 || Game1.Date.TotalDays >= unlockedDay;
+        bool nextDayReached = unlockedDay < 0 || Game1.Date.TotalDays > unlockedDay;
+        return nextDayReached && IsMerchantWeekday();
     }
 
     private void EnforcePhaseState()
@@ -409,44 +457,23 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
-        // On the handoff day, let MiMi visibly finish walking out of the Wizard's house first.
-        // As soon as the player leaves WizardHouse, the normal 11:00-17:00 merchant routine is live.
-        int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;
-        bool handoffDay = unlockedDay >= 0 && Game1.Date.TotalDays == unlockedDay;
-        bool playerInWizardHouse = Game1.currentLocation?.NameOrUniqueName.Equals(
-            "WizardHouse",
-            StringComparison.OrdinalIgnoreCase) == true;
-
-        if (handoffDay && !this.MerchantHandoffCleared)
-        {
-            if (playerInWizardHouse)
-            {
-                this.HideNativeOffMap();
-                return;
-            }
-
-            this.MerchantHandoffCleared = true;
-        }
-
-        if (Game1.isRaining)
+        // Trading never starts in Town on the Wizard handoff day. IsMerchantRoutineActive()
+        // only becomes true on a later day, which keeps the story exit presentation authoritative.
+        if (IsHarshMerchantWeather())
             this.PlaceNativeInWizardHouseMerchant();
         else
-            this.PlaceNativeAtFarmMerchant();
+            this.PlaceNativeInTownMerchant();
     }
 
-    private void PlaceNativeAtFarmMerchant()
+    private void PlaceNativeInTownMerchant()
     {
         NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
-        GameLocation? farm = Game1.getFarm();
-        if (native is null || farm is null)
+        GameLocation? town = Game1.getLocationFromName("Town");
+        if (native is null || town is null)
             return;
 
-        Vector2 anchor = FindWarpSourceWorld(farm, "FarmHouse")
-            ?? new Vector2(62f * 64f, 16f * 64f);
-
-        // Stand beside the door rather than directly on the warp tile.
-        anchor += new Vector2(-72f, 10f);
-        MoveNative(native, farm, anchor, 2);
+        // Reuse MiMi's familiar plaza spot so players know where to look for the weekday shop.
+        MoveNative(native, town, TownAnchor, 2);
     }
 
     private void PlaceNativeInWizardHouseMerchant()
@@ -489,6 +516,42 @@ internal sealed class MimiMysteryTownService
         Game1.player.Halt();
         native.faceTowardFarmerForPeriod(1200, 3, false, Game1.player);
         this.OpenMimiShop();
+    }
+
+    private static bool IsMerchantWeekday()
+    {
+        // Stardew seasons always start on Monday: day 1..5 = Mon..Fri, 6..7 = weekend.
+        int dayIndex = (Math.Max(1, Game1.dayOfMonth) - 1) % 7;
+        return dayIndex <= 4;
+    }
+
+    private static bool IsHarshMerchantWeather()
+    {
+        if (Game1.isRaining)
+            return true;
+
+        // Keep this compatible across 1.6 point releases/modded weather implementations.
+        // Rain is the common case; the reflected flags additionally catch thunder, snow,
+        // debris-heavy weather, and green rain when those members exist.
+        return ReadGame1WeatherFlag("isLightning")
+            || ReadGame1WeatherFlag("isSnowing")
+            || ReadGame1WeatherFlag("isDebrisWeather")
+            || ReadGame1WeatherFlag("isGreenRain");
+    }
+
+    private static bool ReadGame1WeatherFlag(string memberName)
+    {
+        const BindingFlags flags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.IgnoreCase;
+        try
+        {
+            object? value = typeof(Game1).GetProperty(memberName, flags)?.GetValue(null)
+                ?? typeof(Game1).GetField(memberName, flags)?.GetValue(null);
+            return value is bool flag && flag;
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     private static Vector2? FindWarpSourceWorld(GameLocation location, string targetToken)
@@ -562,22 +625,27 @@ internal sealed class MimiMysteryTownService
 
         if (Game1.timeOfDay >= DepartureTime)
         {
-            // TimeChanged and UpdateTicked can run in either order around 15:00.
-            // If UpdateTicked sees 15:00 first, start the broom departure here instead
-            // of marking MiMi departed and making her vanish before the animation can begin.
             bool playerInTown = Game1.currentLocation?.NameOrUniqueName.Equals(
                 "Town",
                 StringComparison.OrdinalIgnoreCase) == true;
 
-            if (allowAnimation && playerInTown && !this.DepartedToday && this.Flight == FlightState.None)
+            if (!this.DepartedToday
+                && Game1.timeOfDay < LateDepartureGraceEndTime)
             {
-                StartDepartureFlight();
+                if (allowAnimation && playerInTown && this.Flight == FlightState.None)
+                {
+                    StartDepartureFlight();
+                    return;
+                }
+
+                // Keep her native actor in Town during the grace window instead of silently
+                // completing the departure while the player is somewhere else.
+                PlaceNativeInTown();
                 return;
             }
 
             HideNativeOffMap();
-            if (!playerInTown || !allowAnimation)
-                this.DepartedToday = true;
+            this.DepartedToday = true;
             return;
         }
 
@@ -614,9 +682,6 @@ internal sealed class MimiMysteryTownService
     private void StartDepartureFlight()
     {
         if (this.Flight != FlightState.None || this.Save.Data.FirstScrapTriggered)
-            return;
-
-        if (this.DepartedToday && Game1.timeOfDay > DepartureTime)
             return;
 
         NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
@@ -707,21 +772,7 @@ internal sealed class MimiMysteryTownService
     }
 
     private void HideNativeOffMap()
-    {
-        NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
-        GameLocation? wizardHouse = Game1.getLocationFromName("WizardHouse");
-        if (native is null || wizardHouse is null)
-            return;
-
-        this.WorldActors.MoveMimiActor(
-            native,
-            wizardHouse,
-            HiddenWizardPosition,
-            2,
-            broom: false,
-            visible: false
-        );
-    }
+        => this.WorldActors.HideMimiActor();
 
     private void MoveNative(NPC native, GameLocation target, Vector2 position, int facing)
         => this.WorldActors.MoveMimiActor(native, target, position, facing, broom: false, visible: true);
@@ -737,6 +788,27 @@ internal sealed class MimiMysteryTownService
             return;
 
         this.HideNativeOffMap();
+    }
+
+    /// <summary>Return Cardcha's one canonical MiMi world actor.</summary>
+    /// <remarks>alpha.11.36 moved actor ownership into WorldActorService, so old call sites
+    /// still use this tiny compatibility helper instead of scanning Game1.locations themselves.</remarks>
+    private NPC? FindNativeNpc()
+        => this.WorldActors.FindMimiActor();
+
+    private void ShowMysteryDialogue(string rawLine, string portraitCommand)
+    {
+        string text = ExtractDialogueText(rawLine) + portraitCommand;
+        NPC? speaker = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
+        if (speaker is not null)
+        {
+            SetNpcDisplayName(speaker, "???");
+            if (TryShowDialogueWithPortrait(speaker, text))
+                return;
+        }
+
+        // Safe fallback if the native actor couldn't be created for any reason.
+        Game1.drawObjectDialogue(rawLine);
     }
 
     private static string MysteryPortraitCommand(int lineIndex)
@@ -908,14 +980,29 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
-        Vector2 baseWorld = ResolveSafeChaChaPosition(mimi.Position);
         double seconds = CurrentGameMs() / 1000.0;
         Vector2 fairyDrift = new(
             (float)Math.Sin(seconds * 1.35 + 0.4) * 4.5f,
             (float)Math.Sin(seconds * 2.1) * 3.2f - 4f
         );
-
         int frame = (int)(CurrentGameMs() / 165L) % 4;
+
+        NPC? existing = this.WorldActors.FindChaChaActor();
+        if ((Game1.dialogueUp || Game1.activeClickableMenu is DialogueBox)
+            && existing is not null
+            && existing.currentLocation == location)
+        {
+            // Keep ChaCha exactly where she was when the conversation opened. Only the fairy
+            // hover/wing frame continues; no safety-slot reselection means no talk-time hop.
+            if (existing.Sprite is not null)
+                existing.Sprite.CurrentFrame = frame;
+            existing.drawOffset = fairyDrift;
+            existing.shouldShadowBeOffset = false;
+            existing.rotation = (float)Math.Sin(seconds * 1.7) * 0.018f;
+            return;
+        }
+
+        Vector2 baseWorld = ResolveSafeChaChaPosition(mimi.Position);
         NPC? chacha = this.WorldActors.EnsureChaChaActor(location, baseWorld, 0, frame, machine: false);
         if (chacha is not null)
         {
@@ -1153,6 +1240,17 @@ internal sealed class MimiMysteryTownService
             return;
 
         long now = CurrentGameMs();
+
+        // Talking/menu interaction must never shove MiMi out of the way. Native collision now
+        // handles physical spacing, so freeze her exact world position until the UI closes.
+        if (Game1.dialogueUp || Game1.activeClickableMenu is not null)
+        {
+            this.WanderTarget = native.Position;
+            this.NextWanderDecisionAtMs = Math.Max(this.NextWanderDecisionAtMs, now + 900);
+            this.LastWanderUpdateAtMs = now;
+            SetNativeWalkFrame(native, native.FacingDirection, 0);
+            return;
+        }
         if (IsTooCloseToOtherNpc(town, native, 220f))
             this.NextWanderDecisionAtMs = 0;
 
@@ -1162,41 +1260,8 @@ internal sealed class MimiMysteryTownService
         float dt = Math.Clamp((now - this.LastWanderUpdateAtMs) / 1000f, 0f, 0.10f);
         this.LastWanderUpdateAtMs = now;
 
-        // Keep a real personal-space bubble even though MiMi's pretty sprite is custom-drawn.
-        // The hidden native NPC provides collision where possible; this gentle escape handles
-        // modded maps/actors which ignore invisible-NPC collision and prevents visual stacking.
-        if (Game1.player.currentLocation == town)
-        {
-            Vector2 mimiFeet = native.Position + new Vector2(32f, 64f);
-            Vector2 playerFeet = Game1.player.Position + new Vector2(32f, 64f);
-            Vector2 away = mimiFeet - playerFeet;
-            const float personalSpace = 78f;
-            if (away.LengthSquared() < personalSpace * personalSpace)
-            {
-                if (away.LengthSquared() < 0.01f)
-                    away = native.FacingDirection == 1 ? Vector2.UnitX : -Vector2.UnitX;
-                else
-                    away.Normalize();
-
-                float escapeStep = Math.Max(1.5f, WanderSpeedPixelsPerSecond * dt * 1.35f);
-                Vector2 escapeCandidate = native.Position + away * escapeStep;
-                if (IsMimiFootprintClear(town, escapeCandidate)
-                    && IsMimiClearOfOtherNpcs(town, native, escapeCandidate, 92f))
-                {
-                    native.Position = escapeCandidate;
-                    this.WanderTarget = escapeCandidate;
-                    this.NextWanderDecisionAtMs = now + 750;
-
-                    int escapeFacing = Math.Abs(away.X) >= Math.Abs(away.Y)
-                        ? (away.X >= 0f ? 1 : 3)
-                        : (away.Y >= 0f ? 2 : 0);
-                    native.faceDirection(escapeFacing);
-                    this.WanderFacing = escapeFacing;
-                    SetNativeWalkFrame(native, escapeFacing, 1 + (int)(now / 170L) % 3);
-                    return;
-                }
-            }
-        }
+        // No synthetic personal-space escape here: it caused visible "jumping" when the
+        // player pressed talk. Native world collision is the source of truth in alpha.11.36.
 
         Vector2 delta = this.WanderTarget - native.Position;
         float distance = delta.Length();
@@ -1241,37 +1306,6 @@ internal sealed class MimiMysteryTownService
 
     private void SetNativeWalkFrame(NPC native, int facing, int stepFrame)
         => this.WorldActors.SetMimiFrame(native, facing, stepFrame);
-
-    private void EnsureConversationSpacing(NPC native)
-    {
-        if (native.currentLocation != Game1.currentLocation)
-            return;
-
-        Vector2 player = Game1.player.Position;
-        Vector2 delta = native.Position - player;
-        const float desired = 112f;
-        if (delta.LengthSquared() >= desired * desired)
-            return;
-
-        Vector2[] candidates =
-        {
-            player + new Vector2(desired, 0f),
-            player + new Vector2(-desired, 0f),
-            player + new Vector2(0f, desired),
-            player + new Vector2(0f, -desired)
-        };
-
-        GameLocation location = native.currentLocation;
-        foreach (Vector2 candidate in candidates.OrderBy(v => Vector2.DistanceSquared(v, native.Position)))
-        {
-            if (IsWorldPositionSafeForMiMi(location, candidate, native))
-            {
-                native.Position = candidate;
-                this.WanderTarget = candidate;
-                return;
-            }
-        }
-    }
 
     private static void SuppressVanillaGreetingLeak()
     {

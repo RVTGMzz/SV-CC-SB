@@ -1,20 +1,17 @@
-# Cardcha: Shardbound v0.1.17-alpha.11.32 — Native World Actors
+# Cardcha: Shardbound v0.1.17-alpha.11.36
 
-This build replaces the old post-world body rendering for MiMi and ChaCha with native Stardew world actors. Their bodies now live inside `GameLocation.characters`, so Stardew's own front-to-back world renderer decides whether they appear in front of or behind the player, NPCs, trees, bushes, and world props.
+This Windows builder focuses on four gameplay corrections: MiMi actor cleanup, Scrap pickup feedback after the Binder handoff, Shiny Scrap pricing, and stationary Machine placement rules.
 
-## Key changes
-- MiMi now renders directly from the official `mimi_walk.png` 32x48 master through her native NPC actor. No derived world sprite is used for normal walking/merchant/mystery presentation.
-- MiMi's broom arrival/departure swaps the same native actor to `mimi_broom.png`, so the flight also participates in Stardew's world depth sorting.
-- ChaCha is now a runtime NPC-style world actor using the official `chacha_follow.png`; follower motion still uses the fairy-glide spring from alpha.11.31.
-- Story MiMi/ChaCha scenes also use native world actors instead of `RenderedWorld` body overlays.
-- Stardew's native `Character.DrawShadow` now supplies both MiMi and ChaCha shadows from the same ground anchor used for sorting.
-- `RenderedWorld` is retained only for ChaCha's tiny cosmetic sparkle trail; no character body is drawn there.
-- ChaCha is removed before save serialization and recreated automatically at runtime, so the follower doesn't pollute save files.
+## Alpha 11.36
 
-## Official asset rule
-The user-provided `src/Cardcha/assets/` remains the source of truth. This build does not regenerate or overwrite those files.
+- MiMi can no longer be left standing at the player's farm by a stale story exit state.
+- Scrap sent directly to the Binder wallet now shows Stardew's normal item-gained HUD toast.
+- MiMi prices: **Normal** — buy 1,000g / sell 100g; **Shiny** — buy 10,000g / sell 1,000g. (From MiMi's perspective: she buys Shiny for 1,000g and resells it for 10,000g.)
+- The stationary Cardcha Machine may only stay inside the **main FarmHouse**. Old misplaced copies are returned to the player on load.
+- Official art assets remain locked and unchanged.
 
-- MiMi auto-spawn is disabled in `Data/Characters`; the world-actor service owns creation so old saves/mod load order cannot produce duplicate MiMis.
+### Future direction (not activated in 11.36)
 
-- ChaCha's fairy flutter is now a native `drawOffset`; his ground position controls depth/collision while the shadow stays on that ground anchor.
-- Wizard story lines keep the Wizard portrait; MiMi's runtime portrait override is applied only to MiMi.
+Portable Cardcha Machine: MiMi sells it for 50,000g early; if the player reaches 50 unique Binder cards without buying it, she gives one free. At 80 unique cards, a hidden Binder-direct Cardcha function is planned, requiring the stationary Machine + portable Machine + a third story item/condition to be designed later.
+
+Run `BUILD_CARDCHA.bat`, then verify with `cardcha_version`.

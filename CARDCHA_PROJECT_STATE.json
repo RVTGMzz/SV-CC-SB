@@ -1,39 +1,45 @@
 {
   "project": "Cardcha!",
-  "version": "0.1.17-alpha.11.32",
+  "version": "0.1.17-alpha.11.36",
   "game_path": "E:\\SteamLibrary\\steamapps\\common\\Stardew Valley",
   "story": {
     "pre_scrap_mimi_name": "???",
-    "town_window": "10:00-15:00 (temporary test window)",
-    "town_arrival": "broom at 10:00 when player can see Town",
-    "town_departure": "broom at 15:00 when player can see Town",
-    "first_scrap_trigger": "natural Cardboard Scrap drop",
+    "town_window": "10:00-15:00 mystery phase; visible broom departure grace until 16:00",
+    "first_scrap_trigger": "natural Cardboard Scrap drop; physical item before Binder",
     "farm_visit": "next day after first Scrap; visible broom landing before dialogue",
     "meetup": "WizardHouse 13:00-17:00",
-    "chacha_before_loan": "always beside MiMi, including Town wander and story scenes",
+    "handoff_scrap_rule": "all physical Scrap in player backpack migrates into Binder wallet when Wizard handoff completes",
     "card_effect_unlock": "only after MiMiMeetupCompleted + MachineDelivered + BinderUnlocked",
-    "town_anchor": "Town 45,62 central red-brick plaza target",
-    "town_behavior": "broom arrival at 10:00; collision-aware plaza wander; broom departure at 15:00",
-    "villager_reactions": "disabled during mystery phase; CanGreetNearbyCharacters=false",
-    "post_meetup_mimi": "daily merchant from handoff onward; handoff-day routine begins after player leaves WizardHouse",
-    "merchant_window": "11:00-17:00",
-    "merchant_clear_weather": "Farm near farmhouse",
-    "merchant_rain": "WizardHouse",
-    "wizard_meetup_visual": "MiMi story sprite 2x / player-sized, then walks toward exit",
-    "chacha_follower": "1.8x scale; closer follow; fairy-style glide; sparkle trail; collision-aware safe slots; remains visible during dialogue",
-    "world_integration": "MiMi uses hidden native collision actor + visual footprint safety; ChaCha uses obstacle/actor-aware flight and ground-anchored shadow"
+    "post_meetup_mimi": "no Town appearance on handoff day; weekday merchant starts on a later day",
+    "merchant_window": "Monday-Friday 11:00-17:00",
+    "merchant_clear_weather": "Town plaza",
+    "merchant_harsh_weather": "WizardHouse",
+    "chacha_follower": "native world actor; smooth eased side-follow; no proximity teleport; fairy hover + sparkle; controller-safe depth/collision world integration"
   },
   "currencies": {
     "regular_shiny_enemy_rate": "3%",
-    "storage": "Binder wallet (no backpack slots)",
-    "shop_buy_price": "1000g per Scrap",
-    "shop_sell_price": "100g per Scrap"
+    "storage_before_binder": "physical backpack/world items",
+    "storage_after_binder": "Binder wallet",
+    "normal_shop_player_buy": "1000g",
+    "normal_shop_player_sell": "100g",
+    "shiny_shop_player_buy": "10000g",
+    "shiny_shop_player_sell": "1000g"
   },
-  "next_priority": "regression-test alpha.11.32 native depth sorting, shadows, MiMi portrait, broom flight, ChaCha fairy follower, Binder quick equip/unequip",
+  "controller": {
+    "scrap_counters": "focusable with tooltip/info",
+    "card_grid": "focus auto-updates detail page",
+    "detail_scroll": "focusable; left stick/D-pad up/down scrolls upgrade/effect info"
+  },
+  "next_priority": "compile/test alpha.11.36: MiMi actor cleanup, wallet Scrap toast, Shiny 10k/1k economy, main-FarmHouse-only stationary Machine; keep portable Machine as future design",
   "handoff_files": [
     "NEXT_SESSION_START_HERE.md",
     "BUILD_HISTORY.md",
     "CARDCHA_PROJECT_STATE.json"
   ],
-  "latest_fix": "World integration pass: MiMi/ChaCha spacing and obstacle avoidance, MiMi native collision body, ChaCha fairy-style gliding flight, dialogue no-hide, ground-anchored shadows."
+  "latest_fix": "MiMi stale-location cleanup + native wallet Scrap pickup toast + Shiny economy split + stationary Machine main-house-only enforcement",
+  "machine": {
+    "stationary_placement": "main FarmHouse only; outdoor and other-interior placement rejected/recovered",
+    "portable_future": "planned, not active in 11.36; 50000g early purchase; free at 50 unique cards if unowned",
+    "binder_direct_future": "planned at 80 unique cards; requires stationary + portable + future third requirement/item"
+  }
 }

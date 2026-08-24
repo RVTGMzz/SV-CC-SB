@@ -117,6 +117,35 @@ internal sealed class WorldActorService
         }
     }
 
+
+    /// <summary>Move MiMi to the canonical hidden holding position so no story scene can leave her behind.</summary>
+    public void HideMimiActor()
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        NPC? actor = this.FindMimiActor();
+        if (actor is null)
+            return;
+
+        GameLocation? wizardHouse = Game1.getLocationFromName("WizardHouse");
+        if (wizardHouse is null)
+        {
+            actor.Halt();
+            actor.isInvisible.Value = true;
+            return;
+        }
+
+        this.MoveMimiActor(
+            actor,
+            wizardHouse,
+            new Vector2(-6400f, -6400f),
+            2,
+            broom: false,
+            visible: false
+        );
+    }
+
     public void MoveMimiActor(NPC actor, GameLocation target, Vector2 position, int facing, bool broom = false, bool visible = true)
     {
         if (actor.currentLocation != target)

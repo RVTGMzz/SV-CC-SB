@@ -82,7 +82,7 @@ internal sealed class ItemAssetService
                     Price = 0,
                     Fragility = 0,
                     CanBePlacedIndoors = true,
-                    CanBePlacedOutdoors = true,
+                    CanBePlacedOutdoors = false,
                     IsLamp = false,
                     CustomFields = new Dictionary<string, string>
                     {

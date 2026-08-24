@@ -1,4 +1,35 @@
-# v0.1.17-alpha.11.32 — Native World Actors
+# v0.1.17-alpha.11.36 — MiMi Placement + Loot Toast + Shiny Economy + Home Machine
+
+- Fixed a stale StoryService ownership path which could leave MiMi stranded at the player's farm after her story beat.
+- Farm intro now hides MiMi immediately after the rendezvous dialogue finishes.
+- Wizard meetup exit now self-recovers if the player warps away before the short exit animation completes.
+- Binder-wallet Scrap drops now use Stardew's native `HUDMessage.ForItemGained`, restoring the item pickup toast after Scrap stops spawning as physical debris.
+- MiMi economy: normal Scrap = player buys 1,000g / sells 100g; Shiny Scrap = player buys 10,000g / sells 1,000g.
+- Stationary Cardcha Machine is now a main-farmhouse-only appliance: outdoor placement is disabled in BigCraftable data and non-main-house placements are recovered back to inventory. Existing misplaced machines are recovered on save load.
+- MiMi shop wording pushed further toward hurried, cheeky, money-loving personality.
+- Portable Cardcha Machine progression is intentionally documented only, not activated yet: 50,000g early purchase; free at 50 unique cards if still unowned; 80-card Binder-direct Cardcha feature reserved for a later third requirement.
+- Official visual assets unchanged.
+
+# v0.1.17-alpha.11.35 — Smooth Fairy + Controller + Physical Scrap + Weekday MiMi
+
+- Removed ChaCha's player-proximity teleport branch; follower side offsets now ease and obstacle recovery stays smooth/local.
+- Binder controller graph now includes both Scrap counters and the detail scrollbar; card focus auto-inspects details.
+- Scrap is physical before Binder unlock, then migrates from backpack into the Binder wallet at the Wizard handoff.
+- MiMi merchant begins the day after handoff, Monday-Friday 11:00-17:00; Town in normal weather, WizardHouse in harsh weather.
+- Added MiMi handoff dialogue explaining Binder Scrap storage and merchant hours.
+- Official assets remain byte-for-byte unchanged.
+
+# v0.1.17-alpha.11.34 — Stable Talk + Shadow + Late Departure
+
+- Removed talk-time `EnsureConversationSpacing` teleport.
+- Removed obsolete synthetic personal-space escape from MiMi wander now that MiMi is a native world actor.
+- Freeze MiMi world position during dialogue/menu interaction.
+- Freeze ChaCha base position during MiMi dialogue while keeping fairy hover animation.
+- Added explicit Stardew `CharacterShadowData` for MiMi and ChaCha at 0.55 shadow scale.
+- Added a visible departure grace window: 15:00–16:00. If the player misses exactly 15:00, entering Town during the grace window still triggers MiMi's broom departure instead of an instant disappearance.
+- Preserved native world actor rendering and official assets unchanged.
+
+# v0.1.17-alpha.11.34 — Native World Actors
 
 - Architectural render fix: MiMi and ChaCha bodies no longer render in `RenderedWorld`.
 - MiMi normal world actor now uses official 32x48 `mimi_walk.png` directly at native Character scale 0.575 (effective 2.3x draw scale).

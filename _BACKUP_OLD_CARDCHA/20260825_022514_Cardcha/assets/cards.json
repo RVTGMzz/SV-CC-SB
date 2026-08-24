@@ -1,0 +1,112 @@
+[
+  {
+    "Id": "iron_edge",
+    "Name": "Iron Edge",
+    "Rarity": "Common",
+    "EffectKey": "damage_mult",
+    "Value": 0.04,
+    "Description": "+4% weapon damage.",
+    "IconIndex": 0,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "thick_hide",
+    "Name": "Thick Hide",
+    "Rarity": "Common",
+    "EffectKey": "defense_flat",
+    "Value": 1.0,
+    "Description": "+1 Defense.",
+    "IconIndex": 1,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "keen_eye",
+    "Name": "Keen Eye",
+    "Rarity": "Common",
+    "EffectKey": "crit_chance",
+    "Value": 0.02,
+    "Description": "+2% critical chance.",
+    "IconIndex": 2,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "swift_feet",
+    "Name": "Swift Feet",
+    "Rarity": "Common",
+    "EffectKey": "combat_speed",
+    "Value": 1.0,
+    "Description": "+1 Speed while the current location contains a living monster.",
+    "IconIndex": 3,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "blood_fang",
+    "Name": "Blood Fang",
+    "Rarity": "Rare",
+    "EffectKey": "heal_on_kill",
+    "Value": 0.02,
+    "Description": "Monster kills restore 2% Max HP (with cooldown).",
+    "IconIndex": 4,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "executioner",
+    "Name": "Executioner",
+    "Rarity": "Rare",
+    "EffectKey": "execute_damage",
+    "Value": 0.2,
+    "Description": "+20% damage against enemies below 20% HP.",
+    "IconIndex": 5,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "card_seeker",
+    "Name": "Card Seeker",
+    "Rarity": "Rare",
+    "EffectKey": "scrap_drop_mult",
+    "Value": 0.5,
+    "Description": "+50% multiplicative Cardboard Scrap drop chance in the prototype.",
+    "IconIndex": 6,
+    "MaxLevel": 5,
+    "LevelStep": 0.25
+  },
+  {
+    "Id": "chain_hunter",
+    "Name": "Chain Hunter",
+    "Rarity": "Epic",
+    "EffectKey": "kill_chain",
+    "Value": 0.05,
+    "Description": "Each kill grants +5% damage for 6s, up to 5 stacks; kills refresh the timer.",
+    "IconIndex": 7,
+    "MaxLevel": 4,
+    "LevelStep": 0.2
+  },
+  {
+    "Id": "last_stand",
+    "Name": "Last Stand",
+    "Rarity": "Epic",
+    "EffectKey": "low_hp_power",
+    "Value": 0.2,
+    "Description": "Below 20% HP: +20% damage and +2 Defense in the prototype.",
+    "IconIndex": 8,
+    "MaxLevel": 4,
+    "LevelStep": 0.2
+  },
+  {
+    "Id": "phoenix_heart",
+    "Name": "Phoenix Heart",
+    "Rarity": "Legendary",
+    "EffectKey": "death_save",
+    "Value": 1.0,
+    "Description": "Once per day, survive lethal damage at 1 HP and gain brief invulnerability.",
+    "IconIndex": 9,
+    "MaxLevel": 3,
+    "LevelStep": 0.15
+  }
+]

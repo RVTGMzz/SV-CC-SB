@@ -193,7 +193,7 @@
   "story.mystery.villager.2": "She looks like she is searching for someone.",
   "story.mystery.villager.3": "That floating rabbit beside her is unusual too...",
   "mimi.shop.title": "MIMI'S SCRAP COUNTER",
-  "mimi.shop.quip": "MiMi: Normal Scrap? I buy for 100g and sell for 1,000g. Shiny? 1,000g in, 10,000g out. Don't calculate the markup — it causes emotional damage. Quick, I've got places to be!",
+  "mimi.shop.quip": "MiMi: I buy for 100g and sell for 1,000g. Don't look at me like that — a business without profit is just gardening with paperwork. Quick, I've got places to be!",
   "mimi.shop.owned": "In Binder: ×{{count}}",
   "mimi.shop.buy": "Buy {{price}}g",
   "mimi.shop.sell": "Sell {{price}}g",
@@ -202,6 +202,5 @@
   "mimi.shop.status.poor": "MiMi: Your wallet has formally objected to this transaction.",
   "mimi.shop.status.empty": "MiMi: You don't have that Scrap to sell me.",
   "mimi.shop.status.bought": "MiMi: Deal! {{price}}g. Straight into the Binder — no backpack slot wasted.",
-  "mimi.shop.status.sold": "MiMi: I'll take it for {{price}}g. The markup? Trade secret.",
-  "machine.place.home-only": "This Cardcha Machine only works inside your main farmhouse. MiMi claims the core is \"allergic to outdoor hobbies.\""
+  "mimi.shop.status.sold": "MiMi: I'll take it for {{price}}g. The markup? Trade secret."
 }

@@ -193,7 +193,7 @@
   "story.mystery.villager.2": "Hình như cô ấy đang tìm một ai đó.",
   "story.mystery.villager.3": "Con thỏ bay bên cạnh cô ấy cũng lạ thật...",
   "mimi.shop.title": "QUẦY MẢNH CỦA MIMI",
-  "mimi.shop.quip": "MiMi: Mảnh thường mình thu 100g, bán 1.000g. Mảnh lấp lánh thì thu 1.000g, bán 10.000g. Đừng tính nhẩm phần chênh lệch — dễ đau lòng lắm. Nhanh nhé, mình còn việc phải chạy!",
+  "mimi.shop.quip": "MiMi: Mình mua 100g, bán 1.000g. Đừng nhìn mình như thế — buôn bán mà không có lời thì mình đã đi trồng củ cải rồi. Nhanh nhé, mình còn việc phải chạy!",
   "mimi.shop.owned": "Trong Sổ: ×{{count}}",
   "mimi.shop.buy": "Mua {{price}}g",
   "mimi.shop.sell": "Bán {{price}}g",
@@ -202,6 +202,5 @@
   "mimi.shop.status.poor": "MiMi: Ví bạn đang phản đối giao dịch này rồi đó.",
   "mimi.shop.status.empty": "MiMi: Bạn không có mảnh đó để bán cho mình đâu.",
   "mimi.shop.status.bought": "MiMi: Chốt! {{price}}g. Hàng đã vào Sổ, không chiếm túi nhé.",
-  "mimi.shop.status.sold": "MiMi: Mình thu {{price}}g. Phần chênh lệch? Bí mật nghề nghiệp.",
-  "machine.place.home-only": "Máy Cardcha này chỉ chịu hoạt động trong nhà chính của bạn. MiMi bảo lõi máy \"dị ứng với việc đi dã ngoại\"."
+  "mimi.shop.status.sold": "MiMi: Mình thu {{price}}g. Phần chênh lệch? Bí mật nghề nghiệp."
 }

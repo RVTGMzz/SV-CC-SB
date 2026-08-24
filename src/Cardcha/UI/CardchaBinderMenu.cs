@@ -20,6 +20,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private const int UnequipId = 501;
     private const int UpgradeId = 502;
     private const int UnlockSlotId = 503;
+    private const int NormalScrapId = 504;
+    private const int ShinyScrapId = 505;
+    private const int DetailScrollId = 506;
 
     private readonly CardRegistry Cards;
     private readonly SaveService Save;
@@ -37,6 +40,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private readonly ClickableComponent UpgradeButton;
     private readonly ClickableComponent UnlockSlotButton;
     private readonly ClickableComponent BackButton;
+    private readonly ClickableComponent NormalScrapButton;
+    private readonly ClickableComponent ShinyScrapButton;
+    private readonly ClickableComponent DetailScrollButton;
 
     private CardDefinition? Selected;
     private string Status = ModEntry.T("binder.status.pick");
@@ -142,6 +148,28 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             164
         );
 
+        int scrapSplitX = this.xPositionOnScreen + this.width - 350;
+        int scrapStartX = scrapSplitX - 126;
+        int scrapY = this.yPositionOnScreen + 30;
+        const int scrapSlotW = 54;
+        const int scrapSlotH = 66;
+        const int scrapGap = 8;
+
+        this.NormalScrapButton = new ClickableComponent(
+            new Rectangle(scrapStartX, scrapY, scrapSlotW, scrapSlotH),
+            "normal-scrap"
+        ) { myID = NormalScrapId };
+
+        this.ShinyScrapButton = new ClickableComponent(
+            new Rectangle(scrapStartX + scrapSlotW + scrapGap, scrapY, scrapSlotW, scrapSlotH),
+            "shiny-scrap"
+        ) { myID = ShinyScrapId };
+
+        this.DetailScrollButton = new ClickableComponent(
+            this.DetailScrollTrack,
+            "detail-scroll"
+        ) { myID = DetailScrollId };
+
         this.EquipButton = new ClickableComponent(
             new Rectangle(sideX, this.yPositionOnScreen + this.height - 202, 260, 52),
             "equip"
@@ -179,20 +207,33 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private void ConfigureNeighbors()
     {
         this.BackButton.downNeighborID = ActiveBaseId;
-        this.BackButton.rightNeighborID = ActiveBaseId;
+        this.BackButton.rightNeighborID = NormalScrapId;
+
+        this.NormalScrapButton.leftNeighborID = BackId;
+        this.NormalScrapButton.rightNeighborID = ShinyScrapId;
+        this.NormalScrapButton.downNeighborID = ActiveBaseId + Math.Min(3, VisualActiveSlots - 1);
+
+        this.ShinyScrapButton.leftNeighborID = NormalScrapId;
+        this.ShinyScrapButton.rightNeighborID = UnlockSlotId;
+        this.ShinyScrapButton.downNeighborID = UnlockSlotId;
 
         for (int i = 0; i < this.ActiveSlots.Count; i++)
         {
             ClickableComponent body = this.ActiveSlots[i].Body;
             body.leftNeighborID = i > 0 ? ActiveBaseId + i - 1 : BackId;
             body.rightNeighborID = i < this.ActiveSlots.Count - 1 ? ActiveBaseId + i + 1 : UnlockSlotId;
-            body.upNeighborID = BackId;
+            body.upNeighborID = i switch
+            {
+                3 => NormalScrapId,
+                4 => ShinyScrapId,
+                _ => BackId
+            };
             body.downNeighborID = CardBaseId + Math.Min(i, Math.Max(0, this.CardButtons.Count - 1));
         }
 
         this.UnlockSlotButton.leftNeighborID = ActiveBaseId + (VisualActiveSlots - 1);
         this.UnlockSlotButton.rightNeighborID = EquipId;
-        this.UnlockSlotButton.upNeighborID = BackId;
+        this.UnlockSlotButton.upNeighborID = ShinyScrapId;
         this.UnlockSlotButton.downNeighborID = EquipId;
 
         for (int i = 0; i < this.CardButtons.Count; i++)
@@ -202,20 +243,29 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             int row = i / 5;
 
             button.leftNeighborID = col > 0 ? CardBaseId + i - 1 : -1;
-            button.rightNeighborID = col < 4 && i + 1 < this.CardButtons.Count ? CardBaseId + i + 1 : EquipId;
+            button.rightNeighborID = col < 4 && i + 1 < this.CardButtons.Count
+                ? CardBaseId + i + 1
+                : DetailScrollId;
             button.upNeighborID = row > 0 ? CardBaseId + i - 5 : ActiveBaseId + Math.Min(col, VisualActiveSlots - 1);
             button.downNeighborID = i + 5 < this.CardButtons.Count ? CardBaseId + i + 5 : EquipId;
         }
 
-        this.EquipButton.leftNeighborID = this.CardButtons.Count > 0 ? CardBaseId + Math.Min(9, this.CardButtons.Count - 1) : UnlockSlotId;
+        this.DetailScrollButton.leftNeighborID = this.CardButtons.Count > 0
+            ? CardBaseId + Math.Min(4, this.CardButtons.Count - 1)
+            : UnlockSlotId;
+        this.DetailScrollButton.rightNeighborID = EquipId;
+        this.DetailScrollButton.upNeighborID = DetailScrollId;
+        this.DetailScrollButton.downNeighborID = DetailScrollId;
+
+        this.EquipButton.leftNeighborID = DetailScrollId;
         this.EquipButton.upNeighborID = UnlockSlotId;
         this.EquipButton.downNeighborID = UnequipId;
 
-        this.UnequipButton.leftNeighborID = this.EquipButton.leftNeighborID;
+        this.UnequipButton.leftNeighborID = DetailScrollId;
         this.UnequipButton.upNeighborID = EquipId;
         this.UnequipButton.downNeighborID = UpgradeId;
 
-        this.UpgradeButton.leftNeighborID = this.EquipButton.leftNeighborID;
+        this.UpgradeButton.leftNeighborID = DetailScrollId;
         this.UpgradeButton.upNeighborID = UnequipId;
         this.UpgradeButton.downNeighborID = BackId;
     }
@@ -226,6 +276,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.allClickableComponents.Clear();
         this.allClickableComponents.Add(this.BackButton);
         this.allClickableComponents.Add(this.UnlockSlotButton);
+        this.allClickableComponents.Add(this.NormalScrapButton);
+        this.allClickableComponents.Add(this.ShinyScrapButton);
+        this.allClickableComponents.Add(this.DetailScrollButton);
 
         foreach ((_, ClickableComponent body, _) in this.ActiveSlots)
             this.allClickableComponents.Add(body);
@@ -248,6 +301,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         base.update(time);
 
+        // Controller browsing should be inspect-first: moving the left stick/D-pad across cards
+        // updates the detail page immediately instead of requiring an extra A press on every card.
+        if (this.UpgradeCelebrationMs <= 0 && this.currentlySnappedComponent is not null)
+            this.SyncSelectionFromControllerFocus();
+
         if (this.UpgradeCelebrationMs > 0)
         {
             this.UpgradeCelebrationMs = Math.Max(
@@ -258,6 +316,28 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             if (this.UpgradeCelebrationMs <= 0)
                 this.ClearUpgradeCelebration();
         }
+    }
+
+    public override void applyMovementKey(int direction)
+    {
+        // 0=up, 1=right, 2=down, 3=left. Stardew routes D-pad/keyboard/left-stick
+        // SnappyMenus movement through this method, so the detail scrollbar is controller-native.
+        if (this.currentlySnappedComponent?.myID == DetailScrollId)
+        {
+            if (direction == 0)
+            {
+                this.ScrollDetailBy(-28);
+                return;
+            }
+
+            if (direction == 2)
+            {
+                this.ScrollDetailBy(28);
+                return;
+            }
+        }
+
+        base.applyMovementKey(direction);
     }
 
     public override void receiveGamePadButton(Buttons b)
@@ -277,6 +357,26 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             Game1.playSound("bigDeSelect");
             this.OnCloseToMachine();
             return;
+        }
+
+        if (this.currentlySnappedComponent?.myID == DetailScrollId)
+        {
+            if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp)
+            {
+                this.ScrollDetailBy(-28);
+                return;
+            }
+
+            if (b is Buttons.LeftThumbstickDown or Buttons.DPadDown)
+            {
+                this.ScrollDetailBy(28);
+                return;
+            }
+
+            // A on the scrollbar is intentionally inert; left/right still use normal SnappyMenus
+            // navigation to leave the scrollbar and return to cards/actions.
+            if (b == Buttons.A)
+                return;
         }
 
         if (b == Buttons.A && this.currentlySnappedComponent is not null)
@@ -640,30 +740,26 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawScrapWallet(SpriteBatch b)
     {
-        // The two Scrap currencies unlock with MiMi/Wizard's Binder handoff and live
-        // here permanently instead of consuming backpack slots.
         if (!this.Save.Data.BinderUnlocked)
             return;
 
-        int splitX = this.xPositionOnScreen + this.width - 350;
-        int startX = splitX - 126;
-        int y = this.yPositionOnScreen + 30;
-        const int slotW = 54;
-        const int slotH = 66;
-        const int gap = 8;
-
         DrawScrapSlot(
             b,
-            new Rectangle(startX, y, slotW, slotH),
+            this.NormalScrapButton.bounds,
             0,
             this.Save.Data.CardboardScraps
         );
         DrawScrapSlot(
             b,
-            new Rectangle(startX + slotW + gap, y, slotW, slotH),
+            this.ShinyScrapButton.bounds,
             1,
             this.Save.Data.ShinyScraps
         );
+
+        if (this.currentlySnappedComponent?.myID == NormalScrapId)
+            CardchaUi.DrawFocus(b, this.NormalScrapButton.bounds);
+        if (this.currentlySnappedComponent?.myID == ShinyScrapId)
+            CardchaUi.DrawFocus(b, this.ShinyScrapButton.bounds);
     }
 
     private void DrawScrapSlot(SpriteBatch b, Rectangle slot, int spriteIndex, int count)
@@ -1230,10 +1326,105 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         if (this.currentlySnappedComponent?.myID == UnlockSlotId)
             CardchaUi.DrawFocus(b, this.UnlockSlotButton.bounds);
 
+        if (this.currentlySnappedComponent?.myID == DetailScrollId)
+            CardchaUi.DrawFocus(b, this.DetailScrollTrack);
+
+        this.DrawScrapInspectTooltip(b);
+
         if (this.UpgradeCelebrationMs > 0)
             this.DrawUpgradeCelebration(b);
 
         drawMouse(b);
+    }
+
+    private void SyncSelectionFromControllerFocus()
+    {
+        int id = this.currentlySnappedComponent?.myID ?? -1;
+        CardDefinition? next = null;
+
+        if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
+        {
+            next = this.CardButtons[id - CardBaseId].Card;
+        }
+        else if (id >= ActiveBaseId && id < ActiveBaseId + this.ActiveSlots.Count)
+        {
+            int slot = id - ActiveBaseId;
+            string? cardId = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
+            if (!string.IsNullOrWhiteSpace(cardId))
+                next = this.Cards.Get(cardId);
+        }
+
+        if (next is null || string.Equals(this.Selected?.Id, next.Id, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        this.Selected = next;
+        this.ResetDetailScroll();
+    }
+
+    private void ScrollDetailBy(int delta)
+    {
+        int max = this.GetDetailMaxScroll();
+        if (max <= 0)
+        {
+            this.DetailScrollOffset = 0;
+            return;
+        }
+
+        int before = this.DetailScrollOffset;
+        this.DetailScrollOffset = Math.Clamp(this.DetailScrollOffset + delta, 0, max);
+        if (this.DetailScrollOffset != before)
+            Game1.playSound("smallSelect");
+    }
+
+    private void DrawScrapInspectTooltip(SpriteBatch b)
+    {
+        if (!this.Save.Data.BinderUnlocked)
+            return;
+
+        Point mouse = CardchaUi.GetUiMousePoint();
+        int focus = this.currentlySnappedComponent?.myID ?? -1;
+        bool normal = focus == NormalScrapId || this.NormalScrapButton.bounds.Contains(mouse);
+        bool shiny = focus == ShinyScrapId || this.ShinyScrapButton.bounds.Contains(mouse);
+        if (!normal && !shiny)
+            return;
+
+        string name = ModEntry.T(normal ? "item.cardboard.name" : "item.shiny.name");
+        string desc = ModEntry.T(normal ? "item.cardboard.desc" : "item.shiny.desc");
+        Rectangle source = normal ? this.NormalScrapButton.bounds : this.ShinyScrapButton.bounds;
+
+        int width = 330;
+        int height = 116;
+        int x = Math.Clamp(source.Center.X - width / 2, 12, Game1.uiViewport.Width - width - 12);
+        int y = Math.Clamp(source.Bottom + 8, 12, Game1.uiViewport.Height - height - 12);
+        Rectangle panel = new(x, y, width, height);
+
+        CardchaUi.DrawInsetPanel(
+            b,
+            panel,
+            new Color(241, 223, 190),
+            CardchaUi.Gold * 0.82f,
+            2,
+            4
+        );
+        CardchaUi.DrawScaledText(
+            b,
+            Game1.smallFont,
+            name,
+            new Rectangle(panel.X + 12, panel.Y + 8, panel.Width - 24, 28),
+            CardchaUi.InkBrown,
+            centerX: true,
+            centerY: true,
+            padding: 1,
+            maxScale: 1.05f
+        );
+        CardchaUi.DrawWrappedText(
+            b,
+            Game1.smallFont,
+            desc,
+            new Rectangle(panel.X + 14, panel.Y + 40, panel.Width - 28, panel.Height - 48),
+            Color.DarkSlateGray,
+            maxLines: 4
+        );
     }
 
     private void StartUpgradeCelebration(

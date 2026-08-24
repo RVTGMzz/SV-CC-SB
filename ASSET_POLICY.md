@@ -1,6 +1,6 @@
 # OFFICIAL USER-MASTER ASSETS
 
-Status: LOCKED as of v0.1.17-alpha.11.32.
+Status: LOCKED as of v0.1.17-alpha.11.36.
 
 The entire `src/Cardcha/assets/` directory in this builder was copied byte-for-byte from the user-provided `assets.zip`.
 These files are the official art/data master for Cardcha: Shardbound.
