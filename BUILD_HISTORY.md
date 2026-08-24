@@ -1,3 +1,13 @@
+# v0.1.17-alpha.11.8 — MiMi visual pass + 6 portraits + test hours
+
+- Temporary mystery Town test window: 10:00–15:00.
+- Removed floating `???` over MiMi; mystery name now belongs in portrait dialogue only.
+- Expanded MiMi portraits to six standard Stardew slots: neutral, happy, worried/sad, surprised/unique, love, determined/angry.
+- Story and mystery dialogue now attach portrait commands (`$0`..`$5`) per situation.
+- MiMi walk/broom/Wizard-exit story render increased from 2.0x to 2.3x (~15%).
+- Native MiMi sheet enlarged inside its 16x32 frame for normal Town/merchant presence.
+- ChaCha beside MiMi is 2x and moved farther away to avoid overlap; follower offsets also widened.
+
 # v0.1.17-alpha.11.6 — MiMi Merchant + Scrap Wallet
 
 - Wizard meetup MiMi scaled to player-sized 2x render.
@@ -74,13 +84,5 @@ When user says “build”, do the build immediately and return a clickable ZIP 
 
 ## v0.1.17-alpha.11.5 — Farm Arrival Scale Fix
 - Fixed next-day Farm MiMi broom scene being drawn at 1x and appearing tiny.
-- MiMi broom story event now uses 2x scale, consistent with Town broom flight.
+- MiMi broom story event now uses 2x scale, consistent with Town broom arrival/departure.
 - Adjusted ChaCha story-event offset/scale to remain beside MiMi.
-
-## v0.1.17-alpha.11.6 — Windows installer DLL-lock hotfix
-- Confirmed the reported PC log is **not a compile failure**: build completed with 0 errors and produced the release ZIP.
-- `Cardcha.dll` replacement was blocked because `StardewModdingAPI` was still running and Windows had the DLL loaded.
-- Updated `BUILD_CARDCHA.bat` so installer exit code 51 becomes `BUILD SUCCESS - INSTALL PENDING` instead of `INSTALL FAILED`.
-- Added retry-after-closing-game flow that re-runs only the install step, not restore/build.
-- Added `INSTALL_CARDCHA_ONLY.bat` for installing the already-built ZIP later without rebuilding.
-- Preserved the safety rule: never auto-kill Stardew Valley / SMAPI and never delete the old Cardcha folder while its DLL is locked.
