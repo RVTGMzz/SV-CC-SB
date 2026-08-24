@@ -1,0 +1,7 @@
+bin/
+obj/
+_releases/
+_READY_TO_INSTALL/
+_BACKUP_OLD_CARDCHA/
+build-log.txt
+install-only-log.txt
