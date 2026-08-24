@@ -23,3 +23,6 @@ Fixed the next-day Farm arrival where MiMi and ChaCha looked tiny. MiMi broom ev
 - Six portrait expressions with context-sensitive portrait commands.
 - ChaCha 2x beside MiMi with safer spacing.
 - Floating `???` world label removed; mystery name is shown in dialogue UI.
+
+## Full-source GitHub sync
+The alpha.11.8 Windows Builder contains `SYNC_TO_GITHUB.bat`. Run it once on the Windows PC to push the complete source + runtime assets into this private repository while preserving the repository history.
