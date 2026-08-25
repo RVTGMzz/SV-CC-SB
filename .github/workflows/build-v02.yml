@@ -35,3 +35,14 @@ jobs:
         with:
           path: _releases
           create_attestations: false
+
+      - name: Upload v0.2 source snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-v02-source
+          path: |
+            src/Cardcha
+            Directory.Build.props
+            V02_BOOK_UI_TEST.md
+          retention-days: 1
