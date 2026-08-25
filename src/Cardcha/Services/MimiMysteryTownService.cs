@@ -11,7 +11,7 @@ using StardewValley.Menus;
 namespace Cardcha.Services;
 
 /// <summary>
-/// v0.1.17-alpha.11.36: MiMi mystery + merchant NPC runtime.
+/// v0.1.17-alpha.11.38: MiMi mystery + merchant NPC runtime.
 /// Before the first Scrap she keeps the temporary 10:00-15:00 Town mystery routine for testing.
 /// After the Wizard handoff, trading starts the NEXT day and runs 11:00-17:00 Monday-Friday:
 /// Town on normal days, or inside the WizardHouse during rain/harsh weather.
@@ -389,7 +389,7 @@ internal sealed class MimiMysteryTownService
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
     {
-        // Intentionally empty in alpha.11.36. MiMi and ChaCha are real world actors
+        // Intentionally empty in alpha.11.37. MiMi and ChaCha are real world actors
         // in GameLocation.characters; Stardew now owns their depth sorting.
     }
 
@@ -791,7 +791,7 @@ internal sealed class MimiMysteryTownService
     }
 
     /// <summary>Return Cardcha's one canonical MiMi world actor.</summary>
-    /// <remarks>alpha.11.36 moved actor ownership into WorldActorService, so old call sites
+    /// <remarks>alpha.11.37 moved actor ownership into WorldActorService, so old call sites
     /// still use this tiny compatibility helper instead of scanning Game1.locations themselves.</remarks>
     private NPC? FindNativeNpc()
         => this.WorldActors.FindMimiActor();
@@ -1261,7 +1261,7 @@ internal sealed class MimiMysteryTownService
         this.LastWanderUpdateAtMs = now;
 
         // No synthetic personal-space escape here: it caused visible "jumping" when the
-        // player pressed talk. Native world collision is the source of truth in alpha.11.36.
+        // player pressed talk. Native world collision is the source of truth in alpha.11.37.
 
         Vector2 delta = this.WanderTarget - native.Position;
         float distance = delta.Length();

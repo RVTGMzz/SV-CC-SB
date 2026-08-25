@@ -30,6 +30,7 @@ internal sealed class CombatService
 
     // v0.1.13 visual combat feedback. These are transient and never saved.
     private string HudToastText = "";
+    private string HudToastCardId = "";
     private long HudToastExpiresAt;
 
     // verification telemetry. Never written to the save.
@@ -121,11 +122,21 @@ internal sealed class CombatService
             if (Environment.TickCount64 >= this.HudToastExpiresAt)
             {
                 this.HudToastText = "";
+                this.HudToastCardId = "";
                 this.HudToastExpiresAt = 0;
                 return "";
             }
 
             return this.HudToastText;
+        }
+    }
+
+    public string CurrentHudToastCardId
+    {
+        get
+        {
+            _ = this.CurrentHudToast;
+            return this.HudToastCardId;
         }
     }
 
@@ -213,7 +224,7 @@ internal sealed class CombatService
             player.health = Math.Min(player.maxHealth, player.health + heal);
             this.BloodFangReadyAt = now + Math.Max(250, bloodFang.DurationMs);
             this.BloodFangProcs++;
-            this.PushHudToast(ModEntry.T("hud.toast.blood-fang", new { heal }));
+            this.PushHudToast("blood_fang", ModEntry.T("hud.toast.blood-fang", new { heal }));
 
             if (this.Config.VerboseLogging)
                 ModEntry.StaticMonitor?.Log($"Blood Fang healed {heal} HP.", LogLevel.Trace);
@@ -256,8 +267,7 @@ internal sealed class CombatService
         this.Save.Save();
 
         Game1.playSound("yoba");
-        this.PushHudToast(ModEntry.T("hud.toast.phoenix"), 2600);
-        Game1.addHUDMessage(new HUDMessage(ModEntry.T("hud.toast.phoenix"), HUDMessage.newQuest_type));
+        this.PushHudToast("phoenix_heart", ModEntry.T("hud.toast.phoenix"), 2600);
     }
 
     public void SyncPassiveBuffs()
@@ -281,6 +291,7 @@ internal sealed class CombatService
             this.BloodFangReadyAt = 0;
             this.ClearChain();
             this.HudToastText = "";
+            this.HudToastCardId = "";
             this.HudToastExpiresAt = 0;
             return;
         }
@@ -377,6 +388,7 @@ internal sealed class CombatService
         this.BloodFangReadyAt = 0;
         this.SwiftFeetExpiresAt = 0;
         this.HudToastText = "";
+        this.HudToastCardId = "";
         this.HudToastExpiresAt = 0;
     }
 
@@ -418,8 +430,9 @@ internal sealed class CombatService
             player.buffs.Remove(id);
     }
 
-    private void PushHudToast(string text, int ms = 1800)
+    private void PushHudToast(string cardId, string text, int ms = 1800)
     {
+        this.HudToastCardId = cardId;
         this.HudToastText = text;
         this.HudToastExpiresAt = Environment.TickCount64 + Math.Max(500, ms);
     }

@@ -8,18 +8,20 @@ using StardewValley.Menus;
 namespace Cardcha.UI;
 
 /// <summary>
-/// v0.1.17-alpha.11.2 — full animation pass for ChaCha + machine ritual.
-/// The pull result is already persisted before this menu opens, so skipping or
-/// closing the animation can never reroll the card or lose deterministic state.
+/// Pull ritual shown after results have already been persisted. The stationary machine keeps
+/// its classic ritual, while the portable device gives ChaCha a dedicated "fetch the card"
+/// animation so the handheld feels like its own piece of Cardcha tech.
 /// </summary>
 internal sealed class CardchaPullAnimationMenu : IClickableMenu
 {
-    private const int TotalDurationMs = 2800;
+    private const int StationaryDurationMs = 2800;
+    private const int PortableDurationMs = 3300;
 
     private readonly IReadOnlyList<PullResult> Results;
     private readonly CardRenderer Renderer;
     private readonly Action ReturnToMachine;
     private readonly int PullCount;
+    private readonly CardchaMachineMode Mode;
 
     private Texture2D? MachineTexture;
     private Texture2D? ChaChaTexture;
@@ -34,7 +36,8 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
     public CardchaPullAnimationMenu(
         IReadOnlyList<PullResult> results,
         CardRenderer renderer,
-        Action returnToMachine)
+        Action returnToMachine,
+        CardchaMachineMode mode = CardchaMachineMode.Stationary)
         : base(
             0,
             0,
@@ -46,9 +49,30 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         this.Renderer = renderer;
         this.ReturnToMachine = returnToMachine;
         this.PullCount = Math.Max(1, results.Count);
+        this.Mode = mode;
 
         this.LoadTextures();
         Game1.playSound("smallSelect");
+    }
+
+    private int TotalDurationMs
+        => this.Mode == CardchaMachineMode.Portable
+            ? PortableDurationMs
+            : StationaryDurationMs;
+
+    private CardRarity BestRarity
+    {
+        get
+        {
+            CardRarity best = CardRarity.Common;
+            foreach (PullResult result in this.Results)
+            {
+                if ((int)result.Card.Rarity > (int)best)
+                    best = result.Card.Rarity;
+            }
+
+            return best;
+        }
     }
 
     public override void update(GameTime time)
@@ -60,25 +84,29 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
 
         this.ElapsedMs += (int)time.ElapsedGameTime.TotalMilliseconds;
 
-        if (!this.PlayedDiveSound && this.ElapsedMs >= 560)
+        int diveAt = this.Mode == CardchaMachineMode.Portable ? 620 : 560;
+        int machineAt = this.Mode == CardchaMachineMode.Portable ? 1350 : 1150;
+        int rewardAt = this.Mode == CardchaMachineMode.Portable ? 2150 : 1850;
+
+        if (!this.PlayedDiveSound && this.ElapsedMs >= diveAt)
         {
             this.PlayedDiveSound = true;
             Game1.playSound("wand");
         }
 
-        if (!this.PlayedMachineSound && this.ElapsedMs >= 1150)
+        if (!this.PlayedMachineSound && this.ElapsedMs >= machineAt)
         {
             this.PlayedMachineSound = true;
             Game1.playSound("coin");
         }
 
-        if (!this.PlayedOrbSound && this.ElapsedMs >= 1850)
+        if (!this.PlayedOrbSound && this.ElapsedMs >= rewardAt)
         {
             this.PlayedOrbSound = true;
-            Game1.playSound("reward");
+            Game1.playSound(this.BestRarity >= CardRarity.Epic ? "discoverMineral" : "reward");
         }
 
-        if (this.ElapsedMs >= TotalDurationMs)
+        if (this.ElapsedMs >= this.TotalDurationMs)
             this.CompleteAnimation();
     }
 
@@ -116,7 +144,10 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             panelH
         );
 
-        b.Draw(Game1.staminaRect, panel, new Color(42, 29, 58));
+        Color panelColor = this.Mode == CardchaMachineMode.Portable
+            ? new Color(34, 48, 87)
+            : new Color(42, 29, 58);
+        b.Draw(Game1.staminaRect, panel, panelColor);
         CardchaUi.DrawBorder(b, panel, CardchaUi.Gold, 5);
         CardchaUi.DrawCornerOrnaments(b, panel, CardchaUi.Gold * 0.85f);
 
@@ -124,7 +155,9 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         CardchaUi.DrawScaledText(
             b,
             Game1.dialogueFont,
-            ModEntry.T("pullanim.title"),
+            this.Mode == CardchaMachineMode.Portable
+                ? ModEntry.T("portable.pullanim.title")
+                : ModEntry.T("pullanim.title"),
             titleRect,
             new Color(255, 227, 146),
             centerX: true,
@@ -133,7 +166,10 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             maxScale: 1.05f
         );
 
-        this.DrawMachineAndChaCha(b, panel);
+        if (this.Mode == CardchaMachineMode.Portable)
+            this.DrawPortableRitual(b, panel);
+        else
+            this.DrawStationaryRitual(b, panel);
 
         Rectangle statusRect = new(panel.X + 44, panel.Bottom - 74, panel.Width - 88, 32);
         CardchaUi.DrawScaledText(
@@ -180,7 +216,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         drawMouse(b);
     }
 
-    private void DrawMachineAndChaCha(SpriteBatch b, Rectangle panel)
+    private void DrawStationaryRitual(SpriteBatch b, Rectangle panel)
     {
         if (this.MachineTexture is null || this.ChaChaTexture is null || this.OrbTexture is null)
             return;
@@ -218,19 +254,13 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             b.Draw(Game1.fadeToBlackRect, glow, new Color(126, 87, 220) * pulse);
         }
 
-        b.Draw(
-            this.MachineTexture,
-            machineDest,
-            machineSource,
-            Color.White
-        );
-
-        this.DrawChaCha(b, panel, machineDest);
+        b.Draw(this.MachineTexture, machineDest, machineSource, Color.White);
+        this.DrawStationaryChaCha(b, panel, machineDest);
         this.DrawOrb(b, panel, machineDest);
-        this.DrawFlash(b, panel);
+        this.DrawFlash(b, panel, 2380, 2700, 2520f);
     }
 
-    private void DrawChaCha(SpriteBatch b, Rectangle panel, Rectangle machineDest)
+    private void DrawStationaryChaCha(SpriteBatch b, Rectangle panel, Rectangle machineDest)
     {
         if (this.ChaChaTexture is null)
             return;
@@ -293,16 +323,238 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             frame = 5 - Math.Clamp((int)(phase * 6f), 0, 5);
         }
 
-        Rectangle source = new(frame * 32, row * 32, 32, 32);
-        Vector2 origin = new(16f, 16f);
+        this.DrawChaChaFrame(b, pos, row, frame, scale, alpha, rotation);
+    }
 
+    private void DrawPortableRitual(SpriteBatch b, Rectangle panel)
+    {
+        if (this.MachineTexture is null || this.ChaChaTexture is null)
+            return;
+
+        Vector2 machineCenter = new(panel.Center.X, panel.Y + 328f);
+        float machineBob = (float)Math.Sin(this.ElapsedMs * 0.0085f) * 3f;
+        float machineShake = 0f;
+        if (this.ElapsedMs >= 1080 && this.ElapsedMs <= 1900)
+            machineShake = (float)Math.Sin(this.ElapsedMs * 0.16f) * 4f;
+
+        Rectangle machineDest = new(
+            (int)machineCenter.X - 66 + (int)machineShake,
+            (int)(machineCenter.Y - 132 + machineBob),
+            132,
+            264
+        );
+
+        float pulse = 0.12f + (float)(Math.Sin(this.ElapsedMs * 0.012) + 1f) * 0.055f;
+        Rectangle aura = new(machineDest.X - 34, machineDest.Y - 28, machineDest.Width + 68, machineDest.Height + 56);
+        b.Draw(Game1.staminaRect, aura, new Color(100, 168, 255) * pulse);
+        CardchaUi.DrawBorder(b, aura, CardchaUi.Gold * 0.34f, 2);
+
+        Rectangle shadow = new(machineDest.X + 18, machineDest.Bottom - 8, machineDest.Width - 36, 13);
+        b.Draw(Game1.fadeToBlackRect, shadow, Color.Black * 0.24f);
+        b.Draw(this.MachineTexture, machineDest, this.MachineTexture.Bounds, Color.White);
+
+        this.DrawPortableCard(b, panel, machineDest);
+        this.DrawPortableChaCha(b, panel, machineDest);
+        this.DrawPortableSparkles(b, panel, machineDest);
+        this.DrawFlash(b, panel, 2860, 3240, 3050f);
+    }
+
+    private void DrawPortableChaCha(SpriteBatch b, Rectangle panel, Rectangle machineDest)
+    {
+        if (this.ChaChaTexture is null)
+            return;
+
+        Vector2 start = new(panel.X + 92f, panel.Y + 244f);
+        Vector2 hover = new(machineDest.Left - 48f, machineDest.Y + 86f);
+        Vector2 slot = new(machineDest.Center.X, machineDest.Bottom - 52f);
+        Vector2 fetch = new(machineDest.Center.X + 10f, machineDest.Bottom - 18f);
+        Vector2 present = new(panel.Center.X + 126f, panel.Y + 190f);
+
+        Vector2 pos;
+        float rotation = 0f;
+        float alpha = 1f;
+        float scale = 2.45f;
+        int row = 0;
+        int frame = 0;
+
+        if (this.ElapsedMs < 650)
+        {
+            float phase = this.ElapsedMs / 650f;
+            float t = Ease(phase);
+            pos = Vector2.Lerp(start, hover, t);
+            pos.Y += (float)Math.Sin(this.ElapsedMs * 0.024f) * 8f;
+            rotation = (float)Math.Sin(phase * Math.PI * 2f) * 0.045f;
+            row = 0;
+            frame = Math.Clamp((int)(phase * 6f), 0, 5);
+        }
+        else if (this.ElapsedMs < 1120)
+        {
+            float phase = (this.ElapsedMs - 650f) / 470f;
+            pos = hover + new Vector2(
+                (float)Math.Sin(phase * Math.PI * 2f) * 18f,
+                (float)Math.Sin(phase * Math.PI * 4f) * 8f
+            );
+            rotation = (float)Math.Sin(phase * Math.PI * 2f) * 0.06f;
+            row = 0;
+            frame = 2 + Math.Clamp((int)(phase * 4f), 0, 3);
+        }
+        else if (this.ElapsedMs < 1620)
+        {
+            float phase = (this.ElapsedMs - 1120f) / 500f;
+            float t = Ease(phase);
+            pos = Vector2.Lerp(hover, slot, t);
+            pos.Y -= (float)Math.Sin(t * Math.PI) * 38f;
+            rotation = MathHelper.Lerp(-0.06f, 0.18f, t);
+            row = 1;
+            frame = Math.Clamp((int)(phase * 6f), 0, 5);
+        }
+        else if (this.ElapsedMs < 1900)
+        {
+            float phase = (this.ElapsedMs - 1620f) / 280f;
+            pos = Vector2.Lerp(slot, fetch, Ease(phase));
+            alpha = MathHelper.Lerp(1f, 0.58f, phase);
+            row = 1;
+            frame = 5;
+        }
+        else if (this.ElapsedMs < 2350)
+        {
+            float phase = (this.ElapsedMs - 1900f) / 450f;
+            float t = Ease(phase);
+            pos = Vector2.Lerp(fetch, new Vector2(machineDest.Center.X + 70f, machineDest.Y + 24f), t);
+            pos.Y -= (float)Math.Sin(t * Math.PI) * 34f;
+            alpha = MathHelper.Lerp(0.62f, 1f, t);
+            rotation = MathHelper.Lerp(0.14f, -0.04f, t);
+            row = 2;
+            frame = Math.Clamp((int)(phase * 6f), 0, 5);
+        }
+        else
+        {
+            float phase = Math.Clamp((this.ElapsedMs - 2350f) / 650f, 0f, 1f);
+            float t = Ease(phase);
+            pos = Vector2.Lerp(new Vector2(machineDest.Center.X + 70f, machineDest.Y + 24f), present, t);
+            pos.Y += (float)Math.Sin(this.ElapsedMs * 0.018f) * 5f;
+            rotation = (float)Math.Sin(phase * Math.PI * 2f) * 0.035f;
+            row = 0;
+            frame = 5 - Math.Clamp((int)(phase * 6f), 0, 5);
+        }
+
+        this.DrawChaChaFrame(b, pos, row, frame, scale, alpha, rotation);
+    }
+
+    private void DrawPortableCard(SpriteBatch b, Rectangle panel, Rectangle machineDest)
+    {
+        if (this.ElapsedMs < 1760)
+            return;
+
+        Vector2 start = new(machineDest.Center.X, machineDest.Bottom - 40f);
+        Vector2 lift = new(machineDest.Center.X, machineDest.Y + 20f);
+        Vector2 reveal = new(panel.Center.X - 76f, panel.Y + 192f);
+
+        Vector2 pos;
+        float rotation;
+        float scale;
+        float alpha = 1f;
+
+        if (this.ElapsedMs < 2320)
+        {
+            float phase = (this.ElapsedMs - 1760f) / 560f;
+            float t = Ease(phase);
+            pos = Vector2.Lerp(start, lift, t);
+            pos.Y -= (float)Math.Sin(t * Math.PI) * 44f;
+            rotation = MathHelper.Lerp(-0.10f, 0.08f, t);
+            scale = MathHelper.Lerp(0.72f, 1.06f, t);
+        }
+        else
+        {
+            float phase = Math.Clamp((this.ElapsedMs - 2320f) / 660f, 0f, 1f);
+            float t = Ease(phase);
+            pos = Vector2.Lerp(lift, reveal, t);
+            pos.Y -= (float)Math.Sin(t * Math.PI) * 52f;
+            rotation = MathHelper.Lerp(0.08f, 0f, t);
+            scale = MathHelper.Lerp(1.06f, 1.34f, t);
+        }
+
+        int cardW = (int)(58 * scale);
+        int cardH = (int)(82 * scale);
+        Rectangle card = new((int)pos.X - cardW / 2, (int)pos.Y - cardH / 2, cardW, cardH);
+        Color rarity = CardchaUi.RarityColor(this.BestRarity);
+
+        if (this.PullCount > 1)
+        {
+            for (int i = Math.Min(3, this.PullCount - 1); i >= 1; i--)
+            {
+                Rectangle back = new(card.X + i * 5, card.Y - i * 3, card.Width, card.Height);
+                b.Draw(Game1.staminaRect, back, new Color(48, 38, 78) * alpha);
+                CardchaUi.DrawBorder(b, back, CardchaUi.Gold * 0.72f, 2);
+            }
+        }
+
+        Rectangle glow = new(card.X - 12, card.Y - 12, card.Width + 24, card.Height + 24);
+        float glowAlpha = this.BestRarity >= CardRarity.Epic ? 0.24f : 0.12f;
+        b.Draw(Game1.staminaRect, glow, rarity * glowAlpha);
+
+        b.Draw(Game1.staminaRect, card, new Color(54, 39, 88) * alpha);
+        CardchaUi.DrawBorder(b, card, CardchaUi.Gold, 3);
+
+        Rectangle inner = new(card.X + 7, card.Y + 7, card.Width - 14, card.Height - 14);
+        b.Draw(Game1.staminaRect, inner, new Color(78, 106, 184) * alpha);
+        CardchaUi.DrawBorder(b, inner, rarity * 0.85f, 2);
+
+        int star = Math.Max(6, card.Width / 7);
+        Rectangle starH = new(card.Center.X - star, card.Center.Y - 2, star * 2, 4);
+        Rectangle starV = new(card.Center.X - 2, card.Center.Y - star, 4, star * 2);
+        b.Draw(Game1.staminaRect, starH, new Color(255, 224, 93) * alpha);
+        b.Draw(Game1.staminaRect, starV, new Color(255, 224, 93) * alpha);
+    }
+
+    private void DrawPortableSparkles(SpriteBatch b, Rectangle panel, Rectangle machineDest)
+    {
+        if (this.ElapsedMs < 2050)
+            return;
+
+        Color rarity = CardchaUi.RarityColor(this.BestRarity);
+        int count = this.BestRarity >= CardRarity.Epic ? 11 : 6;
+        float time = this.ElapsedMs / 1000f;
+        Vector2 center = this.ElapsedMs < 2450
+            ? new Vector2(machineDest.Center.X, machineDest.Y + 32f)
+            : new Vector2(panel.Center.X - 76f, panel.Y + 192f);
+
+        for (int i = 0; i < count; i++)
+        {
+            float angle = time * 1.7f + i * MathHelper.TwoPi / count;
+            float radius = 48f + (i % 3) * 14f + (float)Math.Sin(time * 3f + i) * 5f;
+            Vector2 p = center + new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * radius;
+            int size = 3 + (i % 2) * 2;
+            Rectangle h = new((int)p.X - size, (int)p.Y - 1, size * 2, 3);
+            Rectangle v = new((int)p.X - 1, (int)p.Y - size, 3, size * 2);
+            Color c = (i % 2 == 0 ? rarity : new Color(255, 230, 118)) * 0.86f;
+            b.Draw(Game1.staminaRect, h, c);
+            b.Draw(Game1.staminaRect, v, c);
+        }
+    }
+
+    private void DrawChaChaFrame(
+        SpriteBatch b,
+        Vector2 pos,
+        int row,
+        int frame,
+        float scale,
+        float alpha,
+        float rotation)
+    {
+        if (this.ChaChaTexture is null)
+            return;
+
+        row = Math.Clamp(row, 0, 2);
+        frame = Math.Clamp(frame, 0, 5);
+        Rectangle source = new(frame * 32, row * 32, 32, 32);
         b.Draw(
             this.ChaChaTexture,
             pos,
             source,
-            Color.White * alpha,
+            Color.White * Math.Clamp(alpha, 0f, 1f),
             rotation,
-            origin,
+            new Vector2(16f, 16f),
             scale,
             SpriteEffects.None,
             0.95f
@@ -336,22 +588,17 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         );
 
         int core = Math.Max(4, (int)(6 * scale));
-        Rectangle coreRect = new(
-            (int)pos.X - core / 2,
-            (int)pos.Y - core / 2,
-            core,
-            core
-        );
+        Rectangle coreRect = new((int)pos.X - core / 2, (int)pos.Y - core / 2, core, core);
         b.Draw(Game1.staminaRect, coreRect, new Color(255, 244, 179) * 0.92f);
     }
 
-    private void DrawFlash(SpriteBatch b, Rectangle panel)
+    private void DrawFlash(SpriteBatch b, Rectangle panel, int startMs, int endMs, float centerMs)
     {
-        if (this.ElapsedMs < 2380 || this.ElapsedMs > 2700)
+        if (this.ElapsedMs < startMs || this.ElapsedMs > endMs)
             return;
 
-        float center = 2520f;
-        float alpha = 1f - Math.Abs(this.ElapsedMs - center) / 180f;
+        float half = Math.Max(1f, (endMs - startMs) / 2f);
+        float alpha = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
         alpha = Math.Clamp(alpha, 0f, 1f);
         b.Draw(Game1.fadeToBlackRect, panel, Color.White * (alpha * 0.62f));
     }
@@ -372,6 +619,21 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
 
     private string GetStatusText()
     {
+        if (this.Mode == CardchaMachineMode.Portable)
+        {
+            if (this.ElapsedMs < 650)
+                return ModEntry.T("portable.pullanim.status.approach");
+            if (this.ElapsedMs < 1120)
+                return ModEntry.T("portable.pullanim.status.hover");
+            if (this.ElapsedMs < 1760)
+                return ModEntry.T("portable.pullanim.status.dive");
+            if (this.ElapsedMs < 2350)
+                return ModEntry.T("portable.pullanim.status.fetch");
+            if (this.ElapsedMs < 2920)
+                return ModEntry.T("portable.pullanim.status.present");
+            return ModEntry.T("portable.pullanim.status.reveal");
+        }
+
         if (this.ElapsedMs < 700)
             return ModEntry.T("pullanim.status.approach");
         if (this.ElapsedMs < 1020)
@@ -389,7 +651,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             return;
 
         Game1.playSound("smallSelect");
-        this.ElapsedMs = TotalDurationMs;
+        this.ElapsedMs = this.TotalDurationMs;
         this.CompleteAnimation();
     }
 
@@ -414,9 +676,13 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         if (ModEntry.StaticHelper is null)
             return;
 
-        this.MachineTexture = ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/machine_anim.png");
+        this.MachineTexture = this.Mode == CardchaMachineMode.Portable
+            ? ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/portable_machine_ui.png")
+            : ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/machine_anim.png");
         this.ChaChaTexture = ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/chacha_machine.png");
-        this.OrbTexture = CreateTransparentOrbTexture(Game1.graphics.GraphicsDevice, 24);
+
+        if (this.Mode == CardchaMachineMode.Stationary)
+            this.OrbTexture = CreateTransparentOrbTexture(Game1.graphics.GraphicsDevice, 24);
     }
 
     private static Texture2D CreateTransparentOrbTexture(GraphicsDevice device, int size)

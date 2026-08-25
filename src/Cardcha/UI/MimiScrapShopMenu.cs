@@ -8,8 +8,8 @@ using StardewValley.Menus;
 namespace Cardcha.UI;
 
 /// <summary>
-/// MiMi's intentionally shameless Scrap exchange. Currency lives in SaveData,
-/// so buying/selling never consumes a backpack slot.
+/// MiMi's intentionally shameless Scrap exchange plus her aggressively-priced
+/// Portable Cardcha Machine.
 /// </summary>
 internal sealed class MimiScrapShopMenu : IClickableMenu
 {
@@ -26,49 +26,65 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
     private const int NormalSellId = 201;
     private const int ShinyBuyId = 202;
     private const int ShinySellId = 203;
+    private const int PortableBuyId = 204;
 
     private readonly ResourceService Resources;
     private readonly SaveService Save;
+    private readonly PortableMachineService PortableMachine;
     private readonly Texture2D? ItemTexture;
+    private readonly Texture2D? MachineTexture;
 
     private readonly ClickableComponent CloseButton;
     private readonly ClickableComponent NormalBuyButton;
     private readonly ClickableComponent NormalSellButton;
     private readonly ClickableComponent ShinyBuyButton;
     private readonly ClickableComponent ShinySellButton;
+    private readonly ClickableComponent PortableBuyButton;
 
     private string Status = ModEntry.T("mimi.shop.status.welcome");
 
-    public MimiScrapShopMenu(ResourceService resources, SaveService save)
+    public MimiScrapShopMenu(
+        ResourceService resources,
+        SaveService save,
+        PortableMachineService portableMachine)
         : base(
             Game1.uiViewport.Width / 2 - Math.Min(760, Game1.uiViewport.Width - 32) / 2,
-            Game1.uiViewport.Height / 2 - Math.Min(560, Game1.uiViewport.Height - 32) / 2,
+            Game1.uiViewport.Height / 2 - Math.Min(610, Game1.uiViewport.Height - 32) / 2,
             Math.Min(760, Game1.uiViewport.Width - 32),
-            Math.Min(560, Game1.uiViewport.Height - 32),
+            Math.Min(610, Game1.uiViewport.Height - 32),
             showUpperRightCloseButton: false)
     {
         this.Resources = resources;
         this.Save = save;
+        this.PortableMachine = portableMachine;
         this.ItemTexture = ModEntry.StaticHelper?.ModContent.Load<Texture2D>("assets/items.png");
+        this.MachineTexture = ModEntry.StaticHelper?.ModContent.Load<Texture2D>("assets/portable_machine.png");
 
-        int rowX = this.xPositionOnScreen + 54;
-        int rowW = this.width - 108;
-        int buyX = rowX + rowW - 236;
+        int rowX = this.xPositionOnScreen + 50;
+        int rowW = this.width - 100;
+        int buyX = rowX + rowW - 232;
+
+        int normalY = this.yPositionOnScreen + 170;
+        int shinyY = normalY + 96;
+        int portableY = shinyY + 96;
 
         this.NormalBuyButton = new ClickableComponent(
-            new Rectangle(buyX, this.yPositionOnScreen + 220, 108, 46),
+            new Rectangle(buyX, normalY + 22, 106, 42),
             "normal-buy") { myID = NormalBuyId };
         this.NormalSellButton = new ClickableComponent(
-            new Rectangle(buyX + 118, this.yPositionOnScreen + 220, 108, 46),
+            new Rectangle(buyX + 116, normalY + 22, 106, 42),
             "normal-sell") { myID = NormalSellId };
         this.ShinyBuyButton = new ClickableComponent(
-            new Rectangle(buyX, this.yPositionOnScreen + 340, 108, 46),
+            new Rectangle(buyX, shinyY + 22, 106, 42),
             "shiny-buy") { myID = ShinyBuyId };
         this.ShinySellButton = new ClickableComponent(
-            new Rectangle(buyX + 118, this.yPositionOnScreen + 340, 108, 46),
+            new Rectangle(buyX + 116, shinyY + 22, 106, 42),
             "shiny-sell") { myID = ShinySellId };
+        this.PortableBuyButton = new ClickableComponent(
+            new Rectangle(buyX + 54, portableY + 28, 168, 44),
+            "portable-buy") { myID = PortableBuyId };
         this.CloseButton = new ClickableComponent(
-            new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 70, 150, 44),
+            new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 62, 150, 40),
             "close") { myID = CloseId };
 
         this.NormalBuyButton.rightNeighborID = NormalSellId;
@@ -77,9 +93,18 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         this.NormalSellButton.downNeighborID = ShinySellId;
         this.ShinyBuyButton.upNeighborID = NormalBuyId;
         this.ShinyBuyButton.rightNeighborID = ShinySellId;
+        this.ShinyBuyButton.downNeighborID = PortableBuyId;
         this.ShinySellButton.upNeighborID = NormalSellId;
         this.ShinySellButton.leftNeighborID = ShinyBuyId;
-        this.CloseButton.upNeighborID = ShinyBuyId;
+        this.ShinySellButton.downNeighborID = PortableBuyId;
+        this.PortableBuyButton.upNeighborID = ShinyBuyId;
+        this.PortableBuyButton.downNeighborID = CloseId;
+        this.CloseButton.upNeighborID = PortableBuyId;
+
+        // Milestone reward is intentionally delivered when MiMi is actually present,
+        // so the gift feels like it comes from her rather than appearing from nowhere.
+        if (this.PortableMachine.TryGrantMilestoneGift())
+            this.Status = ModEntry.T("portable.shop.status.gifted");
 
         this.populateClickableComponentList();
         if (Game1.options.SnappyMenus)
@@ -94,6 +119,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         this.allClickableComponents.Add(this.NormalSellButton);
         this.allClickableComponents.Add(this.ShinyBuyButton);
         this.allClickableComponents.Add(this.ShinySellButton);
+        this.allClickableComponents.Add(this.PortableBuyButton);
         this.allClickableComponents.Add(this.CloseButton);
     }
 
@@ -131,7 +157,13 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         }
 
         if (this.ShinySellButton.containsPoint(x, y))
+        {
             this.Sell(DropService.ShinyScrapId);
+            return;
+        }
+
+        if (this.PortableBuyButton.containsPoint(x, y))
+            this.BuyPortableMachine();
     }
 
     public override void receiveKeyPress(Keys key)
@@ -144,6 +176,44 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         }
 
         base.receiveKeyPress(key);
+    }
+
+    public override void receiveGamePadButton(Buttons b)
+    {
+        if (b == Buttons.B)
+        {
+            Game1.playSound("bigDeSelect");
+            Game1.exitActiveMenu();
+            return;
+        }
+
+        if (b == Buttons.A && this.currentlySnappedComponent is not null)
+        {
+            switch (this.currentlySnappedComponent.myID)
+            {
+                case NormalBuyId:
+                    this.Buy(DropService.CardboardScrapId);
+                    return;
+                case NormalSellId:
+                    this.Sell(DropService.CardboardScrapId);
+                    return;
+                case ShinyBuyId:
+                    this.Buy(DropService.ShinyScrapId);
+                    return;
+                case ShinySellId:
+                    this.Sell(DropService.ShinyScrapId);
+                    return;
+                case PortableBuyId:
+                    this.BuyPortableMachine();
+                    return;
+                case CloseId:
+                    Game1.playSound("bigDeSelect");
+                    Game1.exitActiveMenu();
+                    return;
+            }
+        }
+
+        base.receiveGamePadButton(b);
     }
 
     private void Buy(string resourceId)
@@ -176,6 +246,34 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         this.Save.Save();
         this.Status = ModEntry.T("mimi.shop.status.sold", new { price });
         Game1.playSound("coin");
+    }
+
+    private void BuyPortableMachine()
+    {
+        PortablePurchaseResult result = this.PortableMachine.TryPurchase();
+        switch (result)
+        {
+            case PortablePurchaseResult.Purchased:
+                this.Status = ModEntry.T("portable.shop.status.bought");
+                Game1.playSound("purchase");
+                break;
+            case PortablePurchaseResult.Gifted:
+                this.Status = ModEntry.T("portable.shop.status.gifted");
+                Game1.playSound("coin");
+                break;
+            case PortablePurchaseResult.AlreadyOwned:
+                this.Status = ModEntry.T("portable.shop.status.owned");
+                Game1.playSound("cancel");
+                break;
+            case PortablePurchaseResult.NotEnoughMoney:
+                this.Status = ModEntry.T("portable.shop.status.poor");
+                Game1.playSound("cancel");
+                break;
+            default:
+                this.Status = ModEntry.T("portable.shop.status.locked");
+                Game1.playSound("cancel");
+                break;
+        }
     }
 
     private static int GetBuyPrice(string resourceId)
@@ -220,7 +318,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             b,
             Game1.dialogueFont,
             ModEntry.T("mimi.shop.title"),
-            new Rectangle(paper.X + 28, paper.Y + 18, paper.Width - 56, 46),
+            new Rectangle(paper.X + 28, paper.Y + 14, paper.Width - 56, 44),
             CardchaUi.InkBrown,
             centerX: true,
             centerY: true,
@@ -231,18 +329,22 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
-            ModEntry.T("mimi.shop.quip"),
-            new Rectangle(paper.X + 44, paper.Y + 72, paper.Width - 88, 68),
+            ModEntry.T("mimi.shop.quip.portable"),
+            new Rectangle(paper.X + 40, paper.Y + 64, paper.Width - 80, 74),
             Color.DarkSlateGray,
             maxLines: 3,
-            minScale: 0.72f,
+            minScale: 0.67f,
             centerX: true,
-            maxScale: 1.05f
+            maxScale: 1.00f
         );
+
+        int normalY = this.yPositionOnScreen + 170;
+        int shinyY = normalY + 96;
+        int portableY = shinyY + 96;
 
         this.DrawResourceRow(
             b,
-            this.yPositionOnScreen + 174,
+            normalY,
             0,
             ModEntry.T("item.cardboard.name"),
             this.Resources.Count(DropService.CardboardScrapId),
@@ -252,7 +354,7 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         );
         this.DrawResourceRow(
             b,
-            this.yPositionOnScreen + 294,
+            shinyY,
             1,
             ModEntry.T("item.shiny.name"),
             this.Resources.Count(DropService.ShinyScrapId),
@@ -260,12 +362,13 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             this.ShinyBuyButton,
             this.ShinySellButton
         );
+        this.DrawPortableRow(b, portableY);
 
         Rectangle status = new(
             paper.X + 190,
-            paper.Bottom - 74,
+            paper.Bottom - 56,
             paper.Width - 226,
-            46
+            34
         );
         CardchaUi.DrawAutoFitWrappedText(
             b,
@@ -274,8 +377,8 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             status,
             Color.DarkSlateGray,
             maxLines: 2,
-            minScale: 0.72f,
-            maxScale: 1.05f
+            minScale: 0.65f,
+            maxScale: 0.96f
         );
 
         CardchaUi.DrawButton(
@@ -299,11 +402,11 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         ClickableComponent buyButton,
         ClickableComponent sellButton)
     {
-        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 100);
+        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 84);
         b.Draw(Game1.staminaRect, row, new Color(255, 245, 219) * 0.72f);
         CardchaUi.DrawBorder(b, row, new Color(142, 101, 72), 2);
 
-        Rectangle iconBox = new(row.X + 18, row.Y + 18, 64, 64);
+        Rectangle iconBox = new(row.X + 16, row.Y + 10, 62, 62);
         b.Draw(Game1.staminaRect, iconBox, new Color(67, 53, 66));
         CardchaUi.DrawBorder(b, iconBox, CardchaUi.Gold * 0.75f, 2);
 
@@ -321,19 +424,19 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             b,
             Game1.smallFont,
             name,
-            new Rectangle(row.X + 98, row.Y + 12, row.Width - 350, 34),
+            new Rectangle(row.X + 94, row.Y + 8, row.Width - 340, 32),
             CardchaUi.InkBrown,
             padding: 2,
-            maxScale: 1.08f
+            maxScale: 1.00f
         );
         CardchaUi.DrawScaledText(
             b,
             Game1.smallFont,
             ModEntry.T("mimi.shop.owned", new { count }),
-            new Rectangle(row.X + 98, row.Y + 50, row.Width - 350, 28),
+            new Rectangle(row.X + 94, row.Y + 44, row.Width - 340, 26),
             Color.DarkSlateGray,
             padding: 2,
-            maxScale: 1.00f
+            maxScale: 0.92f
         );
 
         int buyPrice = GetBuyPrice(resourceId);
@@ -359,5 +462,84 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             CardchaUi.DrawFocus(b, buyButton.bounds);
         if (this.currentlySnappedComponent?.myID == sellButton.myID)
             CardchaUi.DrawFocus(b, sellButton.bounds);
+    }
+
+    private void DrawPortableRow(SpriteBatch b, int y)
+    {
+        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 96);
+        b.Draw(Game1.staminaRect, row, new Color(248, 232, 202) * 0.84f);
+        CardchaUi.DrawBorder(b, row, new Color(142, 101, 72), 2);
+
+        Rectangle iconBox = new(row.X + 16, row.Y + 16, 64, 64);
+        b.Draw(Game1.staminaRect, iconBox, new Color(67, 53, 66));
+        CardchaUi.DrawBorder(b, iconBox, CardchaUi.Gold, 2);
+        if (this.MachineTexture is not null)
+        {
+            Rectangle machineTarget = new(
+                iconBox.Center.X - 16,
+                iconBox.Y,
+                32,
+                64
+            );
+            b.Draw(
+                this.MachineTexture,
+                machineTarget,
+                new Rectangle(0, 0, 16, 32),
+                Color.White
+            );
+        }
+
+        CardchaUi.DrawScaledText(
+            b,
+            Game1.smallFont,
+            ModEntry.T("portable.machine.name"),
+            new Rectangle(row.X + 94, row.Y + 8, row.Width - 350, 32),
+            CardchaUi.InkBrown,
+            padding: 2,
+            maxScale: 0.98f
+        );
+
+        string progress = this.PortableMachine.IsAcquired
+            ? ModEntry.T("portable.shop.owned")
+            : ModEntry.T(
+                "portable.shop.progress",
+                new
+                {
+                    count = this.PortableMachine.UniqueCardCount,
+                    target = PortableMachineService.FreeGiftCardMilestone
+                }
+            );
+
+        CardchaUi.DrawAutoFitWrappedText(
+            b,
+            Game1.smallFont,
+            progress,
+            new Rectangle(row.X + 94, row.Y + 42, row.Width - 350, 42),
+            Color.DarkSlateGray,
+            maxLines: 2,
+            minScale: 0.62f,
+            maxScale: 0.90f
+        );
+
+        string buttonLabel = this.PortableMachine.IsAcquired
+            ? ModEntry.T("portable.shop.button.owned")
+            : this.PortableMachine.IsMilestoneGiftReady
+                ? ModEntry.T("portable.shop.button.free")
+                : ModEntry.T("mimi.shop.buy", new { price = PortableMachineService.PurchasePrice });
+
+        bool enabled = !this.PortableMachine.IsAcquired
+            && (this.PortableMachine.IsMilestoneGiftReady
+                || Game1.player.Money >= PortableMachineService.PurchasePrice);
+
+        CardchaUi.DrawButton(
+            b,
+            this.PortableBuyButton,
+            buttonLabel,
+            new Color(111, 86, 129),
+            enabled
+        );
+
+        if (this.currentlySnappedComponent?.myID == this.PortableBuyButton.myID)
+            CardchaUi.DrawFocus(b, this.PortableBuyButton.bounds);
     }
 }

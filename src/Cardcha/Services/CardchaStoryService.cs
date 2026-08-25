@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Locations;
 using StardewValley.Menus;
 
 namespace Cardcha.Services;
@@ -16,7 +17,8 @@ internal sealed class CardchaStoryService
     {
         None,
         MimiIntro,
-        WizardMeetup
+        WizardMeetup,
+        ForcedHomeVisit
     }
 
     private enum VisualMode
@@ -24,10 +26,12 @@ internal sealed class CardchaStoryService
         None,
         MimiOnBroom,
         MimiMeetup,
+        ForcedHomeVisit,
         MimiDeparting
     }
 
     private const string MimiPortraitsPath = "assets/mimi_portraits.png";
+    private const string ForcedWizardActorId = "Ronvotri.Cardcha_WizardVisitor";
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -56,6 +60,8 @@ internal sealed class CardchaStoryService
     private int ChaChaFollowerBlockedTicks;
     private bool MeetupExitPending;
     private Vector2 MeetupExitTarget;
+    private NPC? ForcedWizardActor;
+    private long ForcedHomeNotBefore;
 
     private Texture2D? MasterPortraitSheet;
     private Texture2D? RuntimePortraitSheet;
@@ -88,6 +94,7 @@ internal sealed class CardchaStoryService
     {
         this.ResetRuntime();
         this.IntroNotBefore = Environment.TickCount64 + 900;
+        this.ForcedHomeNotBefore = Environment.TickCount64 + 700;
         this.EnsureTextures();
     }
 
@@ -96,6 +103,7 @@ internal sealed class CardchaStoryService
         this.ResetRuntime();
         this.MeetupHintShownToday = false;
         this.IntroNotBefore = Environment.TickCount64 + 900;
+        this.ForcedHomeNotBefore = Environment.TickCount64 + 700;
         this.EnsureTextures();
     }
 
@@ -106,12 +114,21 @@ internal sealed class CardchaStoryService
     }
 
     public void OnSaving()
-        => this.WorldActors.HideChaChaActor();
+    {
+        this.WorldActors.HideChaChaActor();
+        this.HideForcedWizardActor();
+    }
 
     public void OnWarped(object? sender, WarpedEventArgs e)
     {
         if (!Context.IsWorldReady)
             return;
+
+        if (this.Progression.ShouldForceMimiHomeVisit() && this.IsMainFarmHouse(e.NewLocation))
+        {
+            this.TryStartForcedHomeVisit();
+            return;
+        }
 
         if (e.NewLocation.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
             TryStartWizardMeetup();
@@ -123,6 +140,14 @@ internal sealed class CardchaStoryService
     {
         if (!Context.IsWorldReady)
             return;
+
+        if (this.Progression.ShouldForceMimiHomeVisit()
+            && this.Scene == SceneKind.None
+            && !this.DialogueOpen
+            && Environment.TickCount64 >= this.ForcedHomeNotBefore)
+        {
+            this.TryStartForcedHomeVisit();
+        }
 
         this.UpdateSceneWorldActors();
         this.UpdateMimiMeetupExit();
@@ -151,6 +176,12 @@ internal sealed class CardchaStoryService
 
         if (!e.IsMultipleOf(15))
             return;
+
+        if (this.Progression.ShouldForceMimiHomeVisit())
+        {
+            this.TryStartForcedHomeVisit();
+            return;
+        }
 
         if (Game1.currentLocation == Game1.getFarm())
             TryStartMimiIntro();
@@ -182,6 +213,7 @@ internal sealed class CardchaStoryService
            $"IntroArrivalPending={this.IntroArrivalPending} | " +
            $"MiMiIntro={this.Save.Data.MimiIntroSeen} | " +
            $"MeetupPending={this.Save.Data.MimiMeetupPending} | " +
+           $"MeetupOfferedDay={this.Save.Data.MimiMeetupOfferedDay} | ForceHome={this.Progression.ShouldForceMimiHomeVisit()} | " +
            $"MeetupDone={this.Save.Data.MimiMeetupCompleted} | " +
            $"ChaChaLoaned={this.Save.Data.ChaChaLoaned} | " +
            $"FirstPullQuest={this.Save.Data.FirstPullQuestActive} | " +
@@ -249,6 +281,63 @@ internal sealed class CardchaStoryService
         Game1.playSound("smallSelect");
         this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
         this.ShowCurrentLine();
+    }
+
+    private void TryStartForcedHomeVisit()
+    {
+        if (this.Scene != SceneKind.None || this.DialogueOpen)
+            return;
+
+        if (!this.Progression.ShouldForceMimiHomeVisit()
+            || Environment.TickCount64 < this.ForcedHomeNotBefore)
+        {
+            return;
+        }
+
+        GameLocation? home = Game1.currentLocation;
+        if (home is null || !this.IsMainFarmHouse(home))
+            return;
+
+        if (Game1.activeClickableMenu is not null
+            || Game1.eventUp
+            || Game1.dialogueUp)
+        {
+            return;
+        }
+
+        this.Scene = SceneKind.ForcedHomeVisit;
+        this.Visual = VisualMode.ForcedHomeVisit;
+        this.SceneAnchor = Game1.player.Position + new Vector2(-86f, 54f);
+        this.SceneVisualStartedAt = Environment.TickCount64;
+        this.Lines = new[]
+        {
+            ModEntry.T("story.forced-home.1"),
+            ModEntry.T("story.forced-home.2"),
+            ModEntry.T("story.forced-home.3"),
+            ModEntry.T("story.forced-home.4"),
+            ModEntry.T("story.forced-home.5"),
+            ModEntry.T("story.forced-home.6"),
+            ModEntry.T("story.forced-home.7"),
+            ModEntry.T("story.forced-home.8"),
+            ModEntry.T("story.forced-home.9")
+        };
+        this.DialogueIndex = 0;
+        this.DialogueOpen = true;
+
+        Vector2 mimiMagic = this.SceneAnchor + new Vector2(32f, 48f);
+        Vector2 wizardMagic = this.SceneAnchor + new Vector2(150f, 48f);
+        PlayMagicArrival(home, mimiMagic);
+        PlayMagicArrival(home, wizardMagic);
+        Game1.playSound("wand");
+        Game1.player.Halt();
+
+        this.Helper.Events.Display.MenuChanged += this.OnMenuChanged;
+        this.ShowCurrentLine();
+
+        this.Monitor.Log(
+            "Cardcha Chapter 1: player ignored MiMi's appointment through the third morning; forced MiMi + Wizard home visit started.",
+            LogLevel.Info
+        );
     }
 
     private void TryStartWizardMeetup()
@@ -351,6 +440,8 @@ internal sealed class CardchaStoryService
             FinishMimiIntro();
         else if (finished == SceneKind.WizardMeetup)
             FinishWizardMeetup();
+        else if (finished == SceneKind.ForcedHomeVisit)
+            FinishForcedHomeVisit();
     }
 
     private void ShowCurrentLine()
@@ -422,6 +513,57 @@ internal sealed class CardchaStoryService
         );
 
         this.StartMimiMeetupExit();
+    }
+
+    private void FinishForcedHomeVisit()
+    {
+        GameLocation? home = Game1.currentLocation;
+        NPC? mimi = this.FindMimiNpc();
+        NPC? wizardVisual = this.ForcedWizardActor;
+        Vector2 mimiPos = mimi?.Position ?? this.SceneAnchor;
+        Vector2 wizardPos = wizardVisual?.Position ?? this.SceneAnchor + new Vector2(118f, 0f);
+
+        this.Progression.CompleteWizardMeetup();
+
+        // The doorstep intervention replaces the missed Wizard-house handoff completely:
+        // preserve physical Scrap, activate the Binder wallet, give starter Scrap, Machine,
+        // and ChaCha exactly as the normal meeting would have done.
+        (int absorbedNormal, int absorbedShiny) = this.Resources.ActivateBinderWallet();
+        if (absorbedNormal > 0 || absorbedShiny > 0)
+        {
+            this.Monitor.Log(
+                $"Forced home handoff absorbed backpack Scrap: normal={absorbedNormal}, shiny={absorbedShiny}.",
+                LogLevel.Info
+            );
+        }
+
+        int starterScraps = this.GrantStarterScrapForFirstPull();
+        this.Save.Save();
+
+        if (home is not null)
+        {
+            PlayMagicArrival(home, mimiPos + new Vector2(32f, 42f));
+            PlayMagicArrival(home, wizardPos + new Vector2(32f, 42f));
+        }
+        Game1.playSound("wand");
+
+        this.WorldActors.HideMimiActor();
+        this.HideForcedWizardActor();
+        this.WorldActors.HideChaChaActor();
+
+        Game1.playSound("questcomplete");
+        Game1.addHUDMessage(
+            new HUDMessage(
+                ModEntry.T("story.machine-unlocked"),
+                HUDMessage.newQuest_type
+            )
+        );
+        Game1.showGlobalMessage(
+            ModEntry.T(
+                "story.first-pull.objective",
+                new { amount = starterScraps }
+            )
+        );
     }
 
     public void OnPullResolved(PullType type, int count)
@@ -508,6 +650,14 @@ internal sealed class CardchaStoryService
                 2 => "$3",
                 6 => "$5",
                 7 => "$4",
+                _ => "$0"
+            },
+            SceneKind.ForcedHomeVisit => this.DialogueIndex switch
+            {
+                0 => "$5",
+                2 => "$3",
+                4 => "$1",
+                6 => "$5",
                 _ => "$0"
             },
             _ => "$0"
@@ -672,6 +822,67 @@ internal sealed class CardchaStoryService
         }
     }
 
+    private bool IsMainFarmHouse(GameLocation location)
+    {
+        GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
+        return mainHouse is not null && ReferenceEquals(location, mainHouse);
+    }
+
+    private NPC EnsureForcedWizardActor(GameLocation location, Vector2 position, int facing)
+    {
+        if (this.ForcedWizardActor is null)
+        {
+            this.ForcedWizardActor = new NPC(
+                new AnimatedSprite("Characters/Wizard", 0, 16, 32),
+                position,
+                facing,
+                ForcedWizardActorId
+            )
+            {
+                SimpleNonVillagerNPC = true,
+                displayName = Game1.getCharacterFromName("Wizard")?.displayName ?? "Wizard"
+            };
+            this.ForcedWizardActor.farmerPassesThrough = true;
+            this.ForcedWizardActor.collidesWithOtherCharacters.Value = false;
+            this.ForcedWizardActor.willDestroyObjectsUnderfoot = false;
+            this.ForcedWizardActor.followSchedule = false;
+            this.ForcedWizardActor.ignoreScheduleToday = true;
+            this.ForcedWizardActor.drawOnTop = false;
+            this.ForcedWizardActor.breather.Value = false;
+            this.ForcedWizardActor.hideShadow.Value = false;
+        }
+
+        NPC actor = this.ForcedWizardActor;
+        if (actor.currentLocation != location)
+        {
+            actor.currentLocation?.characters.Remove(actor);
+            if (!location.characters.Contains(actor))
+                location.characters.Add(actor);
+            actor.currentLocation = location;
+        }
+        else if (!location.characters.Contains(actor))
+        {
+            location.characters.Add(actor);
+        }
+
+        actor.Halt();
+        actor.Position = position;
+        actor.FacingDirection = facing;
+        actor.isInvisible.Value = false;
+        actor.faceDirection(facing);
+        return actor;
+    }
+
+    private void HideForcedWizardActor()
+    {
+        if (this.ForcedWizardActor is null)
+            return;
+
+        this.ForcedWizardActor.currentLocation?.characters.Remove(this.ForcedWizardActor);
+        this.ForcedWizardActor.isInvisible.Value = true;
+        this.ForcedWizardActor = null;
+    }
+
     private NPC? FindMimiNpc()
         => this.WorldActors.FindMimiActor();
 
@@ -698,6 +909,8 @@ internal sealed class CardchaStoryService
         this.ChaChaFollowerBlockedTicks = 0;
         this.MeetupExitPending = false;
         this.MeetupExitTarget = Vector2.Zero;
+        this.ForcedHomeNotBefore = 0;
+        this.HideForcedWizardActor();
         this.WorldActors.HideChaChaActor();
     }
 
@@ -865,8 +1078,10 @@ internal sealed class CardchaStoryService
                 "WizardHouse",
                 StringComparison.OrdinalIgnoreCase
             );
+        bool forcedHome = this.Visual == VisualMode.ForcedHomeVisit
+            && this.IsMainFarmHouse(currentLocation);
 
-        if (!broom && !meetup)
+        if (!broom && !meetup && !forcedHome)
             return;
 
         GameLocation location = currentLocation;
@@ -930,6 +1145,15 @@ internal sealed class CardchaStoryService
             chacha.drawOffset = new Vector2(0f, (float)Math.Sin(time * 3.0) * 1.5f - 3f);
             chacha.shouldShadowBeOffset = false;
             chacha.rotation = 0f;
+        }
+
+        if (forcedHome)
+        {
+            Vector2 wizardWorld = this.SceneAnchor + new Vector2(118f, 0f);
+            NPC wizard = this.EnsureForcedWizardActor(location, wizardWorld, 3);
+            wizard.faceDirection(3);
+            wizard.drawOffset = Vector2.Zero;
+            wizard.rotation = 0f;
         }
     }
 

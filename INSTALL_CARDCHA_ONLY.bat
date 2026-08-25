@@ -2,7 +2,7 @@
 chcp 65001 >nul
 setlocal EnableExtensions DisableDelayedExpansion
 
-title Cardcha! v0.1.17-alpha.11.36 Install Built Package
+title Cardcha! v0.1.17-alpha.11.41 Install Built Package
 cd /d "%~dp0"
 
 set "ROOT=%~dp0"

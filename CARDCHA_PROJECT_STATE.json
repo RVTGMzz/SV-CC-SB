@@ -1,6 +1,6 @@
 {
   "project": "Cardcha!",
-  "version": "0.1.17-alpha.11.36",
+  "version": "0.1.17-alpha.11.41",
   "game_path": "E:\\SteamLibrary\\steamapps\\common\\Stardew Valley",
   "story": {
     "pre_scrap_mimi_name": "???",
@@ -30,16 +30,48 @@
     "card_grid": "focus auto-updates detail page",
     "detail_scroll": "focusable; left stick/D-pad up/down scrolls upgrade/effect info"
   },
-  "next_priority": "compile/test alpha.11.36: MiMi actor cleanup, wallet Scrap toast, Shiny 10k/1k economy, main-FarmHouse-only stationary Machine; keep portable Machine as future design",
+  "next_priority": "compile/test HUD top-center layout, max-three priority, activation/ready/buff badges, and portable-machine regression",
   "handoff_files": [
     "NEXT_SESSION_START_HERE.md",
     "BUILD_HISTORY.md",
     "CARDCHA_PROJECT_STATE.json"
   ],
-  "latest_fix": "MiMi stale-location cleanup + native wallet Scrap pickup toast + Shiny economy split + stationary Machine main-house-only enforcement",
+  "latest_fix": "Circular HUD: top-center horizontal circular buff slots, max 3, numeric countdown 5→4→3→2→1, depleting circular timer dots, hover/touch tooltip, ring-state distinction for BUFF/READY/ACTIVATED",
   "machine": {
     "stationary_placement": "main FarmHouse only; outdoor and other-interior placement rejected/recovered",
-    "portable_future": "planned, not active in 11.36; 50000g early purchase; free at 50 unique cards if unowned",
+    "portable_future": "ACTIVE in 11.39: 50000g MiMi purchase; free at 50 unique cards if unowned; toolbar use opens dedicated Portable Cardcha UI; cannot be placed",
     "binder_direct_future": "planned at 80 unique cards; requires stationary + portable + future third requirement/item"
+  },
+  "story_11_37": {
+    "first_scrap_notice": "center HUD after actual pickup",
+    "meetup_quest": "real non-cancellable quest-log entry",
+    "pending_visibility": "MiMi hidden from Town until meetup resolves",
+    "deadline": "appointment day is day 1; forced home visit at offeredDay + 2",
+    "forced_visit": "MiMi + Wizard in main FarmHouse, scold, deliver Machine+Binder+ChaCha, magic vanish"
+  },
+  "portable_11_38": {
+    "price": "50000g",
+    "free_milestone": "50 unique cards if not previously purchased/gifted",
+    "interaction": "select on toolbar and press Use Tool; opens existing Cardcha Machine menu",
+    "placement": "cannot be placed indoors or outdoors",
+    "story_gate": "requires MachineDelivered + BinderUnlocked for normal use",
+    "test_command": "cardcha_give_portable_machine",
+    "art": "superseded by 11.39 dedicated portable-machine art; existing official assets remain byte-identical"
+  },
+  "portable_11_39": {
+    "ui": "dedicated blue/gold portable machine presentation with portable art and ChaCha idle",
+    "pull_animation": "ChaCha approach -> line up -> dive -> fetch card -> present card -> normal reveal",
+    "rarity": "Epic+ uses stronger rarity-colored sparkles during fetch",
+    "multi_pull": "shows a small card-back stack before reveal",
+    "debug_command": "cardcha_open_portable_machine",
+    "stationary_regression": "stationary machine keeps its original orb ritual"
+  },
+  "hud_11_40": {
+    "position": "top-center, about 8.5% viewport height from top (clamped 32-96 px)",
+    "opacity": "~66% panel background; accents/text fade with animation",
+    "max_rows": 3,
+    "priority": "ACTIVATED > READY > BUFF",
+    "animation": "180ms soft fade/slide in; 240ms fade/slide out",
+    "activation": "Blood Fang and Phoenix Heart use Cardcha activation row; Phoenix no longer duplicates into vanilla left HUD"
   }
 }

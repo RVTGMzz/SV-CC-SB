@@ -35,6 +35,7 @@ internal sealed class ModEntry : Mod
     private CardchaStoryService Story = null!;
     private MimiMysteryTownService Mystery = null!;
     private WorldActorService WorldActors = null!;
+    private PortableMachineService PortableMachine = null!;
 
     public override void Entry(IModHelper helper)
     {
@@ -76,6 +77,12 @@ internal sealed class ModEntry : Mod
             this.OpenBinderFromMenu
         );
         this.WorldActors = new WorldActorService(this.Monitor);
+        this.PortableMachine = new PortableMachineService(
+            helper,
+            this.Monitor,
+            this.Save,
+            this.OpenPortableMachineMenu
+        );
         this.Story = new CardchaStoryService(
             helper,
             this.Monitor,
@@ -110,6 +117,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -121,7 +129,9 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_combat_status", "Show active Cardcha combat state.", this.CommandCombatStatus);
         helper.ConsoleCommands.Add("cardcha_give_scrap", "Give prototype Scrap: cardcha_give_scrap [normal|shiny] [amount]", this.CommandGiveScrap);
         helper.ConsoleCommands.Add("cardcha_give_machine", "Give the Cardcha! Machine prototype.", this.CommandGiveMachine);
+        helper.ConsoleCommands.Add("cardcha_give_portable_machine", "Give the Portable Cardcha Machine for testing.", this.CommandGivePortableMachine);
         helper.ConsoleCommands.Add("cardcha_open_machine", "Open the Cardcha! Machine UI for testing.", this.CommandOpenMachine);
+        helper.ConsoleCommands.Add("cardcha_open_portable_machine", "Open the Portable Cardcha Machine UI for testing.", this.CommandOpenPortableMachine);
         helper.ConsoleCommands.Add("cardcha_open_binder", "Open the Cardcha! Binder UI for testing.", this.CommandOpenBinder);
         helper.ConsoleCommands.Add("cardcha_test_report", "Show combat verification + save persistence report.", this.CommandTestReport);
         helper.ConsoleCommands.Add("cardcha_test_reset", "Reset transient Cardcha combat verification counters.", this.CommandTestReset);
@@ -131,6 +141,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_version", "Show the exact Cardcha build currently loaded.", this.CommandVersion);
         helper.ConsoleCommands.Add("cardcha_enemy_status", "Show universal mod-enemy observer diagnostics.", this.CommandEnemyStatus);
         helper.ConsoleCommands.Add("cardcha_machine_status", "Show Cardcha machine objects in inventory/current location.", this.CommandMachineStatus);
+        helper.ConsoleCommands.Add("cardcha_portable_status", "Show Portable Cardcha Machine entitlement/milestone state.", this.CommandPortableStatus);
         helper.ConsoleCommands.Add("cardcha_loot_rates", "Show the current Cardcha loot profile.", this.CommandLootRates);
         helper.ConsoleCommands.Add("cardcha_hud_toggle", "Toggle Cardcha combat HUD on/off.", this.CommandHudToggle);
         helper.ConsoleCommands.Add("cardcha_book_status", "Show Cardcha Book tab layout/controller diagnostics.", this.CommandBookStatus);
@@ -150,7 +161,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.1.17-alpha.11.41 CIRCULAR HUD ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -163,6 +174,7 @@ internal sealed class ModEntry : Mod
         // Let progression self-heal old saves first (it may discover an existing Machine and
         // unlock the Binder), then reconcile Scrap storage to the correct physical/wallet phase.
         this.Progression.OnSaveLoaded();
+        this.PortableMachine.OnSaveLoaded();
         (int storageNormal, int storageShiny) = this.Resources.SyncStorageModeOnLoad();
         if (storageNormal > 0 || storageShiny > 0)
         {
@@ -232,6 +244,7 @@ internal sealed class ModEntry : Mod
     {
         this.Combat.ResetRuntime();
         this.EnemyObserver.Reset();
+        this.Progression.OnReturnedToTitle();
         this.Story.OnReturnedToTitle();
         this.Mystery.OnReturnedToTitle();
         this.Save.Clear();
@@ -313,7 +326,10 @@ internal sealed class ModEntry : Mod
     }
 
     private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
-        => this.CombatHud.Draw(e.SpriteBatch);
+    {
+        this.CombatHud.Draw(e.SpriteBatch);
+        this.Progression.DrawCenteredNotice(e.SpriteBatch);
+    }
 
     private void OpenMachineMenu()
     {
@@ -330,7 +346,28 @@ internal sealed class ModEntry : Mod
             this.Config,
             this.Renderer,
             this.Combat.SyncPassiveBuffs,
-            this.Story.OnPullResolved
+            this.Story.OnPullResolved,
+            CardchaMachineMode.Stationary
+        );
+    }
+
+    private void OpenPortableMachineMenu()
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+
+        Game1.activeClickableMenu = new CardchaMachineMenu(
+            this.Gacha,
+            this.Resources,
+            this.Save,
+            this.Cards,
+            this.Loadout,
+            this.Upgrades,
+            this.Config,
+            this.Renderer,
+            this.Combat.SyncPassiveBuffs,
+            this.Story.OnPullResolved,
+            CardchaMachineMode.Portable
         );
     }
 
@@ -341,7 +378,8 @@ internal sealed class ModEntry : Mod
 
         Game1.activeClickableMenu = new MimiScrapShopMenu(
             this.Resources,
-            this.Save
+            this.Save,
+            this.PortableMachine
         );
     }
 
@@ -549,7 +587,8 @@ internal sealed class ModEntry : Mod
             "===== CARDCHA STORY STATUS =====\n" +
             this.Progression.DescribeState() + "\n" +
             this.Story.Describe() + "\n" +
-            this.Mystery.Describe(),
+            this.Mystery.Describe() + "\n" +
+            this.PortableMachine.Describe(),
             LogLevel.Alert
         );
     }
@@ -565,7 +604,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.36 =====\n" +
+            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.41 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -588,11 +627,13 @@ internal sealed class ModEntry : Mod
             Item? item = Game1.player.Items[i];
             if (item is StardewValley.Object obj
                 && (MachineInteractionPatch.IsCardchaMachine(obj)
+                    || ItemAssetService.IsPortableMachine(obj)
                     || obj.Name.Contains("Cardcha", StringComparison.OrdinalIgnoreCase)))
             {
                 lines.Add(
                     $"Inventory[{i}]: Qualified={obj.QualifiedItemId} | ItemId={obj.ItemId} | " +
-                    $"Name={obj.Name} | Marker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)}"
+                    $"Name={obj.Name} | StationaryMarker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)} | " +
+                    $"Portable={ItemAssetService.IsPortableMachine(obj)}"
                 );
             }
         }
@@ -619,6 +660,21 @@ internal sealed class ModEntry : Mod
         );
     }
 
+    private void CommandPortableStatus(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
+            return;
+        }
+
+        this.Monitor.Log(
+            "===== CARDCHA PORTABLE MACHINE STATUS =====\n" +
+            this.PortableMachine.Describe(),
+            LogLevel.Alert
+        );
+    }
+
     private void CommandEnemyStatus(string command, string[] args)
     {
         if (!Context.IsWorldReady)
@@ -639,7 +695,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.1.17-alpha.11.36 MIMI PLACE + LOOT TOAST + SHINY ECONOMY + HOME MACHINE ACTIVE",
+            "Cardcha! v0.1.17-alpha.11.41 CIRCULAR HUD ACTIVE",
             LogLevel.Alert
         );
     }
@@ -701,8 +757,23 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log("Gave Cardcha! Machine. Please do not shake it.", LogLevel.Info);
     }
 
+    private void CommandGivePortableMachine(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        this.PortableMachine.GiveForDebug();
+        this.Monitor.Log(
+            "Gave Portable Cardcha Machine and marked the entitlement as acquired for this test save.",
+            LogLevel.Info
+        );
+    }
+
     private void CommandOpenMachine(string command, string[] args)
         => this.OpenMachineMenu();
+
+    private void CommandOpenPortableMachine(string command, string[] args)
+        => this.OpenPortableMachineMenu();
 
     private void CommandOpenBinder(string command, string[] args)
         => this.OpenBinderMenu();

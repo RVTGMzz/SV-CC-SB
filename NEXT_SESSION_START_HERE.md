@@ -1,10 +1,11 @@
-# NEXT SESSION — Cardcha v0.1.17-alpha.11.36
+# NEXT SESSION — Cardcha v0.1.17-alpha.11.41
 
-Current focus after testing 11.36:
+Current focus: circular top-center combat HUD.
 
-- Verify MiMi never remains at the farm after her intro/meetup transitions.
-- Verify wallet Scrap has native item-gained notifications.
-- Verify stationary Machine is main-FarmHouse-only.
-- Portable Machine design is queued, not active: 50,000g purchase; free at 50 unique cards if unowned; at 80 unique cards Binder-direct Cardcha becomes eligible but must wait for a third requirement/item.
-- MiMi characterization target: cheeky, clever, money-loving, mysterious, visibly rushed; money requests should feel funny/suspicious rather than mean.
-- Never regenerate/resize official assets unless the user explicitly asks.
+Verify first:
+- `cardcha_version` reports 11.41 CIRCULAR HUD ACTIVE.
+- Top-center shows max 3 circular icons horizontally.
+- Timed effects count down 5→4→3→2→1 and their ring depletes.
+- Hover/touch opens the effect tooltip.
+- READY is green/check; ACTIVATED is purple/pulsing/!; BUFF is gold.
+- Portable Cardcha machine + ChaCha fetch from 11.39 still works.

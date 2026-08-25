@@ -188,7 +188,7 @@ internal sealed class CardRenderer
         );
     }
 
-    public void DrawIcon(SpriteBatch b, Rectangle destination, CardDefinition card)
+    public void DrawIcon(SpriteBatch b, Rectangle destination, CardDefinition card, float alpha = 1f)
     {
         Texture2D? atlas = this.TryGetAtlas();
         if (atlas is not null && card.IconIndex >= 0)
@@ -200,7 +200,7 @@ internal sealed class CardRenderer
 
             if (source.Right <= atlas.Width && source.Bottom <= atlas.Height)
             {
-                b.Draw(atlas, destination, source, Color.White);
+                b.Draw(atlas, destination, source, Color.White * Math.Clamp(alpha, 0f, 1f));
                 return;
             }
         }
@@ -217,7 +217,7 @@ internal sealed class CardRenderer
             Game1.dialogueFont,
             initial,
             pos,
-            CardchaUi.RarityColor(card.Rarity),
+            CardchaUi.RarityColor(card.Rarity) * Math.Clamp(alpha, 0f, 1f),
             0f,
             Vector2.Zero,
             scale,

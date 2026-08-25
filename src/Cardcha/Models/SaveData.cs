@@ -3,7 +3,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 9;
+    public int SchemaVersion { get; set; } = 11;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -43,6 +43,16 @@ internal sealed class SaveData
 
     // Day the Wizard-house handoff completed. MiMi merchant routine is available from this day onward.
     public int MimiMerchantUnlockedDay { get; set; } = -1;
+
+    // v0.1.17-alpha.11.38 — first-pickup presentation + MiMi appointment deadline.
+    public bool FirstScrapPickupNoticeShown { get; set; }
+    public int MimiMeetupOfferedDay { get; set; } = -1;
+
+    // v0.1.17-alpha.11.38 — portable machine entitlement.
+    // Purchased and Gifted are separate so the 50-card milestone never gives a second device
+    // to a player who already paid MiMi's deliberately painful 50,000g price.
+    public bool PortableMachinePurchased { get; set; }
+    public bool PortableMachineGifted { get; set; }
 
     public string LastStateFingerprint { get; set; } = "";
 }

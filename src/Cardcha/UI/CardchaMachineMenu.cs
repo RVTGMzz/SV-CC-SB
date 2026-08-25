@@ -26,6 +26,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
     private readonly CardRenderer Renderer;
     private readonly Action OnLoadoutChanged;
     private readonly Action<PullType, int>? OnPullResolved;
+    private readonly CardchaMachineMode Mode;
     private readonly int? InitialFocusId;
 
     private readonly ClickableComponent StandardOne;
@@ -47,6 +48,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         CardRenderer renderer,
         Action onLoadoutChanged,
         Action<PullType, int>? onPullResolved = null,
+        CardchaMachineMode mode = CardchaMachineMode.Stationary,
         int? initialFocusId = null
     ) : base(
         Game1.uiViewport.Width / 2 - Math.Min(920, Game1.uiViewport.Width - 48) / 2,
@@ -65,7 +67,11 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         this.Renderer = renderer;
         this.OnLoadoutChanged = onLoadoutChanged;
         this.OnPullResolved = onPullResolved;
+        this.Mode = mode;
         this.InitialFocusId = initialFocusId;
+
+        if (this.Mode == CardchaMachineMode.Portable)
+            this.Status = ModEntry.T("portable.machine.status.default");
 
         int left = this.xPositionOnScreen + 56;
         int right = this.xPositionOnScreen + this.width / 2 + 32;
@@ -260,7 +266,8 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         Game1.activeClickableMenu = new CardchaPullAnimationMenu(
             results,
             this.Renderer,
-            () => Reopen(returnFocusId)
+            () => Reopen(returnFocusId),
+            this.Mode
         );
     }
 
@@ -276,6 +283,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             this.Renderer,
             this.OnLoadoutChanged,
             this.OnPullResolved,
+            this.Mode,
             focusId
         );
 
@@ -294,9 +302,16 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             this.height
         );
 
-        // Handmade Cardcha console shell.
-        b.Draw(Game1.staminaRect, shell, new Color(48, 38, 45));
-        CardchaUi.DrawBorder(b, shell, new Color(24, 19, 23), 6);
+        // The stationary machine feels like a wooden arcade cabinet; the portable
+        // version is a bright magical handheld console with the same Cardcha identity.
+        Color shellColor = this.Mode == CardchaMachineMode.Portable
+            ? new Color(38, 53, 92)
+            : new Color(48, 38, 45);
+        Color shellEdge = this.Mode == CardchaMachineMode.Portable
+            ? new Color(21, 27, 55)
+            : new Color(24, 19, 23);
+        b.Draw(Game1.staminaRect, shell, shellColor);
+        CardchaUi.DrawBorder(b, shell, shellEdge, 6);
 
         Rectangle shellInset = new(
             shell.X + 8,
@@ -304,7 +319,10 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             shell.Width - 16,
             shell.Height - 16
         );
-        b.Draw(Game1.staminaRect, shellInset, new Color(92, 55, 49));
+        Color insetColor = this.Mode == CardchaMachineMode.Portable
+            ? new Color(67, 82, 139)
+            : new Color(92, 55, 49);
+        b.Draw(Game1.staminaRect, shellInset, insetColor);
         CardchaUi.DrawBorder(b, shellInset, CardchaUi.Gold * 0.82f, 3);
         CardchaUi.DrawCornerOrnaments(b, shellInset, CardchaUi.Gold * 0.62f);
 
@@ -317,7 +335,9 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         CardchaUi.DrawPaperHeader(
             b,
             sign,
-            ModEntry.T("machine.ui.title")
+            this.Mode == CardchaMachineMode.Portable
+                ? ModEntry.T("portable.machine.ui.title")
+                : ModEntry.T("machine.ui.title")
         );
 
         DrawMachine(b);
@@ -689,51 +709,95 @@ internal sealed class CardchaMachineMenu : IClickableMenu
     {
         try
         {
-            Texture2D texture = Game1.content.Load<Texture2D>(ItemAssetService.MachineUiTextureAsset);
+            Texture2D texture;
+            Rectangle source;
 
-            int normal = this.Resources.Count(DropService.CardboardScrapId);
-            int shiny = this.Resources.Count(DropService.ShinyScrapId);
-
-            int frame = 0;
-
-            if (this.Status == ModEntry.T("machine.no-scrap")
-                || this.Status == ModEntry.T("machine.no-shiny"))
+            if (this.Mode == CardchaMachineMode.Portable)
             {
-                frame = 3;
+                texture = ModEntry.StaticHelper!.ModContent.Load<Texture2D>("assets/portable_machine_ui.png");
+                source = texture.Bounds;
             }
             else
             {
-                double standardPity = this.Config.StandardLegendaryPity <= 0
-                    ? 0
-                    : this.Save.Data.StandardSinceLegendary / (double)this.Config.StandardLegendaryPity;
+                texture = Game1.content.Load<Texture2D>(ItemAssetService.MachineUiTextureAsset);
 
-                double premiumPity = this.Config.PremiumLegendaryPity <= 0
-                    ? 0
-                    : this.Save.Data.PremiumSinceLegendary / (double)this.Config.PremiumLegendaryPity;
+                int normal = this.Resources.Count(DropService.CardboardScrapId);
+                int shiny = this.Resources.Count(DropService.ShinyScrapId);
+                int frame = 0;
 
-                if (Math.Max(standardPity, premiumPity) >= 0.75)
-                    frame = 2;
-                else if (normal >= this.Config.StandardPullCost * 10 || shiny >= this.Config.PremiumPullCost * 10)
-                    frame = 1;
+                if (this.Status == ModEntry.T("machine.no-scrap")
+                    || this.Status == ModEntry.T("machine.no-shiny"))
+                {
+                    frame = 3;
+                }
+                else
+                {
+                    double standardPity = this.Config.StandardLegendaryPity <= 0
+                        ? 0
+                        : this.Save.Data.StandardSinceLegendary / (double)this.Config.StandardLegendaryPity;
+
+                    double premiumPity = this.Config.PremiumLegendaryPity <= 0
+                        ? 0
+                        : this.Save.Data.PremiumSinceLegendary / (double)this.Config.PremiumLegendaryPity;
+
+                    if (Math.Max(standardPity, premiumPity) >= 0.75)
+                        frame = 2;
+                    else if (normal >= this.Config.StandardPullCost * 10 || shiny >= this.Config.PremiumPullCost * 10)
+                        frame = 1;
+                }
+
+                source = new Rectangle(frame * 48, 0, 48, 96);
             }
 
-            Rectangle source = new(frame * 48, 0, 48, 96);
-
             double t = Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 1000.0;
-            float bob = (float)Math.Sin(t * 2.1) * 1.5f;
+            float bob = (float)Math.Sin(t * (this.Mode == CardchaMachineMode.Portable ? 2.8 : 2.1))
+                * (this.Mode == CardchaMachineMode.Portable ? 2.3f : 1.5f);
             float scale = 1f + (float)Math.Sin(t * 1.35) * 0.012f;
 
-            Vector2 origin = new(24f, 48f);
+            Vector2 origin = new(source.Width / 2f, source.Height / 2f);
             Vector2 center = new(
                 this.xPositionOnScreen + this.width / 2,
                 this.yPositionOnScreen + 126 + bob
             );
 
+            if (this.Mode == CardchaMachineMode.Portable)
+            {
+                Rectangle aura = new(
+                    (int)center.X - 56,
+                    (int)center.Y - 74,
+                    112,
+                    148
+                );
+                float auraAlpha = 0.10f + (float)(Math.Sin(t * 3.1) + 1.0) * 0.055f;
+                b.Draw(Game1.staminaRect, aura, new Color(106, 184, 255) * auraAlpha);
+                CardchaUi.DrawBorder(b, aura, CardchaUi.Gold * 0.42f, 2);
+                scale *= 1.18f;
+            }
+
             b.Draw(texture, center, source, Color.White, 0f, origin, scale, SpriteEffects.None, 1f);
+
+            if (this.Mode == CardchaMachineMode.Portable && ModEntry.StaticHelper is not null)
+            {
+                Texture2D chaCha = ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/chacha_follow.png");
+                int frame = (int)(t * 5.5) % 4;
+                Rectangle chaSource = new(frame * 32, 0, 32, 32);
+                Vector2 chaPos = center + new Vector2(76f, -12f + (float)Math.Sin(t * 4.0) * 5f);
+                b.Draw(
+                    chaCha,
+                    chaPos,
+                    chaSource,
+                    Color.White,
+                    0f,
+                    new Vector2(16f, 16f),
+                    1.55f,
+                    SpriteEffects.None,
+                    1f
+                );
+            }
         }
         catch
         {
-            // Menu stays usable if the optional machine art can't load.
+            // Menu stays usable if optional machine art can't load.
         }
     }
 }

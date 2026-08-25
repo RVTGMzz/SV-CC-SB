@@ -10,7 +10,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 9;
+    private const int CurrentSchemaVersion = 11;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -111,6 +111,26 @@ internal sealed class SaveService
 
             if (this.Data.MimiMeetupCompleted && this.Data.MimiMerchantUnlockedDay < 0)
                 this.Data.MimiMerchantUnlockedDay = Math.Max(-1, Game1.Date.TotalDays - 1);
+        }
+
+        // v10: the Wizard-house appointment becomes a real quest and expires into a
+        // forced third-morning home visit. Old pending saves start their countdown today
+        // instead of unexpectedly firing the doorstep scene immediately after updating.
+        if (loadedSchema < 10)
+        {
+            if (this.Data.MimiMeetupPending && !this.Data.MimiMeetupCompleted)
+                this.Data.MimiMeetupOfferedDay = Game1.Date.TotalDays;
+            else if (this.Data.MimiMeetupCompleted)
+                this.Data.MimiMeetupOfferedDay = -1;
+        }
+
+        // v11: portable-machine entitlement is tracked separately from the physical item.
+        // No automatic grant on migration; the device is either bought from MiMi or earned at
+        // 50 unique cards. Existing debug items are detected by PortableMachineService on load.
+        if (loadedSchema < 11)
+        {
+            this.Data.PortableMachinePurchased = false;
+            this.Data.PortableMachineGifted = false;
         }
 
         if (loadedSchema < CurrentSchemaVersion)
@@ -272,7 +292,11 @@ internal sealed class SaveService
             data.Chapter1Completed ? 1 : 0,
             data.CardchaStoryChapter,
             data.CardchaStoryStage,
-            data.MimiMerchantUnlockedDay
+            data.MimiMerchantUnlockedDay,
+            data.FirstScrapPickupNoticeShown ? 1 : 0,
+            data.MimiMeetupOfferedDay,
+            data.PortableMachinePurchased ? 1 : 0,
+            data.PortableMachineGifted ? 1 : 0
         );
 
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));

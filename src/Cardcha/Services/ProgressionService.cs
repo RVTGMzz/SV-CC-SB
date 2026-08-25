@@ -1,6 +1,10 @@
 using Cardcha.Models;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewValley;
+using StardewValley.Menus;
+using StardewValley.Quests;
 using SObject = StardewValley.Object;
 
 namespace Cardcha.Services;
@@ -12,8 +16,13 @@ namespace Cardcha.Services;
 internal sealed class ProgressionService
 {
     public const string MachineLetterId = "Ronvotri.Cardcha_MachineLetter";
+    public const string MimiMeetupQuestId = "Ronvotri.Cardcha_MimiMeetupQuest";
+    private const string MimiMeetupQuestMarker = "Ronvotri.Cardcha/MimiMeetupQuest";
 
     public bool HasFirstScrapTriggered => this.Save.Data.FirstScrapTriggered;
+
+    private string CenterNoticeText = "";
+    private long CenterNoticeUntilMs;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -59,6 +68,13 @@ internal sealed class ProgressionService
         // If the letter was already read somehow but delivery didn't happen (e.g. upgrade edge case),
         // make the reward self-healing.
         TryDeliverMachineAfterLetter();
+
+        if (this.Save.Data.MimiMeetupPending && !this.Save.Data.MimiMeetupCompleted)
+            this.EnsureMimiMeetupQuest();
+        else
+            this.RemoveMimiMeetupQuest();
+
+        this.TryShowFirstScrapPickupNotice();
     }
 
     public void OnDayStarted()
@@ -68,6 +84,16 @@ internal sealed class ProgressionService
         // Chapter 1 onboarding is fully in-person:
         // MiMi visits first, then the Wizard hands over the rewards at the meetup.
         // No Cardcha reward is delivered through the mailbox.
+        if (this.Save.Data.MimiMeetupPending && !this.Save.Data.MimiMeetupCompleted)
+            this.EnsureMimiMeetupQuest();
+        else
+            this.RemoveMimiMeetupQuest();
+    }
+
+    public void OnReturnedToTitle()
+    {
+        this.CenterNoticeText = "";
+        this.CenterNoticeUntilMs = 0;
     }
 
     public void OnUpdate()
@@ -76,6 +102,11 @@ internal sealed class ProgressionService
         // Keep removing ONLY Cardcha's retired mail ID so the phantom "!" can't reappear.
         if (this.Save.Data.FirstScrapTriggered || this.Save.Data.MachineDelivered)
             ClearLegacyMachineMail();
+
+        this.TryShowFirstScrapPickupNotice();
+
+        if (this.Save.Data.MimiMeetupPending && !this.Save.Data.MimiMeetupCompleted)
+            this.EnsureMimiMeetupQuest();
     }
 
     public void OnFirstCardboardScrapDropped()
@@ -99,9 +130,8 @@ internal sealed class ProgressionService
         this.Save.Data.Chapter1Completed = false;
         this.Save.Save();
 
-        Game1.showGlobalMessage(this.Helper.Translation.Get("progress.scrap-found").ToString());
         this.Monitor.Log(
-            "First natural Cardboard Scrap drop detected. MiMi's farm visit is armed for the NEXT day.",
+            "First natural Cardboard Scrap drop detected. MiMi's farm visit is armed for the NEXT day; the centered discovery notice waits until the player actually picks a Scrap up.",
             LogLevel.Info
         );
     }
@@ -139,9 +169,11 @@ internal sealed class ProgressionService
 
         this.Save.Data.MimiIntroSeen = true;
         this.Save.Data.MimiMeetupPending = true;
+        this.Save.Data.MimiMeetupOfferedDay = Game1.Date.TotalDays;
         this.Save.Data.CardchaStoryChapter = 1;
         this.Save.Data.CardchaStoryStage = 2;
         this.Save.Save();
+        this.EnsureMimiMeetupQuest();
 
         Game1.showGlobalMessage(
             this.Helper.Translation.Get("story.mimi.objective").ToString()
@@ -160,6 +192,7 @@ internal sealed class ProgressionService
 
         this.Save.Data.MimiMeetupPending = false;
         this.Save.Data.MimiMeetupCompleted = true;
+        this.Save.Data.MimiMeetupOfferedDay = -1;
         this.Save.Data.ChaChaLoaned = true;
         this.Save.Data.FirstPullQuestActive = true;
         this.Save.Data.FirstPullCompleted = false;
@@ -169,12 +202,32 @@ internal sealed class ProgressionService
         this.Save.Data.MimiMerchantUnlockedDay = Game1.Date.TotalDays;
 
         this.DeliverMachineDirectly();
+        this.RemoveMimiMeetupQuest();
         this.Save.Save();
 
         this.Monitor.Log(
             "Cardcha Story Chapter 1 handoff completed: MiMi introduced the player and the Wizard delivered the Machine + Binder.",
             LogLevel.Info
         );
+    }
+
+    public bool ShouldForceMimiHomeVisit()
+    {
+        if (!Context.IsWorldReady
+            || !this.Save.Data.MimiMeetupPending
+            || this.Save.Data.MimiMeetupCompleted
+            || this.Save.Data.MachineDelivered)
+        {
+            return false;
+        }
+
+        int offeredDay = this.Save.Data.MimiMeetupOfferedDay;
+        if (offeredDay < 0)
+            return false;
+
+        // The appointment day is day 1. If the player also ignores day 2, MiMi and
+        // the Wizard arrive at the start of day 3: offeredDay + 2.
+        return Game1.Date.TotalDays >= offeredDay + 2;
     }
 
     public bool OnPullResolved(PullType type, int count)
@@ -239,6 +292,140 @@ internal sealed class ProgressionService
         );
     }
 
+    public void DrawCenteredNotice(SpriteBatch b)
+    {
+        if (string.IsNullOrWhiteSpace(this.CenterNoticeText)
+            || Environment.TickCount64 >= this.CenterNoticeUntilMs
+            || Game1.activeClickableMenu is not null)
+        {
+            return;
+        }
+
+        const int maxTextWidth = 620;
+        string wrapped = Game1.parseText(this.CenterNoticeText, Game1.dialogueFont, maxTextWidth);
+        Vector2 measured = Game1.dialogueFont.MeasureString(wrapped);
+        int width = Math.Max(420, Math.Min(maxTextWidth + 64, (int)measured.X + 64));
+        int height = Math.Max(116, (int)measured.Y + 54);
+        int x = (Game1.uiViewport.Width - width) / 2;
+        int y = Math.Max(80, (Game1.uiViewport.Height - height) / 2 - 80);
+
+        IClickableMenu.drawTextureBox(
+            b,
+            Game1.menuTexture,
+            new Rectangle(0, 256, 60, 60),
+            x,
+            y,
+            width,
+            height,
+            Color.White,
+            1f,
+            true
+        );
+        Utility.drawTextWithShadow(
+            b,
+            wrapped,
+            Game1.dialogueFont,
+            new Vector2(x + 32, y + 24),
+            Game1.textColor
+        );
+    }
+
+    private void TryShowFirstScrapPickupNotice()
+    {
+        if (!Context.IsWorldReady
+            || !this.Save.Data.FirstScrapTriggered
+            || this.Save.Data.FirstScrapPickupNoticeShown
+            || !PlayerHasCardboardScrap())
+        {
+            return;
+        }
+
+        this.Save.Data.FirstScrapPickupNoticeShown = true;
+        this.CenterNoticeText = this.Helper.Translation.Get("progress.scrap-found").ToString();
+        this.CenterNoticeUntilMs = Environment.TickCount64 + 6000;
+        this.Save.Save();
+        Game1.playSound("discoverMineral");
+    }
+
+    private static bool PlayerHasCardboardScrap()
+    {
+        if (!Context.IsWorldReady || Game1.player is null)
+            return false;
+
+        string qualified = $"(O){DropService.CardboardScrapId}";
+        foreach (Item? item in Game1.player.Items)
+        {
+            if (item is not null
+                && (string.Equals(item.QualifiedItemId, qualified, StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(item.ItemId, DropService.CardboardScrapId, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void EnsureMimiMeetupQuest()
+    {
+        if (!Context.IsWorldReady
+            || !this.Save.Data.MimiMeetupPending
+            || this.Save.Data.MimiMeetupCompleted
+            || this.Save.Data.MachineDelivered)
+        {
+            return;
+        }
+
+        foreach (Quest existing in Game1.player.questLog)
+        {
+            if (string.Equals(existing.id.Value, MimiMeetupQuestId, StringComparison.OrdinalIgnoreCase)
+                || existing.modData.ContainsKey(MimiMeetupQuestMarker))
+            {
+                existing.questTitle = this.Helper.Translation.Get("story.mimi.quest-title").ToString();
+                existing.questDescription = this.Helper.Translation.Get("story.mimi.quest-description").ToString();
+                existing.currentObjective = this.Helper.Translation.Get("story.mimi.quest-objective").ToString();
+                existing.canBeCancelled.Value = false;
+                return;
+            }
+        }
+
+        Quest quest = new Quest();
+        quest.id.Value = MimiMeetupQuestId;
+        quest.questType.Value = Quest.type_basic;
+        quest.questTitle = this.Helper.Translation.Get("story.mimi.quest-title").ToString();
+        quest.questDescription = this.Helper.Translation.Get("story.mimi.quest-description").ToString();
+        quest.currentObjective = this.Helper.Translation.Get("story.mimi.quest-objective").ToString();
+        quest.accepted.Value = true;
+        quest.showNew.Value = true;
+        quest.dailyQuest.Value = false;
+        quest.canBeCancelled.Value = false;
+        quest.modData[MimiMeetupQuestMarker] = "1";
+        Game1.player.questLog.Add(quest);
+        Game1.dayTimeMoneyBox.questsDirty = true;
+    }
+
+    private void RemoveMimiMeetupQuest()
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        List<Quest> remove = new();
+        foreach (Quest quest in Game1.player.questLog)
+        {
+            if (string.Equals(quest.id.Value, MimiMeetupQuestId, StringComparison.OrdinalIgnoreCase)
+                || quest.modData.ContainsKey(MimiMeetupQuestMarker))
+            {
+                remove.Add(quest);
+            }
+        }
+
+        foreach (Quest quest in remove)
+            Game1.player.questLog.Remove(quest);
+
+        if (remove.Count > 0)
+            Game1.dayTimeMoneyBox.questsDirty = true;
+    }
+
     public string DescribeState()
     {
         bool read = Context.IsWorldReady && Game1.player.mailReceived.Contains(MachineLetterId);
@@ -253,6 +440,7 @@ internal sealed class ProgressionService
             $"Stage={this.Save.Data.CardchaStoryStage} | " +
             $"MiMiIntro={this.Save.Data.MimiIntroSeen} | " +
             $"MeetupPending={this.Save.Data.MimiMeetupPending} | " +
+            $"MeetupOfferedDay={this.Save.Data.MimiMeetupOfferedDay} | ForceHome={this.ShouldForceMimiHomeVisit()} | " +
             $"MeetupDone={this.Save.Data.MimiMeetupCompleted} | " +
             $"ChaChaLoaned={this.Save.Data.ChaChaLoaned} | " +
             $"FirstPullQuest={this.Save.Data.FirstPullQuestActive} | " +

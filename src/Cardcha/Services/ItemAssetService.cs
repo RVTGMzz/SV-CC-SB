@@ -3,6 +3,7 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley.GameData.BigCraftables;
 using StardewValley.GameData.Objects;
+using StardewValley;
 
 namespace Cardcha.Services;
 
@@ -11,8 +12,11 @@ internal sealed class ItemAssetService
     public const string TextureAsset = "Mods/Ronvotri.Cardcha/Items";
     public const string MachineTextureAsset = "Mods/Ronvotri.Cardcha/Machine";
     public const string MachineUiTextureAsset = "Mods/Ronvotri.Cardcha/MachineUi";
+    public const string PortableMachineTextureAsset = "Mods/Ronvotri.Cardcha/PortableMachine";
     public const string CardchaMachineId = "Ronvotri.Cardcha_Machine";
     public const string MachineMarkerKey = "Ronvotri.Cardcha/MachineInstance";
+    public const string PortableMachineId = "Ronvotri.Cardcha_PortableMachine";
+    public const string PortableMachineMarkerKey = "Ronvotri.Cardcha/PortableMachineInstance";
     public const string SuspiciousDustId = "Ronvotri.Cardcha_SuspiciousDust";
 
     private readonly IModHelper Helper;
@@ -39,6 +43,12 @@ internal sealed class ItemAssetService
         if (e.Name.IsEquivalentTo(MachineUiTextureAsset))
         {
             e.LoadFromModFile<Texture2D>("assets/machine_ui.png", AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(PortableMachineTextureAsset))
+        {
+            e.LoadFromModFile<Texture2D>("assets/portable_machine.png", AssetLoadPriority.Medium);
             return;
         }
 
@@ -89,8 +99,54 @@ internal sealed class ItemAssetService
                         ["Ronvotri.Cardcha/Machine"] = "true"
                     }
                 };
+                data[PortableMachineId] = new BigCraftableData
+                {
+                    Name = "Portable Cardcha Machine",
+                    DisplayName = this.Helper.Translation.Get("portable.machine.name").ToString(),
+                    Description = this.Helper.Translation.Get("portable.machine.desc").ToString(),
+                    Texture = PortableMachineTextureAsset,
+                    SpriteIndex = 0,
+                    Price = 0,
+                    Fragility = 0,
+                    CanBePlacedIndoors = false,
+                    CanBePlacedOutdoors = false,
+                    IsLamp = false,
+                    CustomFields = new Dictionary<string, string>
+                    {
+                        ["Ronvotri.Cardcha/PortableMachine"] = "true"
+                    }
+                };
             });
         }
+    }
+
+    public static bool IsPortableMachine(Item? item)
+    {
+        if (item is null)
+            return false;
+
+        try
+        {
+            if (string.Equals(item.QualifiedItemId, $"(BC){PortableMachineId}", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(item.ItemId, PortableMachineId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            return item.modData is not null
+                && item.modData.ContainsKey(PortableMachineMarkerKey);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    public static Item CreatePortableMachineItem()
+    {
+        Item item = ItemRegistry.Create($"(BC){PortableMachineId}");
+        item.modData[PortableMachineMarkerKey] = "1";
+        return item;
     }
 
     private static ObjectData MakeObject(string name, string description, int spriteIndex)

@@ -1,17 +1,29 @@
-# Cardcha: Shardbound v0.1.17-alpha.11.36
+# Cardcha! v0.1.17-alpha.11.41 — Circular HUD
 
-This Windows builder focuses on four gameplay corrections: MiMi actor cleanup, Scrap pickup feedback after the Binder handoff, Shiny Scrap pricing, and stationary Machine placement rules.
+This builder replaces the wide top-center Cardcha combat rows with compact circular buff slots.
 
-## Alpha 11.36
+## New in 11.41
+- Cardcha combat HUD stays at **top-center**, but now displays up to **3 circular icons in one horizontal row**.
+- No persistent long effect names are drawn across the screen.
+- Timed effects show a large integer countdown directly on the circle (`5 → 4 → 3 → 2 → 1`).
+- Timed effects also use a small depleting dot-ring around the circle so remaining duration is readable at a glance.
+- Hover a circle with the mouse, or touch it, to show a tooltip with:
+  - card/effect name;
+  - `BUFF`, `READY`, or `ACTIVATED` state;
+  - effect description;
+  - remaining duration/cooldown when relevant;
+  - current stacks for Chain Hunter.
+- Visual state language is compact:
+  - normal BUFF = gold ring;
+  - READY = green ring + check mark;
+  - ACTIVATED = purple pulsing ring + exclamation mark.
+- Existing fade/slide and priority remain: `ACTIVATED > READY > BUFF`.
+- Existing portable-machine UI and ChaCha fetch animation remain unchanged.
 
-- MiMi can no longer be left standing at the player's farm by a stale story exit state.
-- Scrap sent directly to the Binder wallet now shows Stardew's normal item-gained HUD toast.
-- MiMi prices: **Normal** — buy 1,000g / sell 100g; **Shiny** — buy 10,000g / sell 1,000g. (From MiMi's perspective: she buys Shiny for 1,000g and resells it for 10,000g.)
-- The stationary Cardcha Machine may only stay inside the **main FarmHouse**. Old misplaced copies are returned to the player on load.
-- Official art assets remain locked and unchanged.
+## Assets
+No official Cardcha art assets were edited. The circular HUD mask is generated at runtime by code.
 
-### Future direction (not activated in 11.36)
+## Build
+Run `BUILD_CARDCHA.bat` with Stardew Valley + SMAPI fully closed. Expected loaded build:
 
-Portable Cardcha Machine: MiMi sells it for 50,000g early; if the player reaches 50 unique Binder cards without buying it, she gives one free. At 80 unique cards, a hidden Binder-direct Cardcha function is planned, requiring the stationary Machine + portable Machine + a third story item/condition to be designed later.
-
-Run `BUILD_CARDCHA.bat`, then verify with `cardcha_version`.
+`Cardcha! v0.1.17-alpha.11.41 CIRCULAR HUD ACTIVE`
