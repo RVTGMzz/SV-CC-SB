@@ -81,6 +81,9 @@ jobs:
       - name: Apply alpha.6 compile correction
         run: python tools/apply_alpha6_compilefix.py
 
+      - name: Apply alpha.7 plaque, MiMi and shop fixes
+        run: python tools/apply_alpha7_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
