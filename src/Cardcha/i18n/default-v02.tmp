@@ -1,0 +1,8 @@
+binder.filter.active=Filtering: {{rarity}}.
+binder.boss.ready=Boss Slot unlocked.
+binder.boss.locked=Unlocks after collecting {{cards}} cards.
+binder.boss.short={{cards}} CARDS
+binder.detail.inspect-on=Inspecting star-upgrade requirements. Use Up/Down to scroll; press A or B to exit.
+binder.detail.inspect-exit=Left star-upgrade inspection.
+binder.detail.inspect-prompt-on=UP/DOWN: SCROLL • A/B: EXIT
+binder.detail.inspect-prompt-off=A: VIEW STAR REQUIREMENTS • DOWN: ACTIONS
