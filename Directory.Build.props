@@ -1,6 +1,9 @@
 <Project>
   <PropertyGroup>
-    <GamePath>E:\SteamLibrary\steamapps\common\Stardew Valley</GamePath>
+    <!-- Keep Ronvotri's local Windows path for desktop builds, but don't force it on Linux CI.
+         On GitHub Actions, SMAPI-ModBuildWorkflow provides reference assemblies in a standard
+         Linux Stardew path which ModBuildConfig can auto-detect. -->
+    <GamePath Condition="'$(OS)' == 'Windows_NT' and Exists('E:\SteamLibrary\steamapps\common\Stardew Valley')">E:\SteamLibrary\steamapps\common\Stardew Valley</GamePath>
     <ModZipPath>$(MSBuildThisFileDirectory)_releases</ModZipPath>
   </PropertyGroup>
 </Project>
