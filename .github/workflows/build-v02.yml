@@ -66,6 +66,9 @@ jobs:
               print(filename, 'translation keys:', len(data))
           PY
 
+      - name: Apply alpha.3 binder readability fixes
+        run: python tools/apply_alpha3_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
