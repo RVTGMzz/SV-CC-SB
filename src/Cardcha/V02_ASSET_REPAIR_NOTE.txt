@@ -1,0 +1,1 @@
+Binary binder assets will be replaced with valid PNG streams in the repair commit.
