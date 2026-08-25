@@ -69,6 +69,9 @@ jobs:
       - name: Apply alpha.3 binder readability fixes
         run: python tools/apply_alpha3_patch.py
 
+      - name: Apply alpha.4 UI and MiMi fixes
+        run: python tools/apply_alpha4_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
