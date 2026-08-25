@@ -93,6 +93,9 @@ jobs:
       - name: Apply alpha.9 compile correction
         run: python tools/apply_alpha9_compilefix.py
 
+      - name: Apply alpha.10 final UI and MiMi walk fixes
+        run: python tools/apply_alpha10_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
