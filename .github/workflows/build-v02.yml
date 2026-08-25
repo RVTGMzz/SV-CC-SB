@@ -87,6 +87,9 @@ jobs:
       - name: Apply alpha.8 visible MiMi departure
         run: python tools/apply_alpha8_patch.py
 
+      - name: Apply alpha.9 MiMi movement, shadows, shop colors and larger text
+        run: python tools/apply_alpha9_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
