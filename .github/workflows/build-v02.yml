@@ -1,0 +1,37 @@
+name: Cardcha v0.2 preview build
+
+on:
+  push:
+    branches:
+      - cardcha-v02-book-visual
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: false
+
+      - name: Add Stardew/SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Build Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
+
+      - name: Show release output
+        if: always()
+        run: |
+          echo "Release files:"
+          find _releases -maxdepth 2 -type f -print 2>/dev/null || true
+          echo "Build output:"
+          find src/Cardcha/bin/Release -maxdepth 4 -type f -print 2>/dev/null | head -100 || true
+
+      - name: Upload Cardcha preview zip
+        if: success()
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/upload-release-artifacts@v1
+        with:
+          path: _releases
+          create_attestations: false
