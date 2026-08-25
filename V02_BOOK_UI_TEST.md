@@ -22,3 +22,6 @@ Build/install with Stardew Valley + SMAPI closed, then run `cardcha_open_binder`
 
 ## Scope note
 The runtime registry currently still contains the implemented playable cards in `assets/cards.json`. The new Binder is layout-ready for the approved Base Set target of 80 cards and the five-rarity distribution. Boss-card combat/transformation mechanics are **not** activated by this visual pass; only the dedicated Boss Slot UI/progression placeholder is introduced.
+
+## CI
+The branch includes `.github/workflows/build-v02.yml`, which compiles against the official SMAPI/Stardew reference assemblies and uploads the generated preview zip as a GitHub Actions artifact.
