@@ -18,6 +18,54 @@ jobs:
       - name: Add Stardew/SMAPI build environment
         uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
+      - name: Repair preview translations
+        shell: bash
+        run: |
+          git fetch origin main --depth=1
+          git show origin/main:src/Cardcha/i18n/vi.json > /tmp/cardcha-vi-base.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('src/Cardcha/i18n')
+          base_vi = json.loads(Path('/tmp/cardcha-vi-base.json').read_text(encoding='utf-8-sig'))
+          current_vi = json.loads((root / 'vi.json').read_text(encoding='utf-8-sig'))
+          base_vi.update(current_vi)
+
+          v02_vi = {
+              'binder.filter.active': 'Đang lọc: {{rarity}}.',
+              'binder.boss.ready': 'Ô Boss đã được mở khóa.',
+              'binder.boss.locked': 'Mở khóa khi sở hữu {{cards}} thẻ.',
+              'binder.boss.short': '{{cards}} THẺ',
+              'binder.detail.inspect-on': 'Đang xem điều kiện nâng sao. Dùng ↑/↓ để cuộn; nhấn A hoặc B để thoát.',
+              'binder.detail.inspect-exit': 'Đã thoát phần xem điều kiện nâng sao.',
+              'binder.detail.inspect-prompt-on': '↑/↓: CUỘN  •  A/B: THOÁT',
+              'binder.detail.inspect-prompt-off': 'A: XEM ĐIỀU KIỆN NÂNG SAO  •  ↓: LỆNH',
+          }
+          base_vi.update(v02_vi)
+          (root / 'vi.json').write_text(json.dumps(base_vi, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          default = json.loads((root / 'default.json').read_text(encoding='utf-8-sig'))
+          default.update({
+              'binder.filter.active': 'Filtering: {{rarity}}.',
+              'binder.boss.ready': 'Boss Slot unlocked.',
+              'binder.boss.locked': 'Unlocks after collecting {{cards}} cards.',
+              'binder.boss.short': '{{cards}} CARDS',
+              'binder.detail.inspect-on': 'Inspecting star-upgrade requirements. Use Up/Down to scroll; press A or B to exit.',
+              'binder.detail.inspect-exit': 'Left star-upgrade inspection.',
+              'binder.detail.inspect-prompt-on': 'UP/DOWN: SCROLL  •  A/B: EXIT',
+              'binder.detail.inspect-prompt-off': 'A: VIEW STAR REQUIREMENTS  •  DOWN: ACTIONS',
+          })
+          (root / 'default.json').write_text(json.dumps(default, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          for filename in ('vi.json', 'default.json'):
+              data = json.loads((root / filename).read_text(encoding='utf-8'))
+              missing = [k for k in v02_vi if k not in data]
+              if missing:
+                  raise SystemExit(f'{filename} missing v0.2 keys: {missing}')
+              print(filename, 'translation keys:', len(data))
+          PY
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
