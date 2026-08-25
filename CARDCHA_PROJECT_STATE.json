@@ -30,11 +30,12 @@
     "card_grid": "focus auto-updates detail page",
     "detail_scroll": "focusable; left stick/D-pad up/down scrolls upgrade/effect info"
   },
-  "next_priority": "test Binder controller right-edge navigation, same-day MiMi merchant, first post-handoff tease, and higher circular HUD position",
+  "next_priority": "verify 11.45 Binder/MiMi/HUD regressions first; then plan implementation of the approved Boss Slot + ChaCha transformation progression without reporting it as active before code lands",
   "handoff_files": [
     "NEXT_SESSION_START_HERE.md",
     "BUILD_HISTORY.md",
-    "CARDCHA_PROJECT_STATE.json"
+    "CARDCHA_PROJECT_STATE.json",
+    "design/CARDCHA_DESIGN_CURRENT.md"
   ],
   "latest_fix": "11.45: geometric Binder right-navigation to detail panel; MiMi merchant available same weekday after handoff; one-time collection reward tease; circular HUD lifted upward",
   "machine": {
@@ -78,5 +79,44 @@
     "forced_visit_trigger": "only after player warps from main FarmHouse to Farm on the third ignored-appointment morning",
     "controller_detail": "whole right info panel focusable; up/down scroll; left cards; right actions",
     "chacha_follow": "continuous fairy steering with soft NPC/player avoidance and distance-based catch-up speed; no terrain footprint freeze or long-distance respawn"
+  },
+  "design_2026_08_25": {
+    "implementation_status": "DESIGN ONLY; not yet active in v0.1.17-alpha.11.45",
+    "base_collection": 80,
+    "rarity_counts": {
+      "Common": 27,
+      "Rare": 23,
+      "Epic": 16,
+      "Legendary": 10,
+      "Mythic": 4
+    },
+    "art_design_done_1_to_10": [
+      "Iron Edge",
+      "Thick Hide",
+      "Keen Eye",
+      "Swift Feet",
+      "Blood Fang",
+      "Executioner",
+      "Card Seeker",
+      "Chain Hunter",
+      "Last Stand",
+      "Phoenix Heart"
+    ],
+    "normal_slots": "start at 1; progress toward max 5; exact unlock milestones 2-5 still open",
+    "boss_milestones": [20, 40, 60, 80],
+    "boss_card_reward": "first-clear milestone Boss Card is auto-granted as a special progression reward outside the Common-Mythic Base pool",
+    "boss_slot": "one dedicated circular slot, separate from normal slots; planned unlock at first 20/80 milestone",
+    "boss_activation": "combat fills Boss Energy; when READY the player manually activates the Boss Slot",
+    "chacha_transformation": "equipped Boss Card transforms ChaCha into that Boss Form for a limited duration; preferred scripted/controlled combat behavior rather than permanent companion AI",
+    "ultimate_build": "new Ultimate/Boss Sync card family can modify Boss Energy gain, duration, retained energy, overcharge, and capped extension mechanics",
+    "duplicate_flow": "duplicate before Max Star contributes to normal card upgrade; further duplicates after Max Star convert to Suspicious Dust",
+    "dust_future_sink": "level the Boss Slot/Boss system, prioritizing energy efficiency/duration utility over large direct-damage scaling",
+    "ticket_sense": "removed; replaced by Victory Charge",
+    "victory_charge": "Common Ultimate/Boss Sync; kill-based Boss Energy gain bonus; spreadsheet draft +10/+15/+20/+25/+30 percent from 1-5 stars",
+    "essence_finder": "Rare; after Cardboard Scrap or Shiny Cardboard Scrap has already dropped, level-scaled chance adds +1 of that same Scrap type; does not increase whether a Scrap drop occurs",
+    "essence_finder_draft_chance": "8-16% across star progression",
+    "normal_direct_card_drops": false,
+    "design_doc": "design/CARDCHA_DESIGN_CURRENT.md",
+    "design_workbook_local_snapshot": "Cardcha_BaseSet80_Design_Tracker_v0.1.5_EssenceFinderRare.xlsx"
   }
 }
