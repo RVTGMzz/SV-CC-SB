@@ -79,6 +79,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private int DetailContentHeight = 1;
     private bool DetailScrollDragging;
     private int DetailScrollDragOffset;
+    private bool DetailInspectMode;
 
     private long LastQuickClickAtMs;
     private string LastQuickClickKey = "";
@@ -369,17 +370,32 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
         {
-            if (direction == 0) { this.ScrollDetailBy(-28); return; }
-            if (direction == 2) { this.ScrollDetailBy(28); return; }
-            if (direction == 3)
+            if (this.DetailInspectMode)
             {
-                if (this.CardButtons.Count > 0)
-                    this.Focus(this.CardButtons[Math.Min(4, this.CardButtons.Count - 1)].Button);
-                else
-                    this.Focus(this.BossSlotButton);
-                return;
+                if (direction == 0) { this.ScrollDetailBy(-28); return; }
+                if (direction == 2) { this.ScrollDetailBy(28); return; }
+                if (direction == 3)
+                {
+                    this.DetailInspectMode = false;
+                    this.FocusCollectionFromDetail();
+                    return;
+                }
+                if (direction == 1)
+                {
+                    this.DetailInspectMode = false;
+                    this.Focus(this.EquipButton);
+                    return;
+                }
             }
-            if (direction == 1) { this.Focus(this.EquipButton); return; }
+            else
+            {
+                // Detail is a normal focus stop. A explicitly enters scroll/inspect mode;
+                // navigation remains free so the player never has to scroll to the bottom
+                // before reaching the action buttons.
+                if (direction == 3) { this.FocusCollectionFromDetail(); return; }
+                if (direction is 1 or 2) { this.Focus(this.EquipButton); return; }
+                if (direction == 0) { this.Focus(this.BossSlotButton); return; }
+            }
         }
 
         base.applyMovementKey(direction);
@@ -389,6 +405,14 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         if (b == Buttons.B)
         {
+            if (this.DetailInspectMode)
+            {
+                this.DetailInspectMode = false;
+                this.Status = ModEntry.T("binder.detail.inspect-exit");
+                Game1.playSound("smallSelect");
+                return;
+            }
+
             Game1.playSound("bigDeSelect");
             this.OnCloseToMachine();
             return;
@@ -396,18 +420,43 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
         {
-            if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp) { this.ScrollDetailBy(-28); return; }
-            if (b is Buttons.LeftThumbstickDown or Buttons.DPadDown) { this.ScrollDetailBy(28); return; }
-            if (b is Buttons.LeftThumbstickLeft or Buttons.DPadLeft)
+            if (b == Buttons.A)
             {
-                if (this.CardButtons.Count > 0)
-                    this.Focus(this.CardButtons[Math.Min(4, this.CardButtons.Count - 1)].Button);
-                else
-                    this.Focus(this.BossSlotButton);
+                this.DetailInspectMode = !this.DetailInspectMode;
+                this.Status = ModEntry.T(this.DetailInspectMode
+                    ? "binder.detail.inspect-on"
+                    : "binder.detail.inspect-exit");
+                Game1.playSound("smallSelect");
                 return;
             }
-            if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight) { this.Focus(this.EquipButton); return; }
-            if (b == Buttons.A) return;
+
+            if (this.DetailInspectMode)
+            {
+                if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp) { this.ScrollDetailBy(-28); return; }
+                if (b is Buttons.LeftThumbstickDown or Buttons.DPadDown) { this.ScrollDetailBy(28); return; }
+                if (b is Buttons.LeftThumbstickLeft or Buttons.DPadLeft)
+                {
+                    this.DetailInspectMode = false;
+                    this.FocusCollectionFromDetail();
+                    return;
+                }
+                if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight)
+                {
+                    this.DetailInspectMode = false;
+                    this.Focus(this.EquipButton);
+                    return;
+                }
+            }
+            else
+            {
+                if (b is Buttons.LeftThumbstickLeft or Buttons.DPadLeft) { this.FocusCollectionFromDetail(); return; }
+                if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight or Buttons.LeftThumbstickDown or Buttons.DPadDown)
+                {
+                    this.Focus(this.EquipButton);
+                    return;
+                }
+                if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp) { this.Focus(this.BossSlotButton); return; }
+            }
         }
 
         if (b == Buttons.A && this.currentlySnappedComponent is not null)
@@ -462,12 +511,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         {
             if (!tab.containsPoint(x, y)) continue;
 
-            this.ActiveRarityFilter = this.ActiveRarityFilter == rarity ? null : rarity;
+            this.ActiveRarityFilter = rarity;
             this.CollectionPage = 0;
             this.RebuildAfterCollectionChange();
-            this.Status = this.ActiveRarityFilter.HasValue
-                ? CardchaUi.RarityText(this.ActiveRarityFilter.Value)
-                : ModEntry.T("binder.collection");
+            this.Status = ModEntry.T(
+                "binder.filter.active",
+                new { rarity = CardchaUi.RarityText(rarity) }
+            );
             Game1.playSound("smallSelect");
             return;
         }
@@ -500,18 +550,28 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         {
             if (this.BossSlotUnlocked)
             {
-                this.Status = $"Boss Slot: READY FOR BOSS CARDS — {Math.Min(this.Save.Data.OwnedCards.Count, BaseCollectionTarget)}/{BaseCollectionTarget}";
+                this.Status = ModEntry.T("binder.boss.ready");
                 Game1.playSound("smallSelect");
             }
             else
             {
-                this.Status = $"Boss Slot unlocks at {BossUnlockMilestone}/{BaseCollectionTarget} Base Cards.";
+                this.Status = ModEntry.T("binder.boss.locked", new { cards = BossUnlockMilestone });
                 Game1.playSound("cancel");
             }
             return;
         }
 
-        if (this.Selected is not null && this.DetailScrollTrack.Contains(x, y))
+        if (this.Selected is not null && this.DetailScrollViewport.Contains(x, y))
+        {
+            this.DetailInspectMode = !this.DetailInspectMode;
+            this.Status = ModEntry.T(this.DetailInspectMode
+                ? "binder.detail.inspect-on"
+                : "binder.detail.inspect-exit");
+            Game1.playSound("smallSelect");
+            return;
+        }
+
+        if (this.Selected is not null && this.DetailInspectMode && this.DetailScrollTrack.Contains(x, y))
         {
             Rectangle thumb = this.GetDetailScrollThumb();
             this.DetailScrollDragging = true;
@@ -681,7 +741,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     public override void receiveScrollWheelAction(int direction)
     {
-        if (this.Selected is not null)
+        if (this.Selected is not null && this.DetailInspectMode)
         {
             Point mouse = new(Game1.getMouseX(ui_scale: true), Game1.getMouseY(ui_scale: true));
             if (this.DetailScrollViewport.Contains(mouse) || this.DetailScrollTrack.Contains(mouse))
@@ -695,7 +755,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     public override void leftClickHeld(int x, int y)
     {
-        if (this.DetailScrollDragging)
+        if (this.DetailInspectMode && this.DetailScrollDragging)
         {
             this.SetDetailScrollFromThumbY(y - this.DetailScrollDragOffset);
             return;
@@ -722,6 +782,14 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         this.currentlySnappedComponent = component;
         this.snapCursorToCurrentSnappedComponent();
+    }
+
+    private void FocusCollectionFromDetail()
+    {
+        if (this.CardButtons.Count > 0)
+            this.Focus(this.CardButtons[Math.Min(4, this.CardButtons.Count - 1)].Button);
+        else
+            this.Focus(this.BossSlotButton);
     }
 
     private bool IsQuickDoubleClick(string key)
@@ -783,7 +851,24 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.DrawActionButtons(b);
 
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
-            CardchaUi.DrawFocus(b, Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack));
+        {
+            Rectangle focusRect = Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack);
+            CardchaUi.DrawFocus(b, focusRect);
+            if (this.Selected is not null)
+            {
+                string prompt = ModEntry.T(this.DetailInspectMode
+                    ? "binder.detail.inspect-prompt-on"
+                    : "binder.detail.inspect-prompt-off");
+                Rectangle promptArea = new(
+                    this.DetailScrollViewport.X + this.SW(6),
+                    this.DetailScrollViewport.Bottom - this.SH(24),
+                    this.DetailScrollViewport.Width - this.SW(12),
+                    this.SH(20)
+                );
+                b.Draw(Game1.staminaRect, promptArea, new Color(67, 46, 39) * 0.90f);
+                CardchaUi.DrawScaledText(b, Game1.smallFont, prompt, promptArea, Color.White, centerX: true, centerY: true, padding: 3, maxScale: 0.72f);
+            }
+        }
         drawMouse(b);
     }
 
@@ -900,7 +985,17 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Color border = this.BossSlotUnlocked ? CardchaUi.Gold : new Color(122, 108, 94);
         this.DrawPixelCircle(b, r.Center, Math.Min(r.Width, r.Height) / 2, border);
         this.DrawPixelCircle(b, r.Center, Math.Max(4, Math.Min(r.Width, r.Height) / 2 - this.SW(4)), outer);
-        CardchaUi.DrawScaledText(b, Game1.smallFont, "BOSS", new Rectangle(r.X, r.Bottom - this.SH(19), r.Width, this.SH(18)), Color.White, centerX: true, centerY: true, padding: 1, maxScale: 0.65f);
+        CardchaUi.DrawScaledText(
+            b,
+            Game1.smallFont,
+            this.BossSlotUnlocked ? "BOSS" : ModEntry.T("binder.boss.short", new { cards = BossUnlockMilestone }),
+            new Rectangle(r.X, r.Bottom - this.SH(19), r.Width, this.SH(18)),
+            Color.White,
+            centerX: true,
+            centerY: true,
+            padding: 1,
+            maxScale: 0.62f
+        );
         if (!this.BossSlotUnlocked)
             this.DrawKeyholeBadge(b, new Rectangle(r.Center.X - this.SW(14), r.Center.Y - this.SH(20), this.SW(28), this.SH(31)));
         else
@@ -957,6 +1052,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("binder.level", new { level, max = maxLevel }), this.R(778, 210, 250, 22), CardchaUi.InkBrown, padding: 1, maxScale: 0.88f);
             CardchaUi.DrawStars(b, this.R(778, 236, 250, 22), level, maxLevel, CardchaUi.Gold);
             CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.Upgrades.GetLevelEffectText(this.Selected, level), this.R(684, 269, 356, 48), new Color(91, 63, 48), maxLines: 2, minScale: 0.62f, maxScale: 0.88f);
+
+            // Give the star-requirement area its own paper surface. This prevents the
+            // underlying book art from visually bleeding through on small UI scales.
+            b.Draw(Game1.staminaRect, this.DetailScrollViewport, new Color(239, 217, 178) * 0.96f);
+            CardchaUi.DrawBorder(b, this.DetailScrollViewport, new Color(151, 112, 75), 2);
             this.DrawScrollableDetailContent(b);
         }
 
@@ -1073,6 +1173,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         this.DetailScrollOffset = 0;
         this.DetailScrollDragging = false;
+        this.DetailInspectMode = false;
     }
 
     private void ScrollDetailBy(int delta)
@@ -1131,7 +1232,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         int height = Game1.smallFont.LineSpacing + this.SH(8);
         Rectangle vr = new(this.DetailScrollViewport.X, this.DetailScrollViewport.Y + virtualY - this.DetailScrollOffset, this.DetailScrollViewport.Width, height);
-        if (vr.Bottom >= this.DetailScrollViewport.Top && vr.Top <= this.DetailScrollViewport.Bottom)
+        if (vr.Top >= this.DetailScrollViewport.Top && vr.Bottom <= this.DetailScrollViewport.Bottom)
             Utility.drawTextWithShadow(b, text, Game1.smallFont, new Vector2(vr.X + this.SW(2), vr.Y + this.SH(2)), CardchaUi.InkBrown);
         virtualY += height + this.SH(2);
     }
@@ -1150,7 +1251,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             b.Draw(Game1.staminaRect, visible, current ? new Color(250, 226, 172) * 0.82f : new Color(237, 216, 181) * 0.62f);
             if (visible.Height >= this.SH(14)) CardchaUi.DrawBorder(b, visible, current ? CardchaUi.Gold * 0.72f : CardchaUi.PaperShadow * 0.58f, 2);
             Rectangle titleArea = new(vr.X + pad, vr.Y + this.SH(4), bodyWidth, titleHeight);
-            if (titleArea.Bottom >= this.DetailScrollViewport.Top && titleArea.Top <= this.DetailScrollViewport.Bottom)
+            if (titleArea.Top >= this.DetailScrollViewport.Top && titleArea.Bottom <= this.DetailScrollViewport.Bottom)
                 Utility.drawTextWithShadow(b, title, Game1.smallFont, new Vector2(titleArea.X, titleArea.Y), current ? new Color(126, 78, 39) : CardchaUi.InkBrown);
             Rectangle bodyArea = new(vr.X + pad, vr.Y + titleHeight, bodyWidth, bodyHeight);
             CardchaUi.DrawWrappedTextFixedClipped(b, Game1.smallFont, body, bodyArea, this.DetailScrollViewport, Color.Black, maximumLines: 5);
