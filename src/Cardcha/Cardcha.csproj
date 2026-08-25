@@ -15,6 +15,12 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- v0.2 visual implementation keeps the proven alpha binder source in-repo for reference,
+         but compiles the new balanced book implementation instead. -->
+    <Compile Remove="UI/CardchaBinderMenu.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Update="assets/**" CopyToOutputDirectory="PreserveNewest" />
     <None Update="i18n/**" CopyToOutputDirectory="PreserveNewest" />
     <None Update="manifest.json" CopyToOutputDirectory="PreserveNewest" />
