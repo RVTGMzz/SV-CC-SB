@@ -13,7 +13,7 @@ namespace Cardcha.Services;
 /// <summary>
 /// v0.1.17-alpha.11.38: MiMi mystery + merchant NPC runtime.
 /// Before the first Scrap she keeps the temporary 10:00-15:00 Town mystery routine for testing.
-/// After the Wizard handoff, trading starts the NEXT day and runs 11:00-17:00 Monday-Friday:
+/// After the Wizard handoff, trading is available immediately on the same weekday from 11:00-17:00:
 /// Town on normal days, or inside the WizardHouse during rain/harsh weather.
 /// </summary>
 internal sealed class MimiMysteryTownService
@@ -77,11 +77,13 @@ internal sealed class MimiMysteryTownService
     private bool DepartedToday;
     private FlightState Flight;
     private long FlightStartedMs;
+    private Vector2 FlightStartWorld = TownAnchor;
     private Vector2 WanderTarget = TownAnchor;
     private long NextWanderDecisionAtMs;
     private long LastWanderUpdateAtMs;
     private int WanderTargetIndex;
     private int WanderFacing = 2;
+    private bool MerchantPepTalkPendingOpen;
 
     public MimiMysteryTownService(
         IModHelper helper,
@@ -162,8 +164,11 @@ internal sealed class MimiMysteryTownService
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {
                     Visible = true,
-                    Offset = Point.Zero,
-                    Scale = 0.55f
+                    // 11.42: keep MiMi's native shadow tighter and shorter so it matches
+                    // vanilla villagers/player scale more closely instead of stretching far
+                    // beyond her small 32x48 sprite.
+                    Offset = new Point(0, -6),
+                    Scale = 0.38f
                 });
                 SetHome(mimi, "WizardHouse", 4, 6, "down");
 
@@ -229,11 +234,14 @@ internal sealed class MimiMysteryTownService
         this.DepartedToday = false;
         this.Flight = FlightState.None;
         this.FlightStartedMs = 0;
+        this.FlightStartWorld = TownAnchor;
         this.WanderTarget = TownAnchor;
         this.NextWanderDecisionAtMs = 0;
         this.LastWanderUpdateAtMs = 0;
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
+        this.MerchantPepTalkPendingOpen = false;
+        this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
     }
 
     public void OnTimeChanged(object? sender, TimeChangedEventArgs e)
@@ -303,10 +311,13 @@ internal sealed class MimiMysteryTownService
 
         // This also corrects stale/native schedule state from older installs/saves.
         if (this.Flight == FlightState.None)
+        {
             this.EnforceCurrentTimeState(allowAnimation: Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true);
-
-        this.UpdateNativeWander();
-        this.SyncChaChaWithMimi();
+            this.UpdateNativeWander();
+            this.SyncChaChaWithMimi();
+        }
+        // During broom flight, UpdateFlight owns BOTH MiMi and ChaCha so the normal follower
+        // sync cannot overwrite altitude/drawOffset and create a flicker or size-jump illusion.
 
         NPC? native = FindNativeNpc();
         if (native is not null)
@@ -400,7 +411,7 @@ internal sealed class MimiMysteryTownService
         return $"MysteryNativeNpc={(native is not null)} | MysteryVisible={this.IsVisibleNow()} | " +
                $"Flight={this.Flight} | ArrivedToday={this.ArrivedToday} | DepartedToday={this.DepartedToday} | " +
                $"MysteryTalkIndex={this.TalkIndex} | NativeLocation={location} | " +
-               $"RuntimeWindow=Town@10:00-15:00 + visible-departure grace to 16:00 | Merchant=Mon-Fri 11:00-17:00 Town/harsh-weather->WizardHouse, starts next day | " +
+               $"RuntimeWindow=Town@10:00-15:00 + visible-departure grace to 16:00 | Merchant=Mon-Fri 11:00-17:00 Town/harsh-weather->WizardHouse, same-day after handoff | " +
                $"MerchantActive={this.IsMerchantRoutineActive()} | PlazaAnchor=45,62 | Wander=True | HumanReactionsOnly=True | FirstScrap={this.Save.Data.FirstScrapTriggered}";
     }
 
@@ -417,6 +428,8 @@ internal sealed class MimiMysteryTownService
         this.LastWanderUpdateAtMs = CurrentGameMs();
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
+        this.MerchantPepTalkPendingOpen = false;
+        this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
     }
 
     private bool IsMerchantRoutineActive()
@@ -425,8 +438,8 @@ internal sealed class MimiMysteryTownService
             return false;
 
         int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;
-        bool nextDayReached = unlockedDay < 0 || Game1.Date.TotalDays > unlockedDay;
-        return nextDayReached && IsMerchantWeekday();
+        bool unlockedNow = unlockedDay < 0 || Game1.Date.TotalDays >= unlockedDay;
+        return unlockedNow && IsMerchantWeekday();
     }
 
     private void EnforcePhaseState()
@@ -451,14 +464,18 @@ internal sealed class MimiMysteryTownService
         if (!this.IsMerchantRoutineActive())
             return;
 
+        // Let the story service finish its short Wizard-house/farm departure animation first.
+        // As soon as it releases MiMi, the same-day merchant routine can place her normally.
+        if (this.StoryOwnsMimiActor())
+            return;
+
         if (Game1.timeOfDay < MerchantStartTime || Game1.timeOfDay >= MerchantEndTime)
         {
             this.HideNativeOffMap();
             return;
         }
 
-        // Trading never starts in Town on the Wizard handoff day. IsMerchantRoutineActive()
-        // only becomes true on a later day, which keeps the story exit presentation authoritative.
+        // Trading can start on the handoff day once the story presentation releases MiMi.
         if (IsHarshMerchantWeather())
             this.PlaceNativeInWizardHouseMerchant();
         else
@@ -515,7 +532,38 @@ internal sealed class MimiMysteryTownService
         this.Helper.Input.Suppress(e.Button);
         Game1.player.Halt();
         native.faceTowardFarmerForPeriod(1200, 3, false, Game1.player);
+
+        if (!this.Save.Data.MimiFirstMerchantPepTalkShown)
+        {
+            this.Save.Data.MimiFirstMerchantPepTalkShown = true;
+            this.Save.Save();
+            this.MerchantPepTalkPendingOpen = true;
+            this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
+            this.Helper.Events.Display.MenuChanged += this.OnMerchantPepTalkMenuChanged;
+            SetNpcDisplayName(native, "MiMi");
+            if (this.TryShowDialogueWithPortrait(native, ModEntry.T("mimi.shop.first-post-handoff") + "$1"))
+                return;
+
+            this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
+            this.MerchantPepTalkPendingOpen = false;
+        }
+
         this.OpenMimiShop();
+    }
+
+    private void OnMerchantPepTalkMenuChanged(object? sender, MenuChangedEventArgs e)
+    {
+        if (!this.MerchantPepTalkPendingOpen)
+            return;
+
+        if (e.OldMenu is not DialogueBox || e.NewMenu is not null)
+            return;
+
+        this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
+        this.MerchantPepTalkPendingOpen = false;
+
+        if (Context.IsWorldReady && this.IsMerchantRoutineActive())
+            this.OpenMimiShop();
     }
 
     private static bool IsMerchantWeekday()
@@ -693,6 +741,7 @@ internal sealed class MimiMysteryTownService
         Vector2 start = native.currentLocation == town ? native.Position : TownAnchor;
         this.Flight = FlightState.Departing;
         this.FlightStartedMs = CurrentGameMs();
+        this.FlightStartWorld = start;
         this.WorldActors.MoveMimiActor(native, town, start, 0, broom: true, visible: true);
         this.WorldActors.SetMimiFrame(native, 0, 0);
         Game1.playSound("wand");
@@ -712,26 +761,76 @@ internal sealed class MimiMysteryTownService
         long elapsed = CurrentGameMs() - this.FlightStartedMs;
         float raw = Math.Clamp(elapsed / (float)FlightDurationMs, 0f, 1f);
         float t = SmoothStep(raw);
-        Vector2 high = TownAnchor + new Vector2(0f, -7f * 64f);
-        Vector2 world = this.Flight == FlightState.Arriving
-            ? Vector2.Lerp(high, TownAnchor, t)
-            : Vector2.Lerp(TownAnchor, high, t);
-
-        int facing = this.Flight == FlightState.Arriving ? 2 : 0;
         int frame = (int)(CurrentGameMs() / 110L) % 4;
-        this.WorldActors.MoveMimiActor(native, town, world, facing, broom: true, visible: true);
-        this.WorldActors.SetMimiFrame(native, facing, frame);
-        native.rotation = this.Flight == FlightState.Arriving
-            ? (1f - t) * 0.035f
-            : t * -0.035f;
 
-        this.SyncChaChaWithMimi();
+        if (this.Flight == FlightState.Arriving)
+        {
+            Vector2 high = TownAnchor + new Vector2(0f, -7f * 64f);
+            Vector2 world = Vector2.Lerp(high, TownAnchor, t);
+            this.WorldActors.MoveMimiActor(native, town, world, 2, broom: true, visible: true);
+            this.WorldActors.SetMimiFrame(native, 2, frame);
+            native.rotation = (1f - t) * 0.035f;
+            this.SyncChaChaWithMimi();
+        }
+        else
+        {
+            // 11.43: world-Y is NOT altitude. Moving MiMi north through Town made her visibly
+            // phase into houses. Keep the ground anchor in open street space, raise the rendered
+            // sprite with drawOffset, then cruise horizontally while drawOnTop makes her clearly
+            // pass above roofs/buildings.
+            const float liftFraction = 0.48f;
+            Vector2 groundWorld;
+            float visualAltitude;
+            int facing;
+
+            if (raw < liftFraction)
+            {
+                float liftRaw = raw / liftFraction;
+                float lift = SmoothStep(liftRaw);
+                groundWorld = this.FlightStartWorld + new Vector2(MathHelper.Lerp(0f, 24f, lift), 0f);
+                visualAltitude = MathHelper.Lerp(0f, 220f, lift);
+                facing = 0;
+            }
+            else
+            {
+                float cruiseRaw = (raw - liftFraction) / (1f - liftFraction);
+                float cruise = SmoothStep(cruiseRaw);
+                groundWorld = this.FlightStartWorld + new Vector2(MathHelper.Lerp(24f, 370f, cruise), MathHelper.Lerp(0f, -18f, cruise));
+                visualAltitude = MathHelper.Lerp(220f, 248f, cruise);
+                facing = 1;
+            }
+
+            this.WorldActors.MoveMimiActor(native, town, groundWorld, facing, broom: true, visible: true);
+            this.WorldActors.SetMimiFrame(native, facing, frame);
+            native.drawOffset = new Vector2(0f, -visualAltitude);
+            native.drawOnTop = true;
+            native.hideShadow.Value = true;
+            native.rotation = raw < liftFraction
+                ? -0.012f
+                : -0.035f + (float)Math.Sin(CurrentGameMs() / 350.0) * 0.008f;
+
+            NPC? chacha = this.WorldActors.EnsureChaChaActor(
+                town,
+                groundWorld + new Vector2(-64f, 16f),
+                facing == 1 ? 3 : 2,
+                frame,
+                machine: false
+            );
+            if (chacha is not null)
+            {
+                chacha.drawOffset = new Vector2(0f, -visualAltitude + 10f);
+                chacha.drawOnTop = true;
+                chacha.hideShadow.Value = true;
+                chacha.rotation = 0f;
+            }
+        }
 
         if (elapsed < FlightDurationMs)
             return;
 
         FlightState finished = this.Flight;
         this.Flight = FlightState.None;
+        this.FlightStartWorld = TownAnchor;
         native.rotation = 0f;
 
         if (finished == FlightState.Arriving)

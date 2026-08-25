@@ -245,6 +245,5 @@
   "portable.pullanim.status.dive": "ChaCha dives in to fetch the card!",
   "portable.pullanim.status.fetch": "Got it! ChaCha is pulling the card out...",
   "portable.pullanim.status.present": "ChaCha brings the card to you!",
-  "portable.pullanim.status.reveal": "The card is awakening...",
-  "mimi.shop.first-post-handoff": "MiMi: Now that you have the machine, don't let it collect dust. Keep gathering lots of cards — hit the right milestone and I might have a surprise for you. Whether it's free or not... depends on my mood and my profit margin."
+  "portable.pullanim.status.reveal": "The card is awakening..."
 }

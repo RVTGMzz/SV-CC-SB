@@ -1,11 +1,8 @@
-# NEXT SESSION — Cardcha v0.1.17-alpha.11.41
-
-Current focus: circular top-center combat HUD.
+# NEXT SESSION — Cardcha v0.1.17-alpha.11.45
 
 Verify first:
-- `cardcha_version` reports 11.41 CIRCULAR HUD ACTIVE.
-- Top-center shows max 3 circular icons horizontally.
-- Timed effects count down 5→4→3→2→1 and their ring depletes.
-- Hover/touch opens the effect tooltip.
-- READY is green/check; ACTIVATED is purple/pulsing/!; BUFF is gold.
-- Portable Cardcha machine + ChaCha fetch from 11.39 still works.
+- Binder visually-rightmost card -> RIGHT -> detail panel.
+- Detail up/down scrolls and left/right exits correctly.
+- MiMi works same weekday after handoff once story exit ends.
+- First post-handoff merchant interaction gives one-time surprise-reward tease.
+- Circular buff HUD sits higher.

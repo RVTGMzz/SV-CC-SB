@@ -114,7 +114,9 @@ internal sealed class CombatHudRenderer
         int gap = Math.Max(6, (int)(10 * scale));
         int groupW = visible.Count * diameter + Math.Max(0, visible.Count - 1) * gap;
 
-        int baseY = Math.Clamp((int)(Game1.uiViewport.Height * 0.075f), 28, 84);
+        // 11.45: lift the circular HUD by roughly half of its previous top gap.
+        // This keeps it top-center but closer to the screen edge, leaving more room below.
+        int baseY = Math.Clamp((int)(Game1.uiViewport.Height * 0.040f), 18, 48);
         int baseX = (Game1.uiViewport.Width - groupW) / 2;
 
         int mouseX = Game1.getMouseX();

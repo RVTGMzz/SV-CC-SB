@@ -1,7 +1,3 @@
-# ASSET POLICY — Alpha 11.41
+# ASSET POLICY — Alpha 11.45
 
-The official Cardcha art set remains locked. Alpha 11.41 is a **code-only circular HUD pass**.
-
-- No existing PNG/JSON art asset is regenerated, resized, recolored, or overwritten.
-- The circular HUD background/mask is generated at runtime in memory.
-- Existing portable-machine artwork from 11.39 remains byte-for-byte unchanged.
+Code/UI/story logic pass only. Existing official assets must remain byte-identical. No sprite sheet is regenerated or edited in this build.

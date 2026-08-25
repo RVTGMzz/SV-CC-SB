@@ -25,6 +25,7 @@ internal sealed class CardchaStoryService
     {
         None,
         MimiOnBroom,
+        MimiFarmGreeting,
         MimiMeetup,
         ForcedHomeVisit,
         MimiDeparting
@@ -60,8 +61,13 @@ internal sealed class CardchaStoryService
     private int ChaChaFollowerBlockedTicks;
     private bool MeetupExitPending;
     private Vector2 MeetupExitTarget;
+    private bool IntroDeparturePending;
+    private Vector2 IntroDepartureStart;
+    private Vector2 IntroDepartureControl;
+    private Vector2 IntroDepartureTarget;
     private NPC? ForcedWizardActor;
     private long ForcedHomeNotBefore;
+    private bool ForcedHomeDoorstepPending;
 
     private Texture2D? MasterPortraitSheet;
     private Texture2D? RuntimePortraitSheet;
@@ -88,7 +94,8 @@ internal sealed class CardchaStoryService
         => this.Scene != SceneKind.None
            || this.Visual != VisualMode.None
            || this.IntroArrivalPending
-           || this.MeetupExitPending;
+           || this.MeetupExitPending
+           || this.IntroDeparturePending;
 
     public void OnSaveLoaded()
     {
@@ -124,9 +131,13 @@ internal sealed class CardchaStoryService
         if (!Context.IsWorldReady)
             return;
 
-        if (this.Progression.ShouldForceMimiHomeVisit() && this.IsMainFarmHouse(e.NewLocation))
+        if (this.Progression.ShouldForceMimiHomeVisit()
+            && this.IsMainFarmHouse(e.OldLocation)
+            && e.NewLocation == Game1.getFarm())
         {
-            this.TryStartForcedHomeVisit();
+            // 11.44: the day-three intervention is a doorstep ambush, not a bedside ambush.
+            // Arm the scene only after the player actually walks out of the farmhouse.
+            this.ForcedHomeDoorstepPending = true;
             return;
         }
 
@@ -141,15 +152,18 @@ internal sealed class CardchaStoryService
         if (!Context.IsWorldReady)
             return;
 
-        if (this.Progression.ShouldForceMimiHomeVisit()
+        if (this.ForcedHomeDoorstepPending
+            && this.Progression.ShouldForceMimiHomeVisit()
             && this.Scene == SceneKind.None
             && !this.DialogueOpen
+            && Game1.currentLocation == Game1.getFarm()
             && Environment.TickCount64 >= this.ForcedHomeNotBefore)
         {
             this.TryStartForcedHomeVisit();
         }
 
         this.UpdateSceneWorldActors();
+        this.UpdateIntroDeparture();
         this.UpdateMimiMeetupExit();
 
         if (this.ShouldDrawLoanedChaCha())
@@ -157,7 +171,7 @@ internal sealed class CardchaStoryService
             this.UpdateChaChaFollowerPosition();
             this.SyncChaChaFollowerActor();
         }
-        else if (this.Scene == SceneKind.None && !this.MeetupExitPending)
+        else if (this.Scene == SceneKind.None && !this.MeetupExitPending && !this.IntroDeparturePending)
         {
             this.ChaChaFollowerInitialized = false;
             this.WorldActors.HideChaChaActor();
@@ -166,7 +180,9 @@ internal sealed class CardchaStoryService
         if (this.IntroArrivalPending)
         {
             Game1.player.Halt();
-            if (Environment.TickCount64 - this.SceneVisualStartedAt >= 1700)
+            // 11.42: MiMi is already physically waiting outside the farmhouse. We only
+            // leave a tiny beat so the player can see her before the dialogue opens.
+            if (Environment.TickCount64 - this.SceneVisualStartedAt >= 320)
                 this.BeginMimiIntroDialogue();
             return;
         }
@@ -177,10 +193,11 @@ internal sealed class CardchaStoryService
         if (!e.IsMultipleOf(15))
             return;
 
-        if (this.Progression.ShouldForceMimiHomeVisit())
+        if (this.ForcedHomeDoorstepPending && this.Progression.ShouldForceMimiHomeVisit())
         {
             this.TryStartForcedHomeVisit();
-            return;
+            if (this.Scene == SceneKind.ForcedHomeVisit)
+                return;
         }
 
         if (Game1.currentLocation == Game1.getFarm())
@@ -243,21 +260,22 @@ internal sealed class CardchaStoryService
         }
 
         this.Scene = SceneKind.MimiIntro;
-        this.Visual = VisualMode.MimiOnBroom;
-        this.SceneAnchor = Game1.player.Position + new Vector2(-136f, -88f);
+        this.Visual = VisualMode.MimiFarmGreeting;
+        // 11.42: instead of talking "from nowhere", MiMi now waits in front of the
+        // farmhouse / porch so the player physically sees her first.
+        this.SceneAnchor = Game1.player.Position + new Vector2(-108f, -12f);
         this.SceneVisualStartedAt = Environment.TickCount64;
         this.Lines = Array.Empty<string>();
         this.DialogueIndex = 0;
         this.DialogueOpen = false;
         this.IntroArrivalPending = true;
 
-        // The player sees MiMi physically fly in first. Dialogue begins only after
-        // the broom landing animation completes.
         Game1.playSound("wand");
+        PlayMagicArrival(Game1.getFarm(), this.SceneAnchor + new Vector2(32f, 38f));
         Game1.player.Halt();
 
         this.Monitor.Log(
-            "Cardcha Chapter 1: NEXT-DAY MiMi farm broom arrival started; dialogue waits for landing.",
+            "Cardcha Chapter 1: MiMi farmhouse greeting started; she now appears in front of the house before speaking.",
             LogLevel.Info
         );
     }
@@ -295,7 +313,7 @@ internal sealed class CardchaStoryService
         }
 
         GameLocation? home = Game1.currentLocation;
-        if (home is null || !this.IsMainFarmHouse(home))
+        if (home is null || home != Game1.getFarm())
             return;
 
         if (Game1.activeClickableMenu is not null
@@ -305,9 +323,12 @@ internal sealed class CardchaStoryService
             return;
         }
 
+        this.ForcedHomeDoorstepPending = false;
         this.Scene = SceneKind.ForcedHomeVisit;
         this.Visual = VisualMode.ForcedHomeVisit;
-        this.SceneAnchor = Game1.player.Position + new Vector2(-86f, 54f);
+        // Stage MiMi and the Wizard just outside the farmhouse after the player exits.
+        // They are offset from the doorway so the player isn't body-blocked on the threshold.
+        this.SceneAnchor = Game1.player.Position + new Vector2(-126f, 58f);
         this.SceneVisualStartedAt = Environment.TickCount64;
         this.Lines = new[]
         {
@@ -325,7 +346,7 @@ internal sealed class CardchaStoryService
         this.DialogueOpen = true;
 
         Vector2 mimiMagic = this.SceneAnchor + new Vector2(32f, 48f);
-        Vector2 wizardMagic = this.SceneAnchor + new Vector2(150f, 48f);
+        Vector2 wizardMagic = this.SceneAnchor + new Vector2(240f, 48f);
         PlayMagicArrival(home, mimiMagic);
         PlayMagicArrival(home, wizardMagic);
         Game1.playSound("wand");
@@ -460,10 +481,9 @@ internal sealed class CardchaStoryService
     {
         this.Progression.CompleteMimiIntro();
 
-        // The farm visit is a one-off story beat. Once MiMi has given the Wizard-house
-        // rendezvous, remove the native actor immediately so she can never linger at the
-        // player's front door for the rest of the day.
-        this.WorldActors.HideMimiActor();
+        // 11.42: after the greeting, MiMi visibly mounts the broom and flies up over
+        // the farmhouse instead of vanishing in place.
+        this.StartMimiIntroDeparture();
 
         Game1.playSound("smallSelect");
         Game1.addHUDMessage(
@@ -521,7 +541,7 @@ internal sealed class CardchaStoryService
         NPC? mimi = this.FindMimiNpc();
         NPC? wizardVisual = this.ForcedWizardActor;
         Vector2 mimiPos = mimi?.Position ?? this.SceneAnchor;
-        Vector2 wizardPos = wizardVisual?.Position ?? this.SceneAnchor + new Vector2(118f, 0f);
+        Vector2 wizardPos = wizardVisual?.Position ?? this.SceneAnchor + new Vector2(240f, 0f);
 
         this.Progression.CompleteWizardMeetup();
 
@@ -909,7 +929,12 @@ internal sealed class CardchaStoryService
         this.ChaChaFollowerBlockedTicks = 0;
         this.MeetupExitPending = false;
         this.MeetupExitTarget = Vector2.Zero;
+        this.IntroDeparturePending = false;
+        this.IntroDepartureStart = Vector2.Zero;
+        this.IntroDepartureControl = Vector2.Zero;
+        this.IntroDepartureTarget = Vector2.Zero;
         this.ForcedHomeNotBefore = 0;
+        this.ForcedHomeDoorstepPending = false;
         this.HideForcedWizardActor();
         this.WorldActors.HideChaChaActor();
     }
@@ -957,7 +982,6 @@ internal sealed class CardchaStoryService
         );
 
         Vector2 desired = Game1.player.Position + this.ChaChaFollowerOffset + slowFairyDrift;
-        Vector2 target = this.ResolveSafeChaChaFollowerTarget(desired);
 
         bool changedLocation = !string.Equals(
             this.ChaChaFollowerLocationKey,
@@ -965,13 +989,12 @@ internal sealed class CardchaStoryService
             StringComparison.OrdinalIgnoreCase
         );
 
-        // A true map warp or a huge separation may snap once. Normal player proximity NEVER
-        // teleports ChaCha anymore; it is resolved with smooth steering instead.
-        if (!this.ChaChaFollowerInitialized
-            || changedLocation
-            || Vector2.DistanceSquared(this.ChaChaFollowerWorld, target) > 380f * 380f)
+        // Snap only on a real map transition / first initialization. In 11.43 the broad
+        // tile-footprint safety test could reject nearly every small movement around farm
+        // clutter, leaving ChaCha frozen until the old 380px emergency teleport fired.
+        if (!this.ChaChaFollowerInitialized || changedLocation)
         {
-            this.ChaChaFollowerWorld = target;
+            this.ChaChaFollowerWorld = desired;
             this.ChaChaFollowerVelocity = Vector2.Zero;
             this.ChaChaFollowerInitialized = true;
             this.ChaChaFollowerLocationKey = locationKey;
@@ -980,77 +1003,48 @@ internal sealed class CardchaStoryService
         }
 
         this.ChaChaFollowerLocationKey = locationKey;
-        Vector2 toTarget = target - this.ChaChaFollowerWorld;
+        Vector2 toTarget = desired - this.ChaChaFollowerWorld;
+        float distance = toTarget.Length();
 
-        // Smooth spring flight. Lower acceleration and capped speed keep the little familiar
-        // gliding instead of flickering between points.
-        this.ChaChaFollowerVelocity += toTarget * (5.0f * dt);
-        this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 4.4f * dt);
+        // Fairy-flight steering: continuously chase the player instead of waiting for a
+        // far-distance respawn. The further ChaCha falls behind, the faster she catches up.
+        float spring = distance > 180f ? 12.0f : distance > 90f ? 9.0f : 6.8f;
+        this.ChaChaFollowerVelocity += toTarget * (spring * dt);
+        this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 3.1f * dt);
 
-        // If the player walks into ChaCha, push the familiar away smoothly rather than declaring
-        // its current position invalid and teleporting it.
+        // Softly avoid the player and nearby NPC bodies, but do NOT treat terrain tiles as
+        // hard blockers. ChaCha is flying and native world depth sorting already makes her
+        // pass behind/in front of scenery naturally.
         Vector2 chachaCenter = this.ChaChaFollowerWorld + new Vector2(16f, 20f);
         Vector2 playerCenter = Game1.player.Position + new Vector2(32f, 42f);
-        Vector2 away = chachaCenter - playerCenter;
-        float awayLenSq = away.LengthSquared();
-        if (awayLenSq > 0.001f && awayLenSq < 42f * 42f)
+        AddFollowerRepulsion(ref this.ChaChaFollowerVelocity, chachaCenter, playerCenter, 38f, 95f * dt);
+
+        foreach (NPC npc in location.characters)
         {
-            away.Normalize();
-            this.ChaChaFollowerVelocity += away * (72f * dt);
+            if (npc is null
+                || npc.isInvisible.Value
+                || string.Equals(npc.Name, WorldActorService.ChaChaNpcId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            AddFollowerRepulsion(
+                ref this.ChaChaFollowerVelocity,
+                chachaCenter,
+                npc.Position + new Vector2(32f, 36f),
+                42f,
+                70f * dt
+            );
         }
 
-        float maxSpeed = 165f;
+        float maxSpeed = distance > 240f ? 360f : distance > 120f ? 285f : 215f;
         float speed = this.ChaChaFollowerVelocity.Length();
         if (speed > maxSpeed)
             this.ChaChaFollowerVelocity *= maxSpeed / speed;
 
-        if (toTarget.LengthSquared() < 5f * 5f)
-            this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 6.0f * dt);
+        if (distance < 7f)
+            this.ChaChaFollowerVelocity *= Math.Max(0f, 1f - 7.5f * dt);
 
-        Vector2 step = this.ChaChaFollowerVelocity * dt;
-        Vector2 candidate = this.ChaChaFollowerWorld + step;
-
-        if (!this.IsChaChaWorldSafe(location, candidate, allowNearPlayer: true))
-        {
-            Vector2 slideX = this.ChaChaFollowerWorld + new Vector2(step.X, 0f);
-            Vector2 slideY = this.ChaChaFollowerWorld + new Vector2(0f, step.Y);
-            if (this.IsChaChaWorldSafe(location, slideX, allowNearPlayer: true))
-            {
-                candidate = slideX;
-                this.ChaChaFollowerVelocity.Y *= 0.20f;
-                this.ChaChaFollowerBlockedTicks = 0;
-            }
-            else if (this.IsChaChaWorldSafe(location, slideY, allowNearPlayer: true))
-            {
-                candidate = slideY;
-                this.ChaChaFollowerVelocity.X *= 0.20f;
-                this.ChaChaFollowerBlockedTicks = 0;
-            }
-            else
-            {
-                candidate = this.ChaChaFollowerWorld;
-                this.ChaChaFollowerVelocity *= 0.35f;
-                this.ChaChaFollowerBlockedTicks++;
-
-                // Only after being genuinely trapped for a while do a tiny local recovery. This
-                // is intentionally NOT tied to player proximity and cannot fire every few frames.
-                if (this.ChaChaFollowerBlockedTicks > 90)
-                {
-                    Vector2 recovery = this.ResolveSafeChaChaFollowerTarget(
-                        Game1.player.Position + this.ChaChaFollowerOffset
-                    );
-                    if (Vector2.DistanceSquared(recovery, this.ChaChaFollowerWorld) < 150f * 150f)
-                        candidate = Vector2.Lerp(this.ChaChaFollowerWorld, recovery, 0.20f);
-                    this.ChaChaFollowerBlockedTicks = 0;
-                }
-            }
-        }
-        else
-        {
-            this.ChaChaFollowerBlockedTicks = 0;
-        }
-
-        this.ChaChaFollowerWorld = candidate;
+        this.ChaChaFollowerWorld += this.ChaChaFollowerVelocity * dt;
+        this.ChaChaFollowerBlockedTicks = 0;
 
         Vector2 movement = this.ChaChaFollowerVelocity;
         if (movement.LengthSquared() >= 25f)
@@ -1073,15 +1067,17 @@ internal sealed class CardchaStoryService
 
         bool broom = this.Visual == VisualMode.MimiOnBroom
             && currentLocation == Game1.getFarm();
+        bool introGreeting = this.Visual == VisualMode.MimiFarmGreeting
+            && currentLocation == Game1.getFarm();
         bool meetup = this.Visual == VisualMode.MimiMeetup
             && currentLocation.NameOrUniqueName.Equals(
                 "WizardHouse",
                 StringComparison.OrdinalIgnoreCase
             );
         bool forcedHome = this.Visual == VisualMode.ForcedHomeVisit
-            && this.IsMainFarmHouse(currentLocation);
+            && currentLocation == Game1.getFarm();
 
-        if (!broom && !meetup && !forcedHome)
+        if (!broom && !introGreeting && !meetup && !forcedHome)
             return;
 
         GameLocation location = currentLocation;
@@ -1107,6 +1103,7 @@ internal sealed class CardchaStoryService
             this.WorldActors.MoveMimiActor(mimi, location, mimiWorld, mimiFacing, broom: true, visible: true);
             this.WorldActors.SetMimiFrame(mimi, mimiFacing, mimiFrame);
             mimi.rotation = (1f - arrive) * -0.075f + (float)Math.Sin(time * 2.8) * 0.010f;
+            mimi.hideShadow.Value = true;
         }
         else
         {
@@ -1115,22 +1112,32 @@ internal sealed class CardchaStoryService
                 ? (toPlayer.X >= 0f ? 1 : 3)
                 : (toPlayer.Y >= 0f ? 2 : 0);
 
-            float walkIn = Math.Clamp(sceneAge / 0.72f, 0f, 1f);
-            float eased = walkIn * walkIn * (3f - 2f * walkIn);
-            float entryX = mimiFacing == 3 ? -44f : 44f;
-            mimiWorld += new Vector2(MathHelper.Lerp(entryX, 0f, eased), 0f);
-            mimiFrame = walkIn < 1f
-                ? (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 125.0) % 4
-                : 0;
+            if (introGreeting)
+            {
+                mimiFrame = 0;
+            }
+            else
+            {
+                float walkIn = Math.Clamp(sceneAge / 0.72f, 0f, 1f);
+                float eased = walkIn * walkIn * (3f - 2f * walkIn);
+                float entryX = mimiFacing == 3 ? -44f : 44f;
+                mimiWorld += new Vector2(MathHelper.Lerp(entryX, 0f, eased), 0f);
+                mimiFrame = walkIn < 1f
+                    ? (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 125.0) % 4
+                    : 0;
+            }
 
             this.WorldActors.MoveMimiActor(mimi, location, mimiWorld, mimiFacing, broom: false, visible: true);
             this.WorldActors.SetMimiFrame(mimi, mimiFacing, mimiFrame);
             mimi.rotation = 0f;
+            mimi.hideShadow.Value = false;
         }
 
         Vector2 chachaWorld = broom
             ? mimiWorld + new Vector2(92f, 0f)
-            : mimiWorld + new Vector2(-76f, 8f);
+            : introGreeting
+                ? mimiWorld + new Vector2(-60f, -8f)
+                : mimiWorld + new Vector2(-76f, 8f);
         int chachaRow = broom ? 0 : 1;
         int chachaFrame = (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 160.0) % 4;
         NPC? chacha = this.WorldActors.EnsureChaChaActor(
@@ -1138,7 +1145,7 @@ internal sealed class CardchaStoryService
             chachaWorld,
             chachaRow,
             chachaFrame,
-            machine: true
+            machine: false
         );
         if (chacha is not null)
         {
@@ -1149,7 +1156,7 @@ internal sealed class CardchaStoryService
 
         if (forcedHome)
         {
-            Vector2 wizardWorld = this.SceneAnchor + new Vector2(118f, 0f);
+            Vector2 wizardWorld = this.SceneAnchor + new Vector2(240f, 0f);
             NPC wizard = this.EnsureForcedWizardActor(location, wizardWorld, 3);
             wizard.faceDirection(3);
             wizard.drawOffset = Vector2.Zero;
@@ -1183,6 +1190,24 @@ internal sealed class CardchaStoryService
             chacha.shouldShadowBeOffset = false;
             chacha.rotation = 0f;
         }
+    }
+
+    private static void AddFollowerRepulsion(
+        ref Vector2 velocity,
+        Vector2 from,
+        Vector2 obstacle,
+        float radius,
+        float strength)
+    {
+        Vector2 away = from - obstacle;
+        float lenSq = away.LengthSquared();
+        if (lenSq <= 0.001f || lenSq >= radius * radius)
+            return;
+
+        float len = (float)Math.Sqrt(lenSq);
+        away /= len;
+        float pressure = 1f - Math.Clamp(len / radius, 0f, 1f);
+        velocity += away * (strength * (0.35f + pressure));
     }
 
     private Vector2 ResolveSafeChaChaFollowerTarget(Vector2 desired)
@@ -1317,6 +1342,120 @@ internal sealed class CardchaStoryService
             b.Draw(Game1.staminaRect, new Rectangle((int)pos.X - s, (int)pos.Y, s * 2 + 1, 1), c);
             b.Draw(Game1.staminaRect, new Rectangle((int)pos.X, (int)pos.Y - s, 1, s * 2 + 1), c);
         }
+    }
+
+    private void StartMimiIntroDeparture()
+    {
+        GameLocation? farm = Game1.getFarm();
+        NPC? mimi = this.WorldActors.EnsureMimiActor();
+        if (farm is null || mimi is null)
+        {
+            this.WorldActors.HideMimiActor();
+            return;
+        }
+
+        Vector2 start = mimi.currentLocation == farm ? mimi.Position : this.SceneAnchor;
+        this.IntroDeparturePending = true;
+        this.SceneVisualStartedAt = Environment.TickCount64;
+        this.Visual = VisualMode.MimiDeparting;
+        this.IntroDepartureStart = start;
+        // These are now *ground anchors*, not fake altitude coordinates. 11.42 moved the
+        // NPC's world Y upward, which literally sent her into the farmhouse tiles. In 11.43
+        // altitude is handled with drawOffset while the actor stays in open ground space.
+        this.IntroDepartureControl = start + new Vector2(28f, 0f);
+        this.IntroDepartureTarget = start + new Vector2(360f, -26f);
+        Game1.playSound("wand");
+    }
+
+    private void UpdateIntroDeparture()
+    {
+        if (!this.IntroDeparturePending)
+            return;
+
+        GameLocation? location = Game1.currentLocation;
+        GameLocation? farm = Game1.getFarm();
+        NPC? mimi = this.WorldActors.EnsureMimiActor();
+        if (location is null || farm is null || mimi is null || location != farm)
+        {
+            this.IntroDeparturePending = false;
+            this.Visual = VisualMode.None;
+            this.IntroDepartureStart = Vector2.Zero;
+            this.IntroDepartureControl = Vector2.Zero;
+            this.IntroDepartureTarget = Vector2.Zero;
+            this.WorldActors.HideMimiActor();
+            return;
+        }
+
+        const float totalMs = 1900f;
+        const float liftFraction = 0.46f;
+        float raw = Math.Clamp((Environment.TickCount64 - this.SceneVisualStartedAt) / totalMs, 0f, 1f);
+
+        Vector2 groundWorld;
+        float visualAltitude;
+        int facing;
+
+        if (raw < liftFraction)
+        {
+            float liftRaw = raw / liftFraction;
+            float lift = liftRaw * liftRaw * (3f - 2f * liftRaw);
+
+            // Keep the feet anchor in front of the farmhouse and raise only the rendered body.
+            // This avoids crossing the wall/roof collision tiles while still looking airborne.
+            groundWorld = Vector2.Lerp(this.IntroDepartureStart, this.IntroDepartureControl, lift * 0.35f);
+            visualAltitude = MathHelper.Lerp(0f, 218f, lift);
+            facing = 0;
+        }
+        else
+        {
+            float cruiseRaw = (raw - liftFraction) / (1f - liftFraction);
+            float cruise = cruiseRaw * cruiseRaw * (3f - 2f * cruiseRaw);
+            groundWorld = Vector2.Lerp(this.IntroDepartureControl, this.IntroDepartureTarget, cruise);
+            visualAltitude = MathHelper.Lerp(218f, 250f, cruise);
+            facing = 1;
+        }
+
+        int frame = (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 110.0) % 4;
+        this.WorldActors.MoveMimiActor(mimi, farm, groundWorld, facing, broom: true, visible: true);
+        this.WorldActors.SetMimiFrame(mimi, facing, frame);
+        mimi.drawOffset = new Vector2(0f, -visualAltitude);
+        mimi.drawOnTop = true;
+        mimi.rotation = raw < liftFraction
+            ? -0.015f
+            : -0.035f + (float)Math.Sin(Game1.currentGameTime.TotalGameTime.TotalSeconds * 2.8) * 0.01f;
+        mimi.hideShadow.Value = true;
+
+        // ChaCha follows the same visual altitude with a small horizontal lag. Use the normal
+        // follower sheet here so its body size stays constant instead of cycling through machine
+        // animation frames with different silhouettes.
+        Vector2 chachaGround = groundWorld + new Vector2(-66f, 18f);
+        NPC? chacha = this.WorldActors.EnsureChaChaActor(
+            farm,
+            chachaGround,
+            facing == 1 ? 3 : 2,
+            frame,
+            machine: false
+        );
+        if (chacha is not null)
+        {
+            chacha.drawOffset = new Vector2(
+                0f,
+                -visualAltitude + (float)Math.Sin(Game1.currentGameTime.TotalGameTime.TotalSeconds * 3.0) * 1.4f + 8f
+            );
+            chacha.drawOnTop = true;
+            chacha.hideShadow.Value = true;
+            chacha.rotation = 0f;
+        }
+
+        if (raw < 1f)
+            return;
+
+        this.IntroDeparturePending = false;
+        this.Visual = VisualMode.None;
+        this.IntroDepartureStart = Vector2.Zero;
+        this.IntroDepartureControl = Vector2.Zero;
+        this.IntroDepartureTarget = Vector2.Zero;
+        this.WorldActors.HideMimiActor();
+        this.WorldActors.HideChaChaActor();
     }
 
     private void StartMimiMeetupExit()

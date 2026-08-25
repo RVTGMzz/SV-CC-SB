@@ -1,6 +1,6 @@
 {
   "project": "Cardcha!",
-  "version": "0.1.17-alpha.11.41",
+  "version": "0.1.17-alpha.11.45",
   "game_path": "E:\\SteamLibrary\\steamapps\\common\\Stardew Valley",
   "story": {
     "pre_scrap_mimi_name": "???",
@@ -10,7 +10,7 @@
     "meetup": "WizardHouse 13:00-17:00",
     "handoff_scrap_rule": "all physical Scrap in player backpack migrates into Binder wallet when Wizard handoff completes",
     "card_effect_unlock": "only after MiMiMeetupCompleted + MachineDelivered + BinderUnlocked",
-    "post_meetup_mimi": "no Town appearance on handoff day; weekday merchant starts on a later day",
+    "post_meetup_mimi": "weekday merchant can resume the same handoff day after story departure finishes",
     "merchant_window": "Monday-Friday 11:00-17:00",
     "merchant_clear_weather": "Town plaza",
     "merchant_harsh_weather": "WizardHouse",
@@ -30,13 +30,13 @@
     "card_grid": "focus auto-updates detail page",
     "detail_scroll": "focusable; left stick/D-pad up/down scrolls upgrade/effect info"
   },
-  "next_priority": "compile/test HUD top-center layout, max-three priority, activation/ready/buff badges, and portable-machine regression",
+  "next_priority": "test Binder controller right-edge navigation, same-day MiMi merchant, first post-handoff tease, and higher circular HUD position",
   "handoff_files": [
     "NEXT_SESSION_START_HERE.md",
     "BUILD_HISTORY.md",
     "CARDCHA_PROJECT_STATE.json"
   ],
-  "latest_fix": "Circular HUD: top-center horizontal circular buff slots, max 3, numeric countdown 5→4→3→2→1, depleting circular timer dots, hover/touch tooltip, ring-state distinction for BUFF/READY/ACTIVATED",
+  "latest_fix": "11.45: geometric Binder right-navigation to detail panel; MiMi merchant available same weekday after handoff; one-time collection reward tease; circular HUD lifted upward",
   "machine": {
     "stationary_placement": "main FarmHouse only; outdoor and other-interior placement rejected/recovered",
     "portable_future": "ACTIVE in 11.39: 50000g MiMi purchase; free at 50 unique cards if unowned; toolbar use opens dedicated Portable Cardcha UI; cannot be placed",
@@ -73,5 +73,10 @@
     "priority": "ACTIVATED > READY > BUFF",
     "animation": "180ms soft fade/slide in; 240ms fade/slide out",
     "activation": "Blood Fang and Phoenix Heart use Cardcha activation row; Phoenix no longer duplicates into vanilla left HUD"
+  },
+  "story_11_44": {
+    "forced_visit_trigger": "only after player warps from main FarmHouse to Farm on the third ignored-appointment morning",
+    "controller_detail": "whole right info panel focusable; up/down scroll; left cards; right actions",
+    "chacha_follow": "continuous fairy steering with soft NPC/player avoidance and distance-based catch-up speed; no terrain footprint freeze or long-distance respawn"
   }
 }

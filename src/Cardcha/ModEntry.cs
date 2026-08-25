@@ -161,7 +161,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.1.17-alpha.11.41 CIRCULAR HUD ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -604,7 +604,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.41 =====\n" +
+            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.45 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -695,7 +695,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.1.17-alpha.11.41 CIRCULAR HUD ACTIVE",
+            "Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE",
             LogLevel.Alert
         );
     }

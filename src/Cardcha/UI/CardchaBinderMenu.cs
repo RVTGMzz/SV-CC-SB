@@ -166,7 +166,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         ) { myID = ShinyScrapId };
 
         this.DetailScrollButton = new ClickableComponent(
-            this.DetailScrollTrack,
+            // Controller focus owns the whole right-side effect/upgrade information panel,
+            // not just the 14px scrollbar. This makes it obvious and reachable with a stick.
+            Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack),
             "detail-scroll"
         ) { myID = DetailScrollId };
 
@@ -321,7 +323,26 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     public override void applyMovementKey(int direction)
     {
         // 0=up, 1=right, 2=down, 3=left. Stardew routes D-pad/keyboard/left-stick
-        // SnappyMenus movement through this method, so the detail scrollbar is controller-native.
+        // SnappyMenus movement through this method. 11.44 explicitly bridges the card grid
+        // to the right-side detail panel so controller users can inspect upgrade text.
+        int currentId = this.currentlySnappedComponent?.myID ?? -1;
+        if (direction == 1
+            && currentId >= CardBaseId
+            && currentId < CardBaseId + this.CardButtons.Count)
+        {
+            // 11.45: don't assume the card grid is always five visible columns wide.
+            // UI scale / narrow resolutions can make a visually right-edge card live in
+            // column 1 or 2 even though its logical index isn't col=4. Walk to the nearest
+            // visible card on the same row; if there isn't one, move into the detail panel.
+            if (this.TryFocusCardToRight(currentId))
+                return;
+
+            this.currentlySnappedComponent = this.DetailScrollButton;
+            this.snapCursorToCurrentSnappedComponent();
+            Game1.playSound("shiny4");
+            return;
+        }
+
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
         {
             if (direction == 0)
@@ -335,9 +356,55 @@ internal sealed class CardchaBinderMenu : IClickableMenu
                 this.ScrollDetailBy(28);
                 return;
             }
+
+            if (direction == 3)
+            {
+                int targetIndex = Math.Min(4, Math.Max(0, this.CardButtons.Count - 1));
+                if (this.CardButtons.Count > 0)
+                {
+                    this.currentlySnappedComponent = this.CardButtons[targetIndex].Button;
+                    this.snapCursorToCurrentSnappedComponent();
+                }
+                return;
+            }
+
+            if (direction == 1)
+            {
+                this.currentlySnappedComponent = this.EquipButton;
+                this.snapCursorToCurrentSnappedComponent();
+                return;
+            }
         }
 
         base.applyMovementKey(direction);
+    }
+
+    private bool TryFocusCardToRight(int currentId)
+    {
+        int currentIndex = currentId - CardBaseId;
+        if (currentIndex < 0 || currentIndex >= this.CardButtons.Count)
+            return false;
+
+        ClickableComponent current = this.CardButtons[currentIndex].Button;
+        Point currentCenter = current.bounds.Center;
+        int rowTolerance = Math.Max(20, current.bounds.Height / 2);
+
+        ClickableComponent? next = this.CardButtons
+            .Select(p => p.Button)
+            .Where(p => p.myID != currentId
+                && p.bounds.Center.X > currentCenter.X
+                && p.bounds.Right <= this.DetailScrollViewport.Left - 4
+                && Math.Abs(p.bounds.Center.Y - currentCenter.Y) <= rowTolerance)
+            .OrderBy(p => p.bounds.Center.X - currentCenter.X)
+            .ThenBy(p => Math.Abs(p.bounds.Center.Y - currentCenter.Y))
+            .FirstOrDefault();
+
+        if (next is null)
+            return false;
+
+        this.currentlySnappedComponent = next;
+        this.snapCursorToCurrentSnappedComponent();
+        return true;
     }
 
     public override void receiveGamePadButton(Buttons b)
@@ -359,6 +426,19 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
+        int focusedId = this.currentlySnappedComponent?.myID ?? -1;
+        if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight
+            && focusedId >= CardBaseId
+            && focusedId < CardBaseId + this.CardButtons.Count)
+        {
+            if (this.TryFocusCardToRight(focusedId))
+                return;
+
+            this.currentlySnappedComponent = this.DetailScrollButton;
+            this.snapCursorToCurrentSnappedComponent();
+            return;
+        }
+
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
         {
             if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp)
@@ -373,8 +453,25 @@ internal sealed class CardchaBinderMenu : IClickableMenu
                 return;
             }
 
-            // A on the scrollbar is intentionally inert; left/right still use normal SnappyMenus
-            // navigation to leave the scrollbar and return to cards/actions.
+            if (b is Buttons.LeftThumbstickLeft or Buttons.DPadLeft)
+            {
+                int targetIndex = Math.Min(4, Math.Max(0, this.CardButtons.Count - 1));
+                if (this.CardButtons.Count > 0)
+                {
+                    this.currentlySnappedComponent = this.CardButtons[targetIndex].Button;
+                    this.snapCursorToCurrentSnappedComponent();
+                }
+                return;
+            }
+
+            if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight)
+            {
+                this.currentlySnappedComponent = this.EquipButton;
+                this.snapCursorToCurrentSnappedComponent();
+                return;
+            }
+
+            // A on the information panel is intentionally inert; up/down scroll it.
             if (b == Buttons.A)
                 return;
         }
@@ -1327,7 +1424,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             CardchaUi.DrawFocus(b, this.UnlockSlotButton.bounds);
 
         if (this.currentlySnappedComponent?.myID == DetailScrollId)
-            CardchaUi.DrawFocus(b, this.DetailScrollTrack);
+            CardchaUi.DrawFocus(b, Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack));
 
         this.DrawScrapInspectTooltip(b);
 

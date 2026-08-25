@@ -41,8 +41,9 @@ internal sealed class SaveData
     public int CardchaStoryChapter { get; set; } = 1;
     public int CardchaStoryStage { get; set; }
 
-    // Day the Wizard-house handoff completed. MiMi merchant routine is available from this day onward.
+    // Day the Wizard-house handoff completed. MiMi merchant routine is available from this same day onward.
     public int MimiMerchantUnlockedDay { get; set; } = -1;
+    public bool MimiFirstMerchantPepTalkShown { get; set; }
 
     // v0.1.17-alpha.11.38 — first-pickup presentation + MiMi appointment deadline.
     public bool FirstScrapPickupNoticeShown { get; set; }
