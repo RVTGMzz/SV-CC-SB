@@ -75,6 +75,9 @@ jobs:
       - name: Apply alpha.5 portable machine visual
         run: python tools/apply_alpha5_patch.py
 
+      - name: Apply alpha.6 UI, MiMi and shop fixes
+        run: python tools/apply_alpha6_final_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
