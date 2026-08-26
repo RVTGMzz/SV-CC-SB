@@ -1,56 +1,52 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.1 Binder UI
+# NEXT SESSION — Cardcha v0.3.0-alpha.13 MiMi Shop + Full Flight
 
-## Start here first
+## Current candidate
 
-Read:
+- **Version:** `v0.3.0-alpha.13`
+- **Build label:** `Cardcha! v0.3.0-alpha.13 MIMI SHOP + FULL FLIGHT`
+- **Baseline:** alpha.12 Binder Select + Resource Rail
+- **Official broom asset:** user `mimi_broom.zip` -> `src/Cardcha/assets/mimi_broom.png`
 
-1. `design/BINDER_V0_3_CURRENT.md` — authoritative Binder/UI decisions and the exact last approved chat state.
-2. `design/CARDCHA_DESIGN_CURRENT.md` — Base Set/Boss Slot/progression design.
-3. `CARDCHA_PROJECT_STATE.json` — story/gameplay state inherited from the 11.45 source line.
+## Alpha.13 changes
 
-## Latest preserved implementation work — 2026-08-26
+1. Pre-handoff mystery phase may show `???`; after `MimiMeetupCompleted` or `MachineDelivered`, MiMi's display/portrait dialogue name is forced to `MiMi`.
+2. Portable Machine purchase button is only disabled after ownership; being short on money no longer makes it look broken/gray.
+3. Clicking/confirming Normal or Shiny Scrap buy/sell opens a quantity panel with `−`, `+`, Confirm, Cancel.
+4. All active broom arrival/departure paths use off-screen viewport points: MiMi/??? fly in from beyond the screen and fly fully beyond the screen before being hidden.
+5. Official user-supplied broom sheet is copied byte-for-byte. It is 128x192 with 32x48 cells.
+6. Standing MiMi/??? remains `0.575f`; broom presentation uses `0.575 * 1.10 = 0.6325f` runtime scale to compensate the smaller body in the revised art without resizing/blurring the PNG.
+7. Builder cleans old `bin/obj`, then verifies the manifest inside the produced ZIP equals `0.3.0-alpha.13`; a mismatch stops packaging.
+8. Installation rule: delete the old `Mods\Cardcha` folder before installing this test build. Do not merge over alpha.11/alpha.12.
 
-A complete source snapshot of the current v0.3 Binder work is preserved at:
+## Inherited alpha.12 behavior that must remain
 
-`snapshots/Cardcha_v0.3.0-alpha.1_BinderUI_SOURCE_SNAPSHOT.zip`
+- Single confirm selects a card only; explicit selection + RIGHT enters detail actions for the same card.
+- Double-confirm quick equip/unequip remains available.
+- Normal/Shiny counters remain on the Binder left rail with hover/controller tooltip.
+- 5 normal + Boss grouped; ChaCha separated; Boss Mythic border; ChaCha pink.
+- Binder book icon remains restored.
+- Gacha full-panel flash remains.
+- Current compatibility portable milestone text remains 20 unique cards until the quest/Boss flow replaces the direct gift bridge.
 
-The snapshot has been advanced from the old 10-card/11.45 Binder source toward `0.3.0-alpha.1`:
+## Approved next progression (not implemented here)
 
-- synchronized the approved **80-card visual/data snapshot** from `Cardcha_v0.2.0-beta.2_80CardVisuals_TEST`;
-- Base IDs are 1–80 and IconIndex is 0–79;
-- synchronized the 80-card atlas and bilingual i18n snapshot;
-- added Binder v0.3 favorite persistence (`SaveData.SchemaVersion = 12`);
-- rebuilt Binder around a near-full-screen two-page collection-book layout;
-- collection is icon-only with Base ID + Lv + rarity border;
-- locked cards retain their real rarity border and render as dark silhouette/grayscale;
-- equipped cards receive an in-cell `IN USE / ĐANG DÙNG` overlay;
-- rarity bookmarks filter the collection while preserving Base-ID order;
-- Favorites is a separate bottom bookmark and persists by string card ID;
-- five active slots are circular and the future Boss Slot is shown as a separate locked circle;
-- right page contains readable selected-card details and actions;
-- controller A is explicitly consumed as an in-book action and cannot close the Binder;
-- the center seam is intentionally thin; no `assets/binder_book_frame.png` is required by the new Binder class.
+- 20 unique cards -> ChaCha info begins unlocking -> quest -> Boss encounter -> Portable Machine reward.
+- 40 unique cards -> quest/encounter -> ChaCha absorbs/fuses stationary + portable machines -> Cardcha directly from Binder.
 
-## Mandatory first test on Windows/Stardew
+## Test priority
 
-This source snapshot was prepared without a local Stardew/SMAPI build environment, so the first next action is a real build/test with `BUILD_CARDCHA.bat` before treating it as a playable release.
+1. Open `manifest.json` from the built test ZIP/install and verify `0.3.0-alpha.13`.
+2. After handoff/machine delivery, MiMi portrait label is `MiMi`, never `???`.
+3. Portable buy button is clickable when unowned, including when money is insufficient.
+4. Buy/sell Normal and Shiny Scrap: quantity panel works with mouse and controller.
+5. Watch mystery/merchant/story broom entry and exit: actor begins/finishes beyond visible screen, no mid-screen pop/disappear.
+6. Compare standing vs broom MiMi/??? body size; +10% broom compensation should look consistent.
+7. Regression: Binder selection/actions/resources/book icon, stationary/portable gacha, Favorite, save/reload, ChaCha follower.
 
-Check in this order:
+## Source preservation
 
-1. project compiles after the Binder class replacement;
-2. open Binder from Machine and inventory Book tab;
-3. verify 80 cards are visible across four All pages;
-4. verify locked card = real rarity border + silhouette;
-5. verify Favorite add/remove survives save/reload;
-6. verify rarity/favorite bookmarks filter correctly and preserve Base-ID order;
-7. verify equipped overlay appears on the matching Collection cell;
-8. verify A never exits the book; B/back still returns correctly;
-9. verify text is readable at the user's normal UI scale;
-10. verify no missing `binder_book_frame.png` warning occurs from Binder;
-11. regression-test MiMi, portable machine, gacha and combat HUD.
+Conversation artifacts prepared for this candidate:
+- `Cardcha_v0.3.0-alpha.13_MimiShopFlight_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.13_SOURCE_SNAPSHOT.zip`
 
-## Critical caveat: 80-card data vs runtime effects
-
-The 80-card visual snapshot contains many effect keys that are newer than the old 10-card source baseline. Treat the preserved snapshot as authoritative for the **collection data/art/UI work**, but audit actual Combat/Drop/Gacha implementation before claiming all 80 card effects are active.
-
-Do not silently reduce the registry back to the old 10-card `cards.json`.
+Static validation passed, but a real Windows compile with Stardew Valley + SMAPI references is still required before calling alpha.13 playable.
