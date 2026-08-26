@@ -1,52 +1,35 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.13 MiMi Shop + Full Flight
+# NEXT SESSION — Cardcha v0.3.0-alpha.15 Gacha + Controller + Minimap
 
 ## Current candidate
+- Version: `0.3.0-alpha.15`
+- Build label: `Cardcha! v0.3.0-alpha.15 GACHA + CONTROLLER + MINIMAP`
+- Baseline: alpha.14 / alpha.13 Compile Hotfix 1 line.
 
-- **Version:** `v0.3.0-alpha.13`
-- **Build label:** `Cardcha! v0.3.0-alpha.13 MIMI SHOP + FULL FLIGHT`
-- **Baseline:** alpha.12 Binder Select + Resource Rail
-- **Official broom asset:** user `mimi_broom.zip` -> `src/Cardcha/assets/mimi_broom.png`
+## Exact fixes
+1. Gacha pull seed now includes fresh runtime entropy; resetting to the same save state is no longer guaranteed to repeat the exact same card.
+2. Controller: A locks the selected card and that selection persists across unlimited cursor movements. Only A on another collection card changes the selection.
+3. Action buttons have an explicit stable navigation graph.
+4. Page seals are literal `<` / `>` because Unicode triangle glyphs rendered as stars in Stardew's font.
+5. Normal/Shiny Scrap count numbers are roughly 2x larger.
+6. At scheduled arrival, MiMi remains hidden until the broom actor is already positioned off-screen, eliminating the one-frame plaza flash.
+7. NPC Map Locations compatibility uses its official `Mods/Bouhm.NPCMapLocations/NPCs` content asset with `MarkerCropOffset=1`; Vanilla marker mode gets a corrected `MugShotSourceRect`. `assets/mimi_minimap_icon.png` is the approved face-icon design reference: front-facing MiMi head, red bow, purple hair, no broom/background.
 
-## Alpha.13 changes
+## Inherited behavior that must remain
+- Alpha.14 larger MiMi/???/ChaCha shadows and Binder X button.
+- Alpha.13 MiMi name reveal, +/- shop quantity selector, portable purchase feedback, full off-screen broom flights, official broom art +10% runtime scale.
+- Alpha.13 compile hotfix: CardchaMachineMenu passes ResourceService into CardchaBinderMenu.
+- Binder 80-card collection, Favorite persistence, rarity filters, resource rail, 5 normal + Boss + ChaCha layout.
 
-1. Pre-handoff mystery phase may show `???`; after `MimiMeetupCompleted` or `MachineDelivered`, MiMi's display/portrait dialogue name is forced to `MiMi`.
-2. Portable Machine purchase button is only disabled after ownership; being short on money no longer makes it look broken/gray.
-3. Clicking/confirming Normal or Shiny Scrap buy/sell opens a quantity panel with `−`, `+`, Confirm, Cancel.
-4. All active broom arrival/departure paths use off-screen viewport points: MiMi/??? fly in from beyond the screen and fly fully beyond the screen before being hidden.
-5. Official user-supplied broom sheet is copied byte-for-byte. It is 128x192 with 32x48 cells.
-6. Standing MiMi/??? remains `0.575f`; broom presentation uses `0.575 * 1.10 = 0.6325f` runtime scale to compensate the smaller body in the revised art without resizing/blurring the PNG.
-7. Builder cleans old `bin/obj`, then verifies the manifest inside the produced ZIP equals `0.3.0-alpha.13`; a mismatch stops packaging.
-8. Installation rule: delete the old `Mods\Cardcha` folder before installing this test build. Do not merge over alpha.11/alpha.12.
+## Test first
+- Pull/reload the same pre-pull save multiple times and confirm the result isn't forced identical every time.
+- A-select card #03, move cursor around several cells/buttons, then Equip/Favorite/Upgrade: every action must still target #03 until A selects a different card.
+- Footer shows `<` and `>` rather than stars.
+- Scrap counts are easy to read.
+- Watch exact 10:00/11:00 MiMi arrival for any one-frame ground flash.
+- With NPC Map Locations 3.5.x, confirm MiMi appears in the NPC list/minimap and inspect the head crop.
 
-## Inherited alpha.12 behavior that must remain
+## Artifacts
+- `Cardcha_v0.3.0-alpha.15_GachaControllerMinimap_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.15_SOURCE_SNAPSHOT.zip`
 
-- Single confirm selects a card only; explicit selection + RIGHT enters detail actions for the same card.
-- Double-confirm quick equip/unequip remains available.
-- Normal/Shiny counters remain on the Binder left rail with hover/controller tooltip.
-- 5 normal + Boss grouped; ChaCha separated; Boss Mythic border; ChaCha pink.
-- Binder book icon remains restored.
-- Gacha full-panel flash remains.
-- Current compatibility portable milestone text remains 20 unique cards until the quest/Boss flow replaces the direct gift bridge.
-
-## Approved next progression (not implemented here)
-
-- 20 unique cards -> ChaCha info begins unlocking -> quest -> Boss encounter -> Portable Machine reward.
-- 40 unique cards -> quest/encounter -> ChaCha absorbs/fuses stationary + portable machines -> Cardcha directly from Binder.
-
-## Test priority
-
-1. Open `manifest.json` from the built test ZIP/install and verify `0.3.0-alpha.13`.
-2. After handoff/machine delivery, MiMi portrait label is `MiMi`, never `???`.
-3. Portable buy button is clickable when unowned, including when money is insufficient.
-4. Buy/sell Normal and Shiny Scrap: quantity panel works with mouse and controller.
-5. Watch mystery/merchant/story broom entry and exit: actor begins/finishes beyond visible screen, no mid-screen pop/disappear.
-6. Compare standing vs broom MiMi/??? body size; +10% broom compensation should look consistent.
-7. Regression: Binder selection/actions/resources/book icon, stationary/portable gacha, Favorite, save/reload, ChaCha follower.
-
-## Source preservation
-
-Conversation artifacts prepared for this candidate:
-- `Cardcha_v0.3.0-alpha.13_MimiShopFlight_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.13_SOURCE_SNAPSHOT.zip`
-
-Static validation passed, but a real Windows compile with Stardew Valley + SMAPI references is still required before calling alpha.13 playable.
+Static validation passed in the container; real Windows compile with Stardew/SMAPI refs is still required.
