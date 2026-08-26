@@ -1,0 +1,126 @@
+name: Cardcha v0.2 preview build
+
+on:
+  push:
+    branches:
+      - cardcha-v02-book-visual
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+        with:
+          fetch-tags: false
+
+      - name: Add Stardew/SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Repair preview translations
+        shell: bash
+        run: |
+          git fetch origin main --depth=1
+          git show origin/main:src/Cardcha/i18n/vi.json > /tmp/cardcha-vi-base.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path('src/Cardcha/i18n')
+          base_vi = json.loads(Path('/tmp/cardcha-vi-base.json').read_text(encoding='utf-8-sig'))
+          current_vi = json.loads((root / 'vi.json').read_text(encoding='utf-8-sig'))
+          base_vi.update(current_vi)
+
+          v02_vi = {
+              'binder.filter.active': 'Đang lọc: {{rarity}}.',
+              'binder.boss.ready': 'Ô Boss đã được mở khóa.',
+              'binder.boss.locked': 'Mở khóa khi sở hữu {{cards}} thẻ.',
+              'binder.boss.short': '{{cards}} THẺ',
+              'binder.detail.inspect-on': 'Đang xem điều kiện nâng sao. Dùng ↑/↓ để cuộn; nhấn A hoặc B để thoát.',
+              'binder.detail.inspect-exit': 'Đã thoát phần xem điều kiện nâng sao.',
+              'binder.detail.inspect-prompt-on': '↑/↓: CUỘN  •  A/B: THOÁT',
+              'binder.detail.inspect-prompt-off': 'A: XEM ĐIỀU KIỆN NÂNG SAO  •  ↓: LỆNH',
+          }
+          base_vi.update(v02_vi)
+          (root / 'vi.json').write_text(json.dumps(base_vi, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          default = json.loads((root / 'default.json').read_text(encoding='utf-8-sig'))
+          default.update({
+              'binder.filter.active': 'Filtering: {{rarity}}.',
+              'binder.boss.ready': 'Boss Slot unlocked.',
+              'binder.boss.locked': 'Unlocks after collecting {{cards}} cards.',
+              'binder.boss.short': '{{cards}} CARDS',
+              'binder.detail.inspect-on': 'Inspecting star-upgrade requirements. Use Up/Down to scroll; press A or B to exit.',
+              'binder.detail.inspect-exit': 'Left star-upgrade inspection.',
+              'binder.detail.inspect-prompt-on': 'UP/DOWN: SCROLL  •  A/B: EXIT',
+              'binder.detail.inspect-prompt-off': 'A: VIEW STAR REQUIREMENTS  •  DOWN: ACTIONS',
+          })
+          (root / 'default.json').write_text(json.dumps(default, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          for filename in ('vi.json', 'default.json'):
+              data = json.loads((root / filename).read_text(encoding='utf-8'))
+              missing = [k for k in v02_vi if k not in data]
+              if missing:
+                  raise SystemExit(f'{filename} missing v0.2 keys: {missing}')
+              print(filename, 'translation keys:', len(data))
+          PY
+
+      - name: Apply alpha.3 binder readability fixes
+        run: python tools/apply_alpha3_patch.py
+
+      - name: Apply alpha.4 UI and MiMi fixes
+        run: python tools/apply_alpha4_patch.py
+
+      - name: Apply alpha.5 portable machine visual
+        run: python tools/apply_alpha5_patch.py
+
+      - name: Apply alpha.6 UI, MiMi and shop fixes
+        run: python tools/apply_alpha6_final_patch.py
+
+      - name: Apply alpha.6 compile correction
+        run: python tools/apply_alpha6_compilefix.py
+
+      - name: Apply alpha.7 plaque, MiMi and shop fixes
+        run: python tools/apply_alpha7_patch.py
+
+      - name: Apply alpha.8 visible MiMi departure
+        run: python tools/apply_alpha8_patch.py
+
+      - name: Apply alpha.9 MiMi movement, shadows, shop colors and larger text
+        run: python tools/apply_alpha9_patch.py
+
+      - name: Apply alpha.9 compile correction
+        run: python tools/apply_alpha9_compilefix.py
+
+      - name: Apply alpha.10 final UI and MiMi walk fixes
+        run: python tools/apply_alpha10_patch.py
+
+      - name: Build Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
+
+      - name: Show release output
+        if: always()
+        run: |
+          echo "Release files:"
+          find _releases -maxdepth 2 -type f -print 2>/dev/null || true
+          echo "Build output:"
+          find src/Cardcha/bin/Release -maxdepth 4 -type f -print 2>/dev/null | head -100 || true
+
+      - name: Upload Cardcha preview zip
+        if: success()
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/upload-release-artifacts@v1
+        with:
+          path: _releases
+          create_attestations: false
+
+      - name: Upload v0.2 source snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-v02-source
+          path: |
+            src/Cardcha
+            Directory.Build.props
+            V02_BOOK_UI_TEST.md
+          retention-days: 1
