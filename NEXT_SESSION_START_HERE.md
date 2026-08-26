@@ -1,28 +1,26 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.20 Control Hints
+# NEXT SESSION — Cardcha v0.3.0-alpha.21 Gacha Controller + Full Flash
 
 ## Current candidate
-- Version: `0.3.0-alpha.20`
-- Build label: `Cardcha! v0.3.0-alpha.20 CONTROL HINTS`
-- Baseline: alpha.19 Controller Remap.
+- Version: `0.3.0-alpha.21`
+- Build label: `Cardcha! v0.3.0-alpha.21 GACHA CONTROLLER + FULL FLASH`
+- Baseline: alpha.20 Control Hints.
 
-## Exact alpha.20 behavior
-1. A compact hint bar renders outside and immediately below the Binder.
-2. Controller mode shows: `B Chọn/Xác nhận`, `A Yêu thích`, `Y Bỏ chọn`, `X Thoát`.
-3. Keyboard mode shows: `Enter/Space Chọn/Xác nhận`, `F Yêu thích`, `Backspace Bỏ chọn`, `Esc Thoát`.
-4. The bar follows whichever input family was used most recently.
-5. Favorite and Deselect hints are dim until a LockedCard exists.
-6. `F` toggles Favorite only for LockedCard; `Backspace` releases the LockedCard.
-7. The book height reserves a narrow strip so the hint bar never covers page content.
+## Exact alpha.21 fixes
+1. `CardchaPullAnimationMenu`: controller face buttons no longer all call Skip. **B only** skips the ritual; A/X/Y are consumed and do nothing during the ritual.
+2. Gacha skip hint now follows the most recent input family: controller shows `B: Bỏ qua / B: Skip`; keyboard/mouse shows `Enter/Space / click`.
+3. Enter/Space skip from keyboard; Escape is consumed so it cannot unexpectedly pop the ritual menu through base handling.
+4. Stationary full-panel pulse widened from 2380–2700ms to 980–2720ms. Portable widened from 2860–3240ms to 1180–3260ms.
+5. Every resonance pulse now overlays the **entire large ritual panel** and repaints the outer gold frame, instead of reading visually like only the small machine/card rectangle is flashing.
 
-## Regression requirements
-- B still activates focused Equip/Unequip/Upgrade controls.
-- A still Favorites only the locked card.
-- Y still deselects.
-- X/Esc still closes Binder + visual parent and returns to gameplay.
-- PreviewCard/LockedCard separation from alpha.18 must remain.
+## Test first
+- Start a pull with controller. Press A, X, Y: ritual must continue. Press B: ritual skips.
+- After any controller face-button press, bottom-right hint must show controller text, never mouse text.
+- Move mouse/click or use keyboard: hint switches back to keyboard/mouse text.
+- During resonance, brightness/color pulses must visibly fill the whole large gold-bordered panel.
+- Regression: reveal result screen still opens and persisted pull result does not reroll.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.20_ControlHints_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.20_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.21_GachaControllerFlash_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.21_SOURCE_SNAPSHOT.zip`
 
-Static validation passed in the container; real Windows compile with Stardew/SMAPI references is still required.
+Targeted static validation passed in the container; real Windows compile with Stardew/SMAPI references is still required.
