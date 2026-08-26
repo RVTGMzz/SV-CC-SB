@@ -1,35 +1,33 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.15 Gacha + Controller + Minimap
+# NEXT SESSION — Cardcha v0.3.0-alpha.16 Binder Deselect + Browse
 
 ## Current candidate
-- Version: `0.3.0-alpha.15`
-- Build label: `Cardcha! v0.3.0-alpha.15 GACHA + CONTROLLER + MINIMAP`
-- Baseline: alpha.14 / alpha.13 Compile Hotfix 1 line.
+- Version: `0.3.0-alpha.16`
+- Build label: `Cardcha! v0.3.0-alpha.16 BINDER DESELECT + BROWSE`
+- Baseline: alpha.15 Gacha + Controller + Minimap.
 
-## Exact fixes
-1. Gacha pull seed now includes fresh runtime entropy; resetting to the same save state is no longer guaranteed to repeat the exact same card.
-2. Controller: A locks the selected card and that selection persists across unlimited cursor movements. Only A on another collection card changes the selection.
-3. Action buttons have an explicit stable navigation graph.
-4. Page seals are literal `<` / `>` because Unicode triangle glyphs rendered as stars in Stardew's font.
-5. Normal/Shiny Scrap count numbers are roughly 2x larger.
-6. At scheduled arrival, MiMi remains hidden until the broom actor is already positioned off-screen, eliminating the one-frame plaza flash.
-7. NPC Map Locations compatibility uses its official `Mods/Bouhm.NPCMapLocations/NPCs` content asset with `MarkerCropOffset=1`; Vanilla marker mode gets a corrected `MugShotSourceRect`. `assets/mimi_minimap_icon.png` is the approved face-icon design reference: front-facing MiMi head, red bow, purple hair, no broom/background.
+## Exact controller/Binder behavior
+1. When no card is locked, moving controller/keyboard focus across collection cells previews the newly focused card immediately; A is not required just to inspect cards.
+2. Pressing A on a card locks that card as the action context. Moving focus elsewhere does not change the selected card.
+3. New `DESELECT / BỎ CHỌN` button releases that lock.
+4. With controller, Deselect returns focus to the currently selected card cell when it is visible, then free-preview mode resumes.
+5. After deselect, moving to #04/#05/etc updates right-page information live; pressing A on a card locks that card again.
+6. Double-A quick equip/unequip remains available.
 
 ## Inherited behavior that must remain
-- Alpha.14 larger MiMi/???/ChaCha shadows and Binder X button.
-- Alpha.13 MiMi name reveal, +/- shop quantity selector, portable purchase feedback, full off-screen broom flights, official broom art +10% runtime scale.
-- Alpha.13 compile hotfix: CardchaMachineMenu passes ResourceService into CardchaBinderMenu.
+- alpha.15 fresh-runtime gacha entropy, literal `<` / `>` page arrows, larger Scrap count text, one-frame MiMi arrival-flash fix, NPC Map Locations integration.
+- alpha.14 larger MiMi/???/ChaCha shadows and Binder X button.
+- alpha.13 MiMi reveal/shop quantity/off-screen broom/portable feedback and compile hotfix.
 - Binder 80-card collection, Favorite persistence, rarity filters, resource rail, 5 normal + Boss + ChaCha layout.
 
 ## Test first
-- Pull/reload the same pre-pull save multiple times and confirm the result isn't forced identical every time.
-- A-select card #03, move cursor around several cells/buttons, then Equip/Favorite/Upgrade: every action must still target #03 until A selects a different card.
-- Footer shows `<` and `>` rather than stars.
-- Scrap counts are easy to read.
-- Watch exact 10:00/11:00 MiMi arrival for any one-frame ground flash.
-- With NPC Map Locations 3.5.x, confirm MiMi appears in the NPC list/minimap and inspect the head crop.
+1. Move across cards without A: right page must preview each focused card immediately.
+2. A-select #03, move around several cells/buttons, then Equip/Favorite/Upgrade: action still targets #03.
+3. Activate `BỎ CHỌN`: lock clears and controller returns to #03 cell.
+4. Move to #04/#05 without A: preview changes live.
+5. A-select #05: #05 becomes the new locked action target.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.15_GachaControllerMinimap_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.15_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.16_BinderDeselect_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.16_SOURCE_SNAPSHOT.zip`
 
 Static validation passed in the container; real Windows compile with Stardew/SMAPI refs is still required.
