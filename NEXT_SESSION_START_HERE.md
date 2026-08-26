@@ -1,33 +1,29 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.16 Binder Deselect + Browse
+# NEXT SESSION — Cardcha v0.3.0-alpha.17 Mythic + Minimap + Browse
 
 ## Current candidate
-- Version: `0.3.0-alpha.16`
-- Build label: `Cardcha! v0.3.0-alpha.16 BINDER DESELECT + BROWSE`
-- Baseline: alpha.15 Gacha + Controller + Minimap.
+- Version: `0.3.0-alpha.17`
+- Build label: `Cardcha! v0.3.0-alpha.17 MYTHIC + MINIMAP + BROWSE`
+- Baseline: alpha.16 Binder Deselect + Browse.
 
-## Exact controller/Binder behavior
-1. When no card is locked, moving controller/keyboard focus across collection cells previews the newly focused card immediately; A is not required just to inspect cards.
-2. Pressing A on a card locks that card as the action context. Moving focus elsewhere does not change the selected card.
-3. New `DESELECT / BỎ CHỌN` button releases that lock.
-4. With controller, Deselect returns focus to the currently selected card cell when it is visible, then free-preview mode resumes.
-5. After deselect, moving to #04/#05/etc updates right-page information live; pressing A on a card locks that card again.
-6. Double-A quick equip/unequip remains available.
-
-## Inherited behavior that must remain
-- alpha.15 fresh-runtime gacha entropy, literal `<` / `>` page arrows, larger Scrap count text, one-frame MiMi arrival-flash fix, NPC Map Locations integration.
-- alpha.14 larger MiMi/???/ChaCha shadows and Binder X button.
-- alpha.13 MiMi reveal/shop quantity/off-screen broom/portable feedback and compile hotfix.
-- Binder 80-card collection, Favorite persistence, rarity filters, resource rail, 5 normal + Boss + ChaCha layout.
+## Exact alpha.17 fixes
+1. Binder heading is now just `BỘ SƯU TẬP / COLLECTION`; owned/total is already shown by the footer discovery count.
+2. User-facing locked Boss slot text is now `Ô kỹ năng Thần Thoại hiện vẫn đang bị khóa.` / `The Mythic Skill slot is still locked.`
+3. NPC Map Locations Custom mode crops exactly 16x15 from the top-left of the NPC texture. MiMi uses 32x48 frames, which caused the visible quarter-head marker. Alpha.17 embeds a dedicated full-face marker into that exact crop region.
+4. The reserved first front frame is never rendered in-world; normal MiMi/??? front animation uses the other front poses so the minimap marker pixels never flash on the character.
+5. NPC Map Locations custom integration uses `MarkerCropOffset=0`; Vanilla mode uses `MugShotSourceRect=0,0,16,15`.
+6. **Selection lock hardening:** controller A creates/replaces a persistent locked card action context. RIGHT or DOWN from a collection cell while locked jumps into the detail/action buttons. Normal navigation, rarity filters, and page changes do not clear the lock. Every Favorite/Equip/Upgrade action restores the locked card before executing, so UI preview/focus changes cannot retarget the action. Only the explicit `BỎ CHỌN / DESELECT` button releases the lock.
 
 ## Test first
-1. Move across cards without A: right page must preview each focused card immediately.
-2. A-select #03, move around several cells/buttons, then Equip/Favorite/Upgrade: action still targets #03.
-3. Activate `BỎ CHỌN`: lock clears and controller returns to #03 cell.
-4. Move to #04/#05 without A: preview changes live.
-5. A-select #05: #05 becomes the new locked action target.
+- Binder heading: no literal `(owned/total)`.
+- Focus/click the Mythic slot: status says `Kỹ năng Thần Thoại`, not Boss.
+- NPC Map Locations Custom mode: MiMi/??? marker shows the whole face, purple hair and red bow, not one quarter of the head.
+- Vanilla marker icon mode: same full marker.
+- Watch MiMi front-facing idle/walk for any corrupted reserved-frame flash.
+- Controller lock test: A-select #03, move focus around, change filter/page if desired, then trigger Favorite/Equip/Upgrade; every action must still target #03 until `BỎ CHỌN`. RIGHT/DOWN from a locked collection cell must enter the action area.
+- Press `BỎ CHỌN`, then move across collection cells without A; right-page preview must follow the focused card again.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.16_BinderDeselect_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.16_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.17_MythicMinimap_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.17_SOURCE_SNAPSHOT.zip`
 
 Static validation passed in the container; real Windows compile with Stardew/SMAPI refs is still required.
