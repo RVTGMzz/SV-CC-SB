@@ -46,7 +46,14 @@ internal static class CardchaUi
         DrawBorder(b, rect, Gold, 2);
     }
 
-    public static void DrawButton(SpriteBatch b, ClickableComponent button, string text, Color fill, bool enabled = true)
+    public static void DrawButton(
+        SpriteBatch b,
+        ClickableComponent button,
+        string text,
+        Color fill,
+        bool enabled = true,
+        float textScale = 1.18f,
+        int textPadding = 8)
     {
         Point mouse = GetUiMousePoint();
         bool hovered = enabled && button.bounds.Contains(mouse.X, mouse.Y);
@@ -94,8 +101,8 @@ internal static class CardchaUi
             ink,
             centerX: true,
             centerY: true,
-            padding: 8,
-            maxScale: 1.18f
+            padding: textPadding,
+            maxScale: textScale
         );
     }
 
@@ -238,7 +245,8 @@ internal static class CardchaUi
         int maxLines = 3,
         float minScale = 0.42f,
         bool centerX = false,
-        float maxScale = 1f)
+        float maxScale = 1f,
+        bool centerY = false)
     {
         string safe = text ?? string.Empty;
         float startScale = Math.Max(minScale, maxScale);
@@ -270,7 +278,10 @@ internal static class CardchaUi
         }
 
         float lineHeight = (font.LineSpacing + 1) * chosenScale;
-        float y = area.Y;
+        float totalChosenHeight = chosenLines.Count * lineHeight;
+        float y = centerY
+            ? area.Center.Y - totalChosenHeight / 2f
+            : area.Y;
 
         foreach (string line in chosenLines)
         {

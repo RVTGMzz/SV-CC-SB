@@ -11,8 +11,8 @@ namespace Cardcha.Services;
 /// </summary>
 internal sealed class PortableMachineService
 {
-    public const int PurchasePrice = 50000;
-    public const int FreeGiftCardMilestone = 50;
+    public const int PurchasePrice = 20000;
+    public const int FreeGiftCardMilestone = 20;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;

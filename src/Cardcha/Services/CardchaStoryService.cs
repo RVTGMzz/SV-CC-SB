@@ -604,21 +604,15 @@ internal sealed class CardchaStoryService
 
     private int GrantStarterScrapForFirstPull()
     {
-        int target = Math.Max(1, this.Config.StandardPullCost);
-        int current = this.Resources.Count(DropService.CardboardScrapId);
-        int missing = Math.Max(0, target - current);
-
-        if (missing <= 0)
-            return 0;
-
-        this.Resources.Add(DropService.CardboardScrapId, missing);
+        const int starterGift = 10;
+        this.Resources.Add(DropService.CardboardScrapId, starterGift);
 
         this.Monitor.Log(
-            $"Wizard supplied {missing} starter Cardboard Scrap so the first Standard Pull tutorial is immediately playable.",
+            $"MiMi bundled {starterGift} starter Cardboard Scrap with the Cardcha Machine.",
             LogLevel.Info
         );
 
-        return missing;
+        return starterGift;
     }
 
 
@@ -696,7 +690,9 @@ internal sealed class CardchaStoryService
         NPC? mimi = FindMimiNpc();
         if (mimi is not null)
         {
-            SetNpcDisplayName(mimi, normalized == "???" ? "???" : "MiMi");
+            // MysteryService exclusively owns the pre-Scrap "???" encounters. Once the
+            // Cardcha story starts, every portrait dialogue is the officially introduced MiMi.
+            SetNpcDisplayName(mimi, "MiMi");
             return mimi;
         }
 

@@ -55,11 +55,11 @@ internal sealed class MimiMysteryTownService
     private static readonly Vector2[] WanderOffsets =
     {
         Vector2.Zero,
-        new(64f, 0f),
-        new(-64f, 0f),
-        new(0f, -64f),
-        new(64f, -64f),
-        new(-64f, -64f)
+        new(48f, 0f),
+        new(96f, 0f),
+        new(96f, -32f),
+        new(48f, -32f),
+        new(0f, -32f)
     };
 
     private readonly IModHelper Helper;
@@ -84,6 +84,8 @@ internal sealed class MimiMysteryTownService
     private int WanderTargetIndex;
     private int WanderFacing = 2;
     private bool MerchantPepTalkPendingOpen;
+    private bool OfficialMerchantArrival;
+    private bool OfficialMerchantDeparture;
 
     public MimiMysteryTownService(
         IModHelper helper,
@@ -164,11 +166,10 @@ internal sealed class MimiMysteryTownService
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {
                     Visible = true,
-                    // 11.42: keep MiMi's native shadow tighter and shorter so it matches
-                    // vanilla villagers/player scale more closely instead of stretching far
-                    // beyond her small 32x48 sprite.
-                    Offset = new Point(0, -6),
-                    Scale = 0.38f
+                    // Keep the shadow compact, but large enough to remain visible under the
+                    // scaled 32x48 mystery sprite on bright Town tiles.
+                    Offset = Point.Zero,
+                    Scale = 1.0f
                 });
                 SetHome(mimi, "WizardHouse", 4, 6, "down");
 
@@ -241,6 +242,8 @@ internal sealed class MimiMysteryTownService
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
         this.MerchantPepTalkPendingOpen = false;
+        this.OfficialMerchantArrival = false;
+        this.OfficialMerchantDeparture = false;
         this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
     }
 
@@ -251,7 +254,19 @@ internal sealed class MimiMysteryTownService
 
         if (this.IsMerchantRoutineActive())
         {
-            if (e.NewTime == MerchantStartTime || e.NewTime == MerchantEndTime)
+            if (e.NewTime == MerchantStartTime
+                && !IsHarshMerchantWeather()
+                && Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                this.StartArrivalFlight(officialMerchant: true);
+            }
+            else if (e.NewTime == MerchantEndTime
+                && !IsHarshMerchantWeather()
+                && Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true)
+            {
+                this.StartDepartureFlight(officialMerchant: true);
+            }
+            else if (e.NewTime == MerchantStartTime || e.NewTime == MerchantEndTime)
                 this.EnforceMerchantState();
             return;
         }
@@ -292,8 +307,24 @@ internal sealed class MimiMysteryTownService
 
         if (this.IsMerchantRoutineActive())
         {
-            this.Flight = FlightState.None;
+            if (this.Flight != FlightState.None)
+            {
+                this.UpdateFlight();
+                NPC? departing = FindNativeNpc();
+                if (departing is not null)
+                    SetNpcDisplayName(departing, "MiMi");
+                return;
+            }
+
             this.EnforceMerchantState();
+            NPC? merchant = FindNativeNpc();
+            if (merchant is not null)
+            {
+                SetNpcDisplayName(merchant, "MiMi");
+                merchant.hideShadow.Value = false;
+            }
+            if (!IsHarshMerchantWeather())
+                this.UpdateNativeWander(officialMerchant: true);
             if (!this.Save.Data.ChaChaLoaned)
                 this.SyncChaChaWithMimi();
             return;
@@ -429,6 +460,8 @@ internal sealed class MimiMysteryTownService
         this.WanderTargetIndex = 0;
         this.WanderFacing = 2;
         this.MerchantPepTalkPendingOpen = false;
+        this.OfficialMerchantArrival = false;
+        this.OfficialMerchantDeparture = false;
         this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
     }
 
@@ -489,8 +522,21 @@ internal sealed class MimiMysteryTownService
         if (native is null || town is null)
             return;
 
-        // Reuse MiMi's familiar plaza spot so players know where to look for the weekday shop.
-        MoveNative(native, town, TownAnchor, 2);
+        // Reuse MiMi's familiar plaza spot, but don't teleport her back every tick; doing so
+        // previously prevented the official post-handoff NPC from ever walking.
+        if (native.currentLocation != town || native.isInvisible.Value)
+        {
+            MoveNative(native, town, TownAnchor, 2);
+            this.WanderTarget = TownAnchor;
+            this.NextWanderDecisionAtMs = CurrentGameMs() + 2200;
+            this.LastWanderUpdateAtMs = CurrentGameMs();
+        }
+        else
+        {
+            this.WorldActors.ConfigureMimiActor(native, broom: false, visible: true);
+        }
+        SetNpcDisplayName(native, "MiMi");
+        native.hideShadow.Value = false;
     }
 
     private void PlaceNativeInWizardHouseMerchant()
@@ -506,6 +552,8 @@ internal sealed class MimiMysteryTownService
         // A few tiles inside so she doesn't block the door.
         anchor += new Vector2(96f, -128f);
         MoveNative(native, wizardHouse, anchor, 2);
+        SetNpcDisplayName(native, "MiMi");
+        native.hideShadow.Value = false;
     }
 
     private void TryOpenMerchant(ButtonPressedEventArgs e)
@@ -708,9 +756,11 @@ internal sealed class MimiMysteryTownService
         PlaceNativeInTown();
     }
 
-    private void StartArrivalFlight()
+    private void StartArrivalFlight(bool officialMerchant = false)
     {
-        if (this.Flight != FlightState.None || this.ArrivedToday || this.Save.Data.FirstScrapTriggered)
+        if (this.Flight != FlightState.None
+            || this.ArrivedToday
+            || (this.Save.Data.FirstScrapTriggered && !officialMerchant))
             return;
 
         NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
@@ -719,17 +769,23 @@ internal sealed class MimiMysteryTownService
             return;
 
         this.Flight = FlightState.Arriving;
+        this.OfficialMerchantArrival = officialMerchant;
         this.FlightStartedMs = CurrentGameMs();
         Vector2 high = TownAnchor + new Vector2(0f, -7f * 64f);
         this.WorldActors.MoveMimiActor(native, town, high, 2, broom: true, visible: true);
         this.WorldActors.SetMimiFrame(native, 2, 0);
         Game1.playSound("wand");
-        this.Monitor.Log("MiMi mystery arrival: native broom actor started at 10:00.", LogLevel.Info);
+        this.Monitor.Log(
+            officialMerchant
+                ? "MiMi official merchant arrival: native broom actor started at 11:00."
+                : "MiMi mystery arrival: native broom actor started at 10:00.",
+            LogLevel.Info
+        );
     }
 
-    private void StartDepartureFlight()
+    private void StartDepartureFlight(bool officialMerchant = false)
     {
-        if (this.Flight != FlightState.None || this.Save.Data.FirstScrapTriggered)
+        if (this.Flight != FlightState.None || (this.Save.Data.FirstScrapTriggered && !officialMerchant))
             return;
 
         NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
@@ -740,6 +796,7 @@ internal sealed class MimiMysteryTownService
         this.DepartedToday = false;
         Vector2 start = native.currentLocation == town ? native.Position : TownAnchor;
         this.Flight = FlightState.Departing;
+        this.OfficialMerchantDeparture = officialMerchant;
         this.FlightStartedMs = CurrentGameMs();
         this.FlightStartWorld = start;
         this.WorldActors.MoveMimiActor(native, town, start, 0, broom: true, visible: true);
@@ -770,7 +827,8 @@ internal sealed class MimiMysteryTownService
             this.WorldActors.MoveMimiActor(native, town, world, 2, broom: true, visible: true);
             this.WorldActors.SetMimiFrame(native, 2, frame);
             native.rotation = (1f - t) * 0.035f;
-            this.SyncChaChaWithMimi();
+            if (!this.OfficialMerchantArrival)
+                this.SyncChaChaWithMimi();
         }
         else
         {
@@ -809,13 +867,15 @@ internal sealed class MimiMysteryTownService
                 ? -0.012f
                 : -0.035f + (float)Math.Sin(CurrentGameMs() / 350.0) * 0.008f;
 
-            NPC? chacha = this.WorldActors.EnsureChaChaActor(
-                town,
-                groundWorld + new Vector2(-64f, 16f),
-                facing == 1 ? 3 : 2,
-                frame,
-                machine: false
-            );
+            NPC? chacha = this.OfficialMerchantDeparture
+                ? null
+                : this.WorldActors.EnsureChaChaActor(
+                    town,
+                    groundWorld + new Vector2(-64f, 16f),
+                    facing == 1 ? 3 : 2,
+                    frame,
+                    machine: false
+                );
             if (chacha is not null)
             {
                 chacha.drawOffset = new Vector2(0f, -visualAltitude + 10f);
@@ -829,7 +889,11 @@ internal sealed class MimiMysteryTownService
             return;
 
         FlightState finished = this.Flight;
+        bool officialArrival = this.OfficialMerchantArrival;
+        bool officialDeparture = this.OfficialMerchantDeparture;
         this.Flight = FlightState.None;
+        this.OfficialMerchantArrival = false;
+        this.OfficialMerchantDeparture = false;
         this.FlightStartWorld = TownAnchor;
         native.rotation = 0f;
 
@@ -841,13 +905,16 @@ internal sealed class MimiMysteryTownService
             this.WanderTarget = TownAnchor;
             this.NextWanderDecisionAtMs = CurrentGameMs() + 2600;
             this.LastWanderUpdateAtMs = CurrentGameMs();
+            if (officialArrival)
+                SetNpcDisplayName(native, "MiMi");
             Game1.playSound("smallSelect");
         }
         else
         {
             this.DepartedToday = true;
             HideNativeOffMap();
-            this.WorldActors.HideChaChaActor();
+            if (!officialDeparture)
+                this.WorldActors.HideChaChaActor();
         }
     }
 
@@ -865,6 +932,16 @@ internal sealed class MimiMysteryTownService
             this.WanderTarget = TownAnchor;
             this.NextWanderDecisionAtMs = CurrentGameMs() + 2600;
             this.LastWanderUpdateAtMs = CurrentGameMs();
+        }
+        else
+        {
+            // Repair stale flight/hidden state after a reload or an interrupted transition.
+            // Don't move her back to the anchor here; only normalize normal ground rendering.
+            this.WorldActors.ConfigureMimiActor(native, broom: false, visible: true);
+            native.hideShadow.Value = false;
+            native.drawOnTop = false;
+            native.drawOffset = Vector2.Zero;
+            native.rotation = 0f;
         }
 
         this.ArrivedToday = true;
@@ -1101,7 +1178,18 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
-        Vector2 baseWorld = ResolveSafeChaChaPosition(mimi.Position);
+        // Keep one stable side relative to MiMi. Re-running the old safety-slot search every
+        // tick could alternate between left/right candidates as MiMi walked, which looked like
+        // ChaCha was blinking across her. Smooth the actor toward one fixed follow point instead.
+        Vector2 desiredWorld = mimi.Position + new Vector2(64f, -6f);
+        Vector2 baseWorld = desiredWorld;
+        if (existing is not null && existing.currentLocation == location)
+        {
+            float distance = Vector2.Distance(existing.Position, desiredWorld);
+            baseWorld = distance > 256f
+                ? desiredWorld
+                : Vector2.Lerp(existing.Position, desiredWorld, 0.12f);
+        }
         NPC? chacha = this.WorldActors.EnsureChaChaActor(location, baseWorld, 0, frame, machine: false);
         if (chacha is not null)
         {
@@ -1210,15 +1298,11 @@ internal sealed class MimiMysteryTownService
 
     private Vector2 ChooseSafeWanderTarget(GameLocation town, NPC native, long now)
     {
-        for (int attempt = 0; attempt < WanderOffsets.Length; attempt++)
-        {
-            this.WanderTargetIndex = (this.WanderTargetIndex + 1) % WanderOffsets.Length;
-            Vector2 candidate = TownAnchor + WanderOffsets[this.WanderTargetIndex];
-            if (IsWorldPositionSafeForMiMi(town, candidate, native))
-                return candidate;
-        }
-
-        return native.Position;
+        // The old full-footprint validator rejected every nearby plaza point on modded Town
+        // maps, leaving mystery MiMi permanently idle. Use a small deterministic loop wholly
+        // within the open plaza instead. Native actor collision still handles the farmer/NPCs.
+        this.WanderTargetIndex = (this.WanderTargetIndex + 1) % WanderOffsets.Length;
+        return TownAnchor + WanderOffsets[this.WanderTargetIndex];
     }
 
     private static bool IsTooCloseToOtherNpc(GameLocation location, NPC self, float distance)
@@ -1258,14 +1342,9 @@ internal sealed class MimiMysteryTownService
             return false;
 
         Vector2 mimiFeet = worldPosition + new Vector2(32f, 64f);
-        const float minPlayerDistance = 96f;
-        if (Game1.player.currentLocation == location)
-        {
-            Vector2 playerFeet = Game1.player.Position + new Vector2(32f, 64f);
-            if (Vector2.DistanceSquared(playerFeet, mimiFeet) < minPlayerDistance * minPlayerDistance)
-                return false;
-        }
-
+        // Do not reject a walk step merely because the player is nearby. That check made
+        // mystery MiMi freeze whenever the player approached to watch or talk to her.
+        // Native character collision still prevents her from walking through the farmer.
         const float minNpcDistance = 128f;
         foreach (NPC npc in location.characters)
         {
@@ -1328,9 +1407,15 @@ internal sealed class MimiMysteryTownService
         }
     }
 
-    private void UpdateNativeWander()
+    private void UpdateNativeWander(bool officialMerchant = false)
     {
-        if (!this.IsVisibleNow() || this.Flight != FlightState.None)
+        bool visible = officialMerchant
+            ? this.IsMerchantRoutineActive()
+              && Game1.timeOfDay >= MerchantStartTime
+              && Game1.timeOfDay < MerchantEndTime
+              && FindNativeNpc()?.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true
+            : this.IsVisibleNow();
+        if (!visible || this.Flight != FlightState.None)
             return;
 
         NPC? native = FindNativeNpc() ?? this.WorldActors.EnsureMimiActor();
@@ -1384,13 +1469,6 @@ internal sealed class MimiMysteryTownService
         Vector2 direction = delta / Math.Max(0.001f, distance);
         float step = Math.Min(distance, WanderSpeedPixelsPerSecond * dt);
         Vector2 nextPosition = native.Position + direction * step;
-        if (!IsWorldPositionSafeForMiMi(town, nextPosition, native))
-        {
-            this.WanderTarget = native.Position;
-            this.NextWanderDecisionAtMs = now + 900;
-            SetNativeWalkFrame(native, this.WanderFacing, 0);
-            return;
-        }
         native.Position = nextPosition;
 
         int facing = Math.Abs(direction.X) >= Math.Abs(direction.Y)

@@ -48,10 +48,10 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         SaveService save,
         PortableMachineService portableMachine)
         : base(
-            Game1.uiViewport.Width / 2 - Math.Min(760, Game1.uiViewport.Width - 32) / 2,
-            Game1.uiViewport.Height / 2 - Math.Min(610, Game1.uiViewport.Height - 32) / 2,
-            Math.Min(760, Game1.uiViewport.Width - 32),
-            Math.Min(610, Game1.uiViewport.Height - 32),
+            Game1.uiViewport.Width / 2 - Math.Min(860, Game1.uiViewport.Width - 24) / 2,
+            Game1.uiViewport.Height / 2 - Math.Min(650, Game1.uiViewport.Height - 24) / 2,
+            Math.Min(860, Game1.uiViewport.Width - 24),
+            Math.Min(650, Game1.uiViewport.Height - 24),
             showUpperRightCloseButton: false)
     {
         this.Resources = resources;
@@ -62,29 +62,29 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
 
         int rowX = this.xPositionOnScreen + 50;
         int rowW = this.width - 100;
-        int buyX = rowX + rowW - 232;
+        int buyX = rowX + rowW - 274;
 
-        int normalY = this.yPositionOnScreen + 170;
-        int shinyY = normalY + 96;
-        int portableY = shinyY + 96;
+        int normalY = this.yPositionOnScreen + 180;
+        int shinyY = normalY + 102;
+        int portableY = shinyY + 102;
 
         this.NormalBuyButton = new ClickableComponent(
-            new Rectangle(buyX, normalY + 22, 106, 42),
+            new Rectangle(buyX, normalY + 22, 124, 48),
             "normal-buy") { myID = NormalBuyId };
         this.NormalSellButton = new ClickableComponent(
-            new Rectangle(buyX + 116, normalY + 22, 106, 42),
+            new Rectangle(buyX + 134, normalY + 22, 124, 48),
             "normal-sell") { myID = NormalSellId };
         this.ShinyBuyButton = new ClickableComponent(
-            new Rectangle(buyX, shinyY + 22, 106, 42),
+            new Rectangle(buyX, shinyY + 22, 124, 48),
             "shiny-buy") { myID = ShinyBuyId };
         this.ShinySellButton = new ClickableComponent(
-            new Rectangle(buyX + 116, shinyY + 22, 106, 42),
+            new Rectangle(buyX + 134, shinyY + 22, 124, 48),
             "shiny-sell") { myID = ShinySellId };
         this.PortableBuyButton = new ClickableComponent(
-            new Rectangle(buyX + 54, portableY + 28, 168, 44),
+            new Rectangle(buyX + 36, portableY + 26, 222, 52),
             "portable-buy") { myID = PortableBuyId };
         this.CloseButton = new ClickableComponent(
-            new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 62, 150, 40),
+            new Rectangle(this.xPositionOnScreen + 34, this.yPositionOnScreen + this.height - 66, 170, 46),
             "close") { myID = CloseId };
 
         this.NormalBuyButton.rightNeighborID = NormalSellId;
@@ -323,24 +323,25 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             centerX: true,
             centerY: true,
             padding: 2,
-            maxScale: 1.05f
+            maxScale: 1.18f
         );
 
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
             ModEntry.T("mimi.shop.quip.portable"),
-            new Rectangle(paper.X + 40, paper.Y + 64, paper.Width - 80, 74),
+            new Rectangle(paper.X + 38, paper.Y + 64, paper.Width - 76, 88),
             Color.DarkSlateGray,
             maxLines: 3,
-            minScale: 0.67f,
+            minScale: 0.82f,
             centerX: true,
-            maxScale: 1.00f
+            maxScale: 1.32f,
+            centerY: true
         );
 
-        int normalY = this.yPositionOnScreen + 170;
-        int shinyY = normalY + 96;
-        int portableY = shinyY + 96;
+        int normalY = this.yPositionOnScreen + 180;
+        int shinyY = normalY + 102;
+        int portableY = shinyY + 102;
 
         this.DrawResourceRow(
             b,
@@ -377,8 +378,9 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             status,
             Color.DarkSlateGray,
             maxLines: 2,
-            minScale: 0.65f,
-            maxScale: 0.96f
+            minScale: 0.76f,
+            maxScale: 1.16f,
+            centerY: true
         );
 
         CardchaUi.DrawButton(
@@ -386,7 +388,9 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             this.CloseButton,
             ModEntry.T("mimi.shop.close"),
             new Color(112, 76, 72),
-            enabled: true
+            enabled: true,
+            textScale: 1.40f,
+            textPadding: 4
         );
 
         this.drawMouse(b);
@@ -402,11 +406,11 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
         ClickableComponent buyButton,
         ClickableComponent sellButton)
     {
-        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 84);
+        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 92);
         b.Draw(Game1.staminaRect, row, new Color(255, 245, 219) * 0.72f);
         CardchaUi.DrawBorder(b, row, new Color(142, 101, 72), 2);
 
-        Rectangle iconBox = new(row.X + 16, row.Y + 10, 62, 62);
+        Rectangle iconBox = new(row.X + 14, row.Y + 11, 70, 70);
         b.Draw(Game1.staminaRect, iconBox, new Color(67, 53, 66));
         CardchaUi.DrawBorder(b, iconBox, CardchaUi.Gold * 0.75f, 2);
 
@@ -424,38 +428,42 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             b,
             Game1.smallFont,
             name,
-            new Rectangle(row.X + 94, row.Y + 8, row.Width - 340, 32),
+            new Rectangle(row.X + 98, row.Y + 5, row.Width - 390, 42),
             CardchaUi.InkBrown,
+            centerY: true,
             padding: 2,
-            maxScale: 1.00f
+            maxScale: 1.36f
         );
         CardchaUi.DrawScaledText(
             b,
             Game1.smallFont,
             ModEntry.T("mimi.shop.owned", new { count }),
-            new Rectangle(row.X + 94, row.Y + 44, row.Width - 340, 26),
+            new Rectangle(row.X + 98, row.Y + 47, row.Width - 390, 36),
             Color.DarkSlateGray,
+            centerY: true,
             padding: 2,
-            maxScale: 0.92f
+            maxScale: 1.22f
         );
 
         int buyPrice = GetBuyPrice(resourceId);
         int sellPrice = GetSellPrice(resourceId);
-        bool canBuy = Game1.player.Money >= buyPrice;
-        bool canSell = count > 0;
         CardchaUi.DrawButton(
             b,
             buyButton,
             ModEntry.T("mimi.shop.buy", new { price = buyPrice }),
-            new Color(93, 124, 83),
-            canBuy
+            new Color(72, 142, 82),
+            enabled: true,
+            textScale: 1.38f,
+            textPadding: 4
         );
         CardchaUi.DrawButton(
             b,
             sellButton,
             ModEntry.T("mimi.shop.sell", new { price = sellPrice }),
-            new Color(139, 92, 73),
-            canSell
+            new Color(174, 72, 68),
+            enabled: true,
+            textScale: 1.38f,
+            textPadding: 4
         );
 
         if (this.currentlySnappedComponent?.myID == buyButton.myID)
@@ -466,11 +474,11 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
 
     private void DrawPortableRow(SpriteBatch b, int y)
     {
-        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 96);
+        Rectangle row = new(this.xPositionOnScreen + 50, y, this.width - 100, 104);
         b.Draw(Game1.staminaRect, row, new Color(248, 232, 202) * 0.84f);
         CardchaUi.DrawBorder(b, row, new Color(142, 101, 72), 2);
 
-        Rectangle iconBox = new(row.X + 16, row.Y + 16, 64, 64);
+        Rectangle iconBox = new(row.X + 14, row.Y + 17, 70, 70);
         b.Draw(Game1.staminaRect, iconBox, new Color(67, 53, 66));
         CardchaUi.DrawBorder(b, iconBox, CardchaUi.Gold, 2);
         if (this.MachineTexture is not null)
@@ -493,32 +501,25 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             b,
             Game1.smallFont,
             ModEntry.T("portable.machine.name"),
-            new Rectangle(row.X + 94, row.Y + 8, row.Width - 350, 32),
+            new Rectangle(row.X + 98, row.Y + 6, row.Width - 410, 42),
             CardchaUi.InkBrown,
+            centerY: true,
             padding: 2,
-            maxScale: 0.98f
+            maxScale: 1.34f
         );
 
-        string progress = this.PortableMachine.IsAcquired
-            ? ModEntry.T("portable.shop.owned")
-            : ModEntry.T(
-                "portable.shop.progress",
-                new
-                {
-                    count = this.PortableMachine.UniqueCardCount,
-                    target = PortableMachineService.FreeGiftCardMilestone
-                }
-            );
+        string progress = ModEntry.T("portable.shop.secret");
 
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
             progress,
-            new Rectangle(row.X + 94, row.Y + 42, row.Width - 350, 42),
+            new Rectangle(row.X + 98, row.Y + 48, row.Width - 410, 46),
             Color.DarkSlateGray,
             maxLines: 2,
-            minScale: 0.62f,
-            maxScale: 0.90f
+            minScale: 0.78f,
+            maxScale: 1.24f,
+            centerY: true
         );
 
         string buttonLabel = this.PortableMachine.IsAcquired
@@ -536,7 +537,9 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             this.PortableBuyButton,
             buttonLabel,
             new Color(111, 86, 129),
-            enabled
+            enabled,
+            textScale: 1.38f,
+            textPadding: 4
         );
 
         if (this.currentlySnappedComponent?.myID == this.PortableBuyButton.myID)

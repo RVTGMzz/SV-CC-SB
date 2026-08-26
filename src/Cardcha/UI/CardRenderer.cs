@@ -1,4 +1,3 @@
-
 using Cardcha.Models;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -14,13 +13,17 @@ internal sealed class CardRenderer
 
     private readonly IModHelper Helper;
     private Texture2D? IconAtlas;
+    private Texture2D? GrayscaleIconAtlas;
     private bool AtlasChecked;
+    private bool GrayscaleAtlasChecked;
 
     public CardRenderer(IModHelper helper)
     {
         this.Helper = helper;
     }
 
+    // Legacy-compatible renderer used by older menus. Binder v0.3 draws its richer collection
+    // cell states itself and calls DrawIcon directly.
     public void DrawCollectionCard(SpriteBatch b, Rectangle rect, CardDefinition? card, bool owned, bool equipped, bool selected)
     {
         Color frame = card is null ? Color.DimGray : CardchaUi.RarityColor(card.Rarity);
@@ -189,8 +192,32 @@ internal sealed class CardRenderer
     }
 
     public void DrawIcon(SpriteBatch b, Rectangle destination, CardDefinition card, float alpha = 1f)
+        => this.DrawIcon(b, destination, card, Color.White * Math.Clamp(alpha, 0f, 1f));
+
+    /// <summary>
+    /// Tint-aware icon path used by existing menus.
+    /// </summary>
+    public void DrawIcon(SpriteBatch b, Rectangle destination, CardDefinition card, Color tint)
+        => this.DrawIconFromAtlas(b, destination, card, this.TryGetAtlas(), tint, fallbackGrayscale: false);
+
+    /// <summary>
+    /// Binder v0.3 locked-card path. This uses a cached grayscale copy of the icon atlas instead
+    /// of a black tint, so the art remains readable while the real rarity border stays visible.
+    /// </summary>
+    public void DrawIconGrayscale(SpriteBatch b, Rectangle destination, CardDefinition card, float alpha = 1f)
     {
-        Texture2D? atlas = this.TryGetAtlas();
+        Color tint = Color.White * Math.Clamp(alpha, 0f, 1f);
+        this.DrawIconFromAtlas(b, destination, card, this.TryGetGrayscaleAtlas(), tint, fallbackGrayscale: true);
+    }
+
+    private void DrawIconFromAtlas(
+        SpriteBatch b,
+        Rectangle destination,
+        CardDefinition card,
+        Texture2D? atlas,
+        Color tint,
+        bool fallbackGrayscale)
+    {
         if (atlas is not null && card.IconIndex >= 0)
         {
             int columns = Math.Max(1, atlas.Width / IconCellSize);
@@ -200,7 +227,7 @@ internal sealed class CardRenderer
 
             if (source.Right <= atlas.Width && source.Bottom <= atlas.Height)
             {
-                b.Draw(atlas, destination, source, Color.White * Math.Clamp(alpha, 0f, 1f));
+                b.Draw(atlas, destination, source, tint);
                 return;
             }
         }
@@ -213,17 +240,61 @@ internal sealed class CardRenderer
             destination.Center.X - size.X * scale / 2f,
             destination.Center.Y - size.Y * scale / 2f
         );
+        Color fallback = fallbackGrayscale
+            ? new Color(112, 112, 112) * (tint.A / 255f)
+            : CardchaUi.RarityColor(card.Rarity) * (tint.A / 255f);
         b.DrawString(
             Game1.dialogueFont,
             initial,
             pos,
-            CardchaUi.RarityColor(card.Rarity) * Math.Clamp(alpha, 0f, 1f),
+            fallback,
             0f,
             Vector2.Zero,
             scale,
             SpriteEffects.None,
             1f
         );
+    }
+
+
+    private Texture2D? TryGetGrayscaleAtlas()
+    {
+        if (this.GrayscaleAtlasChecked)
+            return this.GrayscaleIconAtlas;
+
+        this.GrayscaleAtlasChecked = true;
+        Texture2D? atlas = this.TryGetAtlas();
+        if (atlas is null)
+            return null;
+
+        try
+        {
+            Color[] pixels = new Color[atlas.Width * atlas.Height];
+            atlas.GetData(pixels);
+
+            for (int i = 0; i < pixels.Length; i++)
+            {
+                Color source = pixels[i];
+                byte luminance = (byte)Math.Clamp(
+                    (int)Math.Round(source.R * 0.299d + source.G * 0.587d + source.B * 0.114d),
+                    0,
+                    255
+                );
+                pixels[i] = new Color(luminance, luminance, luminance, source.A);
+            }
+
+            this.GrayscaleIconAtlas = new Texture2D(atlas.GraphicsDevice, atlas.Width, atlas.Height);
+            this.GrayscaleIconAtlas.SetData(pixels);
+        }
+        catch (Exception ex)
+        {
+            ModEntry.LogOnce(
+                "card-icon-grayscale-atlas",
+                $"Couldn't build grayscale Cardcha icon atlas; using grayscale initials instead. {ex.Message}"
+            );
+        }
+
+        return this.GrayscaleIconAtlas;
     }
 
     private Texture2D? TryGetAtlas()

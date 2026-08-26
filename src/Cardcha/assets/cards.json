@@ -1,112 +1,1586 @@
 [
   {
+    "BaseId": 1,
     "Id": "iron_edge",
     "Name": "Iron Edge",
     "Rarity": "Common",
-    "EffectKey": "damage_mult",
-    "Value": 0.04,
-    "Description": "+4% weapon damage.",
+    "Build": "Power",
+    "EffectKey": "damage_always",
+    "Value": 0.0,
+    "Description": "Tăng 4% sát thương vũ khí.",
     "IconIndex": 0,
+    "UseInitialFallback": false,
     "MaxLevel": 5,
-    "LevelStep": 0.25
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+4% sát thương vũ khí",
+      "+5%",
+      "+6%",
+      "+7%",
+      "+8%"
+    ]
   },
   {
-    "Id": "thick_hide",
-    "Name": "Thick Hide",
+    "BaseId": 2,
+    "Id": "quick_hands",
+    "Name": "Quick Hands",
     "Rarity": "Common",
-    "EffectKey": "defense_flat",
-    "Value": 1.0,
-    "Description": "+1 Defense.",
+    "Build": "Speed",
+    "EffectKey": "attack_speed_passive",
+    "Value": 0.0,
+    "Description": "Tăng 4% tốc độ đánh.",
     "IconIndex": 1,
+    "UseInitialFallback": false,
     "MaxLevel": 5,
-    "LevelStep": 0.25
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+4% tốc độ đánh",
+      "+5%",
+      "+6%",
+      "+7%",
+      "+8%"
+    ]
   },
   {
+    "BaseId": 3,
     "Id": "keen_eye",
     "Name": "Keen Eye",
     "Rarity": "Common",
+    "Build": "Critical",
     "EffectKey": "crit_chance",
-    "Value": 0.02,
-    "Description": "+2% critical chance.",
+    "Value": 0.0,
+    "Description": "Tăng 2% tỉ lệ chí mạng.",
     "IconIndex": 2,
+    "UseInitialFallback": false,
     "MaxLevel": 5,
-    "LevelStep": 0.25
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+2% crit chance",
+      "+2.5% crit chance",
+      "+3% crit chance",
+      "+3.5% crit chance",
+      "+4% crit chance"
+    ]
   },
   {
+    "BaseId": 4,
+    "Id": "heavy_blow",
+    "Name": "Heavy Blow",
+    "Rarity": "Common",
+    "Build": "Control",
+    "EffectKey": "knockback",
+    "Value": 0.0,
+    "Description": "Tăng 10% knockback.",
+    "IconIndex": 3,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+10% knockback",
+      "+15%",
+      "+20%",
+      "+25%",
+      "+30%"
+    ]
+  },
+  {
+    "BaseId": 5,
+    "Id": "first_strike",
+    "Name": "First Strike",
+    "Rarity": "Common",
+    "Build": "Power",
+    "EffectKey": "first_hit_damage",
+    "Value": 0.0,
+    "Description": "Đòn đầu tiên lên mỗi quái gây thêm 8% sát thương.",
+    "IconIndex": 4,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Đòn đầu +8% damage",
+      "+10%",
+      "+12%",
+      "+14%",
+      "+16%"
+    ]
+  },
+  {
+    "BaseId": 6,
+    "Id": "finisher",
+    "Name": "Finisher",
+    "Rarity": "Common",
+    "Build": "Power",
+    "EffectKey": "target_low_damage",
+    "Value": 0.0,
+    "Description": "Gây thêm 8% sát thương lên quái dưới 20% HP.",
+    "IconIndex": 5,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+8% damage lên quái <20% HP",
+      "+10%",
+      "+12%",
+      "+14%",
+      "+16%"
+    ]
+  },
+  {
+    "BaseId": 7,
+    "Id": "hunters_focus",
+    "Name": "Hunter's Focus",
+    "Rarity": "Common",
+    "Build": "Power",
+    "EffectKey": "target_high_damage",
+    "Value": 0.0,
+    "Description": "Gây thêm 5% sát thương lên quái còn trên 80% HP.",
+    "IconIndex": 6,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+5% damage lên quái >80% HP",
+      "+6%",
+      "+7%",
+      "+8%",
+      "+10%"
+    ]
+  },
+  {
+    "BaseId": 8,
+    "Id": "steady_grip",
+    "Name": "Steady Grip",
+    "Rarity": "Common",
+    "Build": "Consistency",
+    "EffectKey": "damage_variance",
+    "Value": 0.0,
+    "Description": "Giảm nhẹ độ biến thiên sát thương; đòn đánh ổn định hơn.",
+    "IconIndex": 7,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Giảm 15% độ biến thiên damage",
+      "Giảm 22%",
+      "Giảm 30%",
+      "Giảm 38%",
+      "Giảm 45%"
+    ]
+  },
+  {
+    "BaseId": 9,
+    "Id": "thick_hide",
+    "Name": "Thick Hide",
+    "Rarity": "Common",
+    "Build": "Defense",
+    "EffectKey": "defense_flat",
+    "Value": 0.0,
+    "Description": "Tăng 1 Defense.",
+    "IconIndex": 8,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+1 Defense",
+      "+2 Defense",
+      "+3 Defense"
+    ]
+  },
+  {
+    "BaseId": 10,
+    "Id": "vitality",
+    "Name": "Vitality",
+    "Rarity": "Common",
+    "Build": "Defense",
+    "EffectKey": "max_hp",
+    "Value": 0.0,
+    "Description": "Tăng 10 Max HP.",
+    "IconIndex": 9,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+10 Max HP",
+      "+15",
+      "+20",
+      "+25",
+      "+30"
+    ]
+  },
+  {
+    "BaseId": 11,
+    "Id": "second_breath",
+    "Name": "Second Breath",
+    "Rarity": "Common",
+    "Build": "Sustain",
+    "EffectKey": "kill_heal_flat",
+    "Value": 0.0,
+    "Description": "Hạ quái hồi 1 HP; có giới hạn hồi mỗi vài giây.",
+    "IconIndex": 10,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill hồi 1 HP; ICD 2.5s",
+      "Kill hồi 2 HP; ICD 2.5s",
+      "Kill hồi 3 HP; ICD 2.5s"
+    ]
+  },
+  {
+    "BaseId": 12,
+    "Id": "guard_step",
+    "Name": "Guard Step",
+    "Rarity": "Common",
+    "Build": "Defense",
+    "EffectKey": "post_hit_reduction",
+    "Value": 0.0,
+    "Description": "Sau khi nhận đòn, nhận giảm sát thương nhỏ trong thời gian rất ngắn.",
+    "IconIndex": 11,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Sau khi nhận hit: -8% damage trong 0.6s",
+      "-10% trong 0.7s",
+      "-12% trong 0.8s",
+      "-14% trong 0.9s"
+    ]
+  },
+  {
+    "BaseId": 13,
     "Id": "swift_feet",
     "Name": "Swift Feet",
     "Rarity": "Common",
-    "EffectKey": "combat_speed",
-    "Value": 1.0,
-    "Description": "+1 Speed while the current location contains a living monster.",
-    "IconIndex": 3,
+    "Build": "Mobility",
+    "EffectKey": "combat_move_speed",
+    "Value": 0.0,
+    "Description": "Tăng nhẹ movement speed trong khu vực có quái.",
+    "IconIndex": 12,
+    "UseInitialFallback": false,
     "MaxLevel": 5,
-    "LevelStep": 0.25
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Trong khu vực có quái: +3% move speed",
+      "+4%",
+      "+5%",
+      "+6%",
+      "+7%"
+    ]
   },
   {
+    "BaseId": 14,
+    "Id": "backstep",
+    "Name": "Backstep",
+    "Rarity": "Common",
+    "Build": "Mobility",
+    "EffectKey": "post_hit_move",
+    "Value": 0.0,
+    "Description": "Sau khi bị đánh, nhận burst movement speed ngắn.",
+    "IconIndex": 13,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Bị đánh: +10% move speed trong 1.0s",
+      "+12% / 1.1s",
+      "+14% / 1.2s",
+      "+16% / 1.3s"
+    ]
+  },
+  {
+    "BaseId": 15,
+    "Id": "stalwart",
+    "Name": "Stalwart",
+    "Rarity": "Common",
+    "Build": "Defense",
+    "EffectKey": "stationary_defense",
+    "Value": 0.0,
+    "Description": "Khi đứng yên một lúc ngắn, nhận +1 Defense cho tới khi di chuyển.",
+    "IconIndex": 14,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Đứng yên 1.5s: +1 Defense",
+      "Kích hoạt sau 1.25s",
+      "+2 Defense sau 1.25s",
+      "+2 Defense sau 1.0s"
+    ]
+  },
+  {
+    "BaseId": 16,
+    "Id": "last_push",
+    "Name": "Last Push",
+    "Rarity": "Common",
+    "Build": "Power",
+    "EffectKey": "self_low_damage",
+    "Value": 0.0,
+    "Description": "Dưới 30% HP, tăng 5% sát thương.",
+    "IconIndex": 15,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Dưới 30% HP: +5% damage",
+      "+7%",
+      "+9%",
+      "+11%",
+      "+13%"
+    ]
+  },
+  {
+    "BaseId": 17,
+    "Id": "calm_heart",
+    "Name": "Calm Heart",
+    "Rarity": "Common",
+    "Build": "Sustain",
+    "EffectKey": "out_combat_regen",
+    "Value": 0.0,
+    "Description": "Ngoài giao tranh một khoảng ngắn, hồi một lượng HP rất nhỏ theo thời gian.",
+    "IconIndex": 16,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Ngoài combat 5s: hồi 1 HP mỗi 3s",
+      "1 HP / 2.5s",
+      "1 HP / 2s",
+      "2 HP / 2s"
+    ]
+  },
+  {
+    "BaseId": 18,
+    "Id": "scavenger",
+    "Name": "Scavenger",
+    "Rarity": "Common",
+    "Build": "Loot",
+    "EffectKey": "bonus_loot",
+    "Value": 0.0,
+    "Description": "Tăng nhẹ cơ hội nhận thêm vật phẩm loot thông thường từ quái.",
+    "IconIndex": 17,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+3% cơ hội bonus loot thường",
+      "+4%",
+      "+5%",
+      "+6%",
+      "+7%"
+    ]
+  },
+  {
+    "BaseId": 19,
+    "Id": "essence_finder",
+    "Name": "Essence Finder",
+    "Rarity": "Rare",
+    "Build": "Gacha",
+    "EffectKey": "essence_finder",
+    "Value": 0.0,
+    "Description": "Khi quái đã rơi Cardboard Scrap hoặc Shiny Cardboard Scrap, tăng 8% cơ hội nhận thêm +1 Scrap cùng loại trong chính lần rơi đó; không làm tăng xác suất bản thân quái có rơi Scrap.",
+    "IconIndex": 18,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Khi đã drop Cardboard/Shiny Scrap: +8% cơ hội nhận thêm +1 cùng loại",
+      "+10%",
+      "+12%",
+      "+14%",
+      "+16%"
+    ]
+  },
+  {
+    "BaseId": 20,
+    "Id": "victory_charge",
+    "Name": "Victory Charge",
+    "Rarity": "Common",
+    "Build": "Ultimate",
+    "EffectKey": "boss_energy_kill",
+    "Value": 0.0,
+    "Description": "Hạ quái tăng lượng Boss Energy nhận được từ kill; không ảnh hưởng Energy đến từ damage/crit.",
+    "IconIndex": 19,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Boss Energy nhận từ kill +10%",
+      "+15%",
+      "+20%",
+      "+25%",
+      "+30%"
+    ]
+  },
+  {
+    "BaseId": 21,
+    "Id": "lucky_pocket",
+    "Name": "Lucky Pocket",
+    "Rarity": "Common",
+    "Build": "Loot",
+    "EffectKey": "bonus_gold",
+    "Value": 0.0,
+    "Description": "Tăng nhẹ cơ hội nhận tiền/đồ giá trị thấp từ quái nếu hệ loot hỗ trợ.",
+    "IconIndex": 20,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+2% cơ hội tiền/loot giá trị thấp",
+      "+3%",
+      "+4%",
+      "+5%",
+      "+6%"
+    ]
+  },
+  {
+    "BaseId": 22,
+    "Id": "treasure_magnet",
+    "Name": "Treasure Magnet",
+    "Rarity": "Common",
+    "Build": "Utility",
+    "EffectKey": "loot_magnet",
+    "Value": 0.0,
+    "Description": "Tăng bán kính hút loot trong khu vực combat.",
+    "IconIndex": 21,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+32 px bán kính hút loot",
+      "+48 px",
+      "+64 px",
+      "+80 px",
+      "+96 px"
+    ]
+  },
+  {
+    "BaseId": 23,
+    "Id": "explorer",
+    "Name": "Explorer",
+    "Rarity": "Common",
+    "Build": "Utility",
+    "EffectKey": "kill_move",
+    "Value": 0.0,
+    "Description": "Tăng nhẹ tốc độ di chuyển sau khi tiêu diệt quái.",
+    "IconIndex": 22,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill: +5% move speed trong 3s",
+      "+6%",
+      "+7%",
+      "+8%",
+      "+10%"
+    ]
+  },
+  {
+    "BaseId": 24,
+    "Id": "patient_hunter",
+    "Name": "Patient Hunter",
+    "Rarity": "Common",
+    "Build": "Critical",
+    "EffectKey": "patient_crit",
+    "Value": 0.0,
+    "Description": "Nếu 2 giây không tấn công, đòn kế tiếp được cộng crit chance.",
+    "IconIndex": 23,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "2s không đánh: hit kế +3% crit chance",
+      "+4%",
+      "+5%",
+      "+6%",
+      "+7%"
+    ]
+  },
+  {
+    "BaseId": 25,
+    "Id": "rhythm",
+    "Name": "Rhythm",
+    "Rarity": "Common",
+    "Build": "Combo",
+    "EffectKey": "rhythm",
+    "Value": 0.0,
+    "Description": "Mỗi 3 đòn trúng liên tiếp, đòn kế tiếp gây thêm sát thương nhỏ.",
+    "IconIndex": 24,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi 3 hit trúng: hit kế +4% damage",
+      "+5%",
+      "+6%",
+      "+7%",
+      "+8%"
+    ]
+  },
+  {
+    "BaseId": 26,
+    "Id": "bruiser",
+    "Name": "Bruiser",
+    "Rarity": "Common",
+    "Build": "Power",
+    "EffectKey": "bruiser",
+    "Value": 0.0,
+    "Description": "Gây thêm sát thương nhỏ lên quái có Max HP cao hơn ngưỡng.",
+    "IconIndex": 25,
+    "UseInitialFallback": false,
+    "MaxLevel": 5,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+4% damage lên quái vượt ngưỡng Max HP",
+      "+5%",
+      "+6%",
+      "+7%",
+      "+8%"
+    ]
+  },
+  {
+    "BaseId": 27,
+    "Id": "resilient",
+    "Name": "Resilient",
+    "Rarity": "Common",
+    "Build": "Defense",
+    "EffectKey": "low_hp_defense",
+    "Value": 0.0,
+    "Description": "Khi HP dưới 50%, tăng nhẹ Defense.",
+    "IconIndex": 26,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Dưới 50% HP: +1 Defense",
+      "+2 Defense",
+      "+3 Defense"
+    ]
+  },
+  {
+    "BaseId": 28,
+    "Id": "momentum",
+    "Name": "Momentum",
+    "Rarity": "Common",
+    "Build": "Speed",
+    "EffectKey": "kill_attack_speed",
+    "Value": 0.0,
+    "Description": "Hạ quái cho một buff attack speed rất ngắn; không stack.",
+    "IconIndex": 27,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill: +5% attack speed trong 2s",
+      "+7%",
+      "+9%",
+      "+11%"
+    ]
+  },
+  {
+    "BaseId": 29,
     "Id": "blood_fang",
     "Name": "Blood Fang",
     "Rarity": "Rare",
-    "EffectKey": "heal_on_kill",
-    "Value": 0.02,
-    "Description": "Monster kills restore 2% Max HP (with cooldown).",
-    "IconIndex": 4,
-    "MaxLevel": 5,
-    "LevelStep": 0.25
+    "Build": "Sustain",
+    "EffectKey": "kill_heal_percent",
+    "Value": 0.0,
+    "Description": "Hạ quái hồi 2% Max HP; có internal cooldown.",
+    "IconIndex": 28,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill hồi 2% Max HP; ICD 2.0s",
+      "2.5%; ICD 2.0s",
+      "3.0%; ICD 2.0s",
+      "3.5%; ICD 2.0s"
+    ]
   },
   {
+    "BaseId": 30,
     "Id": "executioner",
     "Name": "Executioner",
     "Rarity": "Rare",
-    "EffectKey": "execute_damage",
-    "Value": 0.2,
-    "Description": "+20% damage against enemies below 20% HP.",
-    "IconIndex": 5,
-    "MaxLevel": 5,
-    "LevelStep": 0.25
+    "Build": "Power",
+    "EffectKey": "target_low_damage",
+    "Value": 0.0,
+    "Description": "Gây thêm 15% sát thương lên quái dưới 20% HP.",
+    "IconIndex": 29,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+15% damage lên quái <20% HP",
+      "+18%",
+      "+21%",
+      "+24%"
+    ]
   },
   {
+    "BaseId": 31,
+    "Id": "opening_gambit",
+    "Name": "Opening Gambit",
+    "Rarity": "Rare",
+    "Build": "Power",
+    "EffectKey": "first_hit_damage",
+    "Value": 0.0,
+    "Description": "Đòn đầu tiên lên mỗi quái gây thêm 18% sát thương.",
+    "IconIndex": 30,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Hit đầu +18% damage",
+      "+21%",
+      "+24%",
+      "+27%"
+    ]
+  },
+  {
+    "BaseId": 32,
+    "Id": "deadeye",
+    "Name": "Deadeye",
+    "Rarity": "Rare",
+    "Build": "Critical",
+    "EffectKey": "crit_damage",
+    "Value": 0.0,
+    "Description": "Crit gây thêm 12% sát thương chí mạng.",
+    "IconIndex": 31,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Crit damage +12%",
+      "+16%",
+      "+20%",
+      "+24%"
+    ]
+  },
+  {
+    "BaseId": 33,
+    "Id": "predator",
+    "Name": "Predator",
+    "Rarity": "Rare",
+    "Build": "Combo",
+    "EffectKey": "kill_damage_stacks",
+    "Value": 0.0,
+    "Description": "Mỗi kill trong 6 giây tăng 3% sát thương, tối đa 3 stack.",
+    "IconIndex": 32,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill trong 6s: +3% damage/stack, max 3",
+      "+3.5%/stack",
+      "+4%/stack",
+      "+4.5%/stack"
+    ]
+  },
+  {
+    "BaseId": 34,
+    "Id": "adrenaline",
+    "Name": "Adrenaline",
+    "Rarity": "Rare",
+    "Build": "Speed",
+    "EffectKey": "kill_speed_combo",
+    "Value": 0.0,
+    "Description": "Kill tăng attack speed và movement speed ngắn hạn.",
+    "IconIndex": 33,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill: +8% atk speed, +5% move trong 3s",
+      "+10% / +6%",
+      "+12% / +7%",
+      "+14% / +8%"
+    ]
+  },
+  {
+    "BaseId": 35,
+    "Id": "counterforce",
+    "Name": "Counterforce",
+    "Rarity": "Rare",
+    "Build": "Defense",
+    "EffectKey": "counterforce",
+    "Value": 0.0,
+    "Description": "Sau khi bị đánh, đòn đánh kế tiếp gây thêm 15% sát thương.",
+    "IconIndex": 34,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Bị đánh: hit kế +15% damage",
+      "+20%",
+      "+25%",
+      "+30%"
+    ]
+  },
+  {
+    "BaseId": 36,
+    "Id": "iron_will",
+    "Name": "Iron Will",
+    "Rarity": "Rare",
+    "Build": "Defense",
+    "EffectKey": "low_hp_defense",
+    "Value": 0.0,
+    "Description": "Dưới 35% HP, nhận +2 Defense.",
+    "IconIndex": 35,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Dưới 35% HP: +2 Defense",
+      "+3 Defense",
+      "+4 Defense"
+    ]
+  },
+  {
+    "BaseId": 37,
+    "Id": "field_medic",
+    "Name": "Field Medic",
+    "Rarity": "Rare",
+    "Build": "Sustain",
+    "EffectKey": "field_medic",
+    "Value": 0.0,
+    "Description": "Mỗi 8 kill hồi một lượng HP cố định.",
+    "IconIndex": 36,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi 8 kill hồi 8 HP",
+      "Hồi 10 HP",
+      "Hồi 12 HP",
+      "Hồi 15 HP"
+    ]
+  },
+  {
+    "BaseId": 38,
+    "Id": "lifeline",
+    "Name": "Lifeline",
+    "Rarity": "Rare",
+    "Build": "Sustain",
+    "EffectKey": "lifeline",
+    "Value": 0.0,
+    "Description": "Khi HP lần đầu tụt dưới 25% mỗi ngày, hồi một lượng nhỏ HP.",
+    "IconIndex": 37,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Lần đầu/ngày dưới 25% HP: hồi 12 HP",
+      "Hồi 16 HP",
+      "Hồi 20 HP"
+    ]
+  },
+  {
+    "BaseId": 39,
+    "Id": "armor_breaker",
+    "Name": "Armor Breaker",
+    "Rarity": "Rare",
+    "Build": "Power",
+    "EffectKey": "same_target_damage",
+    "Value": 0.0,
+    "Description": "Đánh liên tiếp cùng một mục tiêu tăng dần sát thương, reset khi đổi mục tiêu.",
+    "IconIndex": 38,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Cùng target: +2% damage/hit, max 5 stack",
+      "+2.5%",
+      "+3%",
+      "+3.5%"
+    ]
+  },
+  {
+    "BaseId": 40,
+    "Id": "crushing_impact",
+    "Name": "Crushing Impact",
+    "Rarity": "Rare",
+    "Build": "Control",
+    "EffectKey": "crit_control",
+    "Value": 0.0,
+    "Description": "Đòn crit tăng mạnh knockback và gây thêm stagger nếu hệ combat hỗ trợ.",
+    "IconIndex": 39,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Crit: +30% knockback; stagger 0.20s nếu hỗ trợ",
+      "+40%; 0.25s",
+      "+50%; 0.30s",
+      "+60%; 0.35s"
+    ]
+  },
+  {
+    "BaseId": 41,
+    "Id": "fleet_hunter",
+    "Name": "Fleet Hunter",
+    "Rarity": "Rare",
+    "Build": "Mobility",
+    "EffectKey": "kill_move",
+    "Value": 0.0,
+    "Description": "Kill cho burst movement speed mạnh hơn; refresh duration nhưng không stack.",
+    "IconIndex": 40,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill: +12% move speed trong 2.5s",
+      "+15%",
+      "+18%",
+      "+21%"
+    ]
+  },
+  {
+    "BaseId": 42,
+    "Id": "treasure_eye",
+    "Name": "Treasure Eye",
+    "Rarity": "Rare",
+    "Build": "Loot",
+    "EffectKey": "bonus_loot_roll",
+    "Value": 0.0,
+    "Description": "Quái có xác suất nhỏ tạo thêm một loot roll thông thường.",
+    "IconIndex": 41,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "4% cơ hội tạo thêm 1 normal loot roll",
+      "5%",
+      "6%",
+      "7%"
+    ]
+  },
+  {
+    "BaseId": 43,
     "Id": "card_seeker",
     "Name": "Card Seeker",
     "Rarity": "Rare",
+    "Build": "Gacha",
     "EffectKey": "scrap_drop_mult",
-    "Value": 0.5,
-    "Description": "+50% multiplicative Cardboard Scrap drop chance in the prototype.",
-    "IconIndex": 6,
-    "MaxLevel": 5,
-    "LevelStep": 0.25
+    "Value": 0.0,
+    "Description": "Tăng đáng kể cơ hội Card Fragment, nhưng không ảnh hưởng Boss Token.",
+    "IconIndex": 42,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+15% cơ hội tài nguyên gacha theo multiplicative",
+      "+18%",
+      "+21%",
+      "+24%"
+    ]
   },
   {
+    "BaseId": 44,
+    "Id": "dust_collector",
+    "Name": "Dust Collector",
+    "Rarity": "Rare",
+    "Build": "Gacha",
+    "EffectKey": "duplicate_dust_bonus",
+    "Value": 0.0,
+    "Description": "Duplicate card cho thêm Card Dust.",
+    "IconIndex": 43,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Duplicate cho +15% Suspicious Dust",
+      "+20%",
+      "+25%",
+      "+30%"
+    ]
+  },
+  {
+    "BaseId": 45,
+    "Id": "fortune_chain",
+    "Name": "Fortune Chain",
+    "Rarity": "Rare",
+    "Build": "Loot",
+    "EffectKey": "no_hit_kill_loot",
+    "Value": 0.0,
+    "Description": "Sau 5 kill liên tiếp không bị đánh, tăng nhẹ loot chance cho tới khi bị trúng đòn.",
+    "IconIndex": 44,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "5 kill không bị đánh: +5% loot chance",
+      "+7%",
+      "+9%",
+      "+11%"
+    ]
+  },
+  {
+    "BaseId": 46,
+    "Id": "battle_trance",
+    "Name": "Battle Trance",
+    "Rarity": "Rare",
+    "Build": "Combo",
+    "EffectKey": "hit_combo_speed",
+    "Value": 0.0,
+    "Description": "Mỗi 4 hit trúng liên tiếp tăng attack speed ngắn hạn.",
+    "IconIndex": 45,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi chuỗi 4 hit: +6% atk speed trong 2s",
+      "+8%",
+      "+10%",
+      "+12%"
+    ]
+  },
+  {
+    "BaseId": 47,
+    "Id": "vanguard",
+    "Name": "Vanguard",
+    "Rarity": "Rare",
+    "Build": "Defense",
+    "EffectKey": "encounter_shield",
+    "Value": 0.0,
+    "Description": "Khi bước vào khu vực có quái, nhận shield nhỏ một lần.",
+    "IconIndex": 46,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Vào khu có quái: shield 5 HP một lần",
+      "8 HP",
+      "11 HP",
+      "14 HP"
+    ]
+  },
+  {
+    "BaseId": 48,
+    "Id": "marked_prey",
+    "Name": "Marked Prey",
+    "Rarity": "Rare",
+    "Build": "Power",
+    "EffectKey": "marked_prey",
+    "Value": 0.0,
+    "Description": "Quái đầu tiên bạn đánh sau 3 giây không combat nhận thêm damage từ bạn.",
+    "IconIndex": 47,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Target đầu sau 3s OOC chịu +10% damage trong 5s",
+      "+13%",
+      "+16%",
+      "+19%"
+    ]
+  },
+  {
+    "BaseId": 49,
+    "Id": "unyielding",
+    "Name": "Unyielding",
+    "Rarity": "Rare",
+    "Build": "Defense",
+    "EffectKey": "hit_damage_cap",
+    "Value": 0.0,
+    "Description": "Sát thương nhận vào không thể vượt quá một tỉ lệ Max HP nhất định từ một hit; chỉ kích hoạt theo cooldown.",
+    "IconIndex": 48,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Một hit không thể vượt 45% Max HP; CD 20s",
+      "40%; CD 18s",
+      "35%; CD 16s"
+    ]
+  },
+  {
+    "BaseId": 50,
+    "Id": "collectors_instinct",
+    "Name": "Collector's Instinct",
+    "Rarity": "Rare",
+    "Build": "Utility",
+    "EffectKey": "elite_gacha_bonus",
+    "Value": 0.0,
+    "Description": "Elite/Apex có thêm xác suất nhỏ rơi tài nguyên gacha phụ.",
+    "IconIndex": 49,
+    "UseInitialFallback": false,
+    "MaxLevel": 4,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Elite/Apex +5% cơ hội tài nguyên gacha phụ",
+      "+7%",
+      "+9%",
+      "+11%"
+    ]
+  },
+  {
+    "BaseId": 51,
+    "Id": "berserker_soul",
+    "Name": "Berserker Soul",
+    "Rarity": "Epic",
+    "Build": "Power",
+    "EffectKey": "missing_hp_damage",
+    "Value": 0.0,
+    "Description": "Mỗi 10% HP đã mất tăng sát thương một lượng nhỏ; có hard cap.",
+    "IconIndex": 50,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi 10% HP mất: +1.0% damage; cap +8%",
+      "+1.2%; cap +10%",
+      "+1.4%; cap +12%"
+    ]
+  },
+  {
+    "BaseId": 52,
     "Id": "chain_hunter",
     "Name": "Chain Hunter",
     "Rarity": "Epic",
-    "EffectKey": "kill_chain",
-    "Value": 0.05,
-    "Description": "Each kill grants +5% damage for 6s, up to 5 stacks; kills refresh the timer.",
-    "IconIndex": 7,
-    "MaxLevel": 4,
-    "LevelStep": 0.2
+    "Build": "Combo",
+    "EffectKey": "kill_damage_stacks",
+    "Value": 0.0,
+    "Description": "Kill trong cửa sổ 5 giây tăng damage; tối đa 5 stack, mất hết khi hết thời gian.",
+    "IconIndex": 51,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill trong 5s: +4% damage/stack, max 5",
+      "+5%/stack",
+      "+6%/stack"
+    ]
   },
   {
+    "BaseId": 53,
+    "Id": "soul_siphon",
+    "Name": "Soul Siphon",
+    "Rarity": "Epic",
+    "Build": "Sustain",
+    "EffectKey": "lifesteal",
+    "Value": 0.0,
+    "Description": "Một phần nhỏ sát thương gây ra lên quái chuyển thành hồi HP, có giới hạn hồi mỗi giây.",
+    "IconIndex": 52,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "1.0% damage thành heal; cap 3 HP/s",
+      "1.25%; cap 4 HP/s",
+      "1.5%; cap 5 HP/s"
+    ]
+  },
+  {
+    "BaseId": 54,
+    "Id": "phantom_step",
+    "Name": "Phantom Step",
+    "Rarity": "Epic",
+    "Build": "Mobility",
+    "EffectKey": "dodge_crit_heuristic",
+    "Value": 0.0,
+    "Description": "Sau khi né/thoát một đòn bằng di chuyển, đòn kế tiếp được tăng crit chance; có cooldown.",
+    "IconIndex": 53,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Né bằng di chuyển: hit kế +15% crit; CD 8s",
+      "+20%; CD 7s",
+      "+25%; CD 6s"
+    ]
+  },
+  {
+    "BaseId": 55,
+    "Id": "reapers_mark",
+    "Name": "Reaper's Mark",
+    "Rarity": "Epic",
+    "Build": "Power",
+    "EffectKey": "hit_mark",
+    "Value": 0.0,
+    "Description": "Đánh một mục tiêu đủ số lần đặt Mark; mục tiêu chịu bonus damage cho tới khi chết hoặc mark hết hạn.",
+    "IconIndex": 54,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "4 hit cùng target đặt Mark: +8% damage trong 6s",
+      "+10%",
+      "+12%"
+    ]
+  },
+  {
+    "BaseId": 56,
+    "Id": "stoneheart",
+    "Name": "Stoneheart",
+    "Rarity": "Epic",
+    "Build": "Defense",
+    "EffectKey": "high_hp_reduction",
+    "Value": 0.0,
+    "Description": "Khi HP trên 80%, nhận giảm sát thương; dưới ngưỡng thì mất hiệu ứng.",
+    "IconIndex": 55,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "HP >80%: -10% damage nhận vào",
+      "-12%",
+      "-15%"
+    ]
+  },
+  {
+    "BaseId": 57,
     "Id": "last_stand",
     "Name": "Last Stand",
     "Rarity": "Epic",
-    "EffectKey": "low_hp_power",
-    "Value": 0.2,
-    "Description": "Below 20% HP: +20% damage and +2 Defense in the prototype.",
-    "IconIndex": 8,
-    "MaxLevel": 4,
-    "LevelStep": 0.2
+    "Build": "Defense",
+    "EffectKey": "last_stand",
+    "Value": 0.0,
+    "Description": "Dưới 25% HP, tăng mạnh Defense và damage; chỉ hoạt động trong thời gian giới hạn mỗi combat.",
+    "IconIndex": 56,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Dưới 25% HP: +3 Defense & +12% damage trong 6s",
+      "+4 Def & +16%",
+      "+5 Def & +20%"
+    ]
   },
   {
+    "BaseId": 58,
+    "Id": "war_drum",
+    "Name": "War Drum",
+    "Rarity": "Epic",
+    "Build": "Combo",
+    "EffectKey": "kill_speed_stacks",
+    "Value": 0.0,
+    "Description": "Mỗi kill tăng nhẹ attack speed; đạt max stack tạo một burst damage bonus ngắn.",
+    "IconIndex": 57,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill: +3% atk speed/stack max 4; max stack cho +8% damage 3s",
+      "+4%/stack; +10% burst",
+      "+5%/stack; +12% burst"
+    ]
+  },
+  {
+    "BaseId": 59,
+    "Id": "treasure_hunter",
+    "Name": "Treasure Hunter",
+    "Rarity": "Epic",
+    "Build": "Loot",
+    "EffectKey": "elite_bonus_loot",
+    "Value": 0.0,
+    "Description": "Elite/Apex có cơ hội cao hơn rơi thêm một phần thưởng phụ không độc quyền.",
+    "IconIndex": 58,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Elite/Apex +10% cơ hội bonus reward không độc quyền",
+      "+13%",
+      "+16%"
+    ]
+  },
+  {
+    "BaseId": 60,
+    "Id": "golden_hand",
+    "Name": "Golden Hand",
+    "Rarity": "Epic",
+    "Build": "Gacha",
+    "EffectKey": "pull_dust_periodic",
+    "Value": 0.0,
+    "Description": "Mỗi số pull nhất định nhận thêm Card Dust; không thay đổi rarity roll.",
+    "IconIndex": 59,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi 10 pull: +5 Suspicious Dust",
+      "+7 Dust",
+      "+10 Dust"
+    ]
+  },
+  {
+    "BaseId": 61,
+    "Id": "arcane_recycler",
+    "Name": "Arcane Recycler",
+    "Rarity": "Epic",
+    "Build": "Gacha",
+    "EffectKey": "duplicate_refund",
+    "Value": 0.0,
+    "Description": "Card trùng từ Rare trở lên hoàn lại một phần tài nguyên quay.",
+    "IconIndex": 60,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Duplicate Rare+ hoàn 5% tài nguyên pull",
+      "7.5%",
+      "10%"
+    ]
+  },
+  {
+    "BaseId": 62,
+    "Id": "mirror_guard",
+    "Name": "Mirror Guard",
+    "Rarity": "Epic",
+    "Build": "Defense",
+    "EffectKey": "next_hit_reduction_after_big",
+    "Value": 0.0,
+    "Description": "Sau khi nhận một hit lớn, giảm sát thương hit kế tiếp đáng kể.",
+    "IconIndex": 61,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Sau hit lớn: hit kế -30% damage; CD 12s",
+      "-40%; CD 10s",
+      "-50%; CD 8s"
+    ]
+  },
+  {
+    "BaseId": 63,
+    "Id": "relentless",
+    "Name": "Relentless",
+    "Rarity": "Epic",
+    "Build": "Power",
+    "EffectKey": "same_target_damage",
+    "Value": 0.0,
+    "Description": "Đánh cùng một mục tiêu liên tục tăng damage tới cap; miss/đổi target reset.",
+    "IconIndex": 62,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Cùng target: +2% damage/hit, max 5 stack",
+      "+2.5%, max 6",
+      "+3%, max 7"
+    ]
+  },
+  {
+    "BaseId": 64,
+    "Id": "overclock",
+    "Name": "Overclock",
+    "Rarity": "Epic",
+    "Build": "Speed",
+    "EffectKey": "elite_kill_speed",
+    "Value": 0.0,
+    "Description": "Kill elite/Apex cho buff attack speed mạnh trong vài giây.",
+    "IconIndex": 63,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill Elite/Apex: +15% atk speed trong 5s",
+      "+20%",
+      "+25%"
+    ]
+  },
+  {
+    "BaseId": 65,
+    "Id": "lucky_break",
+    "Name": "Lucky Break",
+    "Rarity": "Epic",
+    "Build": "Utility",
+    "EffectKey": "pity_loot",
+    "Value": 0.0,
+    "Description": "Khi loot roll thất bại liên tiếp nhiều lần, tăng tạm thời cơ hội loot phụ; reset khi thành công.",
+    "IconIndex": 64,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Sau 3 bonus-loot roll fail: +8% chance đến khi thành công",
+      "+12%",
+      "+16%"
+    ]
+  },
+  {
+    "BaseId": 66,
+    "Id": "battle_scholar",
+    "Name": "Battle Scholar",
+    "Rarity": "Epic",
+    "Build": "Utility",
+    "EffectKey": "monster_variety_buff",
+    "Value": 0.0,
+    "Description": "Sau khi hạ đủ số loại monster khác nhau trong ngày, nhận buff combat tổng hợp nhỏ.",
+    "IconIndex": 65,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Hạ 3 loại monster/ngày: +3% damage, +2% atk speed",
+      "+4% damage, +3% atk speed",
+      "+5% damage, +4% atk speed, +1 Defense"
+    ]
+  },
+  {
+    "BaseId": 67,
     "Id": "phoenix_heart",
     "Name": "Phoenix Heart",
     "Rarity": "Legendary",
+    "Build": "Survival",
     "EffectKey": "death_save",
-    "Value": 1.0,
-    "Description": "Once per day, survive lethal damage at 1 HP and gain brief invulnerability.",
-    "IconIndex": 9,
+    "Value": 0.0,
+    "Description": "Một lần mỗi ngày, đòn chí tử để lại 1 HP và cho invulnerability rất ngắn.",
+    "IconIndex": 66,
+    "UseInitialFallback": false,
     "MaxLevel": 3,
-    "LevelStep": 0.15
+    "LevelStep": 0.0,
+    "StarRules": [
+      "1 lần/ngày: lethal để 1 HP + 1.0s invulnerable",
+      "1.5s invulnerable",
+      "2.0s invulnerable"
+    ]
+  },
+  {
+    "BaseId": 68,
+    "Id": "void_walker",
+    "Name": "Void Walker",
+    "Rarity": "Legendary",
+    "Build": "Mobility",
+    "EffectKey": "hit_phase",
+    "Value": 0.0,
+    "Description": "Sau khi nhận sát thương, có cơ hội kích hoạt phase ngắn giảm damage và tăng movement speed; cooldown dài.",
+    "IconIndex": 67,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Bị hit: 15% proc phase 1.5s, -40% damage, +15% move; CD 20s",
+      "20%; 1.75s, -50%, +20%; CD 18s",
+      "25%; 2.0s, -60%, +25%; CD 16s"
+    ]
+  },
+  {
+    "BaseId": 69,
+    "Id": "soul_eater",
+    "Name": "Soul Eater",
+    "Rarity": "Legendary",
+    "Build": "Sustain",
+    "EffectKey": "soul_kill",
+    "Value": 0.0,
+    "Description": "Kill tích Soul; đủ Soul sẽ hồi HP và tăng damage ngắn hạn, sau đó reset.",
+    "IconIndex": 68,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "6 kill tích đủ Soul: hồi 10% Max HP +10% damage 5s",
+      "5 kill: hồi 12% +12%",
+      "4 kill: hồi 15% +15%"
+    ]
+  },
+  {
+    "BaseId": 70,
+    "Id": "time_breaker",
+    "Name": "Time Breaker",
+    "Rarity": "Legendary",
+    "Build": "Speed",
+    "EffectKey": "crit_proc_speed",
+    "Value": 0.0,
+    "Description": "Mỗi crit có cơ hội tạo cửa sổ attack-speed rất mạnh; internal cooldown bắt buộc.",
+    "IconIndex": 69,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Crit: 10% proc +30% atk speed 3s; ICD 12s",
+      "12% proc +35%; ICD 10s",
+      "15% proc +40%; ICD 8s"
+    ]
+  },
+  {
+    "BaseId": 71,
+    "Id": "titans_grip",
+    "Name": "Titan's Grip",
+    "Rarity": "Legendary",
+    "Build": "Power",
+    "EffectKey": "damage_speed_tradeoff",
+    "Value": 0.0,
+    "Description": "Giảm nhẹ tốc độ đánh nhưng tăng đáng kể sát thương mỗi hit.",
+    "IconIndex": 70,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "-10% atk speed, +25% damage/hit",
+      "-8%, +30%",
+      "-6%, +35%"
+    ]
+  },
+  {
+    "BaseId": 72,
+    "Id": "perfect_hunter",
+    "Name": "Perfect Hunter",
+    "Rarity": "Legendary",
+    "Build": "Critical",
+    "EffectKey": "no_hit_kill_crit",
+    "Value": 0.0,
+    "Description": "Mỗi kill không bị đánh tăng crit chance theo stack; bị đánh mất stack.",
+    "IconIndex": 71,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Kill không bị đánh: +2% crit/stack, max 5",
+      "+2.5%/stack",
+      "+3%/stack"
+    ]
+  },
+  {
+    "BaseId": 73,
+    "Id": "kings_ransom",
+    "Name": "King's Ransom",
+    "Rarity": "Legendary",
+    "Build": "Loot",
+    "EffectKey": "apex_guaranteed_loot",
+    "Value": 0.0,
+    "Description": "Apex/Boss có thêm một guaranteed reward roll không thể là boss-exclusive card.",
+    "IconIndex": 72,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Apex/Boss: +1 guaranteed non-exclusive reward roll",
+      "Roll có +20% chance nâng chất lượng",
+      "Roll có +35% chance nâng chất lượng"
+    ]
+  },
+  {
+    "BaseId": 74,
+    "Id": "cardmaster",
+    "Name": "Cardmaster",
+    "Rarity": "Legendary",
+    "Build": "Gacha",
+    "EffectKey": "standard_pull_bonus",
+    "Value": 0.0,
+    "Description": "Mỗi 10 pull Standard nhận bonus Dust và tăng rất nhẹ luck cho pull kế tiếp; không vượt pity.",
+    "IconIndex": 73,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Mỗi 10 Standard pull: +5 Dust; next pull +1% Rare+ weighting",
+      "+7 Dust; +1.5%",
+      "+10 Dust; +2%"
+    ]
+  },
+  {
+    "BaseId": 75,
+    "Id": "guardian_angel",
+    "Name": "Guardian Angel",
+    "Rarity": "Legendary",
+    "Build": "Survival",
+    "EffectKey": "low_hp_shield",
+    "Value": 0.0,
+    "Description": "Khi HP dưới ngưỡng nguy hiểm, tạo shield lớn một lần mỗi ngày.",
+    "IconIndex": 74,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Dưới 20% HP: shield =25% Max HP, 1 lần/ngày",
+      "35% Max HP",
+      "45% Max HP"
+    ]
+  },
+  {
+    "BaseId": 76,
+    "Id": "apex_predator",
+    "Name": "Apex Predator",
+    "Rarity": "Legendary",
+    "Build": "Power",
+    "EffectKey": "elite_damage",
+    "Value": 0.0,
+    "Description": "Gây thêm damage lên Elite/Apex/Boss; hạ chúng cho buff combat ngắn.",
+    "IconIndex": 75,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "+10% damage vs Elite/Apex/Boss; kill chúng: +8% damage 6s",
+      "+15%; buff +10%",
+      "+20%; buff +12%"
+    ]
+  },
+  {
+    "BaseId": 77,
+    "Id": "endless_hunt",
+    "Name": "Endless Hunt",
+    "Rarity": "Mythic",
+    "Build": "Combo",
+    "EffectKey": "hunt_stacks",
+    "Value": 0.0,
+    "Description": "Kill kéo dài Hunt state; trong Hunt, damage và speed tăng theo stack nhưng có hard cap. Hết thời gian reset toàn bộ.",
+    "IconIndex": 76,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Hunt 5s; kill refresh. +2% damage & +1% speed/stack, max 6",
+      "+2.5% & +1.25%, max 7",
+      "+3% & +1.5%, max 8"
+    ]
+  },
+  {
+    "BaseId": 78,
+    "Id": "fate_weaver",
+    "Name": "Fate Weaver",
+    "Rarity": "Mythic",
+    "Build": "Gacha",
+    "EffectKey": "fate_weaver",
+    "Value": 0.0,
+    "Description": "Mỗi pull không đạt Epic+ tích Fate. Khi đạt ngưỡng, pull kế tiếp tăng một bậc rarity; sau đó reset. Không vượt Mythic cap.",
+    "IconIndex": 77,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Non-Epic+ pull +1 Fate; 12 Fate nâng pull kế +1 rarity tier",
+      "Ngưỡng 10 Fate",
+      "Ngưỡng 8 Fate"
+    ]
+  },
+  {
+    "BaseId": 79,
+    "Id": "immortal_echo",
+    "Name": "Immortal Echo",
+    "Rarity": "Mythic",
+    "Build": "Survival",
+    "EffectKey": "immortal_echo",
+    "Value": 0.0,
+    "Description": "Khi đáng lẽ chết, tạo Echo trong vài giây: không thể hồi máu nhưng vẫn chiến đấu; nếu hạ đủ quái trước khi hết thời gian sẽ sống lại với ít HP. Cooldown rất dài.",
+    "IconIndex": 78,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Lethal: Echo 5s; hạ 3 quái để sống lại 10% HP; CD rất dài",
+      "6s; revive 15% HP",
+      "7s; revive 20% HP"
+    ]
+  },
+  {
+    "BaseId": 80,
+    "Id": "worldbreaker",
+    "Name": "Worldbreaker",
+    "Rarity": "Mythic",
+    "Build": "Power",
+    "EffectKey": "boss_target_stacks_shockwave",
+    "Value": 0.0,
+    "Description": "Mỗi hit lên cùng một Elite/Apex/Boss tăng damage theo stack tới cap; khi target chết tạo shockwave gây sát thương nhỏ lên quái xung quanh.",
+    "IconIndex": 79,
+    "UseInitialFallback": false,
+    "MaxLevel": 3,
+    "LevelStep": 0.0,
+    "StarRules": [
+      "Cùng Elite/Apex/Boss: +2% damage/hit max 10; chết tạo shockwave 15% weapon dmg",
+      "+2.5%; shockwave 20%",
+      "+3%; shockwave 25%"
+    ]
   }
 ]
