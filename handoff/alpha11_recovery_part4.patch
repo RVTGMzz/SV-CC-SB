@@ -1,0 +1,178 @@
+         Rectangle inner = Inflate(this.SecretSlot.bounds, -4);
+-        DrawCircle(b, inner, new Color(134, 119, 139));
+-        Rectangle label = new(inner.X + 5, inner.Y + 6, inner.Width - 10, Math.Max(16, inner.Height / 3));
+-        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, "SECRET", label, Color.White, maxLines: 1, minScale: 0.40f, centerX: true, maxScale: 0.64f);
+-        Rectangle lockArea = new(inner.X + 8, inner.Y + inner.Height / 3, inner.Width - 16, inner.Height * 2 / 3 - 5);
+-        DrawLockIcon(b, lockArea);
++        DrawCircle(b, inner, new Color(161, 137, 157));
++        DrawLockIcon(b, Inflate(inner, -8));
+     }
+ 
+     private void DrawActionButtons(SpriteBatch b, bool owned)
+diff --git a/src/Cardcha/UI/CardchaPullAnimationMenu.cs b/src/Cardcha/UI/CardchaPullAnimationMenu.cs
+index 3c98405..624809c 100644
+--- a/src/Cardcha/UI/CardchaPullAnimationMenu.cs
++++ b/src/Cardcha/UI/CardchaPullAnimationMenu.cs
+@@ -505,6 +505,17 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
+         Rectangle starV = new(card.Center.X - 2, card.Center.Y - star, 4, star * 2);
+         b.Draw(Game1.staminaRect, starH, new Color(255, 224, 93) * alpha);
+         b.Draw(Game1.staminaRect, starV, new Color(255, 224, 93) * alpha);
++
++        // Alpha.11: pulse the entire card cell instead of only a tiny highlight/text-sized area.
++        // This makes the gacha flash readable on controller/TV setups and at reduced UI scale.
++        if (this.ElapsedMs >= 2240f)
++        {
++            float wave = 0.5f + 0.5f * (float)Math.Sin((this.ElapsedMs - 2240f) * 0.030f);
++            float envelope = Math.Clamp((this.ElapsedMs - 2240f) / 420f, 0f, 1f);
++            float cellFlash = (0.10f + wave * 0.22f) * envelope;
++            b.Draw(Game1.staminaRect, card, Color.White * cellFlash);
++            CardchaUi.DrawBorder(b, card, rarity * (0.68f + wave * 0.32f), 3);
++        }
+     }
+ 
+     private void DrawPortableSparkles(SpriteBatch b, Rectangle panel, Rectangle machineDest)
+@@ -598,9 +609,16 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
+             return;
+ 
+         float half = Math.Max(1f, (endMs - startMs) / 2f);
+-        float alpha = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
+-        alpha = Math.Clamp(alpha, 0f, 1f);
+-        b.Draw(Game1.fadeToBlackRect, panel, Color.White * (alpha * 0.62f));
++        float envelope = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
++        envelope = Math.Clamp(envelope, 0f, 1f);
++
++        // Full-panel multi-pulse instead of a small local flicker.
++        float wave = 0.5f + 0.5f * (float)Math.Sin((this.ElapsedMs - startMs) * 0.052f);
++        float alpha = envelope * (0.18f + wave * 0.42f);
++        b.Draw(Game1.fadeToBlackRect, panel, Color.White * alpha);
++
++        Rectangle inner = new(panel.X + 8, panel.Y + 8, panel.Width - 16, panel.Height - 16);
++        CardchaUi.DrawBorder(b, inner, Color.White * (0.25f + 0.45f * wave) * envelope, 4);
+     }
+ 
+     private int GetMachineFrame()
+diff --git a/src/Cardcha/UI/CardchaRevealMenu.cs b/src/Cardcha/UI/CardchaRevealMenu.cs
+index 5774473..d49b868 100644
+--- a/src/Cardcha/UI/CardchaRevealMenu.cs
++++ b/src/Cardcha/UI/CardchaRevealMenu.cs
+@@ -465,16 +465,19 @@ internal sealed class CardchaRevealMenu : IClickableMenu
+                 b.Draw(Game1.staminaRect, pulse, CardchaUi.Gold * blink);
+             }
+ 
+-            if (this.Phase == RevealPhase.Reveal && best.Card.Rarity >= CardRarity.Epic)
++            if (this.Phase == RevealPhase.Reveal)
+             {
+                 Color rarity = CardchaUi.RarityColor(best.Card.Rarity);
++                float wave = 0.5f + 0.5f * (float)Math.Sin(progress * Math.PI * 7f);
++                float strength = best.Card.Rarity >= CardRarity.Epic ? 0.20f : 0.12f;
+                 Rectangle flash = new(
+-                    this.xPositionOnScreen + 42,
+-                    this.yPositionOnScreen + 235,
+-                    220,
+-                    240
++                    this.xPositionOnScreen + 26,
++                    this.yPositionOnScreen + 112,
++                    this.width - 52,
++                    this.height - 160
+                 );
+-                b.Draw(Game1.staminaRect, flash, rarity * (0.08f + 0.10f * (float)Math.Sin(progress * Math.PI)));
++                b.Draw(Game1.staminaRect, flash, rarity * (strength * wave));
++                CardchaUi.DrawBorder(b, flash, Color.White * (0.12f + 0.22f * wave), 3);
+             }
+ 
+             string line = frame switch
+@@ -614,6 +617,10 @@ internal sealed class CardchaRevealMenu : IClickableMenu
+         Rectangle aura = new(rect.X - 8, rect.Y - 8, rect.Width + 16, rect.Height + 16);
+         b.Draw(Game1.staminaRect, aura, rarity * alpha);
+ 
++        // Flash the full revealed card cell too, not just the narrow outer aura.
++        float wave = 0.5f + 0.5f * (float)Math.Sin(this.ResultFlashMs * 0.045f);
++        b.Draw(Game1.staminaRect, rect, Color.White * (0.06f + 0.16f * wave) * (float)Math.Clamp(this.ResultFlashMs / 700.0, 0.0, 1.0));
++
+         if (result.Card.Rarity >= CardRarity.Epic)
+         {
+             string callout = CardchaUi.RarityText(result.Card.Rarity).ToUpperInvariant() + "!";
+diff --git a/src/Cardcha/UI/MimiScrapShopMenu.cs b/src/Cardcha/UI/MimiScrapShopMenu.cs
+index 2a433d8..f1869c9 100644
+--- a/src/Cardcha/UI/MimiScrapShopMenu.cs
++++ b/src/Cardcha/UI/MimiScrapShopMenu.cs
+@@ -508,7 +508,13 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
+             maxScale: 1.34f
+         );
+ 
+-        string progress = ModEntry.T("portable.shop.secret");
++        string progress = this.PortableMachine.IsAcquired
++            ? ModEntry.T("portable.shop.secret")
++            : ModEntry.T("portable.shop.progress", new
++            {
++                count = this.PortableMachine.UniqueCardCount,
++                target = PortableMachineService.FreeGiftCardMilestone
++            });
+ 
+         CardchaUi.DrawAutoFitWrappedText(
+             b,
+diff --git a/src/Cardcha/i18n/default.json b/src/Cardcha/i18n/default.json
+index c5bf938..45b7bb7 100644
+--- a/src/Cardcha/i18n/default.json
++++ b/src/Cardcha/i18n/default.json
+@@ -228,13 +228,13 @@
+   "portable.machine.locked": "The portable machine refuses to boot. You still need MiMi and the Wizard to finish setting up Cardcha first.",
+   "portable.machine.busy": "Not now. Even MiMi agrees opening a gacha machine during an event is a bad idea.",
+   "mimi.shop.quip.portable": "MiMi: Scrap prices are on the board. Oh, and yes, that little machine is portable. Only 20,000g. Don't make that face — convenience is expensive and I'm in a hurry!",
+-  "portable.shop.progress": "Collect {{count}}/{{target}} unique cards. Reach {{target}} before buying it and MiMi will hand one over for free.",
++  "portable.shop.progress": "Collection: {{count}}/{{target}} unique cards. Reach {{target}} and MiMi will hand over a portable machine for free.",
+   "portable.shop.secret": "You can Cardcha whenever you like.",
+   "portable.shop.owned": "Portable machine acquired. MiMi is trying very hard not to mention the receipt.",
+   "portable.shop.button.owned": "OWNED",
+   "portable.shop.button.free": "CLAIM FREE",
+   "portable.shop.status.bought": "MiMi: 20,000g received! See? Portable convenience. Beautiful. Profitable. Mostly profitable.",
+-  "portable.shop.status.gifted": "MiMi: Fifty unique cards already?! Fine, take the portable machine. Free. Don't get used to that word around me.",
++  "portable.shop.status.gifted": "MiMi: Twenty unique cards already?! Fine, take the portable machine. Free. Don't get used to that word around me.",
+   "portable.shop.status.owned": "MiMi: You already have one. I'm greedy, not irresponsible enough to sell you the same machine twice.",
+   "portable.shop.status.poor": "MiMi: 20,000g. Come back when your wallet stops making that noise.",
+   "portable.shop.status.locked": "MiMi: Finish the Cardcha handoff first. I sell questionable technology, not unfinished questionable technology.",
+@@ -724,5 +724,6 @@
+   "binder.collection.equipped": "IN USE",
+   "binder.collection.page": "Page {{page}} / {{pages}}",
+   "binder.boss-slot.locked": "The Boss Slot is not unlocked yet.",
+-  "binder.secret-slot.locked": "The Secret Slot is not unlocked yet."
++  "binder.secret-slot.locked": "The Secret Slot is not unlocked yet.",
++  "portable.reward": "Twenty cards already? Fine. This one's yours. Free. Please don't ask how long MiMi stared at the receipt afterward."
+ }
+diff --git a/src/Cardcha/i18n/vi.json b/src/Cardcha/i18n/vi.json
+index 07dd80e..ea253f8 100644
+--- a/src/Cardcha/i18n/vi.json
++++ b/src/Cardcha/i18n/vi.json
+@@ -228,7 +228,7 @@
+   "portable.machine.locked": "Máy cầm tay không chịu khởi động. Bạn vẫn phải hoàn tất phần bàn giao Cardcha với MiMi và Phù thủy trước đã.",
+   "portable.machine.busy": "Chưa phải lúc. Đến MiMi cũng đồng ý mở máy gacha giữa một sự kiện là ý tưởng tệ.",
+   "mimi.shop.quip.portable": "MiMi: Giá mảnh nằm ngay trên bảng nhé. À, cái máy nhỏ kia cầm đi đâu cũng được. Chỉ 20.000g thôi. Đừng nhìn mình như vậy — sự tiện lợi rất đắt, mà mình đang vội!",
+-  "portable.shop.progress": "Bộ sưu tập: {{count}}/{{target}} lá khác nhau. Đạt {{target}} lá trước khi mua thì MiMi sẽ cho bạn miễn phí một máy.",
++  "portable.shop.progress": "Bộ sưu tập: {{count}}/{{target}} lá khác nhau. Đạt {{target}} lá thì MiMi sẽ đưa bạn một Máy Cardcha Cầm Tay miễn phí.",
+   "portable.shop.secret": "Bạn có thể Cardcha bất cứ lúc nào tùy thích.",
+   "portable.shop.owned": "Đã có Máy Cardcha Cầm Tay. MiMi đang cố không nhắc lại cái hóa đơn.",
+   "portable.shop.button.owned": "ĐÃ CÓ",
+@@ -292,7 +292,7 @@
+   "portable.shop.description": "Cho phép mở Máy Cardcha ở bất cứ đâu. Tiện lợi thường đi kèm một cái giá hơi đau ví.",
+   "portable.shop.bought": "Đã mua Máy Cardcha Cầm Tay. MiMi cảm ơn ví tiền của bạn.",
+   "portable.shop.already": "Bạn đã có Máy Cardcha Cầm Tay rồi. MiMi không bán cái thứ hai đâu, cô ấy chưa ác đến vậy.",
+-  "portable.reward": "20 lá rồi à? Được rồi, cái này thuộc về bạn. Miễn phí. Đừng hỏi MiMi đã khóc bao lâu sau quyết định này.",
++  "portable.reward": "20 lá rồi à? Được rồi, cái này thuộc về bạn. Miễn phí. Đừng hỏi MiMi đã nhìn hóa đơn bao lâu sau quyết định này.",
+   "portable.use.locked": "Máy này chưa chịu hoạt động. Có vẻ câu chuyện Cardcha vẫn chưa tới đoạn đó.",
+   "portable.use.not-player": "Chỉ người sở hữu mới khiến cỗ máy cầm tay chịu nghe lời.",
+   "portable.use.open": "ChaCha mở Máy Cardcha Cầm Tay.",
+diff --git a/src/Cardcha/manifest.json b/src/Cardcha/manifest.json
+index 6681232..35756dc 100644
+--- a/src/Cardcha/manifest.json
++++ b/src/Cardcha/manifest.json
+@@ -1,7 +1,7 @@
+ {
+   "Name": "Cardcha!",
+   "Author": "Ronvotri",
+-  "Version": "0.3.0-alpha.10",
++  "Version": "0.3.0-alpha.11",
+   "Description": "Bonk monsters. Pull cardboard. Build an 80-card collection in the new Binder.",
+   "UniqueID": "Ronvotri.Cardcha",
+   "EntryDll": "Cardcha.dll",
+-- 
+2.47.3
