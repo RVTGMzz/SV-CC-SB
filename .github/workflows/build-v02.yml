@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - cardcha-v02-book-visual
+      - cardcha-beta1-staging
   workflow_dispatch:
 
 jobs:
