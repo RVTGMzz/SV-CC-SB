@@ -5,6 +5,7 @@ on:
     branches:
       - cardcha-v02-book-visual
       - cardcha-beta1-staging
+      - cardcha-beta3-mimi-split
   workflow_dispatch:
 
 jobs:
@@ -99,6 +100,9 @@ jobs:
 
       - name: Apply beta.1 Base Set 80
         run: python tools/apply_beta1_patch.py
+
+      - name: Apply beta.3 MiMi phase actor split
+        run: python tools/apply_beta3_actor_only.py
 
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
