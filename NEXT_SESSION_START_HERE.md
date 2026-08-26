@@ -1,40 +1,42 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.18 Binder Lock + Typography
+# NEXT SESSION — Cardcha v0.3.0-alpha.19 Controller Remap
 
 ## Current candidate
-- Version: `0.3.0-alpha.18`
-- Build label: `Cardcha! v0.3.0-alpha.18 BINDER LOCK + TYPOGRAPHY`
-- Baseline: alpha.17 Mythic + Minimap.
+- Version: `0.3.0-alpha.19`
+- Build label: `Cardcha! v0.3.0-alpha.19 CONTROLLER REMAP`
+- Baseline: alpha.18 Binder Lock + Typography.
 
-## Binder lock rewrite
-1. Binder now separates free preview state (`PreviewCard`) from explicit action lock (`LockedCard`).
-2. A or mouse click on a collection card creates/replaces `LockedCard`.
-3. Ordinary controller movement across the grid does not mutate `LockedCard` and does not clear it.
-4. Forced RIGHT/DOWN interception was removed; the normal clickable-neighbor graph lets the player move naturally across the grid and into the action buttons.
-5. Favorite/Equip/Upgrade restore `LockedCard` immediately before acting.
-6. Only `BỎ CHỌN / DESELECT` clears `LockedCard`; after that free preview follows the focused card again.
-7. Locked card gets an explicit cyan + white double-border indicator so the player can see which card remains pinned even while focus moves elsewhere.
+## Controller contract
+- **B (bottom):** Select/Confirm the focused component. On a collection card it creates/replaces the locked card. On Equip/Unequip/Upgrade/filter/etc it activates that focused control.
+- **A (right):** Favorite shortcut for the explicitly locked card only. If no card is locked, it refuses and asks the player to select one first.
+- **Y (left):** Deselect. Releases `LockedCard` and returns to free preview.
+- **X (top):** Exit Binder completely to gameplay.
 
-## UI fixes
-- Prev/Next page controls are now pixel-drawn chevrons instead of font glyphs, preventing the left button from rendering as a heart or star.
-- `Đã khám phá / Discovered`, current filter caption (`Tất cả`, rarity names), and not-owned/status text were enlarged to the same visual tier as `Trang x/y` across the shared Binder renderer.
-- Vietnamese discovery footer shortened to `Đã khám phá: X/80` to keep the larger text readable.
+## Exit behavior
+- Controller X, keyboard Escape, and the Binder top-left X close the Binder directly to gameplay.
+- They do NOT restore the background Inventory, ItemGrab/chest menu, or Cardcha Machine menu behind the Binder.
 
-## Inherited alpha.17 behavior
-- Binder heading is just `BỘ SƯU TẬP / COLLECTION`.
-- User-facing Boss slot wording is `Kỹ năng Thần Thoại / Mythic Skill`.
-- MiMi/??? NPC Map Locations marker crop uses the dedicated full-face 16x15 marker and corrected Vanilla MugShotSourceRect.
+## Fix for dead action buttons
+- Alpha.18 had B mapped to Close while focused action buttons were waiting for A, so controller users could navigate to Equip/Upgrade but couldn't use them naturally.
+- Alpha.19 routes B through `ActivateFocusedComponent()`.
+- `EquipActionId` dispatches `ToggleEquip()` and `UpgradeActionId` dispatches `TryUpgradeSelected()` after restoring the persistent `LockedCard` action context.
+
+## Inherited behavior
+- alpha.18 separate `PreviewCard` / `LockedCard` state machine and persistent lock.
+- pixel page arrows and enlarged Binder footer/filter/not-owned typography.
+- alpha.17 `Kỹ năng Thần Thoại / Mythic Skill` wording and MiMi/??? minimap marker fixes.
+- all earlier MiMi shop/flight, Gacha, Scrap rail, Favorite, and 80-card Binder behavior.
 
 ## Test first
-1. Free browse without A: right page previews each focused card.
-2. A-select #34: #34 gets the lock border and right page stays on #34.
-3. Move over #35/#40 and navigate into Favorite/Equip/Upgrade: all actions must still target #34.
-4. Change page/filter while locked: #34 remains the action target until `BỎ CHỌN`.
-5. Press `BỎ CHỌN`: free preview resumes.
-6. Footer page controls must visibly be `<` and `>`-shaped pixel arrows, never a heart/star.
-7. `Đã khám phá`, `Tất cả`, and `Chưa sở hữu lá này...` should visually match `Trang x/y` size.
+1. Free-preview cards without selecting.
+2. Press B on card #03: #03 becomes locked.
+3. Navigate to Equip/Unequip and press B: action executes on #03.
+4. Navigate to Upgrade and press B: action executes on #03, or shows the appropriate copies/max-level feedback.
+5. Press A: Favorite toggles for #03 only.
+6. Press Y: lock clears and free preview resumes.
+7. Open Binder from Inventory/chest/machine, then press X: all Binder/background menu UI disappears and gameplay resumes immediately.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.18_BinderLockTypography_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.18_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.19_ControllerRemap_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.19_SOURCE_SNAPSHOT.zip`
 
-Targeted static validation: 21/21 PASS. Real Windows compile with Stardew/SMAPI references is still required.
+Targeted static validation: 16/16 PASS. Real Windows compile with Stardew/SMAPI references is still required.
