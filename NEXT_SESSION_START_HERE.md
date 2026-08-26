@@ -1,42 +1,28 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.19 Controller Remap
+# NEXT SESSION — Cardcha v0.3.0-alpha.20 Control Hints
 
 ## Current candidate
-- Version: `0.3.0-alpha.19`
-- Build label: `Cardcha! v0.3.0-alpha.19 CONTROLLER REMAP`
-- Baseline: alpha.18 Binder Lock + Typography.
+- Version: `0.3.0-alpha.20`
+- Build label: `Cardcha! v0.3.0-alpha.20 CONTROL HINTS`
+- Baseline: alpha.19 Controller Remap.
 
-## Controller contract
-- **B (bottom):** Select/Confirm the focused component. On a collection card it creates/replaces the locked card. On Equip/Unequip/Upgrade/filter/etc it activates that focused control.
-- **A (right):** Favorite shortcut for the explicitly locked card only. If no card is locked, it refuses and asks the player to select one first.
-- **Y (left):** Deselect. Releases `LockedCard` and returns to free preview.
-- **X (top):** Exit Binder completely to gameplay.
+## Exact alpha.20 behavior
+1. A compact hint bar renders outside and immediately below the Binder.
+2. Controller mode shows: `B Chọn/Xác nhận`, `A Yêu thích`, `Y Bỏ chọn`, `X Thoát`.
+3. Keyboard mode shows: `Enter/Space Chọn/Xác nhận`, `F Yêu thích`, `Backspace Bỏ chọn`, `Esc Thoát`.
+4. The bar follows whichever input family was used most recently.
+5. Favorite and Deselect hints are dim until a LockedCard exists.
+6. `F` toggles Favorite only for LockedCard; `Backspace` releases the LockedCard.
+7. The book height reserves a narrow strip so the hint bar never covers page content.
 
-## Exit behavior
-- Controller X, keyboard Escape, and the Binder top-left X close the Binder directly to gameplay.
-- They do NOT restore the background Inventory, ItemGrab/chest menu, or Cardcha Machine menu behind the Binder.
-
-## Fix for dead action buttons
-- Alpha.18 had B mapped to Close while focused action buttons were waiting for A, so controller users could navigate to Equip/Upgrade but couldn't use them naturally.
-- Alpha.19 routes B through `ActivateFocusedComponent()`.
-- `EquipActionId` dispatches `ToggleEquip()` and `UpgradeActionId` dispatches `TryUpgradeSelected()` after restoring the persistent `LockedCard` action context.
-
-## Inherited behavior
-- alpha.18 separate `PreviewCard` / `LockedCard` state machine and persistent lock.
-- pixel page arrows and enlarged Binder footer/filter/not-owned typography.
-- alpha.17 `Kỹ năng Thần Thoại / Mythic Skill` wording and MiMi/??? minimap marker fixes.
-- all earlier MiMi shop/flight, Gacha, Scrap rail, Favorite, and 80-card Binder behavior.
-
-## Test first
-1. Free-preview cards without selecting.
-2. Press B on card #03: #03 becomes locked.
-3. Navigate to Equip/Unequip and press B: action executes on #03.
-4. Navigate to Upgrade and press B: action executes on #03, or shows the appropriate copies/max-level feedback.
-5. Press A: Favorite toggles for #03 only.
-6. Press Y: lock clears and free preview resumes.
-7. Open Binder from Inventory/chest/machine, then press X: all Binder/background menu UI disappears and gameplay resumes immediately.
+## Regression requirements
+- B still activates focused Equip/Unequip/Upgrade controls.
+- A still Favorites only the locked card.
+- Y still deselects.
+- X/Esc still closes Binder + visual parent and returns to gameplay.
+- PreviewCard/LockedCard separation from alpha.18 must remain.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.19_ControllerRemap_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.19_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.20_ControlHints_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.20_SOURCE_SNAPSHOT.zip`
 
-Targeted static validation: 16/16 PASS. Real Windows compile with Stardew/SMAPI references is still required.
+Static validation passed in the container; real Windows compile with Stardew/SMAPI references is still required.
