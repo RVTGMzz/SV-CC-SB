@@ -96,6 +96,9 @@ jobs:
       - name: Apply alpha.10 final UI and MiMi walk fixes
         run: python tools/apply_alpha10_patch.py
 
+      - name: Apply beta.1 Base Set 80
+        run: python tools/apply_beta1_patch.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
@@ -123,4 +126,5 @@ jobs:
             src/Cardcha
             Directory.Build.props
             V02_BOOK_UI_TEST.md
+            BETA1_BASESET80_NOTES.md
           retention-days: 1
