@@ -1,42 +1,47 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.22 Nintendo Controller Fix
+# NEXT SESSION — Cardcha v0.3.0-alpha.23 Multi-Controller + Gacha Polish
 
-## Root cause
-The user's controller is Nintendo-labeled by physical position, while XNA/MonoGame reports the same face-button positions with Xbox enum names. The correct translation is:
-- physical Nintendo B (bottom) -> `Buttons.A`
-- physical Nintendo A (right) -> `Buttons.B`
-- physical Nintendo Y (left) -> `Buttons.X`
-- physical Nintendo X (top) -> `Buttons.Y`
+## Current candidate
+- Version: `0.3.0-alpha.23`
+- Build label: `Cardcha! v0.3.0-alpha.23 MULTI-CONTROLLER + GACHA POLISH`
+- Baseline: alpha.22 Nintendo-specific controller fix.
 
-## Binder contract
-- physical **B bottom** = Select / Confirm (`Buttons.A`)
-- physical **A right** = Favorite locked card (`Buttons.B`)
-- physical **Y left** = Deselect (`Buttons.X`)
-- physical **X top** = Exit Binder + visual parent UI to gameplay (`Buttons.Y`)
+## Controller architecture
+- Cardcha menus now use `ControllerProfileService`; raw A/B/X/Y checks are not duplicated through Binder/Machine/Pull/Reveal/MiMi Shop.
+- Semantic physical actions are South=Confirm, East=Favorite, West=Deselect, North=Exit.
+- Controller Layout options: Auto, Xbox, Nintendo, PlayStation, Generic.
+- Runtime Mapping options: Auto, Standard (XInput positions), NintendoNative (printed Nintendo labels).
+- Auto falls back to Xbox/Standard when Steam Input or the runtime hides controller identity.
+- Optional GMCM options expose both settings; config.json can also be edited manually.
+- `cardcha_controller_status` prints the resolved profile and labels.
 
-Equip/Unequip/Upgrade are confirmed with the same physical B-bottom button.
+## Binder fixes
+- Quick double activation window is 650ms with no artificial minimum delay.
+- Double click / double Confirm on an owned card toggles equip; if already equipped it unequips.
+- Locked-card selection semantics remain intact.
 
-## Gacha contract
-- physical **B bottom** skips the ritual.
-- physical A/X/Y do not skip and are consumed during the ritual.
-- controller hint says `B: Bỏ qua`, matching the label printed on the user's controller.
+## Gacha UI
+- Reveal/result cards use rounded corners.
+- Result cards no longer print rarity text. They show localized Name + a much larger Icon + NEW/DUPLICATE only.
+- Reveal phase and result aura add sparkle bursts.
+- Ritual-local rectangular glow/aura was removed; the broad resonance flash uses the full rounded large panel and repaints the outer gold frame.
 
-## Inherited behavior
-- alpha.21 full outer-panel ritual flash and input-family hint switching.
-- alpha.20 Binder control hint bar.
-- alpha.18 PreviewCard/LockedCard state machine and persistent selection lock.
-- alpha.17 Mythic wording and MiMi/??? minimap fixes.
-- all earlier MiMi shop/flight, Scrap rail, Gacha, Favorite, loadout and Binder behavior.
+## EN / VI localization
+- All 80 card names and descriptions are present in both `default.json` and `vi.json`.
+- All 304 per-star rule rows are localized in both languages and are preferred by the Binder over legacy `cards.json` StarRules.
+- `steady_grip` now explains variance clearly: random damage fluctuation / độ dao động ngẫu nhiên của sát thương.
+- Mixed English fragments in the audited Vietnamese card rules (e.g. Boss Energy, Cardboard/Shiny Scrap) were normalized to Vietnamese player-facing terminology.
 
 ## Test first
-1. Binder: physical B selects a card.
-2. Physical A favorites only the selected card.
-3. Physical Y deselects.
-4. Physical X exits straight to gameplay.
-5. Focus Equip/Unequip/Upgrade and press physical B: action executes on the locked card.
-6. Gacha: only physical B skips; physical A/X/Y do nothing.
+1. Xbox/Standard: South(A)=Confirm, East(B)=Favorite, West(X)=Deselect, North(Y)=Exit.
+2. Nintendo Native override: South(B)=Confirm, East(A)=Favorite, West(Y)=Deselect, North(X)=Exit.
+3. Double-click an equipped card with mouse: it must unequip. Repeat using double Confirm.
+4. Pull 1 and pull 10: result cards are rounded; icon is large; no rarity line; only Name + MỚI/TRÙNG.
+5. Watch a reveal: sparkles appear around the card.
+6. During ritual resonance, there is no small inner rectangular aura; the whole large gold-bordered panel pulses.
+7. Check Vietnamese/English card details, especially Tay Vững / Steady Grip.
 
 ## Artifacts
-- `Cardcha_v0.3.0-alpha.22_NintendoControllerFix_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.22_SOURCE_SNAPSHOT.zip`
+- `Cardcha_v0.3.0-alpha.23_MultiControllerGachaPolish_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip`
 
-Targeted static validation: 13/13 PASS. Real Windows compile with Stardew/SMAPI references is still required.
+Targeted static validation: **53/53 PASS**. The container has no `dotnet` executable and no Stardew/SMAPI assemblies, so real Windows compile is still required through `BUILD_ALPHA23_TEST.bat`.
