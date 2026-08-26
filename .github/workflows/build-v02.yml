@@ -1,4 +1,4 @@
-name: Cardcha v0.2 preview build
+name: Cardcha v0.3 Binder UI build
 
 on:
   push:
@@ -6,6 +6,7 @@ on:
       - cardcha-v02-book-visual
       - cardcha-beta1-staging
       - cardcha-beta3-mimi-split
+      - cardcha-v03-new-binder-ui
   workflow_dispatch:
 
 jobs:
@@ -104,6 +105,9 @@ jobs:
       - name: Apply beta.3 MiMi phase actor split
         run: python tools/apply_beta3_actor_only.py
 
+      - name: Apply v0.3 alpha.1 new Binder UI
+        run: python tools/apply_v03_alpha1.py
+
       - name: Build Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release
 
@@ -122,11 +126,11 @@ jobs:
           path: _releases
           create_attestations: false
 
-      - name: Upload v0.2 source snapshot
+      - name: Upload v0.3 source snapshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cardcha-v02-source
+          name: cardcha-v03-source
           path: |
             src/Cardcha
             Directory.Build.props
