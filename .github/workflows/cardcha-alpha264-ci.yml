@@ -21,7 +21,8 @@ jobs:
             cat build-input-alpha264/source.part.02.b64
             head -c 9000 build-input-alpha264/source.chunk.04.b64
             cat build-input-alpha264/source.chunk.05.b64
-            cat build-input-alpha264/source.chunk.06-07.b64
+            cat build-input-alpha264/source.fix.06.b64
+            cat build-input-alpha264/source.fix.07.b64
             cat build-input-alpha264/source.chunk.08-09.b64
             cat build-input-alpha264/source.chunk.10-11.b64
             cat build-input-alpha264/source.chunk.12-13.b64
@@ -45,17 +46,14 @@ jobs:
 
           root = Path('build-src/Cardcha')
 
-          # Binder controller contract: first activation only previews/selects.
-          # A second activation of the same card inside the quick-toggle window equips/unequips.
           p = root / 'UI' / 'CardchaBinderMenu.cs'
           s = p.read_text(encoding='utf-8')
           start = s.index('    private void HandleCollectionActivation(CardDefinition card, bool fromController)')
           end = s.index('    private void ReleaseSelectionLock(bool returnToCard)', start)
-          replacement = '''    private void HandleCollectionActivation(CardDefinition card, bool fromController)\n    {\n        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);\n        double now = Environment.TickCount64;\n        double elapsed = now - this.LastQuickToggleAtMs;\n        bool secondActivation = owned\n            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)\n            && elapsed >= QuickToggleMinMs\n            && elapsed <= QuickToggleWindowMs;\n\n        this.LastQuickToggleCardId = card.Id;\n        this.LastQuickToggleAtMs = now;\n\n        // alpha.26.4: single Confirm/click previews; double activation equips or unequips.\n        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n\n        if (secondActivation)\n        {\n            this.LastQuickToggleCardId = null;\n            this.LastQuickToggleAtMs = 0;\n            this.ToggleEquip();\n            return;\n        }\n\n        this.Status = owned\n            ? ModEntry.T("binder.status.selected", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");\n        Game1.playSound(owned ? "smallSelect" : "cancel");\n    }\n\n'''
+          replacement = '''    private void HandleCollectionActivation(CardDefinition card, bool fromController)\n    {\n        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);\n        double now = Environment.TickCount64;\n        double elapsed = now - this.LastQuickToggleAtMs;\n        bool secondActivation = owned\n            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)\n            && elapsed >= QuickToggleMinMs\n            && elapsed <= QuickToggleWindowMs;\n\n        this.LastQuickToggleCardId = card.Id;\n        this.LastQuickToggleAtMs = now;\n\n        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n\n        if (secondActivation)\n        {\n            this.LastQuickToggleCardId = null;\n            this.LastQuickToggleAtMs = 0;\n            this.ToggleEquip();\n            return;\n        }\n\n        this.Status = owned\n            ? ModEntry.T("binder.status.selected", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");\n        Game1.playSound(owned ? "smallSelect" : "cancel");\n    }\n\n'''
           s = s[:start] + replacement + s[end:]
           p.write_text(s, encoding='utf-8')
 
-          # Refreshed ChaCha art reads smaller, so all ChaCha gameplay/UI render paths are +25%.
           edits = {
               root / 'Services' / 'WorldActorService.cs': [
                   (r'private const float ChaChaNativeScale = [0-9.]+f;', 'private const float ChaChaNativeScale = 0.5625f;')
@@ -79,7 +77,6 @@ jobs:
                       print(f'guard note: pattern already changed or absent in {file.name}: {pattern}')
               file.write_text(text, encoding='utf-8')
 
-          # Keep version aligned.
           csproj = root / 'Cardcha.csproj'
           text = csproj.read_text(encoding='utf-8')
           text = re.sub(r'<Version>[^<]+</Version>', '<Version>0.3.0-alpha.26.4</Version>', text)
