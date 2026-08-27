@@ -2,18 +2,18 @@
 
 This file tracks open or handoff-critical issues. It is not a list of every historical bug.
 
-## P0 — Source-of-truth mismatch
-**Status:** OPEN
+## RESOLVED — Source-of-truth mismatch
+**Status:** RESOLVED 2026-08-27
 
-The active GitHub branch documents alpha.23, but the checked-in `src/Cardcha/manifest.json` still reports alpha.10.
+The alpha.23 source snapshot is now synchronized into GitHub on branch `binder-v0.3-alpha1`.
 
-Risk: a new AI/developer may edit an obsolete source tree and accidentally reintroduce already-fixed bugs.
+Verified anchors:
+- source sync commit: `69a0f5d8cccddb2200e2a8748904dabf754275ad`;
+- `src/Cardcha/manifest.json`: `0.3.0-alpha.23`;
+- `src/Cardcha/Cardcha.csproj`: `0.3.0-alpha.23`;
+- exact `src/Cardcha` Git tree SHA: `389fec3708f19e759ae6ab7aab33f98c5455e197`.
 
-Required resolution:
-- synchronize the alpha.23 source snapshot into GitHub;
-- verify manifest/csproj both report alpha.23;
-- compile on Windows;
-- record exact last-known-good commit in `PROJECT_HANDOFF.md`.
+The Git tree SHA matches the tree independently computed from all 69 files in the alpha.23 source snapshot, so checked-in source is byte-for-byte identical to that snapshot.
 
 ## P0 — alpha.23 real compile/test not yet verified
 **Status:** OPEN
