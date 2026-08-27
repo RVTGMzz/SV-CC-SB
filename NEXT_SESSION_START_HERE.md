@@ -10,12 +10,13 @@ Before editing code, read:
 ## Source status
 The alpha.25 source is synchronized and verified on GitHub.
 
-Canonical source:
-- branch: `binder-v0.3-alpha1`
-- source anchor commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+Canonical repository baseline:
+- default branch: `main`
+- alpha.25 source anchor commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- promotion merge to `main`: `ef7b34bbd9aebdd53c2aae3c6ead60606a1c8d33`
 - exact `src/Cardcha` tree: `89cff25d67700762ed94399a5905bdf1a52e736f`
 
-The tree above matches all 69 files in `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip` byte-for-byte. Use checked-in GitHub `src/Cardcha` as the source of truth.
+The tree above matches all 69 files in `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip` byte-for-byte. Use checked-in GitHub `src/Cardcha` on `main` as the baseline source of truth. The `binder-v0.3-alpha1` branch is the v0.3 development branch and is kept reconciled with this baseline before new work begins.
 
 ## Current candidate
 - Version: `0.3.0-alpha.25`
@@ -83,5 +84,5 @@ Do not fold unrelated button/remapping work from other conversations into this f
 - user in-game visual acceptance: **CURRENT WORKING BASELINE**
 - do not infer exhaustive platform/regression coverage from that acceptance.
 
-## Next repository hygiene task
-The repository default branch `main` still represents an older lineage and has diverged from `binder-v0.3-alpha1`. Reconcile/merge it deliberately rather than copying a few alpha.25 files onto `main` out of context.
+## Next development rule
+Start future work from `main` or from a fresh development branch created from the current `main`. If continuing `binder-v0.3-alpha1`, first make sure it is at least at the current `main` baseline. Do not resurrect the older alpha.23 branch state.
