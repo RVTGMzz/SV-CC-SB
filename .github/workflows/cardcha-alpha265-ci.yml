@@ -105,6 +105,21 @@ jobs:
           print('alpha26.5 static contracts PASS')
           PY
 
+      - name: Apply alpha26.5 compile hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY2'
+          from pathlib import Path
+          p = Path('build-src/Cardcha/Services/CoreCardEffectsService.cs')
+          s = p.read_text(encoding='utf-8')
+          old = '        if (Context.IsWorldReady && Game1.player is not null)\n            TryRemoveBuff(Game1.player, RuntimeBuffId);'
+          new = '        if (Game1.player is not null)\n            TryRemoveBuff(Game1.player, RuntimeBuffId);'
+          if old not in s:
+              raise SystemExit('expected CoreCardEffectsService Context guard not found')
+          p.write_text(s.replace(old, new, 1), encoding='utf-8')
+          PY2
+
       - name: Add SMAPI build environment
         uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
