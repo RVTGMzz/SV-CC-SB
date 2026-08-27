@@ -16,21 +16,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          cat \
-            build-input-alpha264/source.part.01.b64 \
-            build-input-alpha264/source.part.02.b64 \
-            build-input-alpha264/source.chunk.04.b64 \
-            build-input-alpha264/source.chunk.05.b64 \
-            build-input-alpha264/source.chunk.06-07.b64 \
-            build-input-alpha264/source.chunk.08-09.b64 \
-            build-input-alpha264/source.chunk.10-11.b64 \
-            build-input-alpha264/source.chunk.12-13.b64 \
-            build-input-alpha264/source.chunk.14-15.b64 \
-            > /tmp/cardcha-source.b64
-          base64 --decode /tmp/cardcha-source.b64 > /tmp/cardcha-source.xz
-          xz -dc /tmp/cardcha-source.xz > /tmp/cardcha-source.zip
+          {
+            cat build-input-alpha264/source.part.01.b64
+            cat build-input-alpha264/source.part.02.b64
+            head -c 9000 build-input-alpha264/source.chunk.04.b64
+            cat build-input-alpha264/source.chunk.05.b64
+            cat build-input-alpha264/source.chunk.06-07.b64
+            cat build-input-alpha264/source.chunk.08-09.b64
+            cat build-input-alpha264/source.chunk.10-11.b64
+            cat build-input-alpha264/source.chunk.12-13.b64
+            cat build-input-alpha264/source.chunk.14-15.b64
+            cat build-input-alpha264/source.tail.16.b64
+          } > /tmp/cardcha-source.b64
+          test "$(wc -c < /tmp/cardcha-source.b64)" -eq 138712
+          base64 --decode /tmp/cardcha-source.b64 > /tmp/cardcha-source.tar.xz
+          xz -t /tmp/cardcha-source.tar.xz
           mkdir -p build-src
-          unzip -q /tmp/cardcha-source.zip -d build-src
+          tar -xJf /tmp/cardcha-source.tar.xz -C build-src
           test -f build-src/Cardcha/Cardcha.csproj
 
       - name: Enforce alpha26.4 interaction + ChaCha scale guards
@@ -43,29 +45,38 @@ jobs:
 
           root = Path('build-src/Cardcha')
 
-          # Controller Binder contract: one Confirm selects/previews; second activation within
-          # the quick-toggle window equips/unequips the same card.
+          # Binder controller contract: first activation only previews/selects.
+          # A second activation of the same card inside the quick-toggle window equips/unequips.
           p = root / 'UI' / 'CardchaBinderMenu.cs'
           s = p.read_text(encoding='utf-8')
           start = s.index('    private void HandleCollectionActivation(CardDefinition card, bool fromController)')
           end = s.index('    private void ReleaseSelectionLock(bool returnToCard)', start)
-          replacement = '''    private void HandleCollectionActivation(CardDefinition card, bool fromController)\n    {\n        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);\n        double now = Environment.TickCount64;\n        double elapsed = now - this.LastQuickToggleAtMs;\n        bool secondActivation = owned\n            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)\n            && elapsed >= QuickToggleMinMs\n            && elapsed <= QuickToggleWindowMs;\n\n        this.LastQuickToggleCardId = card.Id;\n        this.LastQuickToggleAtMs = now;\n\n        // alpha.26.4 contract: first activation only previews/locks; second activation\n        // of the same card performs equip/unequip.\n        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n\n        if (secondActivation)\n        {\n            this.LastQuickToggleCardId = null;\n            this.LastQuickToggleAtMs = 0;\n            this.ToggleEquip();\n            return;\n        }\n\n        this.Status = owned\n            ? ModEntry.T("binder.status.selected", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");\n        Game1.playSound(owned ? "smallSelect" : "cancel");\n    }\n\n'''
+          replacement = '''    private void HandleCollectionActivation(CardDefinition card, bool fromController)\n    {\n        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);\n        double now = Environment.TickCount64;\n        double elapsed = now - this.LastQuickToggleAtMs;\n        bool secondActivation = owned\n            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)\n            && elapsed >= QuickToggleMinMs\n            && elapsed <= QuickToggleWindowMs;\n\n        this.LastQuickToggleCardId = card.Id;\n        this.LastQuickToggleAtMs = now;\n\n        // alpha.26.4: single Confirm/click previews; double activation equips or unequips.\n        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n\n        if (secondActivation)\n        {\n            this.LastQuickToggleCardId = null;\n            this.LastQuickToggleAtMs = 0;\n            this.ToggleEquip();\n            return;\n        }\n\n        this.Status = owned\n            ? ModEntry.T("binder.status.selected", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");\n        Game1.playSound(owned ? "smallSelect" : "cancel");\n    }\n\n'''
           s = s[:start] + replacement + s[end:]
           p.write_text(s, encoding='utf-8')
 
-          # +25% ChaCha visual scale guards for refreshed art.
-          replacements = {
+          # Refreshed ChaCha art reads smaller, so all ChaCha gameplay/UI render paths are +25%.
+          edits = {
               root / 'Services' / 'WorldActorService.cs': [
                   (r'private const float ChaChaNativeScale = [0-9.]+f;', 'private const float ChaChaNativeScale = 0.5625f;')
               ],
               root / 'UI' / 'CardchaMachineMenu.cs': [
                   (r'\b1\.55f\b', '1.9375f')
               ],
+              root / 'UI' / 'CardchaPullAnimationMenu.cs': [
+                  (r'float scale = 2\.55f;', 'float scale = 3.1875f;'),
+                  (r'float scale = 2\.45f;', 'float scale = 3.0625f;')
+              ],
+              root / 'UI' / 'ChaChaResonanceMenu.cs': [
+                  (r'float scale = Math\.Clamp\(anim\.Height / 56f, 1\.45f, 2\.15f\);', 'float scale = Math.Clamp(anim.Height / 56f, 1.45f, 2.15f) * 1.25f;')
+              ],
           }
-          for file, rules in replacements.items():
+          for file, rules in edits.items():
               text = file.read_text(encoding='utf-8')
               for pattern, repl in rules:
-                  text = re.sub(pattern, repl, text)
+                  text, count = re.subn(pattern, repl, text)
+                  if count == 0:
+                      print(f'guard note: pattern already changed or absent in {file.name}: {pattern}')
               file.write_text(text, encoding='utf-8')
 
           # Keep version aligned.
@@ -87,8 +98,9 @@ jobs:
         run: |
           set -euo pipefail
           dotnet build build-src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
-          find build-src/Cardcha/bin -name Cardcha.dll -print
-          test -n "$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)"
+          DLL="$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)"
+          test -n "$DLL"
+          echo "DLL=$DLL"
 
       - name: Stage artifact
         shell: bash
