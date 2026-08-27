@@ -1,13 +1,35 @@
-# Cardcha! v0.1.17-alpha.11.45 — Binder Nav + Same-Day MiMi + HUD Lift
+# Cardcha! / Cardcha-Shardbound
 
-## New in 11.45
-- **Binder controller navigation fixed for narrow/UI-scaled layouts**: pressing right from the visually rightmost card now enters the right-side detail/upgrade panel instead of relying on a hard-coded five-column index.
-- **Detail panel controller**: while focused, up/down scrolls the card effect + upgrade information; left returns to the card grid; right proceeds to the action buttons.
-- **Same-day MiMi merchant**: after the Cardcha handoff, MiMi can resume her weekday 11:00–17:00 shop on that same day once the story departure animation finishes. Harsh weather still moves her shop inside the WizardHouse.
-- **First post-handoff shop line**: the first time the player speaks to merchant MiMi after receiving Cardcha, she encourages collecting many cards while teasing that a milestone may earn a surprise reward. The shop opens after the line.
-- **Circular HUD lifted upward**: top-center effect icons now sit roughly half the previous distance from the top edge.
+Cardcha! is a Stardew Valley SMAPI mod project centered on an 80-card collection, gacha pulls, combat cards, MiMi/ChaCha story progression, and a growing Binder UI/system.
 
-No official Cardcha art assets were edited.
+## Current documented candidate
+**v0.3.0-alpha.23 — Multi-Controller + Gacha Polish**
 
-Expected version:
-`Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE`
+Important: the GitHub `src/` tree is not yet fully synchronized to the packaged alpha.23 source candidate. Read `PROJECT_HANDOFF.md` before editing anything.
+
+## Start here
+For a new developer, AI session, or account migration, read in this order:
+1. `PROJECT_HANDOFF.md`
+2. `NEXT_SESSION_START_HERE.md`
+3. `docs/STORY_GAMEPLAY_BIBLE.md`
+4. `BUILD.md`
+5. `KNOWN_ISSUES.md`
+6. `CHANGELOG.md`
+
+## Current alpha.23 focus
+- semantic multi-controller support instead of controller-brand-specific hard-coding;
+- persistent Binder locked-card action context;
+- reliable double-click/double-confirm equip/unequip;
+- rounded/simplified Gacha result presentation with large icons and reveal sparkles;
+- full large-panel ritual flash;
+- English/Vietnamese localization consistency.
+
+## Build
+Use the versioned full Windows builder for the candidate and follow `BUILD.md`.
+
+Do not call a candidate stable until it has both:
+- compiled against real Stardew Valley + SMAPI assemblies;
+- passed relevant in-game regression tests.
+
+## Story / future progression
+The agreed MiMi / ChaCha / 20-40-60-80 boss / airship direction is documented in `docs/STORY_GAMEPLAY_BIBLE.md`, which explicitly separates LOCKED decisions from TBD ideas.
