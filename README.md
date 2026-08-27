@@ -1,11 +1,16 @@
 # Cardcha! / Cardcha-Shardbound
 
-Cardcha! is a Stardew Valley SMAPI mod project centered on an 80-card collection, gacha pulls, combat cards, MiMi/ChaCha story progression, and a growing Binder UI/system.
+Cardcha! is a Stardew Valley SMAPI mod project centered on an 80-card collection, gacha pulls, combat cards, MiMi/ChaCha story progression, and the Binder UI/system.
 
-## Current documented candidate
-**v0.3.0-alpha.23 — Multi-Controller + Gacha Polish**
+## Current canonical candidate
+**v0.3.0-alpha.25 — Gacha Interior Flash**
 
-Important: the GitHub `src/` tree is not yet fully synchronized to the packaged alpha.23 source candidate. Read `PROJECT_HANDOFF.md` before editing anything.
+Canonical development source is `src/Cardcha` on branch `binder-v0.3-alpha1`.
+The alpha.25 source tree is synchronized and verified against `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip`.
+
+Source anchor:
+- source commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- exact `src/Cardcha` tree: `89cff25d67700762ed94399a5905bdf1a52e736f`
 
 ## Start here
 For a new developer, AI session, or account migration, read in this order:
@@ -16,20 +21,20 @@ For a new developer, AI session, or account migration, read in this order:
 5. `KNOWN_ISSUES.md`
 6. `CHANGELOG.md`
 
-## Current alpha.23 focus
-- semantic multi-controller support instead of controller-brand-specific hard-coding;
-- persistent Binder locked-card action context;
-- reliable double-click/double-confirm equip/unequip;
-- rounded/simplified Gacha result presentation with large icons and reveal sparkles;
-- full large-panel ritual flash;
-- English/Vietnamese localization consistency.
+## Current alpha.25 baseline
+- semantic multi-controller support remains centralized through `ControllerProfileService`;
+- Binder locked-card selection and quick equip/unequip behavior remain protected;
+- GMCM integration uses a public API interface, fixing the alpha.23 Cinderbox/SMAPI mapping error;
+- Gacha reveal/result cards remain rounded with large icons, localized NEW/DUPLICATE state, and reveal sparkles;
+- ritual flash is now a rarity/white filter across the panel interior while the outer gold frame remains visually stable;
+- English/Vietnamese card localization remains aligned.
+
+The user has accepted alpha.25 as the current working baseline after in-game testing. Treat it as the project’s current canonical candidate, not as a final public stable release unless broader regression testing is completed.
 
 ## Build
 Use the versioned full Windows builder for the candidate and follow `BUILD.md`.
 
-Do not call a candidate stable until it has both:
-- compiled against real Stardew Valley + SMAPI assemblies;
-- passed relevant in-game regression tests.
+Do not call a candidate fully stable until it has passed the relevant regression matrix on the target environments.
 
 ## Story / future progression
 The agreed MiMi / ChaCha / 20-40-60-80 boss / airship direction is documented in `docs/STORY_GAMEPLAY_BIBLE.md`, which explicitly separates LOCKED decisions from TBD ideas.
