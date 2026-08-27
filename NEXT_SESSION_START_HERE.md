@@ -31,6 +31,21 @@
 - `steady_grip` now explains variance clearly: random damage fluctuation / độ dao động ngẫu nhiên của sát thương.
 - Mixed English fragments in the audited Vietnamese card rules (e.g. Boss Energy, Cardboard/Shiny Scrap) were normalized to Vietnamese player-facing terminology.
 
+## Story / gameplay design bible — READ THIS BEFORE NEW STORY WORK
+The newly added `docs/STORY_GAMEPLAY_BIBLE.md` is the source of truth for the design decisions agreed after alpha.23.
+
+It records:
+- MiMi becoming a full giftable/friendship NPC;
+- MiMi's 17:30 favorite-TV/BL-shipping secret and relationship-aware reactions to male dating/marriage;
+- MiMi's later Community Center stall and one-missing-seasonal-requirement contribution per season;
+- 20/40/60/80 boss milestone structure and MiMi as the intended 80-card final boss;
+- Rune Factory-inspired airship travel to dedicated boss mini-maps;
+- ChaCha as a non-verbal expressive companion with Boss/Mythic transformations;
+- ChaCha support passive proc rates, heal/energy scaling, and the 9-favorite-food MiMi quest required to activate each 10-card tier;
+- an explicit TBD section so unresolved ideas are not accidentally treated as canon.
+
+For story/progression implementation, update `docs/STORY_GAMEPLAY_BIBLE.md` when a TBD becomes locked instead of relying on chat history.
+
 ## Test first
 1. Xbox/Standard: South(A)=Confirm, East(B)=Favorite, West(X)=Deselect, North(Y)=Exit.
 2. Nintendo Native override: South(B)=Confirm, East(A)=Favorite, West(Y)=Deselect, North(X)=Exit.
