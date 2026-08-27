@@ -18,13 +18,15 @@
 - UniqueID: `Ronvotri.Cardcha`
 - Current canonical candidate: **v0.3.0-alpha.25**
 - Candidate label: `Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH`
-- Active canonical development branch: `binder-v0.3-alpha1`
+- Canonical/default branch: `main`
+- v0.3 development branch: `binder-v0.3-alpha1`
 
-## 2. Source-of-truth status — ALPHA.25 VERIFIED
-GitHub `src/Cardcha` on `binder-v0.3-alpha1` is the canonical source for alpha.25.
+## 2. Source-of-truth status — ALPHA.25 VERIFIED AND PROMOTED TO MAIN
+GitHub `src/Cardcha` on `main` is the canonical baseline source for alpha.25.
 
 Verified alpha.25 source anchors:
 - **source anchor commit:** `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- **promotion merge to main:** `ef7b34bbd9aebdd53c2aae3c6ead60606a1c8d33`
 - `src/Cardcha/manifest.json`: `0.3.0-alpha.25`
 - `src/Cardcha/Cardcha.csproj`: `0.3.0-alpha.25`
 - exact `src/Cardcha` Git tree SHA: `89cff25d67700762ed94399a5905bdf1a52e736f`
@@ -33,13 +35,13 @@ The exact Git tree above was independently computed from all **69 files** in `Ca
 
 ### Source precedence
 Use this order:
-1. checked-in GitHub `src/Cardcha` on `binder-v0.3-alpha1`;
+1. checked-in GitHub `src/Cardcha` on `main`;
 2. this handoff + `NEXT_SESSION_START_HERE.md`;
 3. `docs/STORY_GAMEPLAY_BIBLE.md` for approved design canon;
 4. packaged alpha.25 source snapshot as archival cross-check;
 5. old chats/builds only as historical context.
 
-Do not reconstruct the current build from older branches unless explicitly debugging lineage.
+If continuing on `binder-v0.3-alpha1`, first ensure it is at least at the current `main` baseline. Do not reconstruct the current build from older branch history unless explicitly debugging lineage.
 
 ## 3. Current accepted baseline
 The user tested alpha.25 in game and accepted it as the **current working/canonical baseline**. This is stronger than a source-only candidate, but it is not a claim that every platform, controller, feature, or long regression matrix has been exhaustively tested.
@@ -220,22 +222,26 @@ English and Vietnamese are the primary/reference languages.
 ## 13. Migration checklist
 Before editing:
 - connect repo `ronvotri/Cardcha-Shardbound`;
-- checkout `binder-v0.3-alpha1`;
+- checkout `main` for the canonical baseline, or create a fresh development branch from current `main`;
 - read the files in section 0;
 - treat checked-in `src/Cardcha` as alpha.25 source of truth;
 - source anchor: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`;
+- promotion merge: `ef7b34bbd9aebdd53c2aae3c6ead60606a1c8d33`;
 - exact source tree: `89cff25d67700762ed94399a5905bdf1a52e736f`;
 - never assume ChatGPT account memory exists;
 - current source + handoff docs beat old chats when they conflict.
 
-## 14. Branch note
-Repository default branch `main` is still an older, diverged lineage. Do **not** copy only a few current files onto it and call that a merge. Reconcile `binder-v0.3-alpha1` -> `main` deliberately through comparison/merge/PR when ready.
+## 14. Branch policy
+`main` is the canonical baseline branch as of alpha.25. `binder-v0.3-alpha1` is retained as the historical/continuing v0.3 development branch and should be kept at or ahead of the current `main` baseline before new changes are made.
+
+Prefer a new feature/fix branch from `main` for risky changes, then merge back after testing. This keeps the accepted alpha.25 baseline easy to recover.
 
 ## 15. Current baseline policy
 `v0.3.0-alpha.25` is the **current accepted working baseline**.
 
-Canonical source anchor:
+Canonical anchors:
 - `ALPHA25 SOURCE COMMIT: a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- `ALPHA25 PROMOTION MERGE: ef7b34bbd9aebdd53c2aae3c6ead60606a1c8d33`
 - `ALPHA25 SOURCE TREE: 89cff25d67700762ed94399a5905bdf1a52e736f`
 - `ALPHA25 SOURCE SNAPSHOT: Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip`
 - `ALPHA25 BUILDER: Cardcha_v0.3.0-alpha.25_GachaInteriorFlash_WindowsBuilder_FULL.zip`
