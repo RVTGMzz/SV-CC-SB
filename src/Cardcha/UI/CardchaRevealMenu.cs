@@ -14,6 +14,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
     private readonly IReadOnlyList<PullResult> Results;
     private readonly CardRenderer Renderer;
+    private readonly ControllerProfileService Controller;
     private readonly Action OnDone;
     private readonly ClickableComponent Skip;
     private readonly ClickableComponent Continue;
@@ -26,7 +27,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
     private double ResultFlashMs;
     private int LastRevealedIndex = -1;
 
-    public CardchaRevealMenu(IReadOnlyList<PullResult> results, CardRenderer renderer, Action onDone)
+    public CardchaRevealMenu(IReadOnlyList<PullResult> results, CardRenderer renderer, ControllerProfileService controller, Action onDone)
         : base(
             Game1.uiViewport.Width / 2 - Math.Min(920, Game1.uiViewport.Width - 48) / 2,
             Game1.uiViewport.Height / 2 - Math.Min(620, Game1.uiViewport.Height - 48) / 2,
@@ -36,6 +37,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
     {
         this.Results = results;
         this.Renderer = renderer;
+        this.Controller = controller;
         this.OnDone = onDone;
 
         this.Revealed = new bool[results.Count];
@@ -286,35 +288,23 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
     public override void receiveGamePadButton(Buttons b)
     {
-        if (b == Buttons.B)
+        if (this.Controller.IsExit(b))
         {
-            if (this.Phase != RevealPhase.Results)
-            {
-                this.Phase = RevealPhase.Results;
-                this.PhaseMs = 0;
-
-                if (this.Results.Count == 1)
-                    this.Revealed[0] = true;
-
-                this.ConfigureControllerComponents();
-                this.snapToDefaultClickableComponent();
-                Game1.playSound("smallSelect");
-            }
-            else
-            {
-                Game1.playSound("smallSelect");
-                this.OnDone();
-            }
-
+            // Reveal result is already persisted; exit returns to the machine callback safely.
+            Game1.playSound("smallSelect");
+            this.OnDone();
             return;
         }
 
-        if (b == Buttons.A && this.currentlySnappedComponent is not null)
+        if (this.Controller.IsConfirm(b) && this.currentlySnappedComponent is not null)
         {
             Point center = this.currentlySnappedComponent.bounds.Center;
             this.receiveLeftClick(center.X, center.Y);
             return;
         }
+
+        if (this.Controller.IsFavorite(b) || this.Controller.IsDeselect(b))
+            return;
 
         base.receiveGamePadButton(b);
     }
@@ -363,23 +353,12 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
             Rectangle auraOuter = new(card.X - 24, card.Y - 24, card.Width + 48, card.Height + 48);
             Rectangle auraInner = new(card.X - 11, card.Y - 11, card.Width + 22, card.Height + 22);
-            b.Draw(Game1.staminaRect, auraOuter, rarity * pulse);
-            b.Draw(Game1.staminaRect, auraInner, rarity * (pulse + 0.10f));
+            CardchaUi.DrawRoundedRect(b, auraOuter, rarity * pulse, 18);
+            CardchaUi.DrawRoundedRect(b, auraInner, rarity * (pulse + 0.10f), 14);
 
             this.Renderer.DrawRevealCard(b, card, best.Card);
 
-            if (best.Card.Rarity >= CardRarity.Epic)
-            {
-                string rarityCallout = CardchaUi.RarityText(best.Card.Rarity).ToUpperInvariant() + "!";
-                Vector2 calloutSize = Game1.dialogueFont.MeasureString(rarityCallout);
-                Utility.drawTextWithShadow(
-                    b,
-                    rarityCallout,
-                    Game1.dialogueFont,
-                    new Vector2(this.xPositionOnScreen + this.width / 2 - calloutSize.X / 2f, card.Y - 58),
-                    rarity
-                );
-            }
+            this.DrawRevealSparkles(b, card, revealProgress, 1f);
         }
         else
         {
@@ -465,16 +444,19 @@ internal sealed class CardchaRevealMenu : IClickableMenu
                 b.Draw(Game1.staminaRect, pulse, CardchaUi.Gold * blink);
             }
 
-            if (this.Phase == RevealPhase.Reveal && best.Card.Rarity >= CardRarity.Epic)
+            if (this.Phase == RevealPhase.Reveal)
             {
                 Color rarity = CardchaUi.RarityColor(best.Card.Rarity);
+                float wave = 0.5f + 0.5f * (float)Math.Sin(progress * Math.PI * 7f);
+                float strength = best.Card.Rarity >= CardRarity.Epic ? 0.20f : 0.12f;
                 Rectangle flash = new(
-                    this.xPositionOnScreen + 42,
-                    this.yPositionOnScreen + 235,
-                    220,
-                    240
+                    this.xPositionOnScreen + 26,
+                    this.yPositionOnScreen + 112,
+                    this.width - 52,
+                    this.height - 160
                 );
-                b.Draw(Game1.staminaRect, flash, rarity * (0.08f + 0.10f * (float)Math.Sin(progress * Math.PI)));
+                CardchaUi.DrawRoundedRect(b, flash, rarity * (strength * wave), 14);
+                CardchaUi.DrawRoundedPanel(b, flash, Color.Transparent, Color.White * (0.12f + 0.22f * wave), 3, 14);
             }
 
             string line = frame switch
@@ -542,7 +524,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
                 DrawResultAura(b, rect, 0);
                 string resultText = result.IsNew
                     ? ModEntry.T("reveal.new")
-                    : ModEntry.T("reveal.duplicate-copy", new { amount = result.DuplicateCopiesAwarded });
+                    : ModEntry.T("reveal.duplicate");
 
                 this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
             }
@@ -569,7 +551,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
             string resultText = result.IsNew
                 ? ModEntry.T("reveal.new")
-                : ModEntry.T("reveal.duplicate-copy", new { amount = result.DuplicateCopiesAwarded });
+                : ModEntry.T("reveal.duplicate");
 
             this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
         }
@@ -609,22 +591,43 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
         PullResult result = this.Results[index];
         Color rarity = CardchaUi.RarityColor(result.Card.Rarity);
-        float alpha = 0.10f + 0.20f * (float)Math.Clamp(this.ResultFlashMs / 700.0, 0.0, 1.0);
+        float remaining = (float)Math.Clamp(this.ResultFlashMs / 700.0, 0.0, 1.0);
+        float wave = 0.5f + 0.5f * (float)Math.Sin(this.ResultFlashMs * 0.045f);
+        float alpha = (0.08f + 0.18f * wave) * remaining;
 
-        Rectangle aura = new(rect.X - 8, rect.Y - 8, rect.Width + 16, rect.Height + 16);
-        b.Draw(Game1.staminaRect, aura, rarity * alpha);
+        Rectangle aura = new(rect.X - 10, rect.Y - 10, rect.Width + 20, rect.Height + 20);
+        CardchaUi.DrawRoundedRect(b, aura, rarity * alpha, 16);
+        CardchaUi.DrawRoundedRect(b, rect, Color.White * (0.05f + 0.13f * wave) * remaining, 12);
+        this.DrawRevealSparkles(b, aura, 1f - remaining, remaining);
+    }
 
-        if (result.Card.Rarity >= CardRarity.Epic)
+    private void DrawRevealSparkles(SpriteBatch b, Rectangle rect, float progress, float intensity)
+    {
+        intensity = Math.Clamp(intensity, 0f, 1f);
+        if (intensity <= 0.01f)
+            return;
+
+        Color[] colors =
         {
-            string callout = CardchaUi.RarityText(result.Card.Rarity).ToUpperInvariant() + "!";
-            Vector2 size = Game1.smallFont.MeasureString(callout);
-            Utility.drawTextWithShadow(
-                b,
-                callout,
-                Game1.smallFont,
-                new Vector2(rect.Center.X - size.X / 2f, rect.Y - 34),
-                rarity
-            );
+            Color.White,
+            new Color(255, 231, 132),
+            new Color(216, 190, 255)
+        };
+
+        for (int i = 0; i < 12; i++)
+        {
+            float angle = i / 12f * MathHelper.TwoPi + progress * 1.7f;
+            float orbit = 0.56f + 0.10f * (float)Math.Sin(progress * 8f + i * 1.31f);
+            float rx = rect.Width * orbit * 0.72f;
+            float ry = rect.Height * orbit * 0.52f;
+            int x = rect.Center.X + (int)(Math.Cos(angle) * rx);
+            int y = rect.Center.Y + (int)(Math.Sin(angle) * ry);
+            float blink = 0.35f + 0.65f * Math.Abs((float)Math.Sin(progress * 13f + i * 0.91f));
+            int arm = 2 + (i % 3);
+            Color color = colors[i % colors.Length] * (blink * intensity);
+
+            b.Draw(Game1.staminaRect, new Rectangle(x - arm, y, arm * 2 + 1, 2), color);
+            b.Draw(Game1.staminaRect, new Rectangle(x, y - arm, 2, arm * 2 + 1), color);
         }
     }
 

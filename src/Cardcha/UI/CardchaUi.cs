@@ -23,6 +23,44 @@ internal static class CardchaUi
     public static readonly Color PaperShadow = new(196, 153, 104);
     public static readonly Color InkBrown = new(78, 49, 43);
 
+
+    public static void DrawRoundedPanel(SpriteBatch b, Rectangle rect, Color fill, Color border, int thickness = 3, int radius = 10)
+    {
+        thickness = Math.Max(1, thickness);
+        DrawRoundedRect(b, rect, border, radius);
+        Rectangle inner = new(rect.X + thickness, rect.Y + thickness, Math.Max(1, rect.Width - thickness * 2), Math.Max(1, rect.Height - thickness * 2));
+        DrawRoundedRect(b, inner, fill, Math.Max(2, radius - thickness));
+    }
+
+    public static void DrawRoundedRect(SpriteBatch b, Rectangle rect, Color color, int radius = 10)
+    {
+        if (rect.Width <= 0 || rect.Height <= 0)
+            return;
+
+        radius = Math.Clamp(radius, 1, Math.Max(1, Math.Min(rect.Width, rect.Height) / 2));
+        int horizontalWidth = Math.Max(1, rect.Width - radius * 2);
+        int verticalHeight = Math.Max(1, rect.Height - radius * 2);
+        b.Draw(Game1.staminaRect, new Rectangle(rect.X + radius, rect.Y, horizontalWidth, rect.Height), color);
+        b.Draw(Game1.staminaRect, new Rectangle(rect.X, rect.Y + radius, rect.Width, verticalHeight), color);
+
+        DrawRoundedQuarter(b, new Point(rect.X + radius, rect.Y + radius), radius, color, 0);
+        DrawRoundedQuarter(b, new Point(rect.Right - radius - 1, rect.Y + radius), radius, color, 1);
+        DrawRoundedQuarter(b, new Point(rect.X + radius, rect.Bottom - radius - 1), radius, color, 2);
+        DrawRoundedQuarter(b, new Point(rect.Right - radius - 1, rect.Bottom - radius - 1), radius, color, 3);
+    }
+
+    private static void DrawRoundedQuarter(SpriteBatch b, Point center, int radius, Color color, int quadrant)
+    {
+        for (int y = 0; y < radius; y++)
+        {
+            int x = (int)Math.Floor(Math.Sqrt(Math.Max(0, radius * radius - y * y)));
+            int width = Math.Max(1, x);
+            int drawY = quadrant < 2 ? center.Y - y : center.Y + y;
+            int drawX = quadrant is 0 or 2 ? center.X - width : center.X;
+            b.Draw(Game1.staminaRect, new Rectangle(drawX, drawY, width, 1), color);
+        }
+    }
+
     public static Color RarityColor(CardRarity rarity) => rarity switch
     {
         CardRarity.Common => new Color(170, 170, 170),

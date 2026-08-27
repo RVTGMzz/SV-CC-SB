@@ -24,6 +24,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
     private readonly CardUpgradeService Upgrades;
     private readonly ModConfig Config;
     private readonly CardRenderer Renderer;
+    private readonly ControllerProfileService Controller;
     private readonly Action OnLoadoutChanged;
     private readonly Action<PullType, int>? OnPullResolved;
     private readonly CardchaMachineMode Mode;
@@ -46,6 +47,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         CardUpgradeService upgrades,
         ModConfig config,
         CardRenderer renderer,
+        ControllerProfileService controller,
         Action onLoadoutChanged,
         Action<PullType, int>? onPullResolved = null,
         CardchaMachineMode mode = CardchaMachineMode.Stationary,
@@ -65,6 +67,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         this.Upgrades = upgrades;
         this.Config = config;
         this.Renderer = renderer;
+        this.Controller = controller;
         this.OnLoadoutChanged = onLoadoutChanged;
         this.OnPullResolved = onPullResolved;
         this.Mode = mode;
@@ -190,19 +193,24 @@ internal sealed class CardchaMachineMenu : IClickableMenu
 
     public override void receiveGamePadButton(Buttons b)
     {
-        if (b == Buttons.B)
+        if (this.Controller.IsExit(b))
         {
             Game1.exitActiveMenu();
             Game1.playSound("bigDeSelect");
             return;
         }
 
-        if (b == Buttons.A && this.currentlySnappedComponent is not null)
+        if (this.Controller.IsConfirm(b) && this.currentlySnappedComponent is not null)
         {
             Point center = this.currentlySnappedComponent.bounds.Center;
             this.receiveLeftClick(center.X, center.Y);
             return;
         }
+
+        // Consume the other face buttons so a controller profile can never accidentally
+        // inherit Stardew's default close behavior in Cardcha-specific menus.
+        if (this.Controller.IsFavorite(b) || this.Controller.IsDeselect(b))
+            return;
 
         base.receiveGamePadButton(b);
     }
@@ -227,9 +235,11 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             Game1.activeClickableMenu = new CardchaBinderMenu(
                 this.Cards,
                 this.Save,
+                this.Resources,
                 this.Loadout,
                 this.Upgrades,
                 this.Renderer,
+                this.Controller,
                 () => Reopen(BinderId),
                 this.OnLoadoutChanged
             );
@@ -266,6 +276,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         Game1.activeClickableMenu = new CardchaPullAnimationMenu(
             results,
             this.Renderer,
+            this.Controller,
             () => Reopen(returnFocusId),
             this.Mode
         );
@@ -281,6 +292,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             this.Upgrades,
             this.Config,
             this.Renderer,
+            this.Controller,
             this.OnLoadoutChanged,
             this.OnPullResolved,
             this.Mode,

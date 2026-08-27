@@ -113,10 +113,12 @@ internal sealed class CardRenderer
 
     public void DrawRevealCard(SpriteBatch b, Rectangle rect, CardDefinition card, string? resultText = null)
     {
-        b.Draw(Game1.staminaRect, rect, new Color(240, 205, 145));
-        CardchaUi.DrawBorder(b, rect, CardchaUi.RarityColor(card.Rarity), 5);
+        // alpha.23: result cards are deliberately information-light: name + large icon + NEW/DUPLICATE.
+        // Rarity is no longer printed as text here; its border color remains a subtle visual accent.
+        Color frame = CardchaUi.RarityColor(card.Rarity);
+        CardchaUi.DrawRoundedPanel(b, rect, new Color(240, 205, 145), frame, thickness: 4, radius: 12);
 
-        Rectangle titleArea = new(rect.X + 8, rect.Y + 8, rect.Width - 16, 40);
+        Rectangle titleArea = new(rect.X + 7, rect.Y + 6, rect.Width - 14, Math.Min(34, rect.Height / 4));
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
@@ -124,34 +126,39 @@ internal sealed class CardRenderer
             titleArea,
             Color.Black,
             maxLines: 2,
-            minScale: 0.72f,
+            minScale: 0.62f,
             centerX: true,
-            maxScale: 1.14f
-        );
-        Utility.drawTextWithShadow(
-            b,
-            CardchaUi.RarityText(card.Rarity),
-            Game1.smallFont,
-            new Vector2(rect.X + 8, rect.Y + 48),
-            CardchaUi.RarityColor(card.Rarity)
+            maxScale: 1.12f
         );
 
-        int reservedBottom = resultText is null ? 20 : 64;
-        int iconSize = Math.Min(72, Math.Min(rect.Width - 24, rect.Height - 96 - reservedBottom));
-        iconSize = Math.Max(28, iconSize);
-        Rectangle icon = new(rect.Center.X - iconSize / 2, rect.Center.Y - iconSize / 2 + 6, iconSize, iconSize);
+        int resultHeight = string.IsNullOrWhiteSpace(resultText) ? 10 : 30;
+        int iconTop = titleArea.Bottom + 4;
+        int iconBottom = rect.Bottom - resultHeight - 6;
+        int iconSize = Math.Min(rect.Width - 16, Math.Max(28, iconBottom - iconTop));
+        Rectangle icon = new(
+            rect.Center.X - iconSize / 2,
+            iconTop + Math.Max(0, (iconBottom - iconTop - iconSize) / 2),
+            iconSize,
+            iconSize
+        );
         this.DrawIcon(b, icon, card);
 
         if (!string.IsNullOrWhiteSpace(resultText))
         {
-            Rectangle resultArea = new(rect.X + 8, rect.Bottom - 58, rect.Width - 16, 48);
-            CardchaUi.DrawWrappedText(
+            Rectangle resultArea = new(rect.X + 7, rect.Bottom - 32, rect.Width - 14, 26);
+            Color resultColor = resultText.Equals(ModEntry.T("reveal.new"), StringComparison.OrdinalIgnoreCase)
+                ? CardchaUi.GoodGreen
+                : CardchaUi.PremiumPurple;
+            CardchaUi.DrawScaledText(
                 b,
                 Game1.smallFont,
                 resultText,
                 resultArea,
-                resultText.StartsWith(ModEntry.T("reveal.new"), StringComparison.OrdinalIgnoreCase) ? CardchaUi.GoodGreen : CardchaUi.PremiumPurple,
-                maxLines: 2
+                resultColor,
+                centerX: true,
+                centerY: true,
+                padding: 1,
+                maxScale: 1.12f
             );
         }
     }
@@ -161,12 +168,10 @@ internal sealed class CardRenderer
         Color outer = highlighted ? CardchaUi.Gold : new Color(72, 55, 92);
         Color inner = new Color(42, 48, 76);
 
-        b.Draw(Game1.staminaRect, rect, new Color(30, 31, 49));
-        CardchaUi.DrawBorder(b, rect, outer, highlighted ? 5 : 4);
+        CardchaUi.DrawRoundedPanel(b, rect, new Color(30, 31, 49), outer, highlighted ? 5 : 4, 12);
 
         Rectangle innerRect = new(rect.X + 8, rect.Y + 8, rect.Width - 16, rect.Height - 16);
-        b.Draw(Game1.staminaRect, innerRect, inner);
-        CardchaUi.DrawBorder(b, innerRect, CardchaUi.Gold * 0.65f, 2);
+        CardchaUi.DrawRoundedPanel(b, innerRect, inner, CardchaUi.Gold * 0.65f, 2, 8);
 
         int cx = rect.Center.X;
         int cy = rect.Center.Y - 4;

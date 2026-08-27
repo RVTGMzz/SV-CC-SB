@@ -19,5 +19,10 @@ internal sealed class ModConfig
     public int LastStandDefenseBonus { get; set; } = 2;
     public int PhoenixInvincibilityMs { get; set; } = 5000;
 
+    // alpha.23 multi-controller profile. Layout controls user-facing labels; mapping controls
+    // how the runtime reports the four face buttons. Auto is the recommended default.
+    public string ControllerLayout { get; set; } = "Auto"; // Auto, Xbox, Nintendo, PlayStation, Generic
+    public string ControllerMapping { get; set; } = "Auto"; // Auto, Standard, NintendoNative
+
     public bool VerboseLogging { get; set; } = false;
 }

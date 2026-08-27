@@ -1538,11 +1538,21 @@ internal sealed class CardchaBookTabService
             this.BinderTabIconChecked = true;
             try
             {
-                this.BinderTabIcon = this.Helper.ModContent.Load<Texture2D>("assets/binder_tab_icon.jpg");
+                // PNG is the reliable runtime asset path for SMAPI/XNA. Keep the JPG in the
+                // package as the original source/reference, but prefer the PNG so the Book
+                // tab never turns into a blank square on systems that reject JPG texture loads.
+                this.BinderTabIcon = this.Helper.ModContent.Load<Texture2D>("assets/binder_tab_icon.png");
             }
             catch
             {
-                this.BinderTabIcon = null;
+                try
+                {
+                    this.BinderTabIcon = this.Helper.ModContent.Load<Texture2D>("assets/binder_tab_icon.jpg");
+                }
+                catch
+                {
+                    this.BinderTabIcon = null;
+                }
             }
         }
 

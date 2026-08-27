@@ -1,4 +1,5 @@
 using Cardcha.Models;
+using Cardcha.Services;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -19,6 +20,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
 
     private readonly IReadOnlyList<PullResult> Results;
     private readonly CardRenderer Renderer;
+    private readonly ControllerProfileService Controller;
     private readonly Action ReturnToMachine;
     private readonly int PullCount;
     private readonly CardchaMachineMode Mode;
@@ -32,10 +34,12 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
     private bool PlayedDiveSound;
     private bool PlayedMachineSound;
     private bool PlayedOrbSound;
+    private bool LastInputWasController;
 
     public CardchaPullAnimationMenu(
         IReadOnlyList<PullResult> results,
         CardRenderer renderer,
+        ControllerProfileService controller,
         Action returnToMachine,
         CardchaMachineMode mode = CardchaMachineMode.Stationary)
         : base(
@@ -47,6 +51,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
     {
         this.Results = results;
         this.Renderer = renderer;
+        this.Controller = controller;
         this.ReturnToMachine = returnToMachine;
         this.PullCount = Math.Max(1, results.Count);
         this.Mode = mode;
@@ -112,20 +117,50 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
 
     public override void receiveGamePadButton(Buttons b)
     {
-        if (b is Buttons.A or Buttons.B or Buttons.X or Buttons.Y)
+        this.LastInputWasController = true;
+
+        if (this.Controller.IsSkip(b))
         {
             this.SkipAnimation();
             return;
         }
 
+        // Consume all other face-button semantics during the ritual. Only the profile's
+        // confirm/south action may skip; favorite/deselect/exit cannot pop the menu.
+        if (this.Controller.IsFavorite(b) || this.Controller.IsDeselect(b) || this.Controller.IsExit(b))
+            return;
+
         base.receiveGamePadButton(b);
     }
 
+    public override void receiveKeyPress(Keys key)
+    {
+        this.LastInputWasController = false;
+
+        if (key is Keys.Enter or Keys.Space)
+        {
+            this.SkipAnimation();
+            return;
+        }
+
+        // Consume Escape here instead of letting the base menu pop the ritual unexpectedly.
+        if (key == Keys.Escape)
+            return;
+
+        base.receiveKeyPress(key);
+    }
+
     public override void receiveLeftClick(int x, int y, bool playSound = true)
-        => this.SkipAnimation();
+    {
+        this.LastInputWasController = false;
+        this.SkipAnimation();
+    }
 
     public override void receiveRightClick(int x, int y, bool playSound = true)
-        => this.SkipAnimation();
+    {
+        this.LastInputWasController = false;
+        this.SkipAnimation();
+    }
 
     public override void draw(SpriteBatch b)
     {
@@ -147,8 +182,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         Color panelColor = this.Mode == CardchaMachineMode.Portable
             ? new Color(34, 48, 87)
             : new Color(42, 29, 58);
-        b.Draw(Game1.staminaRect, panel, panelColor);
-        CardchaUi.DrawBorder(b, panel, CardchaUi.Gold, 5);
+        CardchaUi.DrawRoundedPanel(b, panel, panelColor, CardchaUi.Gold, thickness: 5, radius: 16);
         CardchaUi.DrawCornerOrnaments(b, panel, CardchaUi.Gold * 0.85f);
 
         Rectangle titleRect = new(panel.X + 34, panel.Y + 20, panel.Width - 68, 52);
@@ -184,17 +218,20 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             maxScale: 1.05f
         );
 
-        Rectangle skipRect = new(panel.Right - 260, panel.Bottom - 43, 220, 25);
+        Rectangle skipRect = new(panel.Right - 330, panel.Bottom - 45, 290, 27);
+        string skipHint = this.LastInputWasController
+            ? ModEntry.T("pullanim.skip.controller.dynamic", new { button = this.Controller.GetLabel(ControllerAction.Skip) })
+            : ModEntry.T("pullanim.skip.keyboard");
         CardchaUi.DrawScaledText(
             b,
             Game1.smallFont,
-            ModEntry.T("pullanim.skip"),
+            skipHint,
             skipRect,
             new Color(205, 187, 215),
             centerX: true,
             centerY: true,
             padding: 1,
-            maxScale: 0.92f
+            maxScale: 0.96f
         );
 
         if (this.PullCount > 1)
@@ -242,22 +279,10 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         Rectangle shadowRect = new(machineDest.X + 24, machineDest.Bottom - 18, machineDest.Width - 48, 18);
         b.Draw(Game1.fadeToBlackRect, shadowRect, Color.Black * 0.28f);
 
-        if (this.ElapsedMs >= 860 && this.ElapsedMs <= 2120)
-        {
-            float pulse = 0.35f + (float)(Math.Sin(this.ElapsedMs * 0.012) + 1.0) * 0.13f;
-            Rectangle glow = new(
-                machineDest.X - 34,
-                machineDest.Y + 20,
-                machineDest.Width + 68,
-                machineDest.Height - 40
-            );
-            b.Draw(Game1.fadeToBlackRect, glow, new Color(126, 87, 220) * pulse);
-        }
-
         b.Draw(this.MachineTexture, machineDest, machineSource, Color.White);
         this.DrawStationaryChaCha(b, panel, machineDest);
         this.DrawOrb(b, panel, machineDest);
-        this.DrawFlash(b, panel, 2380, 2700, 2520f);
+        this.DrawFlash(b, panel, 980, 2720, 1840f);
     }
 
     private void DrawStationaryChaCha(SpriteBatch b, Rectangle panel, Rectangle machineDest)
@@ -344,11 +369,6 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             264
         );
 
-        float pulse = 0.12f + (float)(Math.Sin(this.ElapsedMs * 0.012) + 1f) * 0.055f;
-        Rectangle aura = new(machineDest.X - 34, machineDest.Y - 28, machineDest.Width + 68, machineDest.Height + 56);
-        b.Draw(Game1.staminaRect, aura, new Color(100, 168, 255) * pulse);
-        CardchaUi.DrawBorder(b, aura, CardchaUi.Gold * 0.34f, 2);
-
         Rectangle shadow = new(machineDest.X + 18, machineDest.Bottom - 8, machineDest.Width - 36, 13);
         b.Draw(Game1.fadeToBlackRect, shadow, Color.Black * 0.24f);
         b.Draw(this.MachineTexture, machineDest, this.MachineTexture.Bounds, Color.White);
@@ -356,7 +376,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         this.DrawPortableCard(b, panel, machineDest);
         this.DrawPortableChaCha(b, panel, machineDest);
         this.DrawPortableSparkles(b, panel, machineDest);
-        this.DrawFlash(b, panel, 2860, 3240, 3050f);
+        this.DrawFlash(b, panel, 1180, 3260, 2220f);
     }
 
     private void DrawPortableChaCha(SpriteBatch b, Rectangle panel, Rectangle machineDest)
@@ -505,6 +525,17 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         Rectangle starV = new(card.Center.X - 2, card.Center.Y - star, 4, star * 2);
         b.Draw(Game1.staminaRect, starH, new Color(255, 224, 93) * alpha);
         b.Draw(Game1.staminaRect, starV, new Color(255, 224, 93) * alpha);
+
+        // Alpha.11: pulse the entire card cell instead of only a tiny highlight/text-sized area.
+        // This makes the gacha flash readable on controller/TV setups and at reduced UI scale.
+        if (this.ElapsedMs >= 2240f)
+        {
+            float wave = 0.5f + 0.5f * (float)Math.Sin((this.ElapsedMs - 2240f) * 0.030f);
+            float envelope = Math.Clamp((this.ElapsedMs - 2240f) / 420f, 0f, 1f);
+            float cellFlash = (0.10f + wave * 0.22f) * envelope;
+            b.Draw(Game1.staminaRect, card, Color.White * cellFlash);
+            CardchaUi.DrawBorder(b, card, rarity * (0.68f + wave * 0.32f), 3);
+        }
     }
 
     private void DrawPortableSparkles(SpriteBatch b, Rectangle panel, Rectangle machineDest)
@@ -598,9 +629,37 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
             return;
 
         float half = Math.Max(1f, (endMs - startMs) / 2f);
-        float alpha = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
-        alpha = Math.Clamp(alpha, 0f, 1f);
-        b.Draw(Game1.fadeToBlackRect, panel, Color.White * (alpha * 0.62f));
+        float envelope = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
+        envelope = Math.Clamp(envelope, 0f, 1f);
+
+        // alpha.22: the whole large ritual panel pulses, including the outer gold frame.
+        // The old short burst was easy to miss and the machine/card itself looked like
+        // the only rectangle changing brightness. Keep the pulse broad through the
+        // resonance phase so every light cycle reads across the full panel.
+        float wave = 0.5f + 0.5f * (float)Math.Sin((this.ElapsedMs - startMs) * 0.030f);
+        Color rarity = CardchaUi.RarityColor(this.BestRarity);
+        float whiteAlpha = envelope * (0.05f + wave * 0.16f);
+        float rarityAlpha = envelope * (0.025f + wave * 0.10f);
+        CardchaUi.DrawRoundedRect(b, panel, rarity * rarityAlpha, 16);
+        CardchaUi.DrawRoundedRect(b, panel, Color.White * whiteAlpha, 16);
+
+        Rectangle inner = new(panel.X + 7, panel.Y + 7, panel.Width - 14, panel.Height - 14);
+        CardchaUi.DrawRoundedPanel(
+            b,
+            inner,
+            Color.Transparent,
+            Color.White * (0.18f + 0.35f * wave) * envelope,
+            thickness: 3,
+            radius: 12
+        );
+        CardchaUi.DrawRoundedPanel(
+            b,
+            panel,
+            Color.Transparent,
+            CardchaUi.Gold * (0.72f + 0.28f * wave),
+            thickness: 5,
+            radius: 16
+        );
     }
 
     private int GetMachineFrame()
@@ -667,6 +726,7 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         Game1.activeClickableMenu = new CardchaRevealMenu(
             this.Results.ToList(),
             this.Renderer,
+            this.Controller,
             this.ReturnToMachine
         );
     }

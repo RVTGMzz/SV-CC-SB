@@ -180,9 +180,8 @@ internal sealed class CardchaStoryService
         if (this.IntroArrivalPending)
         {
             Game1.player.Halt();
-            // 11.42: MiMi is already physically waiting outside the farmhouse. We only
-            // leave a tiny beat so the player can see her before the dialogue opens.
-            if (Environment.TickCount64 - this.SceneVisualStartedAt >= 320)
+            // Let the full broom approach complete before opening dialogue.
+            if (Environment.TickCount64 - this.SceneVisualStartedAt >= 1250)
                 this.BeginMimiIntroDialogue();
             return;
         }
@@ -260,8 +259,8 @@ internal sealed class CardchaStoryService
         }
 
         this.Scene = SceneKind.MimiIntro;
-        this.Visual = VisualMode.MimiFarmGreeting;
-        // 11.42: instead of talking "from nowhere", MiMi now waits in front of the
+        this.Visual = VisualMode.MimiOnBroom;
+        // alpha.22: MiMi now visibly flies in from beyond the camera before landing in front of the
         // farmhouse / porch so the player physically sees her first.
         this.SceneAnchor = Game1.player.Position + new Vector2(-108f, -12f);
         this.SceneVisualStartedAt = Environment.TickCount64;
@@ -286,6 +285,8 @@ internal sealed class CardchaStoryService
             return;
 
         this.IntroArrivalPending = false;
+        this.Visual = VisualMode.MimiFarmGreeting;
+        this.SceneVisualStartedAt = Environment.TickCount64;
         this.Lines = new[]
         {
             ModEntry.T("story.mimi.intro.0"),
@@ -1093,11 +1094,14 @@ internal sealed class CardchaStoryService
         if (broom)
         {
             float arrive = sceneAge * sceneAge * (3f - 2f * sceneAge);
-            mimiWorld += new Vector2(MathHelper.Lerp(-230f, 0f, arrive), 0f);
+            Vector2 offscreen = GetOffscreenStoryPoint(location, this.SceneAnchor, enterFromLeft: true);
+            mimiWorld = Vector2.Lerp(offscreen, this.SceneAnchor, arrive);
             mimiFacing = 1;
             mimiFrame = (int)(Game1.currentGameTime.TotalGameTime.TotalMilliseconds / 135.0) % 4;
             this.WorldActors.MoveMimiActor(mimi, location, mimiWorld, mimiFacing, broom: true, visible: true);
             this.WorldActors.SetMimiFrame(mimi, mimiFacing, mimiFrame);
+            mimi.drawOffset = new Vector2(0f, -MathHelper.Lerp(220f, 0f, arrive));
+            mimi.drawOnTop = true;
             mimi.rotation = (1f - arrive) * -0.075f + (float)Math.Sin(time * 2.8) * 0.010f;
             mimi.hideShadow.Value = true;
         }
@@ -1125,6 +1129,8 @@ internal sealed class CardchaStoryService
 
             this.WorldActors.MoveMimiActor(mimi, location, mimiWorld, mimiFacing, broom: false, visible: true);
             this.WorldActors.SetMimiFrame(mimi, mimiFacing, mimiFrame);
+            mimi.drawOffset = Vector2.Zero;
+            mimi.drawOnTop = false;
             mimi.rotation = 0f;
             mimi.hideShadow.Value = false;
         }
@@ -1340,6 +1346,22 @@ internal sealed class CardchaStoryService
         }
     }
 
+    private static Vector2 GetOffscreenStoryPoint(GameLocation location, Vector2 reference, bool enterFromLeft)
+    {
+        const float margin = 280f;
+        if (Game1.currentLocation == location)
+        {
+            float left = Game1.viewport.X - margin;
+            float right = Game1.viewport.X + Game1.viewport.Width + margin;
+            float minY = Game1.viewport.Y + 120f;
+            float maxY = Game1.viewport.Y + Game1.viewport.Height - 120f;
+            float y = Math.Clamp(reference.Y, minY, Math.Max(minY, maxY));
+            return new Vector2(enterFromLeft ? left : right, y);
+        }
+
+        return reference + new Vector2(enterFromLeft ? -1200f : 1200f, 0f);
+    }
+
     private void StartMimiIntroDeparture()
     {
         GameLocation? farm = Game1.getFarm();
@@ -1359,7 +1381,7 @@ internal sealed class CardchaStoryService
         // NPC's world Y upward, which literally sent her into the farmhouse tiles. In 11.43
         // altitude is handled with drawOffset while the actor stays in open ground space.
         this.IntroDepartureControl = start + new Vector2(28f, 0f);
-        this.IntroDepartureTarget = start + new Vector2(360f, -26f);
+        this.IntroDepartureTarget = GetOffscreenStoryPoint(farm, start, enterFromLeft: false);
         Game1.playSound("wand");
     }
 

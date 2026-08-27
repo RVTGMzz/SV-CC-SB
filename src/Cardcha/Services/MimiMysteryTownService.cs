@@ -2,6 +2,7 @@ using System.Collections;
 using System.Reflection;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Newtonsoft.Json.Linq;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -47,7 +48,7 @@ internal sealed class MimiMysteryTownService
     private const int LateDepartureGraceEndTime = 1600;
     private const int MerchantStartTime = 1100;
     private const int MerchantEndTime = 1700;
-    private const int FlightDurationMs = 1800;
+    private const int FlightDurationMs = 2600;
     private const float WanderSpeedPixelsPerSecond = 44f;
     private const int WanderPauseMinMs = 3200;
     private const int WanderPauseMaxMs = 6500;
@@ -78,6 +79,7 @@ internal sealed class MimiMysteryTownService
     private FlightState Flight;
     private long FlightStartedMs;
     private Vector2 FlightStartWorld = TownAnchor;
+    private Vector2 FlightTargetWorld = TownAnchor;
     private Vector2 WanderTarget = TownAnchor;
     private long NextWanderDecisionAtMs;
     private long LastWanderUpdateAtMs;
@@ -86,6 +88,7 @@ internal sealed class MimiMysteryTownService
     private bool MerchantPepTalkPendingOpen;
     private bool OfficialMerchantArrival;
     private bool OfficialMerchantDeparture;
+    private bool KnownNameAssetRefreshed;
 
     public MimiMysteryTownService(
         IModHelper helper,
@@ -130,6 +133,22 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
+        // Optional integration for Bouhm NPC Map Locations. Its official author API is a
+        // content asset of Dictionary<string, JObject>; registering MiMi here ensures the dynamic
+        // Cardcha NPC gets a marker config entry even though she starts the day hidden off-map.
+        if (e.NameWithoutLocale.IsEquivalentTo("Mods/Bouhm.NPCMapLocations/NPCs"))
+        {
+            e.Edit(asset =>
+            {
+                IDictionary<string, JObject> data = asset.AsDictionary<string, JObject>().Data;
+                data[NpcId] = new JObject
+                {
+                    ["MarkerCropOffset"] = 0
+                };
+            });
+            return;
+        }
+
         if (e.NameWithoutLocale.IsEquivalentTo("Data/Characters"))
         {
             e.Edit(asset =>
@@ -137,7 +156,7 @@ internal sealed class MimiMysteryTownService
                 IDictionary<string, CharacterData> data = asset.AsDictionary<string, CharacterData>().Data;
                 CharacterData mimi = new();
 
-                SetProperty(mimi, "DisplayName", "???");
+                SetProperty(mimi, "DisplayName", this.IsMimiIdentityKnown() ? "MiMi" : "???");
                 SetProperty(mimi, "TextureName", NpcId);
                 SetProperty(mimi, "Gender", "Female");
                 SetProperty(mimi, "Age", "Teen");
@@ -161,7 +180,7 @@ internal sealed class MimiMysteryTownService
                 // Native world renderer uses the official 32x48 MiMi walk master directly.
                 // The NPC actor scale preserves the approved in-game size.
                 SetPointProperty(mimi, "Size", 32, 48);
-                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 24);
+                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {
@@ -169,7 +188,7 @@ internal sealed class MimiMysteryTownService
                     // Keep the shadow compact, but large enough to remain visible under the
                     // scaled 32x48 mystery sprite on bright Town tiles.
                     Offset = Point.Zero,
-                    Scale = 1.0f
+                    Scale = 1.28f
                 });
                 SetHome(mimi, "WizardHouse", 4, 6, "down");
 
@@ -196,7 +215,7 @@ internal sealed class MimiMysteryTownService
                 {
                     Visible = true,
                     Offset = Point.Zero,
-                    Scale = 0.55f
+                    Scale = 0.82f
                 });
                 data[WorldActorService.ChaChaNpcId] = chacha;
             });
@@ -215,8 +234,10 @@ internal sealed class MimiMysteryTownService
     public void OnSaveLoaded()
     {
         this.ResetRuntimeForDay();
+        this.KnownNameAssetRefreshed = false;
         this.EnsureTextures();
         this.WorldActors.EnsureMimiActor();
+        this.EnsureKnownIdentityState();
         this.EnforcePhaseState();
     }
 
@@ -236,6 +257,7 @@ internal sealed class MimiMysteryTownService
         this.Flight = FlightState.None;
         this.FlightStartedMs = 0;
         this.FlightStartWorld = TownAnchor;
+        this.FlightTargetWorld = TownAnchor;
         this.WanderTarget = TownAnchor;
         this.NextWanderDecisionAtMs = 0;
         this.LastWanderUpdateAtMs = 0;
@@ -244,6 +266,7 @@ internal sealed class MimiMysteryTownService
         this.MerchantPepTalkPendingOpen = false;
         this.OfficialMerchantArrival = false;
         this.OfficialMerchantDeparture = false;
+        this.KnownNameAssetRefreshed = false;
         this.Helper.Events.Display.MenuChanged -= this.OnMerchantPepTalkMenuChanged;
     }
 
@@ -305,6 +328,8 @@ internal sealed class MimiMysteryTownService
         if (!Context.IsWorldReady)
             return;
 
+        this.EnsureKnownIdentityState();
+
         if (this.IsMerchantRoutineActive())
         {
             if (this.Flight != FlightState.None)
@@ -353,8 +378,9 @@ internal sealed class MimiMysteryTownService
         NPC? native = FindNativeNpc();
         if (native is not null)
         {
-            SetNpcDisplayName(native, "???");
-            SuppressVanillaGreetingLeak();
+            SetNpcDisplayName(native, this.IsMimiIdentityKnown() ? "MiMi" : "???");
+            if (!this.IsMimiIdentityKnown())
+                SuppressVanillaGreetingLeak();
         }
 
         if (native is not null && !this.LoggedNativeFound)
@@ -503,6 +529,20 @@ internal sealed class MimiMysteryTownService
             return;
 
         if (Game1.timeOfDay < MerchantStartTime || Game1.timeOfDay >= MerchantEndTime)
+        {
+            this.HideNativeOffMap();
+            return;
+        }
+
+        // At the exact scheduled arrival tick, keep the ground actor hidden until StartArrivalFlight
+        // moves the broom actor to its off-screen start point. This prevents a one-frame MiMi flash
+        // at the plaza before the flight begins.
+        bool playerInTown = Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true;
+        if (!IsHarshMerchantWeather()
+            && Game1.timeOfDay == MerchantStartTime
+            && playerInTown
+            && !this.ArrivedToday
+            && this.Flight == FlightState.None)
         {
             this.HideNativeOffMap();
             return;
@@ -745,11 +785,13 @@ internal sealed class MimiMysteryTownService
             return;
         }
 
-        if (allowAnimation
-            && !this.ArrivedToday
-            && Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true)
+        bool playerInTownNow = Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true;
+        if (!this.ArrivedToday && playerInTownNow)
         {
-            StartArrivalFlight();
+            if (allowAnimation)
+                StartArrivalFlight();
+            else
+                HideNativeOffMap();
             return;
         }
 
@@ -771,9 +813,13 @@ internal sealed class MimiMysteryTownService
         this.Flight = FlightState.Arriving;
         this.OfficialMerchantArrival = officialMerchant;
         this.FlightStartedMs = CurrentGameMs();
-        Vector2 high = TownAnchor + new Vector2(0f, -7f * 64f);
-        this.WorldActors.MoveMimiActor(native, town, high, 2, broom: true, visible: true);
-        this.WorldActors.SetMimiFrame(native, 2, 0);
+        this.FlightStartWorld = GetOffscreenFlightPoint(town, TownAnchor, enterFromLeft: true);
+        this.FlightTargetWorld = TownAnchor;
+        this.WorldActors.MoveMimiActor(native, town, this.FlightStartWorld, 1, broom: true, visible: true);
+        this.WorldActors.SetMimiFrame(native, 1, 0);
+        native.drawOffset = new Vector2(0f, -230f);
+        native.drawOnTop = true;
+        native.hideShadow.Value = true;
         Game1.playSound("wand");
         this.Monitor.Log(
             officialMerchant
@@ -799,6 +845,7 @@ internal sealed class MimiMysteryTownService
         this.OfficialMerchantDeparture = officialMerchant;
         this.FlightStartedMs = CurrentGameMs();
         this.FlightStartWorld = start;
+        this.FlightTargetWorld = GetOffscreenFlightPoint(town, start, enterFromLeft: false);
         this.WorldActors.MoveMimiActor(native, town, start, 0, broom: true, visible: true);
         this.WorldActors.SetMimiFrame(native, 0, 0);
         Game1.playSound("wand");
@@ -822,13 +869,32 @@ internal sealed class MimiMysteryTownService
 
         if (this.Flight == FlightState.Arriving)
         {
-            Vector2 high = TownAnchor + new Vector2(0f, -7f * 64f);
-            Vector2 world = Vector2.Lerp(high, TownAnchor, t);
-            this.WorldActors.MoveMimiActor(native, town, world, 2, broom: true, visible: true);
-            this.WorldActors.SetMimiFrame(native, 2, frame);
-            native.rotation = (1f - t) * 0.035f;
+            Vector2 world = Vector2.Lerp(this.FlightStartWorld, this.FlightTargetWorld, t);
+            float altitude = MathHelper.Lerp(230f, 0f, t);
+            int facing = this.FlightTargetWorld.X >= this.FlightStartWorld.X ? 1 : 3;
+            this.WorldActors.MoveMimiActor(native, town, world, facing, broom: true, visible: true);
+            this.WorldActors.SetMimiFrame(native, facing, frame);
+            native.drawOffset = new Vector2(0f, -altitude);
+            native.drawOnTop = true;
+            native.hideShadow.Value = true;
+            native.rotation = (1f - t) * -0.045f + (float)Math.Sin(CurrentGameMs() / 330.0) * 0.006f;
             if (!this.OfficialMerchantArrival)
-                this.SyncChaChaWithMimi();
+            {
+                NPC? chacha = this.WorldActors.EnsureChaChaActor(
+                    town,
+                    world + new Vector2(-64f, 16f),
+                    facing == 1 ? 3 : 2,
+                    frame,
+                    machine: false
+                );
+                if (chacha is not null)
+                {
+                    chacha.drawOffset = new Vector2(0f, -altitude + 10f);
+                    chacha.drawOnTop = true;
+                    chacha.hideShadow.Value = true;
+                    chacha.rotation = 0f;
+                }
+            }
         }
         else
         {
@@ -853,7 +919,7 @@ internal sealed class MimiMysteryTownService
             {
                 float cruiseRaw = (raw - liftFraction) / (1f - liftFraction);
                 float cruise = SmoothStep(cruiseRaw);
-                groundWorld = this.FlightStartWorld + new Vector2(MathHelper.Lerp(24f, 370f, cruise), MathHelper.Lerp(0f, -18f, cruise));
+                groundWorld = Vector2.Lerp(this.FlightStartWorld + new Vector2(24f, 0f), this.FlightTargetWorld, cruise);
                 visualAltitude = MathHelper.Lerp(220f, 248f, cruise);
                 facing = 1;
             }
@@ -895,12 +961,16 @@ internal sealed class MimiMysteryTownService
         this.OfficialMerchantArrival = false;
         this.OfficialMerchantDeparture = false;
         this.FlightStartWorld = TownAnchor;
+        this.FlightTargetWorld = TownAnchor;
         native.rotation = 0f;
 
         if (finished == FlightState.Arriving)
         {
             this.ArrivedToday = true;
             this.WorldActors.MoveMimiActor(native, town, TownAnchor, 2, broom: false, visible: true);
+            native.drawOffset = Vector2.Zero;
+            native.drawOnTop = false;
+            native.hideShadow.Value = false;
             this.WorldActors.SetMimiFrame(native, 2, 0);
             this.WanderTarget = TownAnchor;
             this.NextWanderDecisionAtMs = CurrentGameMs() + 2600;
@@ -915,6 +985,53 @@ internal sealed class MimiMysteryTownService
             HideNativeOffMap();
             if (!officialDeparture)
                 this.WorldActors.HideChaChaActor();
+        }
+    }
+
+    private Vector2 GetOffscreenFlightPoint(GameLocation location, Vector2 reference, bool enterFromLeft)
+    {
+        const float margin = 260f;
+        if (Game1.currentLocation == location)
+        {
+            float left = Game1.viewport.X - margin;
+            float right = Game1.viewport.X + Game1.viewport.Width + margin;
+            float minY = Game1.viewport.Y + 120f;
+            float maxY = Game1.viewport.Y + Game1.viewport.Height - 120f;
+            float y = Math.Clamp(reference.Y, minY, Math.Max(minY, maxY));
+            return new Vector2(enterFromLeft ? left : right, y);
+        }
+
+        // If Town isn't currently being rendered, still place the actor far enough away that
+        // the next visible flight starts/finishes beyond any normal camera width.
+        return reference + new Vector2(enterFromLeft ? -1200f : 1200f, 0f);
+    }
+
+    private bool IsMimiIdentityKnown()
+        => this.Save.Data.MimiMeetupCompleted || this.Save.Data.MachineDelivered;
+
+    private void EnsureKnownIdentityState()
+    {
+        if (!this.IsMimiIdentityKnown())
+            return;
+
+        NPC? native = FindNativeNpc();
+        if (native is not null)
+            SetNpcDisplayName(native, "MiMi");
+
+        if (this.KnownNameAssetRefreshed)
+            return;
+
+        this.KnownNameAssetRefreshed = true;
+        try
+        {
+            // Data/Characters is the fallback source used by DialogueBox for the speaker label.
+            // Refresh it once the handoff reveals her identity so later portrait dialogue can't
+            // regress to the pre-story "???" label.
+            this.Helper.GameContent.InvalidateCache("Data/Characters");
+        }
+        catch (Exception ex)
+        {
+            this.Monitor.Log($"Couldn't refresh MiMi's revealed display name cache: {ex.Message}", LogLevel.Trace);
         }
     }
 
@@ -1124,13 +1241,44 @@ internal sealed class MimiMysteryTownService
 
     private static void SetNpcDisplayName(NPC npc, string displayName)
     {
-        try
+        // NPC.displayName is the value DialogueBox actually renders. Set it directly first;
+        // the reflection fallback below only covers point-release/modded wrappers.
+        npc.displayName = displayName;
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.IgnoreCase;
+
+        foreach (string memberName in new[] { "displayName", "DisplayName" })
         {
-            FieldInfo? field = typeof(NPC).GetField("displayName", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
-            field?.SetValue(npc, displayName);
-        }
-        catch
-        {
+            try
+            {
+                PropertyInfo? property = typeof(NPC).GetProperty(memberName, flags);
+                if (property is not null && property.CanWrite && property.PropertyType == typeof(string))
+                    property.SetValue(npc, displayName);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                FieldInfo? field = typeof(NPC).GetField(memberName, flags);
+                if (field is null)
+                    continue;
+
+                if (field.FieldType == typeof(string))
+                {
+                    field.SetValue(npc, displayName);
+                    continue;
+                }
+
+                object? netValue = field.GetValue(npc);
+                PropertyInfo? valueProperty = netValue?.GetType().GetProperty("Value", flags);
+                if (valueProperty is not null && valueProperty.CanWrite && valueProperty.PropertyType == typeof(string))
+                    valueProperty.SetValue(netValue, displayName);
+            }
+            catch
+            {
+            }
         }
     }
 

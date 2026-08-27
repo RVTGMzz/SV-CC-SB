@@ -13,5 +13,7 @@
   "ChainHunterMaxStacks": 5,
   "LastStandDefenseBonus": 2,
   "PhoenixInvincibilityMs": 5000,
-  "VerboseLogging": false
+  "VerboseLogging": false,
+  "ControllerLayout": "Auto",
+  "ControllerMapping": "Auto"
 }
