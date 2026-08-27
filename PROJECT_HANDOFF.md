@@ -20,24 +20,26 @@
 - Candidate label: `Cardcha! v0.3.0-alpha.23 MULTI-CONTROLLER + GACHA POLISH`
 - Main active development branch for this work: `binder-v0.3-alpha1`
 
-## 2. CRITICAL SOURCE-SYNC WARNING
-The GitHub branch is currently **not yet a complete single source of truth**.
+## 2. Source-of-truth status — SYNC COMPLETE
+The GitHub branch is now the canonical source for alpha.23.
 
-At the time this handoff was written:
-- `NEXT_SESSION_START_HERE.md` documents **alpha.23**.
-- the packaged source candidate is `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip`.
-- the packaged Windows builder is `Cardcha_v0.3.0-alpha.23_MultiControllerGachaPolish_WindowsBuilder_FULL.zip`.
-- but `src/Cardcha/manifest.json` in the GitHub branch still reports **0.3.0-alpha.10**.
+Source synchronization was completed on 2026-08-27:
+- **Source sync commit:** `69a0f5d8cccddb2200e2a8748904dabf754275ad`
+- Commit message: `sync: alpha23 source snapshot`
+- `src/Cardcha/manifest.json`: `0.3.0-alpha.23`
+- `src/Cardcha/Cardcha.csproj`: `0.3.0-alpha.23`
+- Exact `src/Cardcha` Git tree SHA: `389fec3708f19e759ae6ab7aab33f98c5455e197`
 
-Therefore a new developer/AI must **not assume the checked-in `src/` tree is the latest alpha.23 source** until source synchronization is completed.
+The Git tree SHA above was independently computed from all **69 files** in `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip` and matches GitHub exactly. This verifies the checked-in `src/Cardcha` tree is byte-for-byte identical to the alpha.23 source snapshot.
 
 ### Current source precedence
-Until the repo is fully synced, use this order:
-1. latest alpha.23 source snapshot artifact;
-2. latest candidate handoff/docs;
-3. checked-in GitHub source only for older baseline/reference.
+Use this order:
+1. checked-in GitHub `src/Cardcha` on `binder-v0.3-alpha1`;
+2. current handoff/docs;
+3. packaged alpha.23 source snapshot only as an archival cross-check;
+4. old chat/exported history only as secondary historical context.
 
-Do **not** silently rebuild alpha.23 features from the older GitHub source by guessing.
+Do not reconstruct alpha.23 from older branches or historical source unless explicitly debugging lineage.
 
 ## 3. Latest candidate status
 ### alpha.23 contains
@@ -54,6 +56,7 @@ Do **not** silently rebuild alpha.23 features from the older GitHub source by gu
 - EN/VI audit for 80 card names/descriptions and 304 localized star-rule rows per language.
 
 ### Validation status
+- source sync to GitHub: **VERIFIED**;
 - targeted static validation: **53/53 PASS** in the build-preparation environment;
 - **real Windows compile is still required** because that environment had no `dotnet` executable and no Stardew/SMAPI assemblies;
 - alpha.23 must be built with `BUILD_ALPHA23_TEST.bat` and then tested in-game.
@@ -207,9 +210,10 @@ Known useful commands include:
 ## 12. Migration checklist for a new ChatGPT account
 Before editing:
 - connect the same GitHub repository;
+- checkout branch `binder-v0.3-alpha1`;
 - read this handoff and the files listed in section 0;
-- obtain the latest alpha.23 source snapshot/build artifact if GitHub source sync has not yet been completed;
-- compare candidate `manifest.json` and `.csproj` versions with the documentation;
+- treat checked-in `src/Cardcha` as the alpha.23 source of truth;
+- verify the source-sync anchor if needed: commit `69a0f5d8cccddb2200e2a8748904dabf754275ad`, tree `389fec3708f19e759ae6ab7aab33f98c5455e197`;
 - never assume account memory exists;
 - treat GitHub documentation as project memory;
 - if old ChatGPT history is available via exported conversations, use it only as secondary historical context — current source + handoff docs win when they conflict.
@@ -218,13 +222,16 @@ Before editing:
 1. Windows-compile alpha.23 with `BUILD_ALPHA23_TEST.bat`.
 2. In-game test controller profiles/overrides, Binder double unequip, Gacha rounded/sparkle/full-panel visuals, and EN/VI localization.
 3. Fix any alpha.23 regression found by the user.
-4. **Synchronize the alpha.23 source snapshot into GitHub** so the repository itself becomes the single source of truth.
-5. After synchronization, update this handoff and record the exact last-known-good commit.
+4. After compile + in-game confirmation, record the exact last-known-good commit/build artifact and tested Stardew/SMAPI versions.
 
 ## 14. Last-known-good commit policy
-There is currently **no fully established alpha.23 last-known-good commit** because the GitHub `src/` tree is behind the documented candidate and alpha.23 has not yet received a verified Windows compile + full user test.
+There is currently **no fully established alpha.23 last-known-good commit** because alpha.23 has not yet received a verified Windows compile + full user test.
 
-Do not invent one.
+The source itself **is synchronized and verified** at:
+- `ALPHA23 SOURCE SYNC COMMIT: 69a0f5d8cccddb2200e2a8748904dabf754275ad`
+- `ALPHA23 SOURCE TREE: 389fec3708f19e759ae6ab7aab33f98c5455e197`
+
+Do not confuse “source synchronized” with “build tested”.
 
 Once a candidate is compiled and user-confirmed, record here:
 - `LAST KNOWN GOOD VERSION:`
