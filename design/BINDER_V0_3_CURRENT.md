@@ -6,6 +6,8 @@
 
 Preserved build snapshot checksum (SHA-256): `85c40046206bc6fdf11f7cd8aeb100f59ebca3be4d97724e4256835edf47a953`.
 
+Current r2 candidate/validation handoff is tracked on branch `binder-v0.3-alpha1`.
+
 ## Why this file exists
 
 This handoff is intentionally detailed so a future ChatGPT/session can continue from GitHub without reconstructing decisions from old chat threads.
@@ -48,7 +50,7 @@ Every cell shows:
 
 Approved locked-card rule:
 
-> **A card that is not unlocked still keeps its real rarity border, but its icon is grayscale/silhouette.**
+> **A card that is not unlocked still keeps its real rarity border, but its icon is true grayscale — not a black silhouette tint.**
 
 Locked cells stay in their fixed Base-ID positions. Do not reorder the main collection by unlock date, rarity, level or name.
 
@@ -61,6 +63,8 @@ The 80-card visual snapshot defines:
 - convention: `IconIndex = BaseId - 1`.
 
 The code may fall back to `IconIndex + 1` only when older prototype data has no explicit `BaseId`.
+
+Implementation note for the r2 candidate: locked artwork is rendered through a cached grayscale copy of `card_icons.png`; the rarity frame is drawn separately. Do not replace this with a black tint.
 
 ## Bookmarks / filters
 
@@ -121,6 +125,8 @@ When an owned card is selected, show:
 
 A locked card may show its ID/rarity and locked state, but should not expose full effect information as if owned.
 
+The r2 candidate uses the Base Set `StarRules` for per-star Binder display when available, with the existing runtime upgrade service as fallback.
+
 ## Controller rules
 
 - A while inside Binder performs the focused Binder action. **A must never close the book.**
@@ -141,7 +147,7 @@ Included:
 - favorite persistence;
 - icon-only collection;
 - rarity borders;
-- locked silhouettes;
+- locked grayscale icons;
 - ID + Lv;
 - equipped overlay;
 - circular equipped slots;
