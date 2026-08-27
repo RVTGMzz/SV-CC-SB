@@ -166,7 +166,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.23 MULTI-CONTROLLER + GACHA POLISH with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -670,7 +670,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.3.0-alpha.23 =====\n" +
+            "===== CARDCHA LOOT RATES v0.3.0-alpha.25 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -761,7 +761,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.23 MULTI-CONTROLLER + GACHA POLISH",
+            "Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH",
             LogLevel.Alert
         );
     }
