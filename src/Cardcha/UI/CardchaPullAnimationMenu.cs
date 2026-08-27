@@ -632,34 +632,24 @@ internal sealed class CardchaPullAnimationMenu : IClickableMenu
         float envelope = 1f - Math.Abs(this.ElapsedMs - centerMs) / half;
         envelope = Math.Clamp(envelope, 0f, 1f);
 
-        // alpha.22: the whole large ritual panel pulses, including the outer gold frame.
-        // The old short burst was easy to miss and the machine/card itself looked like
-        // the only rectangle changing brightness. Keep the pulse broad through the
-        // resonance phase so every light cycle reads across the full panel.
+        // alpha.25: flash is a full-panel FILTER inside the ritual frame.
+        // The outer frame/border itself must stay visually stable; only the content area
+        // receives the rarity + white light pulse. This avoids the entire gold frame
+        // changing brightness during each resonance cycle.
         float wave = 0.5f + 0.5f * (float)Math.Sin((this.ElapsedMs - startMs) * 0.030f);
         Color rarity = CardchaUi.RarityColor(this.BestRarity);
         float whiteAlpha = envelope * (0.05f + wave * 0.16f);
         float rarityAlpha = envelope * (0.025f + wave * 0.10f);
-        CardchaUi.DrawRoundedRect(b, panel, rarity * rarityAlpha, 16);
-        CardchaUi.DrawRoundedRect(b, panel, Color.White * whiteAlpha, 16);
 
-        Rectangle inner = new(panel.X + 7, panel.Y + 7, panel.Width - 14, panel.Height - 14);
-        CardchaUi.DrawRoundedPanel(
-            b,
-            inner,
-            Color.Transparent,
-            Color.White * (0.18f + 0.35f * wave) * envelope,
-            thickness: 3,
-            radius: 12
+        // Stay just inside the frame thickness so the border never gets overdrawn.
+        Rectangle flashArea = new(
+            panel.X + 8,
+            panel.Y + 8,
+            Math.Max(1, panel.Width - 16),
+            Math.Max(1, panel.Height - 16)
         );
-        CardchaUi.DrawRoundedPanel(
-            b,
-            panel,
-            Color.Transparent,
-            CardchaUi.Gold * (0.72f + 0.28f * wave),
-            thickness: 5,
-            radius: 16
-        );
+        CardchaUi.DrawRoundedRect(b, flashArea, rarity * rarityAlpha, 11);
+        CardchaUi.DrawRoundedRect(b, flashArea, Color.White * whiteAlpha, 11);
     }
 
     private int GetMachineFrame()
