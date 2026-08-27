@@ -120,6 +120,48 @@ jobs:
           p.write_text(s.replace(old, new, 1), encoding='utf-8')
           PY2
 
+      - name: Apply alpha26.5 runtime completion pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat build-input-alpha265/runtime2.part.00.b64 \
+              build-input-alpha265/runtime2.part.01.b64 > /tmp/alpha265-runtime2.b64
+          test "$(wc -c < /tmp/alpha265-runtime2.b64)" -eq 29752
+          base64 --decode /tmp/alpha265-runtime2.b64 > /tmp/alpha265-runtime2.tar.xz
+          test "$(sha256sum /tmp/alpha265-runtime2.tar.xz | awk '{print $1}')" = "17b14080cf2ab98b16d0f0c6470f2a6de63d5205dfc9027066dedf37772e244b"
+          xz -t /tmp/alpha265-runtime2.tar.xz
+          mkdir -p /tmp/alpha265-runtime2
+          tar -xJf /tmp/alpha265-runtime2.tar.xz -C /tmp/alpha265-runtime2
+          cp -a /tmp/alpha265-runtime2/Cardcha/. build-src/Cardcha/
+
+      - name: Validate runtime completion pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY3'
+          from pathlib import Path
+          root = Path('build-src/Cardcha')
+          checks = {
+            root/'Services'/'CoreCardEffectsService.cs': [
+              'PrepareOutgoingDamage',
+              'GetPendingCrushingImpactKnockbackMultiplier',
+              'phantom_step',
+              'time_breaker',
+              'if (Game1.player is not null)'
+            ],
+            root/'Services'/'DropService.cs': ['fortune_chain', 'lucky_break', 'GetNoHitKillStreak'],
+            root/'Services'/'GachaService.cs': ['arcane_recycler'],
+            root/'Services'/'CombatService.cs': ['ModifyMonsterTrajectory', 'PrepareOutgoingDamage'],
+            root/'Patches'/'MonsterDamagePatch.cs': ['ModifyMonsterTrajectory'],
+            root/'ModEntry.cs': ['CurrentNoHitKillStreak'],
+          }
+          for file, needles in checks.items():
+              text = file.read_text(encoding='utf-8')
+              for needle in needles:
+                  assert needle in text, f'{needle!r} missing from {file}'
+          print('alpha26.5 runtime completion contracts PASS')
+          PY3
+
       - name: Add SMAPI build environment
         uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
