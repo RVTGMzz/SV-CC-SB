@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using System.Reflection;
 
 namespace Cardcha.Services;
 
@@ -22,16 +23,22 @@ internal sealed class WorldActorService
     public const string ChaChaMachineCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_Machine";
 
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
+    private const string MimiPortraitAsset = "Portraits/Ronvotri.Cardcha_MiMi";
+    private const string MimiPortraitSheetPath = "assets/mimi_npc_portraits.png";
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
     private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
 
     // Native NPC draw multiplies Character.Scale by 4. These values reproduce the previous
     // approved visual sizes: MiMi 32x48 @ 2.3x, ChaCha 32x32 @ 1.8x.
     private const float MimiNativeScale = 0.575f;
+    // The approved alpha.22 broom sheet intentionally draws MiMi/??? about 10% smaller inside
+    // the same 32x48 frame. Compensate at runtime so mounting the broom doesn't shrink her body.
+    private const float MimiBroomNativeScale = MimiNativeScale * 1.10f;
     private const float ChaChaNativeScale = 0.45f;
 
     private readonly IMonitor Monitor;
     private NPC? ChaChaActor;
+    private Texture2D? MimiPortraitTexture;
 
     public WorldActorService(IMonitor monitor)
     {
@@ -43,6 +50,12 @@ internal sealed class WorldActorService
         if (e.Name.IsEquivalentTo(MimiBroomCharacterAsset))
         {
             e.LoadFromModFile<Texture2D>(MimiBroomSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(MimiPortraitAsset))
+        {
+            e.LoadFromModFile<Texture2D>(MimiPortraitSheetPath, AssetLoadPriority.Medium);
             return;
         }
 
@@ -174,7 +187,7 @@ internal sealed class WorldActorService
             actor.Sprite = new AnimatedSprite(asset, 0, 32, 48);
         }
 
-        actor.Scale = MimiNativeScale;
+        actor.Scale = broom ? MimiBroomNativeScale : MimiNativeScale;
         actor.forceOneTileWide.Value = true;
         actor.farmerPassesThrough = false;
         actor.collidesWithOtherCharacters.Value = true;
@@ -188,6 +201,7 @@ internal sealed class WorldActorService
         actor.breather.Value = false;
         actor.hideShadow.Value = false;
         actor.isInvisible.Value = !visible;
+        AssignPortraitTexture(actor, this.LoadMimiPortraitTexture());
     }
 
     public void SetMimiFrame(NPC actor, int facing, int stepFrame)
@@ -205,7 +219,25 @@ internal sealed class WorldActorService
         };
 
         actor.FacingDirection = facing;
-        actor.Sprite.CurrentFrame = row * 4 + Math.Clamp(stepFrame, 0, 3);
+        int step = Math.Clamp(stepFrame, 0, 3);
+
+        // alpha.22: NPC Map Locations Custom mode always crops a 16x15 marker from
+        // the top-left of the NPC texture. MiMi uses 32x48 frames, so that crop used
+        // to show only part of her head. Reserve normal front frame 0 for the marker
+        // and never render that reserved frame in the actual world.
+        bool normalMimi = string.Equals(actor.Sprite.loadedTexture, MimiCharacterAsset, StringComparison.OrdinalIgnoreCase);
+        if (normalMimi && row == 0)
+        {
+            step = step switch
+            {
+                0 => 1,
+                1 => 2,
+                2 => 3,
+                _ => 1
+            };
+        }
+
+        actor.Sprite.CurrentFrame = row * 4 + step;
     }
 
     public NPC? EnsureChaChaActor(GameLocation location, Vector2 position, int direction, int frame, bool machine = false)
@@ -330,6 +362,64 @@ internal sealed class WorldActorService
         }
 
         this.ChaChaActor = null;
+    }
+
+
+    private Texture2D? LoadMimiPortraitTexture()
+    {
+        if (this.MimiPortraitTexture is not null)
+            return this.MimiPortraitTexture;
+
+        try
+        {
+            this.MimiPortraitTexture = Game1.content.Load<Texture2D>(MimiPortraitAsset);
+        }
+        catch
+        {
+            this.MimiPortraitTexture = null;
+        }
+
+        return this.MimiPortraitTexture;
+    }
+
+    private static void AssignPortraitTexture(NPC npc, Texture2D? portraitTexture)
+    {
+        if (portraitTexture is null)
+            return;
+
+        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+
+        foreach (string propertyName in new[] { "Portrait", "portrait", "portraitTexture", "PortraitTexture" })
+        {
+            try
+            {
+                PropertyInfo? prop = typeof(NPC).GetProperty(propertyName, flags);
+                if (prop is not null && prop.CanWrite && prop.PropertyType.IsAssignableFrom(typeof(Texture2D)))
+                {
+                    prop.SetValue(npc, portraitTexture);
+                    return;
+                }
+            }
+            catch
+            {
+            }
+        }
+
+        foreach (string fieldName in new[] { "Portrait", "portrait", "portraitTexture", "PortraitTexture" })
+        {
+            try
+            {
+                FieldInfo? field = typeof(NPC).GetField(fieldName, flags);
+                if (field is not null && field.FieldType.IsAssignableFrom(typeof(Texture2D)))
+                {
+                    field.SetValue(npc, portraitTexture);
+                    return;
+                }
+            }
+            catch
+            {
+            }
+        }
     }
 
     public void OnReturnedToTitle()

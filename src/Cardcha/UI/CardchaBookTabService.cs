@@ -42,6 +42,8 @@ internal sealed class CardchaBookTabService
     private bool PopulateAttempted;
     private bool NativeTabsEnsuredForCurrentGraph;
     private int LastDuplicateCleanupCount;
+    private Texture2D? BinderTabIcon;
+    private bool BinderTabIconChecked;
 
     public CardchaBookTabService(
         IModHelper helper,
@@ -1530,6 +1532,43 @@ internal sealed class CardchaBookTabService
             new Color(205, 143, 77),
             2
         );
+
+        if (!this.BinderTabIconChecked)
+        {
+            this.BinderTabIconChecked = true;
+            try
+            {
+                // PNG is the reliable runtime asset path for SMAPI/XNA. Keep the JPG in the
+                // package as the original source/reference, but prefer the PNG so the Book
+                // tab never turns into a blank square on systems that reject JPG texture loads.
+                this.BinderTabIcon = this.Helper.ModContent.Load<Texture2D>("assets/binder_tab_icon.png");
+            }
+            catch
+            {
+                try
+                {
+                    this.BinderTabIcon = this.Helper.ModContent.Load<Texture2D>("assets/binder_tab_icon.jpg");
+                }
+                catch
+                {
+                    this.BinderTabIcon = null;
+                }
+            }
+        }
+
+        if (this.BinderTabIcon is not null)
+        {
+            Rectangle icon = new(face.X + 2, face.Y + 2, face.Width - 4, face.Height - 4);
+            b.Draw(
+                this.BinderTabIcon,
+                icon,
+                new Rectangle(0, 0, this.BinderTabIcon.Width, this.BinderTabIcon.Height),
+                Color.White
+            );
+            if (hovered)
+                DrawTooltip(b, ModEntry.T("booktab.tooltip"));
+            return;
+        }
 
         int cx = face.Center.X;
         int cy = face.Center.Y;

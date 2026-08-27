@@ -1,3 +1,4 @@
+using StardewValley;
 using Cardcha.Models;
 
 namespace Cardcha.Services;
@@ -19,7 +20,20 @@ internal sealed class GachaService
     {
         SaveData data = this.Save.Data;
         long pullIndex = data.PullIndex;
-        ulong seed = SaveService.Mix(data.GachaSeed ^ ((ulong)pullIndex + 0x9E3779B97F4A7C15UL) ^ (type == PullType.Premium ? 0xCA4DCAUL : 0x51A4DUL));
+        // alpha.22: do not force the exact same card when the player reloads the same save state.
+        // Keep the save seed + pull index for continuity, but mix in fresh runtime entropy for each pull.
+        ulong runtimeSalt = unchecked(
+            (ulong)DateTime.UtcNow.Ticks
+            ^ ((ulong)Environment.TickCount64 << 1)
+            ^ ((ulong)(uint)Game1.random.Next() << 32)
+            ^ (uint)Game1.random.Next()
+        );
+        ulong seed = SaveService.Mix(
+            data.GachaSeed
+            ^ ((ulong)pullIndex + 0x9E3779B97F4A7C15UL)
+            ^ (type == PullType.Premium ? 0xCA4DCAUL : 0x51A4DUL)
+            ^ runtimeSalt
+        );
         var rng = new DeterministicRng(seed);
 
         CardRarity rarity = type == PullType.Standard

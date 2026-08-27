@@ -1,13 +1,40 @@
-# Cardcha! v0.1.17-alpha.11.45 — Binder Nav + Same-Day MiMi + HUD Lift
+# Cardcha! / Cardcha-Shardbound
 
-## New in 11.45
-- **Binder controller navigation fixed for narrow/UI-scaled layouts**: pressing right from the visually rightmost card now enters the right-side detail/upgrade panel instead of relying on a hard-coded five-column index.
-- **Detail panel controller**: while focused, up/down scrolls the card effect + upgrade information; left returns to the card grid; right proceeds to the action buttons.
-- **Same-day MiMi merchant**: after the Cardcha handoff, MiMi can resume her weekday 11:00–17:00 shop on that same day once the story departure animation finishes. Harsh weather still moves her shop inside the WizardHouse.
-- **First post-handoff shop line**: the first time the player speaks to merchant MiMi after receiving Cardcha, she encourages collecting many cards while teasing that a milestone may earn a surprise reward. The shop opens after the line.
-- **Circular HUD lifted upward**: top-center effect icons now sit roughly half the previous distance from the top edge.
+Cardcha! is a Stardew Valley SMAPI mod project centered on an 80-card collection, gacha pulls, combat cards, MiMi/ChaCha story progression, and the Binder UI/system.
 
-No official Cardcha art assets were edited.
+## Current canonical candidate
+**v0.3.0-alpha.25 — Gacha Interior Flash**
 
-Expected version:
-`Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE`
+Canonical development source is `src/Cardcha` on branch `binder-v0.3-alpha1`.
+The alpha.25 source tree is synchronized and verified against `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip`.
+
+Source anchor:
+- source commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- exact `src/Cardcha` tree: `89cff25d67700762ed94399a5905bdf1a52e736f`
+
+## Start here
+For a new developer, AI session, or account migration, read in this order:
+1. `PROJECT_HANDOFF.md`
+2. `NEXT_SESSION_START_HERE.md`
+3. `docs/STORY_GAMEPLAY_BIBLE.md`
+4. `BUILD.md`
+5. `KNOWN_ISSUES.md`
+6. `CHANGELOG.md`
+
+## Current alpha.25 baseline
+- semantic multi-controller support remains centralized through `ControllerProfileService`;
+- Binder locked-card selection and quick equip/unequip behavior remain protected;
+- GMCM integration uses a public API interface, fixing the alpha.23 Cinderbox/SMAPI mapping error;
+- Gacha reveal/result cards remain rounded with large icons, localized NEW/DUPLICATE state, and reveal sparkles;
+- ritual flash is now a rarity/white filter across the panel interior while the outer gold frame remains visually stable;
+- English/Vietnamese card localization remains aligned.
+
+The user has accepted alpha.25 as the current working baseline after in-game testing. Treat it as the project’s current canonical candidate, not as a final public stable release unless broader regression testing is completed.
+
+## Build
+Use the versioned full Windows builder for the candidate and follow `BUILD.md`.
+
+Do not call a candidate fully stable until it has passed the relevant regression matrix on the target environments.
+
+## Story / future progression
+The agreed MiMi / ChaCha / 20-40-60-80 boss / airship direction is documented in `docs/STORY_GAMEPLAY_BIBLE.md`, which explicitly separates LOCKED decisions from TBD ideas.

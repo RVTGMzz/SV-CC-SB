@@ -7,11 +7,12 @@
     <EnableHarmony>true</EnableHarmony>
     <AssemblyName>Cardcha</AssemblyName>
     <RootNamespace>Cardcha</RootNamespace>
-    <Version>0.1.17-alpha.11.45</Version>
+    <Version>0.3.0-alpha.25</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" PrivateAssets="all" />
   </ItemGroup>
 
   <ItemGroup>

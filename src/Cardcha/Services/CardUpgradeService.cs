@@ -25,7 +25,9 @@ internal sealed class CardUpgradeService
     }
 
     public int GetUnlockedSlotCount()
-        => Math.Clamp(this.Save.Data.ActiveCardSlotCount, StartingActiveSlots, MaxActiveSlots);
+        // Until milestone quests are implemented, every save uses the approved two-slot start.
+        // This also repairs test saves temporarily promoted to 3-5 slots by alpha.4.
+        => StartingActiveSlots;
 
     public int GetLevel(string cardId)
     {

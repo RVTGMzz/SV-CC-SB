@@ -1,0 +1,294 @@
++        int activeDiameter = Math.Clamp(
++            (activeAvailableWidth - activeGap * (totalCircleCount - 1)) / totalCircleCount,
++            56,
++            82
++        );
++        int activeRowWidth = activeDiameter * totalCircleCount + activeGap * (totalCircleCount - 1);
++        int activeX = this.LeftPage.Center.X - activeRowWidth / 2;
++        int activeY = this.LeftPage.Y + 78;
+ 
+         for (int i = 0; i < VisualActiveSlots; i++)
+         {
+@@ -138,14 +151,23 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+             this.ActiveSlots.Add(new ClickableComponent(r, $"active-{i}") { myID = ActiveBaseId + i });
+         }
+ 
+-        Rectangle bossRect = new(activeX + VisualActiveSlots * (activeDiameter + activeGap), activeY, activeDiameter, activeDiameter);
++        Rectangle bossRect = new(
++            activeX + VisualActiveSlots * (activeDiameter + activeGap),
++            activeY,
++            activeDiameter,
++            activeDiameter
++        );
+         this.BossSlot = new ClickableComponent(bossRect, "boss-slot") { myID = BossSlotId };
+ 
+-        int secretDiameter = Math.Clamp(activeDiameter + 20, 66, 82);
+-        Rectangle secretRect = new(this.LeftPage.Right - secretDiameter - 18, activeY - (secretDiameter - activeDiameter) / 2, secretDiameter, secretDiameter);
++        Rectangle secretRect = new(
++            activeX + (VisualActiveSlots + 1) * (activeDiameter + activeGap),
++            activeY,
++            activeDiameter,
++            activeDiameter
++        );
+         this.SecretSlot = new ClickableComponent(secretRect, "secret-slot") { myID = SecretSlotId };
+ 
+-        int collectionTop = Math.Max(activeY + activeDiameter, this.SecretSlot.bounds.Bottom) + 40;
++        int collectionTop = activeY + activeDiameter + 34;
+         int paginationHeight = 48;
+         this.CollectionArea = new Rectangle(
+             this.LeftPage.X + 22,
+@@ -154,9 +176,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+             Math.Max(210, this.LeftPage.Bottom - collectionTop - paginationHeight - 18)
+         );
+ 
+-        int tabX = this.OuterBook.X - 88;
++        int tabX = Math.Max(4, this.OuterBook.X - 100);
+         int tabY = this.OuterBook.Y + 104;
+-        int tabW = 96;
++        int tabW = 108;
+         int tabH = 64;
+         int tabGap = 8;
+         BinderFilter[] mainFilters =
+@@ -415,8 +437,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+             this.ControllerCardContext = this.Selected;
+         }
+ 
+-        // Steam Input swaps X/Y labels on a number of Nintendo-style controllers,
+-        // so accept both horizontal/upper face buttons as the direct favorite shortcut.
++        // Steam Input swaps X/Y labels on some Nintendo-style controllers, so retain
++        // both as the direct Favorite shortcut while a collection cell is focused.
+         if (collectionFocused && (b == Buttons.X || b == Buttons.Y))
+         {
+             this.ToggleFavorite();
+@@ -431,21 +453,82 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+             return;
+         }
+ 
+-        // Both A and the physical bottom B used by Nintendo-style layouts confirm the
+-        // focused control. The Binder only closes through its visible Back control.
+-        if ((b == Buttons.A || b == Buttons.B) && this.currentlySnappedComponent is not null)
++        // A is the Binder confirm button. Handle the focused component directly rather
++        // than synthesizing a mouse click; this prevents controller focus from being lost
++        // on the three detail actions at some UI scales.
++        if (b == Buttons.A && this.currentlySnappedComponent is not null)
+         {
+-            if (focusedId == FavoriteActionId && this.Selected is null)
+-                this.Selected = this.ControllerCardContext;
++            this.ActivateFocusedComponent(fromController: true);
++            return;
++        }
+ 
+-            Rectangle r = this.currentlySnappedComponent.bounds;
+-            this.receiveLeftClick(r.Center.X, r.Center.Y, playSound: true);
++        // B is always Back/Close. It must never masquerade as Confirm.
++        if (b == Buttons.B)
++        {
++            this.CloseBinder();
+             return;
+         }
+ 
+         base.receiveGamePadButton(b);
+     }
+ 
++    public override void receiveKeyPress(Keys key)
++    {
++        if ((key == Keys.Enter || key == Keys.Space) && this.currentlySnappedComponent is not null)
++        {
++            this.ActivateFocusedComponent(fromController: true);
++            return;
++        }
++
++        if (key == Keys.Escape)
++        {
++            this.CloseBinder();
++            return;
++        }
++
++        base.receiveKeyPress(key);
++    }
++
++    private void ActivateFocusedComponent(bool fromController)
++    {
++        ClickableComponent? focused = this.currentlySnappedComponent;
++        if (focused is null)
++            return;
++
++        int id = focused.myID;
++        if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
++        {
++            int index = id - CardBaseId;
++            CardDefinition card = this.CardButtons[index].Card;
++            this.HandleCollectionActivation(card, fromController);
++            return;
++        }
++
++        if (id == FavoriteActionId)
++        {
++            this.Selected ??= this.ControllerCardContext;
++            this.ToggleFavorite();
++            return;
++        }
++
++        if (id == EquipActionId)
++        {
++            this.Selected ??= this.ControllerCardContext;
++            this.ToggleEquip();
++            return;
++        }
++
++        if (id == UpgradeActionId)
++        {
++            this.Selected ??= this.ControllerCardContext;
++            this.TryUpgradeSelected();
++            return;
++        }
++
++        Rectangle r = focused.bounds;
++        this.receiveLeftClick(r.Center.X, r.Center.Y, playSound: true);
++    }
++
+     public override void receiveLeftClick(int x, int y, bool playSound = true)
+     {
+         if (this.BackButton.bounds.Contains(x, y))
+@@ -562,19 +645,43 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+             if (!button.bounds.Contains(x, y))
+                 continue;
+ 
+-            this.Selected = card;
+-            this.ControllerCardContext = card;
+-            bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
+-            this.Status = owned
+-                ? ModEntry.T("binder.status.selected", new { name = card.Name })
+-                : ModEntry.T("binder.status.not-owned");
+-            Game1.playSound(owned ? "smallSelect" : "cancel");
++            this.HandleCollectionActivation(card, fromController: false);
+             return;
+         }
+ 
+         base.receiveLeftClick(x, y, playSound);
+     }
+ 
++    private void HandleCollectionActivation(CardDefinition card, bool fromController)
++    {
++        this.Selected = card;
++        this.ControllerCardContext = card;
++        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
++
++        double now = Game1.currentGameTime.TotalGameTime.TotalMilliseconds;
++        bool secondActivation = owned
++            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)
++            && now - this.LastQuickToggleAtMs <= QuickToggleWindowMs;
++
++        this.LastQuickToggleCardId = card.Id;
++        this.LastQuickToggleAtMs = now;
++
++        if (secondActivation)
++        {
++            // Mouse double-click and controller/keyboard double-confirm share the same
++            // quick equip/unequip behavior. The selected card remains open in detail.
++            this.LastQuickToggleCardId = null;
++            this.LastQuickToggleAtMs = 0;
++            this.ToggleEquip();
++            return;
++        }
++
++        this.Status = owned
++            ? ModEntry.T("binder.status.selected", new { name = card.Name })
++            : ModEntry.T("binder.status.not-owned");
++        Game1.playSound(owned ? "smallSelect" : "cancel");
++    }
++
+     private void SetFilter(BinderFilter filter)
+     {
+         if (this.CurrentFilter == filter)
+@@ -582,6 +689,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+ 
+         this.CurrentFilter = filter;
+         this.CurrentPage = 0;
++        this.LastQuickToggleCardId = null;
++        this.LastQuickToggleAtMs = 0;
+         this.Status = filter == BinderFilter.Favorite
+             ? ModEntry.T("binder.favorite.filter")
+             : ModEntry.T("binder.status.pick");
+@@ -958,39 +1067,17 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+ 
+     private void DrawLeftPage(SpriteBatch b)
+     {
+-        this.DrawSmallButton(b, this.BackButton, this.BackLabel, CardchaUi.Leather);
++        this.DrawSmallButton(b, this.BackButton, "←", CardchaUi.Leather);
+ 
+         string progress = ModEntry.T("binder.discovered", new
+         {
+             owned = this.Save.Data.OwnedCards.Count,
+             total = this.Cards.All.Count
+         });
+-        Rectangle title = new(this.LeftPage.X + 190, this.LeftPage.Y + 12, this.LeftPage.Width - 212, 42);
++        Rectangle title = new(this.LeftPage.X + 82, this.LeftPage.Y + 12, this.LeftPage.Width - 104, 42);
+         DrawRoundedRect(b, title, new Color(38, 53, 68), 8);
+         DrawRoundedBorder(b, title, CardchaUi.Gold, 2, 8);
+         CardchaUi.DrawAutoFitWrappedText(b, Game1.dialogueFont, ModEntry.T("binder.title"), Inflate(title, -5), new Color(255, 205, 88), maxLines: 1, minScale: 0.55f, centerX: true, maxScale: 1.0f, centerY: true);
+-        CardchaUi.DrawScaledText(
+-            b,
+-            Game1.smallFont,
+-            progress,
+-            new Rectangle(this.LeftPage.X + 22, this.LeftPage.Y + 58, this.LeftPage.Width - 44, 30),
+-            Color.DarkSlateGray,
+-            centerY: true,
+-            padding: 1,
+-            maxScale: 0.92f
+-        );
+-
+-        string loadout = ModEntry.T("binder.active-loadout", new { slots = this.UnlockedSlots });
+-        CardchaUi.DrawScaledText(
+-            b,
+-            Game1.smallFont,
+-            loadout,
+-            new Rectangle(this.LeftPage.X + 22, this.LeftPage.Y + 90, this.LeftPage.Width - 44, 32),
+-            CardchaUi.InkBrown,
+-            centerY: true,
+-            padding: 1,
+-            maxScale: 0.96f
+-        );
+ 
+         for (int i = 0; i < this.ActiveSlots.Count; i++)
+             this.DrawActiveCircle(b, i, this.ActiveSlots[i]);
+@@ -1031,6 +1118,16 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+ 
+         string pageText = ModEntry.T("binder.collection.page", new { page = this.CurrentPage + 1, pages });
+         Rectangle pageArea = new(this.PrevPageButton.bounds.Right + 8, this.PrevPageButton.bounds.Y, this.NextPageButton.bounds.X - this.PrevPageButton.bounds.Right - 16, this.PrevPageButton.bounds.Height);
++
++        // Keep Trang x/y in its existing centered pageArea. The compact discovery count
++        // simply shares the same footer line on its left side.
++        Rectangle discoveryArea = new(
++            pageArea.X,
++            pageArea.Y,
++            Math.Max(100, pageArea.Width / 2 - 40),
++            pageArea.Height
++        );
++        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, progress, discoveryArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.52f, centerX: false, maxScale: 0.78f, centerY: true);
+         CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, pageText, pageArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.65f, centerX: true, maxScale: 1f);
+     }
+ 
+@@ -1215,25 +1312,21 @@ internal sealed class CardchaBinderMenu : IClickableMenu
+     private void DrawBossCircle(SpriteBatch b)
+     {
+         bool focused = this.currentlySnappedComponent?.myID == BossSlotId;
+-        DrawCircle(b, this.BossSlot.bounds, focused ? Color.White : CardchaUi.PremiumPurple);
++        Color mythic = CardchaUi.RarityColor(CardRarity.Mythic);
++        DrawCircle(b, this.BossSlot.bounds, focused ? Color.White : mythic);
+         Rectangle inner = Inflate(this.BossSlot.bounds, -4);
+-        DrawCircle(b, inner, new Color(169, 158, 156));
+-        Rectangle label = new(inner.X + 3, inner.Y + 3, inner.Width - 6, Math.Max(13, inner.Height / 3));
+-        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, "BOSS", label, CardchaUi.InkBrown, maxLines: 1, minScale: 0.36f, centerX: true, maxScale: 0.58f);
+-        Rectangle lockArea = new(inner.X + 5, inner.Y + inner.Height / 3, inner.Width - 10, inner.Height * 2 / 3 - 3);
+-        DrawLockIcon(b, lockArea);
++        DrawCircle(b, inner, new Color(181, 176, 164));
++        DrawLockIcon(b, Inflate(inner, -8));
+     }
+ 
+     private void DrawSecretCircle(SpriteBatch b)
+     {
+         bool focused = this.currentlySnappedComponent?.myID == SecretSlotId;
+-        DrawCircle(b, this.SecretSlot.bounds, focused ? Color.White : CardchaUi.PremiumPurple);
++        Color chachaPink = new(238, 105, 181);
++        DrawCircle(b, this.SecretSlot.bounds, focused ? Color.White : chachaPink);

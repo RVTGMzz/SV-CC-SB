@@ -11,8 +11,8 @@ namespace Cardcha.Services;
 /// </summary>
 internal sealed class PortableMachineService
 {
-    public const int PurchasePrice = 50000;
-    public const int FreeGiftCardMilestone = 50;
+    public const int PurchasePrice = 20000;
+    public const int FreeGiftCardMilestone = 20;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -62,7 +62,8 @@ internal sealed class PortableMachineService
         }
     }
 
-    /// <summary>Claim the 50-unique-card gift when the player next talks business with MiMi.</summary>
+    /// <summary>Claim the current 20-unique-card milestone gift when the player next talks business with MiMi.
+    /// This direct gift is a compatibility bridge until the approved 20-card quest + boss reward is implemented.</summary>
     public bool TryGrantMilestoneGift()
     {
         if (!this.IsMilestoneGiftReady)

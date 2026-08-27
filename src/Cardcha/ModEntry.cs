@@ -1,3 +1,4 @@
+using Cardcha.Integrations;
 using Cardcha.Models;
 using Cardcha.Patches;
 using Cardcha.Services;
@@ -26,6 +27,7 @@ internal sealed class ModEntry : Mod
     private ResourceService Resources = null!;
     private CombatService Combat = null!;
     private CardRenderer Renderer = null!;
+    private ControllerProfileService Controller = null!;
     private ProgressionService Progression = null!;
     private DropService Drops = null!;
     private MonsterDeathService Deaths = null!;
@@ -42,6 +44,7 @@ internal sealed class ModEntry : Mod
         StaticMonitor = this.Monitor;
         StaticHelper = helper;
         this.Config = helper.ReadConfig<ModConfig>();
+        this.Controller = new ControllerProfileService(this.Config, this.Monitor);
         this.Cards = new CardRegistry(helper);
         this.Save = new SaveService(helper);
         this.Upgrades = new CardUpgradeService(this.Save, this.Cards);
@@ -146,11 +149,13 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_hud_toggle", "Toggle Cardcha combat HUD on/off.", this.CommandHudToggle);
         helper.ConsoleCommands.Add("cardcha_book_status", "Show Cardcha Book tab layout/controller diagnostics.", this.CommandBookStatus);
         helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
+        helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
     {
         this.Cards.Load();
+        this.RegisterConfigMenu();
 
         Harmony harmony = new(this.ModManifest.UniqueID);
         MonsterDropPatch.Apply(harmony, this.Deaths);
@@ -161,8 +166,52 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
+        );
+    }
+
+    private void RegisterConfigMenu()
+    {
+        IGenericModConfigMenuApi? gmcm = this.Helper.ModRegistry.GetApi<IGenericModConfigMenuApi>("spacechase0.GenericModConfigMenu");
+        if (gmcm is null)
+            return;
+
+        gmcm.Register(
+            this.ModManifest,
+            reset: () =>
+            {
+                ModConfig defaults = new();
+                this.Config.ControllerLayout = defaults.ControllerLayout;
+                this.Config.ControllerMapping = defaults.ControllerMapping;
+            },
+            save: () => this.Helper.WriteConfig(this.Config)
+        );
+
+        gmcm.AddSectionTitle(
+            this.ModManifest,
+            () => ModEntry.T("config.controller.section"),
+            () => ModEntry.T("config.controller.section.tooltip")
+        );
+
+        gmcm.AddTextOption(
+            this.ModManifest,
+            () => this.Config.ControllerLayout,
+            value => this.Config.ControllerLayout = value,
+            () => ModEntry.T("config.controller.layout"),
+            () => ModEntry.T("config.controller.layout.tooltip"),
+            new[] { "Auto", "Xbox", "Nintendo", "PlayStation", "Generic" },
+            value => ModEntry.T($"config.controller.layout.{value.ToLowerInvariant()}")
+        );
+
+        gmcm.AddTextOption(
+            this.ModManifest,
+            () => this.Config.ControllerMapping,
+            value => this.Config.ControllerMapping = value,
+            () => ModEntry.T("config.controller.mapping"),
+            () => ModEntry.T("config.controller.mapping.tooltip"),
+            new[] { "Auto", "Standard", "NintendoNative" },
+            value => ModEntry.T($"config.controller.mapping.{value.ToLowerInvariant()}")
         );
     }
 
@@ -345,6 +394,7 @@ internal sealed class ModEntry : Mod
             this.Upgrades,
             this.Config,
             this.Renderer,
+            this.Controller,
             this.Combat.SyncPassiveBuffs,
             this.Story.OnPullResolved,
             CardchaMachineMode.Stationary
@@ -365,6 +415,7 @@ internal sealed class ModEntry : Mod
             this.Upgrades,
             this.Config,
             this.Renderer,
+            this.Controller,
             this.Combat.SyncPassiveBuffs,
             this.Story.OnPullResolved,
             CardchaMachineMode.Portable
@@ -379,7 +430,8 @@ internal sealed class ModEntry : Mod
         Game1.activeClickableMenu = new MimiScrapShopMenu(
             this.Resources,
             this.Save,
-            this.PortableMachine
+            this.PortableMachine,
+            this.Controller
         );
     }
 
@@ -391,9 +443,11 @@ internal sealed class ModEntry : Mod
         Game1.activeClickableMenu = new CardchaBinderMenu(
             this.Cards,
             this.Save,
+            this.Resources,
             this.Loadout,
             this.Upgrades,
             this.Renderer,
+            this.Controller,
             () => Game1.exitActiveMenu(),
             this.Combat.SyncPassiveBuffs,
             ModEntry.T("binder.back.close")
@@ -412,9 +466,11 @@ internal sealed class ModEntry : Mod
         Game1.activeClickableMenu = new CardchaBinderMenu(
             this.Cards,
             this.Save,
+            this.Resources,
             this.Loadout,
             this.Upgrades,
             this.Renderer,
+            this.Controller,
             () =>
             {
                 Game1.activeClickableMenu = previousMenu;
@@ -426,7 +482,17 @@ internal sealed class ModEntry : Mod
                 }
             },
             this.Combat.SyncPassiveBuffs,
-            backLabel
+            backLabel,
+            previousMenu
+        );
+    }
+
+    private void CommandControllerStatus(string command, string[] args)
+    {
+        this.Monitor.Log($"Cardcha controller: {this.Controller.Describe()}", LogLevel.Info);
+        this.Monitor.Log(
+            $"Hints: Confirm={this.Controller.GetLabel(ControllerAction.Confirm)}, Favorite={this.Controller.GetLabel(ControllerAction.Favorite)}, Deselect={this.Controller.GetLabel(ControllerAction.Deselect)}, Exit={this.Controller.GetLabel(ControllerAction.Exit)}",
+            LogLevel.Info
         );
     }
 
@@ -604,7 +670,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.1.17-alpha.11.45 =====\n" +
+            "===== CARDCHA LOOT RATES v0.3.0-alpha.25 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -695,7 +761,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE",
+            "Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH",
             LogLevel.Alert
         );
     }

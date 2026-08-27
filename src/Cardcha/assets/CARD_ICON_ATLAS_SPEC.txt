@@ -1,54 +1,31 @@
-CARDCHA! CARD ICON ATLAS SPEC — v0.1.7
+CARDCHA! CARD ICON ATLAS SPEC — v0.2.0-beta.2
 
-Approved art direction
-----------------------
-Fantasy-medallion pixel art:
-- ornate gold framing
-- strong readable silhouette
-- jewel / badge language
-- not overly feminine
-- no card names or descriptions baked into images
-
-Localization rule
------------------
-ALL names, rarity labels, descriptions, status text, and future translations stay runtime text.
-The icon image contains visual art only.
-
-Canonical atlas
----------------
+Production atlas
+----------------
 File: assets/card_icons.png
 Cell size: 64x64 px
-Atlas size: 320x128 px
-Grid: 5 columns x 2 rows
+Atlas size: 320x1024 px
+Grid: 5 columns x 16 rows
 Background: transparent
 Sampling: nearest-neighbor / pixel-art safe
 
 Mapping
 -------
-0 Iron Edge
-1 Thick Hide
-2 Keen Eye
-3 Swift Feet
-4 Blood Fang
-5 Executioner
-6 Card Seeker
-7 Chain Hunter
-8 Last Stand
-9 Phoenix Heart
+IconIndex = BaseId - 1
+Base card 01 => icon 0
+Base card 80 => icon 79
 
-Scaling strategy
-----------------
-The SAME 64x64 icon is reused for:
-- Active Loadout
-- Binder Collection
-- Pull 1
-- Pull 10
-- future detail / tooltip layouts
+Visual batches
+--------------
+01-10: approved original atlas
+11-20: generated Cardcha visual batch
+21-30: generated Cardcha visual batch
+31-40: generated Cardcha visual batch
+41-50: generated Cardcha visual batch
+51-60: generated Cardcha visual batch
+61-70: generated Cardcha visual batch
+71-80: generated Cardcha visual batch
 
-No mini/full duplicate art files.
-
-80-card scale
--------------
-80 cards at 64x64 still fit comfortably in a small atlas family.
-The renderer continues to draw frames, names, rarity, equipped badges,
-duplicate status, buttons, and translations dynamically.
+Runtime rule
+------------
+Names, rarity labels, descriptions, equipped state, duplicate state, buttons, and translations stay runtime-rendered. The atlas contains visual art only.

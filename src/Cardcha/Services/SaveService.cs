@@ -1,4 +1,3 @@
-
 using Cardcha.Models;
 using StardewModdingAPI;
 using StardewValley;
@@ -10,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 11;
+    private const int CurrentSchemaVersion = 13;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -34,12 +33,9 @@ internal sealed class SaveService
         int loadedSchema = this.Data.SchemaVersion;
         Normalize();
 
-        // v4: the Wizard-delivered physical book is represented by the persistent Binder tab.
-        // Existing prototype saves which already received the machine should keep access.
         if (loadedSchema < 4 && this.Data.MachineDelivered)
             this.Data.BinderUnlocked = true;
 
-        // v5: Binder V2 progression begins with two active slots and per-card levels.
         if (loadedSchema < 5)
         {
             this.Data.ActiveCardSlotCount = Math.Clamp(this.Data.ActiveCardSlotCount <= 0 ? 2 : this.Data.ActiveCardSlotCount, 2, 5);
@@ -51,13 +47,9 @@ internal sealed class SaveService
             }
         }
 
-        // v6: duplicate pulls are stored as same-card upgrade copies instead of auto-dusting.
         if (loadedSchema < 6)
             this.Data.CardCopies ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
-        // v7: MiMi becomes the Chapter 1 story lead.
-        // Existing saves which already received the Machine/Book are treated as
-        // having completed Chapter 1 so they don't get duplicate onboarding.
         if (loadedSchema < 7)
         {
             this.Data.CardchaStoryChapter = 1;
@@ -78,7 +70,6 @@ internal sealed class SaveService
             }
         }
 
-        // v8: MiMi explicitly lends ChaCha, and Chapter 1 ends after the first real pull.
         if (loadedSchema < 8)
         {
             if (this.Data.MachineDelivered || this.Data.BinderUnlocked)
@@ -102,8 +93,6 @@ internal sealed class SaveService
             }
         }
 
-        // v9: Cardboard/Shiny Scrap move into the Binder wallet instead of backpack slots.
-        // Existing completed-story saves get MiMi's merchant routine immediately.
         if (loadedSchema < 9)
         {
             this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
@@ -113,9 +102,6 @@ internal sealed class SaveService
                 this.Data.MimiMerchantUnlockedDay = Math.Max(-1, Game1.Date.TotalDays - 1);
         }
 
-        // v10: the Wizard-house appointment becomes a real quest and expires into a
-        // forced third-morning home visit. Old pending saves start their countdown today
-        // instead of unexpectedly firing the doorstep scene immediately after updating.
         if (loadedSchema < 10)
         {
             if (this.Data.MimiMeetupPending && !this.Data.MimiMeetupCompleted)
@@ -124,13 +110,30 @@ internal sealed class SaveService
                 this.Data.MimiMeetupOfferedDay = -1;
         }
 
-        // v11: portable-machine entitlement is tracked separately from the physical item.
-        // No automatic grant on migration; the device is either bought from MiMi or earned at
-        // 50 unique cards. Existing debug items are detected by PortableMachineService on load.
         if (loadedSchema < 11)
         {
             this.Data.PortableMachinePurchased = false;
             this.Data.PortableMachineGifted = false;
+        }
+
+        // v12: Binder v0.3 favorites. Existing saves begin with an empty personal shortcut list.
+        if (loadedSchema < 12)
+            this.Data.FavoriteCardIds = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        // v13: early prototype builds seeded ten demo cards into untouched collections.
+        // Only repair the unmistakable pre-Binder, zero-pull state so earned cards are never removed.
+        if (loadedSchema < 13
+            && this.Data.PullIndex == 0
+            && !this.Data.MachineDelivered
+            && !this.Data.BinderUnlocked
+            && !this.Data.MimiMeetupCompleted
+            && this.Data.OwnedCards.Count > 0)
+        {
+            this.Data.OwnedCards.Clear();
+            this.Data.EquippedCards.Clear();
+            this.Data.CardLevels.Clear();
+            this.Data.CardCopies.Clear();
+            this.Data.FavoriteCardIds.Clear();
         }
 
         if (loadedSchema < CurrentSchemaVersion)
@@ -140,8 +143,6 @@ internal sealed class SaveService
             this.LastPersistenceCheckPassed = true;
             this.LastPersistenceMessage =
                 $"Migrated Cardcha save schema {loadedSchema} -> {CurrentSchemaVersion}; fingerprint initialized ({Short(this.Data.LastStateFingerprint)}).";
-
-            // Persist the migration immediately without touching collection/loadout state.
             this.Save();
             return;
         }
@@ -155,8 +156,7 @@ internal sealed class SaveService
         {
             this.Data.LastStateFingerprint = actual;
             this.LastPersistenceCheckPassed = true;
-            this.LastPersistenceMessage =
-                $"Persistence fingerprint initialized ({Short(actual)}).";
+            this.LastPersistenceMessage = $"Persistence fingerprint initialized ({Short(actual)}).";
             this.Save();
             return;
         }
@@ -197,6 +197,7 @@ internal sealed class SaveService
         this.Data.OwnedCards ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         this.Data.CardLevels ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         this.Data.CardCopies ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        this.Data.FavoriteCardIds ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         this.Data.LastStateFingerprint ??= "";
         this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
         this.Data.ShinyScraps = Math.Max(0, this.Data.ShinyScraps);
@@ -209,7 +210,11 @@ internal sealed class SaveService
             .Take(5)
             .ToList();
 
-        // Card levels are stored only for owned cards and always clamped to at least 1.
+        this.Data.FavoriteCardIds = new HashSet<string>(
+            this.Data.FavoriteCardIds.Where(p => !string.IsNullOrWhiteSpace(p)),
+            StringComparer.OrdinalIgnoreCase
+        );
+
         Dictionary<string, int> levels = new(StringComparer.OrdinalIgnoreCase);
         foreach (string cardId in this.Data.OwnedCards.Where(p => !string.IsNullOrWhiteSpace(p)))
         {
@@ -232,38 +237,31 @@ internal sealed class SaveService
 
     private static string ComputeFingerprint(SaveData data)
     {
-        string owned = string.Join(
-            ",",
-            (data.OwnedCards ?? new HashSet<string>())
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-                .OrderBy(p => p, StringComparer.OrdinalIgnoreCase)
-        );
+        string owned = string.Join(",", (data.OwnedCards ?? new HashSet<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
 
-        string equipped = string.Join(
-            ",",
-            (data.EquippedCards ?? new List<string>())
-                .Where(p => !string.IsNullOrWhiteSpace(p))
-        );
+        string equipped = string.Join(",", (data.EquippedCards ?? new List<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p)));
 
-        string levels = string.Join(
-            ",",
-            (data.CardLevels ?? new Dictionary<string, int>())
-                .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(p => $"{p.Key}:{p.Value}")
-        );
+        string favorites = string.Join(",", (data.FavoriteCardIds ?? new HashSet<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
 
-        string copies = string.Join(
-            ",",
-            (data.CardCopies ?? new Dictionary<string, int>())
-                .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
-                .Select(p => $"{p.Key}:{p.Value}")
-        );
+        string levels = string.Join(",", (data.CardLevels ?? new Dictionary<string, int>())
+            .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(p => $"{p.Key}:{p.Value}"));
+
+        string copies = string.Join(",", (data.CardCopies ?? new Dictionary<string, int>())
+            .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(p => $"{p.Key}:{p.Value}"));
 
         string canonical = string.Join(
             "|",
             CurrentSchemaVersion,
             owned,
             equipped,
+            favorites,
             levels,
             copies,
             data.ActiveCardSlotCount,

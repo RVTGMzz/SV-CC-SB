@@ -1,0 +1,296 @@
+From 928e6d44b5ae8b46a2f618c985fb2c95d3ce21fe Mon Sep 17 00:00:00 2001
+From: ronvotri <lengochung28191@gmail.com>
+Date: Wed, 26 Aug 2026 15:54:29 +0000
+Subject: [PATCH] feat: Cardcha v0.3.0-alpha.11 Binder input and full flash
+
+---
+ BUILD_ALPHA11_TEST.bat                        | 117 ++++++++++
+ BUILD_CARDCHA.bat                             |   8 +-
+ BUILD_HISTORY.md                              |   8 +
+ CARDCHA_PROJECT_STATE.json                    |  29 ++-
+ NEXT_SESSION_START_HERE.md                    |  80 +++----
+ README_ALPHA11_TEST.txt                       |  20 ++
+ design/BINDER_V0_3_CURRENT.md                 |  20 ++
+ src/Cardcha/Cardcha.csproj                    |   2 +-
+ src/Cardcha/ModEntry.cs                       |   6 +-
+ .../Services/PortableMachineService.cs        |   3 +-
+ src/Cardcha/UI/CardchaBinderMenu.cs           | 221 +++++++++++++-----
+ src/Cardcha/UI/CardchaPullAnimationMenu.cs    |  24 +-
+ src/Cardcha/UI/CardchaRevealMenu.cs           |  19 +-
+ src/Cardcha/UI/MimiScrapShopMenu.cs           |   8 +-
+ src/Cardcha/i18n/default.json                 |   7 +-
+ src/Cardcha/i18n/vi.json                      |   4 +-
+ src/Cardcha/manifest.json                     |   2 +-
+ 17 files changed, 440 insertions(+), 138 deletions(-)
+ create mode 100644 BUILD_ALPHA11_TEST.bat
+ create mode 100644 README_ALPHA11_TEST.txt
+
+diff --git a/BUILD_ALPHA11_TEST.bat b/BUILD_ALPHA11_TEST.bat
+new file mode 100644
+index 0000000..9e07a38
+--- /dev/null
++++ b/BUILD_ALPHA11_TEST.bat
+@@ -0,0 +1,117 @@
++@echo off
++chcp 65001 >nul
++setlocal EnableExtensions EnableDelayedExpansion
++cd /d "%~dp0"
++title Cardcha! v0.3.0-alpha.11 - Build TEST
++
++set "ROOT=%~dp0"
++set "PROJECT=%ROOT%src\Cardcha\Cardcha.csproj"
++set "RELEASES=%ROOT%_releases"
++set "READY=%ROOT%_READY_TO_TEST"
++set "LOG=%ROOT%build-alpha11-log.txt"
++set "EXPECTED=Cardcha! v0.3.0-alpha.11 BINDER INPUT + FULL FLASH"
++set "GAME_PATH="
++
++for %%G in (
++  "E:\SteamLibrary\steamapps\common\Stardew Valley"
++  "D:\SteamLibrary\steamapps\common\Stardew Valley"
++  "C:\Program Files (x86)\Steam\steamapps\common\Stardew Valley"
++  "C:\Program Files\Steam\steamapps\common\Stardew Valley"
++) do (
++  if not defined GAME_PATH if exist "%%~G\Stardew Valley.dll" set "GAME_PATH=%%~G"
++)
++
++cls
++echo ============================================================
++echo   CARDCHA! v0.3.0-alpha.11 - BINDER INPUT + FULL FLASH
++echo ============================================================
++echo.
++echo Builder FULL: khong can clone repo, khong tu cai mod.
++echo Sau khi build thanh cong, ZIP test nam trong _READY_TO_TEST.
++echo.
++
++if not exist "%PROJECT%" goto :NO_PROJECT
++where dotnet >nul 2>&1
++if errorlevel 1 goto :NO_SDK
++
++if not defined GAME_PATH (
++  echo Khong tim thay Stardew Valley tu dong.
++  set /p "GAME_PATH=Nhap duong dan thu muc Stardew Valley: "
++)
++if not exist "%GAME_PATH%\Stardew Valley.dll" goto :NO_GAME
++if not exist "%GAME_PATH%\StardewModdingAPI.dll" goto :NO_GAME
++
++if exist "%RELEASES%" rmdir /s /q "%RELEASES%"
++if exist "%READY%" rmdir /s /q "%READY%"
++mkdir "%RELEASES%" >nul 2>&1
++mkdir "%READY%" >nul 2>&1
++
++>"%LOG%" echo ===== CARDCHA alpha.11 BUILD LOG =====
++>>"%LOG%" echo Expected: %EXPECTED%
++>>"%LOG%" echo GamePath: %GAME_PATH%
++>>"%LOG%" echo Date: %date% %time%
++>>"%LOG%" echo.
++
++echo [1/2] Restore...
++dotnet restore "%PROJECT%" -p:GamePath="%GAME_PATH%" >>"%LOG%" 2>&1
++if errorlevel 1 goto :BUILD_FAIL
++
++echo [2/2] Build...
++dotnet build "%PROJECT%" -c Release --no-restore -p:EnableModDeploy=false -p:EnableModZip=true -p:GamePath="%GAME_PATH%" -p:ModZipPath="%RELEASES%" >>"%LOG%" 2>&1
++if errorlevel 1 goto :BUILD_FAIL
++
++set "BUILT_ZIP="
++for /f "delims=" %%Z in ('dir /b /a-d /o-d "%RELEASES%\*.zip" 2^>nul') do (
++  if not defined BUILT_ZIP set "BUILT_ZIP=%RELEASES%\%%Z"
++)
++if not defined BUILT_ZIP goto :NO_ZIP
++
++copy /y "!BUILT_ZIP!" "%READY%\Cardcha_v0.3.0-alpha.11_BinderInputFullFlash_TEST.zip" >nul
++
++echo.
++echo ============================================================
++echo   BUILD PASSED
++echo ============================================================
++echo.
++echo File test:
++echo %READY%\Cardcha_v0.3.0-alpha.11_BinderInputFullFlash_TEST.zip
++echo.
++echo KHONG co mod nao duoc tu dong cai vao Mods.
++echo Giai nen/copy ZIP test vao Mods nhu binh thuong de test.
++echo.
++pause
++exit /b 0
++
++:NO_PROJECT
++echo [ERROR] Khong tim thay src\Cardcha\Cardcha.csproj.
++pause
++exit /b 10
++
++:NO_SDK
++echo [ERROR] Khong tim thay .NET SDK. Cai .NET SDK phu hop roi chay lai.
++pause
++exit /b 20
++
++:NO_GAME
++echo [ERROR] Khong tim thay Stardew Valley.dll + StardewModdingAPI.dll tai:
++echo %GAME_PATH%
++pause
++exit /b 30
++
++:NO_ZIP
++echo [ERROR] Build xong nhung khong tim thay ZIP trong _releases.
++echo Gui %LOG% cho ChatGPT.
++pause
++exit /b 40
++
++:BUILD_FAIL
++echo.
++echo ============================================================
++echo   BUILD FAILED
++echo ============================================================
++echo Gui file nay cho ChatGPT:
++echo %LOG%
++echo.
++start "" notepad "%LOG%"
++pause
++exit /b 50
+diff --git a/BUILD_CARDCHA.bat b/BUILD_CARDCHA.bat
+index 556b9e9..db5fb05 100644
+--- a/BUILD_CARDCHA.bat
++++ b/BUILD_CARDCHA.bat
+@@ -2,11 +2,11 @@
+ chcp 65001 >nul
+ setlocal EnableExtensions DisableDelayedExpansion
+ 
+-title Cardcha! v0.1.17-alpha.11.45 Auto Build + Install
++title Cardcha! v0.3.0-alpha.11 Auto Build + Install
+ cd /d "%~dp0"
+ 
+ set "ROOT=%~dp0"
+-set "EXPECTED_BUILD=Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE"
++set "EXPECTED_BUILD=Cardcha! v0.3.0-alpha.11 BINDER INPUT + FULL FLASH"
+ set "PROJECT=%ROOT%src\Cardcha\Cardcha.csproj"
+ set "RELEASES=%ROOT%_releases"
+ set "READY=%ROOT%_READY_TO_INSTALL"
+@@ -16,7 +16,7 @@ set "INSTALLER=%ROOT%INSTALL_BUILT_CARDCHA.ps1"
+ 
+ cls
+ echo ============================================================
+-echo   CARDCHA! v0.1.17-alpha.11.45 - AUTO BUILD + SAFE INSTALL
++echo   CARDCHA! v0.3.0-alpha.11 - AUTO BUILD + SAFE INSTALL
+ echo ============================================================
+ echo.
+ echo Game:
+@@ -126,7 +126,7 @@ echo Da build VA cai truc tiep vao:
+ echo %GAME_PATH%\Mods\Cardcha
+ echo.
+ echo Khi mo SMAPI, phai thay:
+-echo [Cardcha!] Cardcha! v0.1.17-alpha.11.45 BINDER NAV + SAME-DAY MIMI + HUD LIFT ACTIVE...
++echo [Cardcha!] Cardcha! v0.3.0-alpha.11 BINDER INPUT + FULL FLASH...
+ echo.
+ echo Va lenh nay phai ton tai:
+ echo cardcha_version
+diff --git a/BUILD_HISTORY.md b/BUILD_HISTORY.md
+index e016bb9..473a1c6 100644
+--- a/BUILD_HISTORY.md
++++ b/BUILD_HISTORY.md
+@@ -1,5 +1,13 @@
+ # BUILD HISTORY
+ 
++## v0.3.0-alpha.11 — Binder Input + Full Flash
++- Controller/keyboard activation restored for Binder Favorite / Equip / Upgrade actions.
++- Double-activate quick equip/unequip restored for mouse and controller/keyboard.
++- Full-card/full-panel gacha reveal pulse.
++- Portable milestone EN/VI synchronized to 20 unique cards.
++- Binder loadout row enlarged and simplified; Boss=Mythic border, ChaCha/Secret=pink border.
++- Discovery count moved beside the existing page footer while `Trang x/y` stays in place.
++
+ ## v0.1.17-alpha.11.45 — Binder Nav + Same-Day MiMi + HUD Lift
+ - Geometric right-edge controller navigation from Binder card grid to detail panel.
+ - Same-day weekday MiMi merchant after Cardcha handoff.
+diff --git a/CARDCHA_PROJECT_STATE.json b/CARDCHA_PROJECT_STATE.json
+index 94cbf9e..c42d4f9 100644
+--- a/CARDCHA_PROJECT_STATE.json
++++ b/CARDCHA_PROJECT_STATE.json
+@@ -1,6 +1,6 @@
+ {
+   "project": "Cardcha!",
+-  "version": "0.1.17-alpha.11.45",
++  "version": "0.3.0-alpha.11",
+   "game_path": "E:\\SteamLibrary\\steamapps\\common\\Stardew Valley",
+   "story": {
+     "pre_scrap_mimi_name": "???",
+@@ -30,14 +30,14 @@
+     "card_grid": "focus auto-updates detail page",
+     "detail_scroll": "focusable; left stick/D-pad up/down scrolls upgrade/effect info"
+   },
+-  "next_priority": "verify 11.45 Binder/MiMi/HUD regressions first; then plan implementation of the approved Boss Slot + ChaCha transformation progression without reporting it as active before code lands",
++  "next_priority": "Windows build/test alpha.11 Binder controller actions, double-activate equip/unequip, full gacha flash, and compact left-page layout; then implement the approved 20-card quest/boss portable reward progression.",
+   "handoff_files": [
+     "NEXT_SESSION_START_HERE.md",
+     "BUILD_HISTORY.md",
+     "CARDCHA_PROJECT_STATE.json",
+     "design/CARDCHA_DESIGN_CURRENT.md"
+   ],
+-  "latest_fix": "11.45: geometric Binder right-navigation to detail panel; MiMi merchant available same weekday after handoff; one-time collection reward tease; circular HUD lifted upward",
++  "latest_fix": "alpha.11 candidate: controller/keyboard detail actions, double-activate quick equip/unequip, full-card/full-panel gacha flash, 20-card EN/VI milestone sync, equal enlarged loadout circles with Mythic Boss + pink ChaCha/Secret borders.",
+   "machine": {
+     "stationary_placement": "main FarmHouse only; outdoor and other-interior placement rejected/recovered",
+     "portable_future": "ACTIVE in 11.39: 50000g MiMi purchase; free at 50 unique cards if unowned; toolbar use opens dedicated Portable Cardcha UI; cannot be placed",
+@@ -103,7 +103,12 @@
+       "Phoenix Heart"
+     ],
+     "normal_slots": "start at 1; progress toward max 5; exact unlock milestones 2-5 still open",
+-    "boss_milestones": [20, 40, 60, 80],
++    "boss_milestones": [
++      20,
++      40,
++      60,
++      80
++    ],
+     "boss_card_reward": "first-clear milestone Boss Card is auto-granted as a special progression reward outside the Common-Mythic Base pool",
+     "boss_slot": "one dedicated circular slot, separate from normal slots; planned unlock at first 20/80 milestone",
+     "boss_activation": "combat fills Boss Energy; when READY the player manually activates the Boss Slot",
+@@ -118,5 +123,21 @@
+     "normal_direct_card_drops": false,
+     "design_doc": "design/CARDCHA_DESIGN_CURRENT.md",
+     "design_workbook_local_snapshot": "Cardcha_BaseSet80_Design_Tracker_v0.1.5_EssenceFinderRare.xlsx"
++  },
++  "binder_alpha_11": {
++    "build_label": "Cardcha! v0.3.0-alpha.11 BINDER INPUT + FULL FLASH",
++    "controller_actions": "A/Enter/Space directly activate Favorite, Equip/Unequip, Upgrade; B/Escape closes",
++    "quick_equip": "double mouse click or double confirm same card within 600ms toggles equip/unequip",
++    "footer": "Trang x/y remains centered in its existing footer area; discovered count is compact to its left",
++    "loadout_visuals": "5 normal + Boss + ChaCha/Secret equal-size circles; Boss Mythic border; ChaCha/Secret pink border; no BOSS/SECRET text",
++    "gacha_flash": "portable/stationary ritual + reveal use full-cell/full-panel pulse",
++    "portable_milestone_current_compat": 20
++  },
++  "progression_2026_08_26": {
++    "status": "APPROVED DESIGN; quest/boss/fusion flow not fully implemented in alpha.11",
++    "20_unique": "ChaCha/Secret info begins unlocking; quest; Boss encounter; Portable Cardcha Machine reward",
++    "40_unique": "quest/encounter; ChaCha absorbs/fuses stationary + portable machines; Cardcha becomes directly accessible from Binder",
++    "chacha_slot": "pink story/system-progression slot, distinct from Boss combat slot",
++    "boss_slot": "Mythic-bordered combat Boss Card/Boss Energy slot"
+   }
+ }
+diff --git a/NEXT_SESSION_START_HERE.md b/NEXT_SESSION_START_HERE.md
+index d6ce20b..db27a99 100644
+--- a/NEXT_SESSION_START_HERE.md
++++ b/NEXT_SESSION_START_HERE.md
+@@ -1,56 +1,46 @@
+-# NEXT SESSION — Cardcha v0.3.0-alpha.1 Binder UI
++# NEXT SESSION — Cardcha v0.3.0-alpha.11 Binder Input + Full Flash
+ 
+-## Start here first
++## Current playable/source baseline
+ 
+-Read:
++- Source baseline used for this pass: `v0.3.0-alpha.10 LIGHT BINDER TAB ICON` from the full `Cardcha-Shardbound` working tree.
++- Current candidate: **`v0.3.0-alpha.11 BINDER INPUT + FULL FLASH`**.
++- Branch: `binder-v0.3-alpha1`.
++- Base Set remains 80 cards, BaseId 1–80 / IconIndex 0–79.
+ 
+-1. `design/BINDER_V0_3_CURRENT.md` — authoritative Binder/UI decisions and the exact last approved chat state.
+-2. `design/CARDCHA_DESIGN_CURRENT.md` — Base Set/Boss Slot/progression design.
+-3. `CARDCHA_PROJECT_STATE.json` — story/gameplay state inherited from the 11.45 source line.
++## Alpha.11 changes to verify first
+ 
+-## Latest preserved implementation work — 2026-08-26
++1. Binder detail actions (Favorite / Equip / Upgrade) can be activated by controller A and keyboard Enter/Space, not only mouse.
++2. B/Escape is Back/Close; A cannot close the Binder.
++3. Double-clicking a collection card, or double-confirming the same card with A/Enter, quick equips it; doing the same on an equipped card unequips it.
++4. Portable/stationary pull/reveal flash now pulses the full card cell / full reveal panel instead of a tiny local flicker.

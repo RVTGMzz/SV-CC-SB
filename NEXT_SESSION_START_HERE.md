@@ -1,66 +1,87 @@
-# NEXT SESSION — Cardcha v0.3.0-alpha.1 Binder UI
+# NEXT SESSION — Cardcha v0.3.0-alpha.25 Gacha Interior Flash
 
-## Start here first
+## READ FIRST
+Before editing code, read:
+1. `PROJECT_HANDOFF.md`
+2. `KNOWN_ISSUES.md`
+3. `BUILD.md`
+4. `docs/STORY_GAMEPLAY_BIBLE.md`
 
-Read:
+## Source status
+The alpha.25 source is synchronized and verified on GitHub.
 
-1. `design/BINDER_V0_3_CURRENT.md` — authoritative Binder/UI decisions and the exact last approved chat state.
-2. `design/CARDCHA_DESIGN_CURRENT.md` — Base Set/Boss Slot/progression design.
-3. `CARDCHA_PROJECT_STATE.json` — story/gameplay state inherited from the 11.45 source line.
-4. Branch `binder-v0.3-alpha1` — current r2 candidate handoff and validation notes.
+Canonical source:
+- branch: `binder-v0.3-alpha1`
+- source anchor commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
+- exact `src/Cardcha` tree: `89cff25d67700762ed94399a5905bdf1a52e736f`
 
-## Latest preserved implementation work — 2026-08-26
+The tree above matches all 69 files in `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip` byte-for-byte. Use checked-in GitHub `src/Cardcha` as the source of truth.
 
-Safe `main` still preserves the first v0.3 snapshot at:
+## Current candidate
+- Version: `0.3.0-alpha.25`
+- Build label: `Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH`
+- User status: accepted as the current working baseline after in-game testing; not declared a final public stable release.
 
-`snapshots/Cardcha_v0.3.0-alpha.1_BinderUI_SOURCE_SNAPSHOT.zip`
+## alpha.24 compatibility fix retained
+alpha.23 exposed `IGenericModConfigMenuApi` as non-public, which caused SMAPI/Cinderbox to reject API mapping. The interface is now `public` and this fix is retained in alpha.25.
 
-The newer r2 candidate is tracked on branch `binder-v0.3-alpha1`. Read:
+Do not fold unrelated button/remapping work from other conversations into this fix unless a new regression is explicitly reported.
 
-- `handoff/BINDER_V03_ALPHA1_CANDIDATE_STATUS.md`
-- `handoff/BINDER_V03_ALPHA1_R2_CORRECTIONS.patch`
-- `design/BINDER_V0_3_VALIDATION.md`
+## Controller architecture
+- Cardcha menus use `ControllerProfileService`; raw A/B/X/Y behavior should not be duplicated through Binder/Machine/Pull/Reveal/MiMi Shop.
+- Semantic physical actions are South=Confirm, East=Favorite, West=Deselect, North=Exit.
+- Controller Layout options: Auto, Xbox, Nintendo, PlayStation, Generic.
+- Runtime Mapping options: Auto, Standard, NintendoNative.
+- Auto may fall back to Xbox/Standard when Steam Input or a virtual runtime hides controller identity.
+- Optional GMCM/config overrides exist.
+- `cardcha_controller_status` reports the resolved profile/labels.
 
-Latest Binder direction:
+## Binder protected behavior
+- quick double activation window is 650ms with no artificial minimum delay;
+- double click / double Confirm on an owned card toggles equip and can unequip an already equipped card;
+- free focus movement previews cards without replacing the locked-card action context;
+- only explicit Deselect releases the locked card.
 
-- synchronized the approved **80-card visual/data snapshot** from `Cardcha_v0.2.0-beta.2_80CardVisuals_TEST`;
-- Base IDs are 1–80 and IconIndex is 0–79;
-- synchronized the 80-card atlas and bilingual i18n snapshot;
-- added Binder v0.3 favorite persistence (`SaveData.SchemaVersion = 12`);
-- rebuilt Binder around a near-full-screen two-page collection-book layout;
-- collection is icon-only with Base ID + Lv + rarity border;
-- locked cards retain their real rarity border and use **true grayscale artwork**, not a black silhouette tint;
-- equipped cards receive an in-cell `IN USE / ĐANG DÙNG` overlay;
-- rarity bookmarks filter the collection while preserving Base-ID order;
-- Favorites is a separate bottom bookmark and persists by string card ID;
-- five active slots are circular and the future Boss Slot is shown as a separate locked circle;
-- right page contains readable selected-card details and actions;
-- r2 uses the 80-card `StarRules` for per-star Binder display when available;
-- controller A is explicitly consumed as an in-book action and cannot close the Binder;
-- the center seam is intentionally thin; no `assets/binder_book_frame.png` is required by the new Binder class.
+## Gacha UI — alpha.25 contract
+- Reveal/result cards use rounded corners.
+- Result cards show localized Name + large Icon + NEW/DUPLICATE only; no rarity line.
+- Reveal/result aura includes sparkle bursts.
+- No old small rectangular aura around the machine.
+- During ritual resonance, the rarity/white flash is a near-full-panel **interior filter**.
+- The filter is inset 8px so it does not overdraw the frame.
+- The outer gold frame/border must remain visually stable instead of pulsing with the filter.
+- Stationary and Portable rituals share this `DrawFlash()` behavior.
 
-## Mandatory next action: Windows/Stardew build
+## EN / VI localization
+- All 80 card names and descriptions are present in `default.json` and `vi.json`.
+- All 304 per-star rule rows are localized in both languages and preferred by the Binder over legacy `cards.json` StarRules.
+- damage variance wording is clarified as random damage fluctuation / `độ dao động ngẫu nhiên của sát thương`.
+- avoid mixed-language fragments in Vietnamese UI unless they are proper names.
 
-Static data/source validation passed, but the ChatGPT environment does not have the .NET/Stardew/SMAPI build toolchain. Do **not** treat v0.3 alpha.1 as compiled/tested yet.
+## Story / gameplay design bible
+`docs/STORY_GAMEPLAY_BIBLE.md` is the source of truth for agreed future story/progression. It records MiMi full-NPC direction, relationship-aware behavior, Community Center role, the 20/40/60/80 boss arc, MiMi as intended final boss, airship travel, and ChaCha expression/form/passive progression, while keeping undecided items in TBD sections.
 
-Check in this order:
+## Regression checks for the next change
+1. Verify `manifest.json`, `Cardcha.csproj`, startup log, and `cardcha_version` all stay on the intended version.
+2. Start with GMCM installed: there must be no Cardcha `non-public interface` API-mapping error.
+3. Verify controller semantics have not changed accidentally.
+4. Verify Binder free-preview / locked-card / double-unequip behavior.
+5. Pull 1 and pull 10: rounded result cards, large icon, Name + MỚI/TRÙNG only.
+6. During ritual resonance, the interior flashes while the outer gold border stays visually stable.
+7. Check both Stationary and Portable rituals.
+8. Spot-check EN/VI card details and MiMi/ChaCha story/shop/world actors.
 
-1. compile the r2 candidate against the real Stardew + SMAPI install;
-2. open Binder from Machine and inventory Book tab;
-3. verify 80 cards are visible across four All pages;
-4. verify locked card = real rarity border + true grayscale icon;
-5. verify Favorite add/remove survives save/reload;
-6. verify rarity/favorite bookmarks filter correctly and preserve Base-ID order;
-7. verify equipped overlay appears on the matching Collection cell;
-8. verify A never exits the book; B/back still returns correctly;
-9. verify text is readable at the user's normal UI scale;
-10. verify no missing `binder_book_frame.png` warning occurs from Binder;
-11. regression-test MiMi, portable machine, gacha and combat HUD.
+## Artifacts
+- `Cardcha_v0.3.0-alpha.25_GachaInteriorFlash_WindowsBuilder_FULL.zip`
+- `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip`
+- expected built test package: `_READY_TO_TEST/Cardcha_v0.3.0-alpha.25_GachaInteriorFlash_TEST.zip`
 
-If compile fails, preserve `build-v03-alpha1-log.txt` and continue from that error log instead of redesigning the Binder again.
+## Validation status
+- GitHub source sync: **VERIFIED**
+- exact source tree comparison against alpha.25 snapshot: **VERIFIED**
+- alpha.25 static validation prepared before handoff: **41/41 PASS**
+- user in-game visual acceptance: **CURRENT WORKING BASELINE**
+- do not infer exhaustive platform/regression coverage from that acceptance.
 
-## Critical caveat: 80-card data vs runtime effects
-
-The 80-card visual snapshot contains many effect keys that are newer than the old 10-card source baseline. Treat the preserved data/art/UI snapshot as authoritative for the **collection**, but audit actual Combat/Drop/Gacha implementation before claiming all 80 card effects are active.
-
-Do not silently reduce the registry back to the old 10-card `cards.json`.
+## Next repository hygiene task
+The repository default branch `main` still represents an older lineage and has diverged from `binder-v0.3-alpha1`. Reconcile/merge it deliberately rather than copying a few alpha.25 files onto `main` out of context.

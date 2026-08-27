@@ -1,0 +1,296 @@
+--- /mnt/data/r1_extract/NEXT_SESSION_START_HERE.md	2026-08-26 08:55:28.000000000 +0000
++++ /mnt/data/cardcha_v03_check/NEXT_SESSION_START_HERE.md	2026-08-26 09:10:13.234139259 +0000
+@@ -18,7 +18,7 @@
+ - added Binder v0.3 favorite persistence (`SaveData.SchemaVersion = 12`);
+ - rebuilt Binder around a near-full-screen two-page collection-book layout;
+ - collection is icon-only with Base ID + Lv + rarity border;
+-- locked cards retain their real rarity border and render as dark silhouette/grayscale;
++- locked cards retain their real rarity border and render with a true cached grayscale atlas;
+ - equipped cards receive an in-cell `IN USE / ĐANG DÙNG` overlay;
+ - rarity bookmarks filter the collection while preserving Base-ID order;
+ - Favorites is a separate bottom bookmark and persists by string card ID;
+@@ -29,14 +29,14 @@
+ 
+ ## Mandatory first test on Windows/Stardew
+ 
+-This source commit was prepared without a local Stardew/SMAPI build environment, so the first next action is a real build/test with `BUILD_CARDCHA.bat`.
++This candidate passed static data/source validation in the ChatGPT environment, but that environment has no .NET/Stardew/SMAPI toolchain. The first runtime action is still a real Windows build/test with `BUILD_CARDCHA.bat`.
+ 
+ Check in this order:
+ 
+ 1. project compiles after the Binder class replacement;
+ 2. open Binder from Machine and inventory Book tab;
+ 3. verify 80 cards are visible across four All pages;
+-4. verify locked card = real rarity border + silhouette;
++4. verify locked card = real rarity border + true grayscale icon;
+ 5. verify Favorite add/remove survives save/reload;
+ 6. verify rarity/favorite bookmarks filter correctly and preserve Base-ID order;
+ 7. verify equipped overlay appears on the matching Collection cell;
+--- /mnt/data/r1_extract/design/BINDER_V0_3_CURRENT.md	2026-08-26 08:55:48.000000000 +0000
++++ /mnt/data/cardcha_v03_check/design/BINDER_V0_3_CURRENT.md	2026-08-26 09:10:13.234000801 +0000
+@@ -48,7 +48,7 @@
+ 
+ Approved locked-card rule:
+ 
+-> **A card that is not unlocked still keeps its real rarity border, but its icon is grayscale/silhouette.**
++> **A card that is not unlocked still keeps its real rarity border, but its icon is **true grayscale** (not a black silhouette).**
+ 
+ Locked cells stay in their fixed Base-ID positions. Do not reorder the main collection by unlock date, rarity, level or name.
+ 
+@@ -62,6 +62,8 @@
+ 
+ The code may fall back to `IconIndex + 1` only when older prototype data has no explicit `BaseId`.
+ 
++Implementation note: Binder v0.3 builds a cached grayscale copy of `card_icons.png` at runtime for locked cards. Do not replace this with a black tint; the approved visual is readable grayscale art plus the card's real rarity border.
++
+ ## Bookmarks / filters
+ 
+ Main rarity bookmark cluster at the left edge:
+@@ -141,7 +143,7 @@
+ - favorite persistence;
+ - icon-only collection;
+ - rarity borders;
+-- locked silhouettes;
++- locked grayscale icons;
+ - ID + Lv;
+ - equipped overlay;
+ - circular equipped slots;
+--- /mnt/data/r1_extract/src/Cardcha/UI/CardRenderer.cs	2026-08-26 08:51:05.000000000 +0000
++++ /mnt/data/cardcha_v03_check/src/Cardcha/UI/CardRenderer.cs	2026-08-26 09:08:28.007516068 +0000
+@@ -13,7 +13,9 @@
+ 
+     private readonly IModHelper Helper;
+     private Texture2D? IconAtlas;
++    private Texture2D? GrayscaleIconAtlas;
+     private bool AtlasChecked;
++    private bool GrayscaleAtlasChecked;
+ 
+     public CardRenderer(IModHelper helper)
+     {
+@@ -193,12 +195,29 @@
+         => this.DrawIcon(b, destination, card, Color.White * Math.Clamp(alpha, 0f, 1f));
+ 
+     /// <summary>
+-    /// Binder v0.3 tint-aware icon path. Color.Black produces a true silhouette for locked cards
+-    /// while keeping the rarity border visible.
++    /// Tint-aware icon path used by existing menus.
+     /// </summary>
+     public void DrawIcon(SpriteBatch b, Rectangle destination, CardDefinition card, Color tint)
++        => this.DrawIconFromAtlas(b, destination, card, this.TryGetAtlas(), tint, fallbackGrayscale: false);
++
++    /// <summary>
++    /// Binder v0.3 locked-card path. This uses a cached grayscale copy of the icon atlas instead
++    /// of a black tint, so the art remains readable while the real rarity border stays visible.
++    /// </summary>
++    public void DrawIconGrayscale(SpriteBatch b, Rectangle destination, CardDefinition card, float alpha = 1f)
++    {
++        Color tint = Color.White * Math.Clamp(alpha, 0f, 1f);
++        this.DrawIconFromAtlas(b, destination, card, this.TryGetGrayscaleAtlas(), tint, fallbackGrayscale: true);
++    }
++
++    private void DrawIconFromAtlas(
++        SpriteBatch b,
++        Rectangle destination,
++        CardDefinition card,
++        Texture2D? atlas,
++        Color tint,
++        bool fallbackGrayscale)
+     {
+-        Texture2D? atlas = this.TryGetAtlas();
+         if (atlas is not null && card.IconIndex >= 0)
+         {
+             int columns = Math.Max(1, atlas.Width / IconCellSize);
+@@ -221,11 +240,14 @@
+             destination.Center.X - size.X * scale / 2f,
+             destination.Center.Y - size.Y * scale / 2f
+         );
++        Color fallback = fallbackGrayscale
++            ? new Color(112, 112, 112) * (tint.A / 255f)
++            : CardchaUi.RarityColor(card.Rarity) * (tint.A / 255f);
+         b.DrawString(
+             Game1.dialogueFont,
+             initial,
+             pos,
+-            tint == Color.Black ? Color.Black : CardchaUi.RarityColor(card.Rarity) * (tint.A / 255f),
++            fallback,
+             0f,
+             Vector2.Zero,
+             scale,
+@@ -234,6 +256,47 @@
+         );
+     }
+ 
++
++    private Texture2D? TryGetGrayscaleAtlas()
++    {
++        if (this.GrayscaleAtlasChecked)
++            return this.GrayscaleIconAtlas;
++
++        this.GrayscaleAtlasChecked = true;
++        Texture2D? atlas = this.TryGetAtlas();
++        if (atlas is null)
++            return null;
++
++        try
++        {
++            Color[] pixels = new Color[atlas.Width * atlas.Height];
++            atlas.GetData(pixels);
++
++            for (int i = 0; i < pixels.Length; i++)
++            {
++                Color source = pixels[i];
++                byte luminance = (byte)Math.Clamp(
++                    (int)Math.Round(source.R * 0.299d + source.G * 0.587d + source.B * 0.114d),
++                    0,
++                    255
++                );
++                pixels[i] = new Color(luminance, luminance, luminance, source.A);
++            }
++
++            this.GrayscaleIconAtlas = new Texture2D(atlas.GraphicsDevice, atlas.Width, atlas.Height);
++            this.GrayscaleIconAtlas.SetData(pixels);
++        }
++        catch (Exception ex)
++        {
++            ModEntry.LogOnce(
++                "card-icon-grayscale-atlas",
++                $"Couldn't build grayscale Cardcha icon atlas; using grayscale initials instead. {ex.Message}"
++            );
++        }
++
++        return this.GrayscaleIconAtlas;
++    }
++
+     private Texture2D? TryGetAtlas()
+     {
+         if (this.AtlasChecked)
+--- /mnt/data/r1_extract/src/Cardcha/UI/CardchaBinderMenu.cs	2026-08-26 08:54:22.000000000 +0000
++++ /mnt/data/cardcha_v03_check/src/Cardcha/UI/CardchaBinderMenu.cs	2026-08-26 09:09:31.101877389 +0000
+@@ -11,7 +11,7 @@
+ /// <summary>
+ /// Binder v0.3 alpha.1.
+ /// Design goals: near-full-screen open book, icon-only Base-ID collection, rarity bookmarks,
+-/// locked silhouettes with real rarity borders, favorite shortcut, equipped overlay, and a readable
++/// locked grayscale icons with real rarity borders, favorite shortcut, equipped overlay, and a readable
+ /// detail page. This intentionally keeps combat/effect services separate from the UI refactor.
+ /// </summary>
+ internal sealed class CardchaBinderMenu : IClickableMenu
+@@ -655,6 +655,15 @@
+     private int PageCount()
+         => Math.Max(1, (int)Math.Ceiling(this.FilteredCards().Count / (double)CardsPerPage));
+ 
++    private string GetDisplayEffectText(CardDefinition card, int level)
++    {
++        int index = Math.Max(0, level - 1);
++        if (index < card.StarRules.Count && !string.IsNullOrWhiteSpace(card.StarRules[index]))
++            return card.StarRules[index];
++
++        return this.Upgrades.GetLevelEffectText(card, level);
++    }
++
+     private void CloseBinder()
+     {
+         Game1.playSound("bigDeSelect");
+@@ -803,7 +812,10 @@
+         DrawRoundedRect(b, icon, new Color(225, 205, 171), 12);
+         DrawRoundedBorder(b, icon, CardchaUi.RarityColor(this.Selected.Rarity), 4, 12);
+         Rectangle iconInner = new(icon.X + 12, icon.Y + 12, icon.Width - 24, icon.Height - 24);
+-        this.Renderer.DrawIcon(b, iconInner, this.Selected, owned ? Color.White : Color.Black * 0.45f);
++        if (owned)
++            this.Renderer.DrawIcon(b, iconInner, this.Selected);
++        else
++            this.Renderer.DrawIconGrayscale(b, iconInner, this.Selected, 0.82f);
+ 
+         Rectangle nameArea = new(icon.Right + 18, icon.Y, this.RightPage.Right - icon.Right - 42, 48);
+         string name = owned ? this.Selected.Name : "???";
+@@ -830,7 +842,7 @@
+         DrawRoundedBorder(b, current, CardchaUi.PaperShadow, 2, 10);
+         Utility.drawTextWithShadow(b, ModEntry.T("binder.current-effect"), Game1.smallFont, new Vector2(current.X + 12, current.Y + 8), CardchaUi.InkBrown);
+         Rectangle currentText = new(current.X + 12, current.Y + 36, current.Width - 24, current.Height - 44);
+-        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.Upgrades.GetLevelEffectText(this.Selected, level), currentText, Color.DarkSlateGray, maxLines: 4, minScale: 0.58f, centerX: false, maxScale: 0.95f);
++        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.GetDisplayEffectText(this.Selected, level), currentText, Color.DarkSlateGray, maxLines: 4, minScale: 0.58f, centerX: false, maxScale: 0.95f);
+ 
+         Rectangle levels = new(this.RightPage.X + 30, current.Bottom + 12, this.RightPage.Width - 60, Math.Max(155, this.UpgradeActionButton.bounds.Y - current.Bottom - 56));
+         DrawRoundedRect(b, levels, new Color(246, 229, 198), 10);
+@@ -849,7 +861,7 @@
+             string prefix = $"★{star}";
+             Utility.drawTextWithShadow(b, prefix, Game1.tinyFont, new Vector2(row.X + 4, row.Y + 3), star <= level ? CardchaUi.Gold : Color.DarkSlateGray);
+             Rectangle effect = new(row.X + 44, row.Y + 1, row.Width - 48, row.Height - 2);
+-            CardchaUi.DrawAutoFitWrappedText(b, Game1.tinyFont, this.Upgrades.GetLevelEffectText(this.Selected, star), effect, Color.DarkSlateGray, maxLines: 2, minScale: 0.52f, centerX: false, maxScale: 0.88f);
++            CardchaUi.DrawAutoFitWrappedText(b, Game1.tinyFont, this.GetDisplayEffectText(this.Selected, star), effect, Color.DarkSlateGray, maxLines: 2, minScale: 0.52f, centerX: false, maxScale: 0.88f);
+         }
+ 
+         this.DrawStatus(b);
+@@ -880,7 +892,10 @@
+         int bottomPad = 8;
+         int iconSize = Math.Max(24, Math.Min(inner.Width - 14, inner.Height - topPad - bottomPad));
+         Rectangle icon = new(inner.Center.X - iconSize / 2, inner.Y + topPad, iconSize, iconSize);
+-        this.Renderer.DrawIcon(b, icon, card, owned ? Color.White : Color.Black * 0.42f);
++        if (owned)
++            this.Renderer.DrawIcon(b, icon, card);
++        else
++            this.Renderer.DrawIconGrayscale(b, icon, card, 0.82f);
+ 
+         if (favorite && owned)
+         {
+--- /dev/null	2026-08-26 08:38:07.912261095 +0000
++++ /mnt/data/cardcha_v03_check/src/Cardcha/Cardcha.csproj	2026-08-26 09:10:13.234270415 +0000
+@@ -0,0 +1,23 @@
++<Project Sdk="Microsoft.NET.Sdk">
++  <PropertyGroup>
++    <TargetFramework>net6.0</TargetFramework>
++    <LangVersion>latest</LangVersion>
++    <Nullable>enable</Nullable>
++    <ImplicitUsings>enable</ImplicitUsings>
++    <EnableHarmony>true</EnableHarmony>
++    <AssemblyName>Cardcha</AssemblyName>
++    <RootNamespace>Cardcha</RootNamespace>
++    <Version>0.3.0-alpha.1</Version>
++  </PropertyGroup>
++
++  <ItemGroup>
++    <PackageReference Include="Pathoschild.Stardew.ModBuildConfig" Version="4.4.0" />
++  </ItemGroup>
++
++  <ItemGroup>
++    <None Update="assets/**" CopyToOutputDirectory="PreserveNewest" />
++    <None Update="i18n/**" CopyToOutputDirectory="PreserveNewest" />
++    <None Update="manifest.json" CopyToOutputDirectory="PreserveNewest" />
++    <None Update="config.json" CopyToOutputDirectory="PreserveNewest" />
++  </ItemGroup>
++</Project>
+--- /dev/null	2026-08-26 08:38:07.912261095 +0000
++++ /mnt/data/cardcha_v03_check/design/BINDER_V0_3_VALIDATION.md	2026-08-26 09:10:13.234308322 +0000
+@@ -0,0 +1,32 @@
++# Binder v0.3 alpha.1 — Candidate Validation
++
++**Date:** 2026-08-26  
++**Candidate branch:** `binder-v0.3-alpha1`
++
++## Static checks completed
++
++- 80 cards loaded from `assets/cards.json`.
++- Card IDs: 80 unique.
++- Base IDs: 80 unique, continuous 1–80.
++- Icon indexes: 80 unique, continuous 0–79.
++- Every card satisfies `IconIndex = BaseId - 1`.
++- Rarity distribution: 27 Common / 23 Rare / 16 Epic / 10 Legendary / 4 Mythic.
++- Every card has `StarRules`; Binder uses these for per-star display when available.
++- English and Vietnamese i18n both contain name + description keys for all 80 cards.
++- Every literal translation key referenced by the new Binder exists in both English and Vietnamese i18n.
++- Save schema 12 persists `FavoriteCardIds` by stable string card ID and includes favorites in the persistence fingerprint.
++- Controller A is explicitly consumed as an in-book action; B handles return/close.
++- Locked cards keep the real rarity border and now use a cached **true grayscale atlas**, not a black tint/silhouette.
++- C# delimiter sanity checks passed for all changed source files.
++
++## Not yet verified
++
++This environment does not have the .NET/Stardew/SMAPI build toolchain, so these still require the Windows/Stardew builder:
++
++1. compile against the real Stardew + SMAPI references;
++2. open Binder from Machine and inventory Book tab;
++3. inspect UI scale/readability and controller traversal in game;
++4. save/reload Favorite persistence;
++5. regression-test MiMi, portable machine, gacha and combat HUD.
++
++Do not merge/promote this candidate as a tested release until the real Windows build passes.

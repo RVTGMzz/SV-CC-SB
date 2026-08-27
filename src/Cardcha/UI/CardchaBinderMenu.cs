@@ -1,4 +1,3 @@
-
 using Cardcha.Models;
 using Cardcha.Services;
 using Microsoft.Xna.Framework;
@@ -6,197 +5,279 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using StardewValley;
 using StardewValley.Menus;
+using System.Text;
+using System.Text.RegularExpressions;
 
 namespace Cardcha.UI;
 
+/// <summary>
+/// Binder v0.3 alpha.23.
+/// Design goals: near-full-screen open book, icon-only Base-ID collection, rarity bookmarks,
+/// locked grayscale icons with real rarity borders, favorite shortcut, equipped overlay, and a readable
+/// detail page. This intentionally keeps combat/effect services separate from the UI refactor.
+/// </summary>
 internal sealed class CardchaBinderMenu : IClickableMenu
 {
+    private static readonly Regex EffectNumberRegex = new(
+        @"(?<sign>[+-]?)(?<number>\d+(?:[\.,]\d+)?)(?<unit>(?:\s*(?:%\s*Max\s*HP|%\s*HP|%|HP/s|HP|px|Dust|Fate|Defense|Def|s))?)",
+        RegexOptions.Compiled | RegexOptions.IgnoreCase
+    );
+
     private const int VisualActiveSlots = 5;
+    private const int CardsPerPage = 20;
+    private const int GridColumns = 5;
+    private const int GridRows = 4;
 
     private const int BackId = 100;
     private const int ActiveBaseId = 200;
-    private const int CardBaseId = 300;
-    private const int EquipId = 500;
-    private const int UnequipId = 501;
-    private const int UpgradeId = 502;
-    private const int UnlockSlotId = 503;
-    private const int NormalScrapId = 504;
-    private const int ShinyScrapId = 505;
-    private const int DetailScrollId = 506;
+    private const int BossSlotId = 206;
+    private const int SecretSlotId = 207;
+    private const int CardBaseId = 1000;
+    private const int FilterBaseId = 2000;
+    private const int FavoriteFilterId = 2010;
+    private const int NormalScrapId = 2020;
+    private const int ShinyScrapId = 2021;
+    private const int PrevPageId = 2100;
+    private const int NextPageId = 2101;
+    private const int UnlockSlotId = 2102;
+    private const int FavoriteActionId = 2200;
+    private const int EquipActionId = 2201;
+    private const int UpgradeActionId = 2202;
+    private const int DeselectActionId = 2203;
 
     private readonly CardRegistry Cards;
     private readonly SaveService Save;
+    private readonly ResourceService Resources;
     private readonly LoadoutService Loadout;
     private readonly CardUpgradeService Upgrades;
     private readonly CardRenderer Renderer;
+    private readonly ControllerProfileService Controller;
     private readonly Action OnCloseToMachine;
     private readonly Action OnLoadoutChanged;
     private readonly string BackLabel;
-    private readonly Texture2D? ScrapIcons;
-    private readonly List<(CardDefinition Card, ClickableComponent Button)> CardButtons = new();
-    private readonly List<(int Slot, ClickableComponent Body, ClickableComponent Remove)> ActiveSlots = new();
-    private readonly ClickableComponent EquipButton;
-    private readonly ClickableComponent UnequipButton;
-    private readonly ClickableComponent UpgradeButton;
-    private readonly ClickableComponent UnlockSlotButton;
+    private readonly IClickableMenu? BackgroundMenu;
+
+    private readonly Rectangle OuterBook;
+    private readonly Rectangle LeftPage;
+    private readonly Rectangle RightPage;
+    private readonly Rectangle CollectionArea;
+
     private readonly ClickableComponent BackButton;
+    private readonly List<ClickableComponent> ActiveSlots = new();
+    private readonly ClickableComponent BossSlot;
+    private readonly ClickableComponent SecretSlot;
+    private readonly List<(BinderFilter Filter, ClickableComponent Button)> MainFilterTabs = new();
+    private readonly ClickableComponent FavoriteFilterTab;
     private readonly ClickableComponent NormalScrapButton;
     private readonly ClickableComponent ShinyScrapButton;
-    private readonly ClickableComponent DetailScrollButton;
+    private readonly ClickableComponent PrevPageButton;
+    private readonly ClickableComponent NextPageButton;
+    private readonly ClickableComponent UnlockSlotButton;
+    private readonly ClickableComponent FavoriteActionButton;
+    private readonly ClickableComponent EquipActionButton;
+    private readonly ClickableComponent UpgradeActionButton;
+    private readonly ClickableComponent DeselectActionButton;
+    private readonly List<(CardDefinition Card, ClickableComponent Button)> CardButtons = new();
 
+    private BinderFilter CurrentFilter = BinderFilter.All;
+    private int CurrentPage;
+    // PreviewCard follows free browsing. LockedCard is the explicit A/click action target.
+    // Selected is the card currently rendered on the right page and is derived from those states.
     private CardDefinition? Selected;
+    private CardDefinition? PreviewCard;
+    private CardDefinition? LockedCard;
+    private bool ControllerSelectionLocked;
+    private string? LastQuickToggleCardId;
+    private double LastQuickToggleAtMs;
+    private Texture2D? ScrapTexture;
+    private bool ScrapTextureChecked;
+    private const double QuickToggleMinMs = 0d;
+    private const double QuickToggleWindowMs = 650d;
     private string Status = ModEntry.T("binder.status.pick");
-    private long LastQuickClickAtMs;
-    private string LastQuickClickKey = "";
-    private const int DoubleClickWindowMs = 360;
+    // alpha.23: hint bar follows the most recently used input family and controller profile.
+    private bool LastInputWasController;
 
-    private readonly Rectangle DetailScrollViewport;
-    private readonly Rectangle DetailScrollTrack;
-    private int DetailScrollOffset;
-    private int DetailContentHeight = 1;
-    private bool DetailScrollDragging;
-    private int DetailScrollDragOffset;
-
-    // v0.1.16 Upgrade Experience.
-    private int UpgradeCelebrationMs;
-    private const int UpgradeCelebrationDurationMs = 2100;
-    private CardDefinition? UpgradeCelebrationCard;
-    private int UpgradeCelebrationFromLevel;
-    private int UpgradeCelebrationToLevel;
-    private int UpgradeCelebrationCopiesSpent;
-    private string UpgradeCelebrationBefore = "";
-    private string UpgradeCelebrationAfter = "";
+    private enum BinderFilter
+    {
+        All,
+        Common,
+        Rare,
+        Epic,
+        Legendary,
+        Mythic,
+        Favorite
+    }
 
     public CardchaBinderMenu(
         CardRegistry cards,
         SaveService save,
+        ResourceService resources,
         LoadoutService loadout,
         CardUpgradeService upgrades,
         CardRenderer renderer,
+        ControllerProfileService controller,
         Action onCloseToMachine,
         Action onLoadoutChanged,
-        string? backLabel = null
+        string? backLabel = null,
+        IClickableMenu? backgroundMenu = null
     ) : base(
-        Game1.uiViewport.Width / 2 - Math.Min(1180, Game1.uiViewport.Width - 24) / 2,
-        Game1.uiViewport.Height / 2 - Math.Min(760, Game1.uiViewport.Height - 24) / 2,
-        Math.Min(1180, Game1.uiViewport.Width - 24),
-        Math.Min(760, Game1.uiViewport.Height - 24),
+        Math.Max(6, (Game1.uiViewport.Width - Math.Min(1600, Game1.uiViewport.Width - 36)) / 2),
+        Math.Max(6, (Game1.uiViewport.Height - Math.Min(920, Game1.uiViewport.Height - 74)) / 2),
+        Math.Min(1600, Game1.uiViewport.Width - 36),
+        Math.Min(920, Game1.uiViewport.Height - 74),
         showUpperRightCloseButton: false)
     {
         this.Cards = cards;
         this.Save = save;
+        this.Resources = resources;
         this.Loadout = loadout;
         this.Upgrades = upgrades;
         this.Renderer = renderer;
+        this.Controller = controller;
         this.OnCloseToMachine = onCloseToMachine;
         this.OnLoadoutChanged = onLoadoutChanged;
         this.BackLabel = backLabel ?? ModEntry.T("binder.back");
-        this.ScrapIcons = ModEntry.StaticHelper?.ModContent.Load<Texture2D>("assets/items.png");
+        this.BackgroundMenu = backgroundMenu;
 
-        int activeX = this.xPositionOnScreen + 52;
-        int activeY = this.yPositionOnScreen + 166;
-        int activeW = 98;
-        int activeH = 102;
-        int activeGap = 10;
+        this.OuterBook = new Rectangle(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
+        Rectangle paper = new(this.OuterBook.X + 18, this.OuterBook.Y + 18, this.OuterBook.Width - 36, this.OuterBook.Height - 36);
+        int seam = 8;
+        int pageWidth = (paper.Width - seam) / 2;
+        this.LeftPage = new Rectangle(paper.X, paper.Y, pageWidth, paper.Height);
+        this.RightPage = new Rectangle(this.LeftPage.Right + seam, paper.Y, paper.Width - pageWidth - seam, paper.Height);
+
+        // Keep a compact icon-only back control. The previous text label (e.g. "Túi đồ")
+        // consumed valuable header space and duplicated context the player can already see.
+        this.BackButton = new ClickableComponent(
+            new Rectangle(this.LeftPage.X + 18, this.LeftPage.Y + 14, 52, 42),
+            "back") { myID = BackId };
+
+        // v0.3 alpha.12: five normal skills + Boss stay together as one loadout group.
+        // ChaCha is deliberately separated to the right because that circle will later open
+        // ChaCha management instead of behaving like another combat-skill slot.
+        int activeGap = 8;
+        int chachaGroupGap = 42;
+        int totalCircleCount = VisualActiveSlots + 2;
+        int activeAvailableWidth = this.LeftPage.Width - 44;
+        int activeDiameter = Math.Clamp(
+            (activeAvailableWidth - activeGap * VisualActiveSlots - chachaGroupGap) / totalCircleCount,
+            54,
+            82
+        );
+        int activeRowWidth = activeDiameter * totalCircleCount
+            + activeGap * VisualActiveSlots
+            + chachaGroupGap;
+        int activeX = this.LeftPage.Center.X - activeRowWidth / 2;
+        int activeY = this.LeftPage.Y + 78;
 
         for (int i = 0; i < VisualActiveSlots; i++)
         {
-            Rectangle bodyRect = new(activeX + i * (activeW + activeGap), activeY, activeW, activeH);
-            Rectangle removeRect = new(bodyRect.Right - 26, bodyRect.Y + 4, 22, 22);
-
-            ClickableComponent body = new(bodyRect, $"active-{i}") { myID = ActiveBaseId + i };
-            ClickableComponent remove = new(removeRect, $"remove-{i}") { myID = -1 };
-
-            this.ActiveSlots.Add((i, body, remove));
+            Rectangle r = new(activeX + i * (activeDiameter + activeGap), activeY, activeDiameter, activeDiameter);
+            this.ActiveSlots.Add(new ClickableComponent(r, $"active-{i}") { myID = ActiveBaseId + i });
         }
 
-        int gridX = this.xPositionOnScreen + 52;
-        int gridY = this.yPositionOnScreen + 322;
-        int gap = 12;
-        int cardW = 112;
-        int cardH = 128;
+        Rectangle bossRect = new(
+            activeX + VisualActiveSlots * (activeDiameter + activeGap),
+            activeY,
+            activeDiameter,
+            activeDiameter
+        );
+        this.BossSlot = new ClickableComponent(bossRect, "boss-slot") { myID = BossSlotId };
 
-        List<CardDefinition> ordered = this.Cards.All
-            .OrderByDescending(p => this.Save.Data.OwnedCards.Contains(p.Id))
-            .ThenBy(p => (int)p.Rarity)
-            .ThenBy(p => p.Name, StringComparer.CurrentCultureIgnoreCase)
-            .ToList();
+        Rectangle secretRect = new(
+            bossRect.Right + chachaGroupGap,
+            activeY,
+            activeDiameter,
+            activeDiameter
+        );
+        this.SecretSlot = new ClickableComponent(secretRect, "chacha-slot") { myID = SecretSlotId };
 
-        for (int i = 0; i < ordered.Count; i++)
+        int collectionTop = activeY + activeDiameter + 34;
+        int paginationHeight = 48;
+        this.CollectionArea = new Rectangle(
+            this.LeftPage.X + 22,
+            collectionTop,
+            this.LeftPage.Width - 44,
+            Math.Max(210, this.LeftPage.Bottom - collectionTop - paginationHeight - 18)
+        );
+
+        int tabX = Math.Max(4, this.OuterBook.X - 100);
+        int tabY = this.OuterBook.Y + 104;
+        int tabW = 108;
+        int tabH = 56;
+        int tabGap = 7;
+        BinderFilter[] mainFilters =
         {
-            int col = i % 5;
-            int row = i / 5;
-            Rectangle r = new(gridX + col * (cardW + gap), gridY + row * (cardH + gap), cardW, cardH);
-            this.CardButtons.Add((
-                ordered[i],
-                new ClickableComponent(r, ordered[i].Id) { myID = CardBaseId + i }
-            ));
+            BinderFilter.All,
+            BinderFilter.Common,
+            BinderFilter.Rare,
+            BinderFilter.Epic,
+            BinderFilter.Legendary,
+            BinderFilter.Mythic
+        };
+
+        for (int i = 0; i < mainFilters.Length; i++)
+        {
+            ClickableComponent button = new(
+                new Rectangle(tabX, tabY + i * (tabH + tabGap), tabW, tabH),
+                $"filter-{mainFilters[i]}")
+            { myID = FilterBaseId + i };
+            this.MainFilterTabs.Add((mainFilters[i], button));
         }
 
-        int sideX = this.xPositionOnScreen + this.width - 325;
+        this.FavoriteFilterTab = new ClickableComponent(
+            new Rectangle(tabX, this.OuterBook.Bottom - tabH - 24, tabW, tabH),
+            "filter-favorite") { myID = FavoriteFilterId };
 
-        this.DetailScrollViewport = new Rectangle(
-            sideX + 16,
-            this.yPositionOnScreen + 326,
-            220,
-            164
-        );
-        this.DetailScrollTrack = new Rectangle(
-            sideX + 242,
-            this.yPositionOnScreen + 326,
-            14,
-            164
-        );
-
-        int scrapSplitX = this.xPositionOnScreen + this.width - 350;
-        int scrapStartX = scrapSplitX - 126;
-        int scrapY = this.yPositionOnScreen + 30;
-        const int scrapSlotW = 54;
-        const int scrapSlotH = 66;
-        const int scrapGap = 8;
-
+        // Resource counters live on the left rail, directly below rarity bookmarks and
+        // above Favorites, matching the approved reference Binder.
+        int resourceGap = 8;
+        int resourceY = this.MainFilterTabs.Last().Button.bounds.Bottom + 12;
+        int resourceAvailable = Math.Max(0, this.FavoriteFilterTab.bounds.Y - resourceY - 10);
+        int resourceSize = Math.Clamp((resourceAvailable - resourceGap) / 2, 36, 62);
+        int resourceX = tabX + (tabW - resourceSize) / 2;
         this.NormalScrapButton = new ClickableComponent(
-            new Rectangle(scrapStartX, scrapY, scrapSlotW, scrapSlotH),
-            "normal-scrap"
-        ) { myID = NormalScrapId };
-
+            new Rectangle(resourceX, resourceY, resourceSize, resourceSize),
+            "normal-scrap") { myID = NormalScrapId };
         this.ShinyScrapButton = new ClickableComponent(
-            new Rectangle(scrapStartX + scrapSlotW + scrapGap, scrapY, scrapSlotW, scrapSlotH),
-            "shiny-scrap"
-        ) { myID = ShinyScrapId };
+            new Rectangle(resourceX, resourceY + resourceSize + resourceGap, resourceSize, resourceSize),
+            "shiny-scrap") { myID = ShinyScrapId };
 
-        this.DetailScrollButton = new ClickableComponent(
-            // Controller focus owns the whole right-side effect/upgrade information panel,
-            // not just the 14px scrollbar. This makes it obvious and reachable with a stick.
-            Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack),
-            "detail-scroll"
-        ) { myID = DetailScrollId };
-
-        this.EquipButton = new ClickableComponent(
-            new Rectangle(sideX, this.yPositionOnScreen + this.height - 202, 260, 52),
-            "equip"
-        ) { myID = EquipId };
-
-        this.UnequipButton = new ClickableComponent(
-            new Rectangle(sideX, this.yPositionOnScreen + this.height - 142, 260, 52),
-            "unequip"
-        ) { myID = UnequipId };
-
-        this.UpgradeButton = new ClickableComponent(
-            new Rectangle(sideX, this.yPositionOnScreen + this.height - 82, 260, 52),
-            "upgrade"
-        ) { myID = UpgradeId };
+        int pageY = this.LeftPage.Bottom - 48;
+        this.PrevPageButton = new ClickableComponent(
+            new Rectangle(this.LeftPage.X + 24, pageY, 58, 34),
+            "prev") { myID = PrevPageId };
+        this.NextPageButton = new ClickableComponent(
+            new Rectangle(this.LeftPage.Right - 82, pageY, 58, 34),
+            "next") { myID = NextPageId };
 
         this.UnlockSlotButton = new ClickableComponent(
-            new Rectangle(this.xPositionOnScreen + 624, this.yPositionOnScreen + 188, 176, 40),
-            "unlock-slot"
-        ) { myID = UnlockSlotId };
+            new Rectangle(this.LeftPage.Right - 202, this.LeftPage.Y + 55, 180, 32),
+            "unlock-slot") { myID = UnlockSlotId };
 
-        this.BackButton = new ClickableComponent(
-            new Rectangle(this.xPositionOnScreen + 42, this.yPositionOnScreen + 34, 160, 50),
-            "back"
-        ) { myID = BackId };
+        int actionGap = 10;
+        int actionW = Math.Max(120, (this.RightPage.Width - 52 - actionGap) / 2);
+        int actionH = 46;
+        int actionX = this.RightPage.X + 22;
+        int actionY = this.RightPage.Bottom - 112;
+        this.FavoriteActionButton = new ClickableComponent(
+            new Rectangle(actionX, actionY, actionW, actionH),
+            "favorite") { myID = FavoriteActionId };
+        this.EquipActionButton = new ClickableComponent(
+            new Rectangle(actionX + actionW + actionGap, actionY, actionW, actionH),
+            "equip-toggle") { myID = EquipActionId };
+        int secondRowY = actionY + actionH + 8;
+        int deselectW = Math.Clamp((actionW * 2 + actionGap) / 3, 126, 190);
+        int upgradeW = actionW * 2 + actionGap - deselectW - actionGap;
+        this.UpgradeActionButton = new ClickableComponent(
+            new Rectangle(actionX, secondRowY, upgradeW, actionH),
+            "upgrade") { myID = UpgradeActionId };
+        this.DeselectActionButton = new ClickableComponent(
+            new Rectangle(actionX + upgradeW + actionGap, secondRowY, deselectW, actionH),
+            "deselect") { myID = DeselectActionId };
 
+        this.PruneInvalidFavorites();
+        this.RebuildCardButtons(resetPage: true);
         this.ConfigureNeighbors();
         this.populateClickableComponentList();
 
@@ -206,70 +287,188 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private int UnlockedSlots => this.Upgrades.GetUnlockedSlotCount();
 
+    private IReadOnlyList<CardDefinition> OrderedCards
+        => this.Cards.All
+            .OrderBy(p => p.StableBaseId)
+            .ThenBy(p => p.Id, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+    private List<CardDefinition> FilteredCards()
+    {
+        IEnumerable<CardDefinition> cards = this.OrderedCards;
+
+        cards = this.CurrentFilter switch
+        {
+            BinderFilter.Common => cards.Where(p => p.Rarity == CardRarity.Common),
+            BinderFilter.Rare => cards.Where(p => p.Rarity == CardRarity.Rare),
+            BinderFilter.Epic => cards.Where(p => p.Rarity == CardRarity.Epic),
+            BinderFilter.Legendary => cards.Where(p => p.Rarity == CardRarity.Legendary),
+            BinderFilter.Mythic => cards.Where(p => p.Rarity == CardRarity.Mythic),
+            BinderFilter.Favorite => cards.Where(p =>
+                this.Save.Data.OwnedCards.Contains(p.Id)
+                && this.Save.Data.FavoriteCardIds.Contains(p.Id)),
+            _ => cards
+        };
+
+        return cards.ToList();
+    }
+
+    private void RebuildCardButtons(bool resetPage)
+    {
+        if (resetPage)
+            this.CurrentPage = 0;
+
+        List<CardDefinition> filtered = this.FilteredCards();
+        int pages = Math.Max(1, (int)Math.Ceiling(filtered.Count / (double)CardsPerPage));
+        this.CurrentPage = Math.Clamp(this.CurrentPage, 0, pages - 1);
+
+        this.CardButtons.Clear();
+        List<CardDefinition> pageCards = filtered
+            .Skip(this.CurrentPage * CardsPerPage)
+            .Take(CardsPerPage)
+            .ToList();
+
+        int gap = 12;
+        int cellW = Math.Max(58, (this.CollectionArea.Width - gap * (GridColumns - 1)) / GridColumns);
+        int cellH = Math.Max(64, (this.CollectionArea.Height - gap * (GridRows - 1)) / GridRows);
+
+        for (int i = 0; i < pageCards.Count; i++)
+        {
+            int col = i % GridColumns;
+            int row = i / GridColumns;
+            Rectangle r = new(
+                this.CollectionArea.X + col * (cellW + gap),
+                this.CollectionArea.Y + row * (cellH + gap),
+                cellW,
+                cellH
+            );
+            this.CardButtons.Add((
+                pageCards[i],
+                new ClickableComponent(r, pageCards[i].Id) { myID = CardBaseId + i }
+            ));
+        }
+
+        this.ConfigureNeighbors();
+        this.populateClickableComponentList();
+
+        // Rebuilding filters/pages must never discard an explicit action lock.
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+            this.Selected = this.LockedCard;
+    }
+
+    private void PruneInvalidFavorites()
+    {
+        HashSet<string> validOwnedIds = this.Cards.All
+            .Where(p => this.Save.Data.OwnedCards.Contains(p.Id))
+            .Select(p => p.Id)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        int before = this.Save.Data.FavoriteCardIds.Count;
+        this.Save.Data.FavoriteCardIds.RemoveWhere(id => !validOwnedIds.Contains(id));
+        if (before != this.Save.Data.FavoriteCardIds.Count)
+            this.Save.Save();
+    }
+
     private void ConfigureNeighbors()
     {
         this.BackButton.downNeighborID = ActiveBaseId;
-        this.BackButton.rightNeighborID = NormalScrapId;
-
-        this.NormalScrapButton.leftNeighborID = BackId;
-        this.NormalScrapButton.rightNeighborID = ShinyScrapId;
-        this.NormalScrapButton.downNeighborID = ActiveBaseId + Math.Min(3, VisualActiveSlots - 1);
-
-        this.ShinyScrapButton.leftNeighborID = NormalScrapId;
-        this.ShinyScrapButton.rightNeighborID = UnlockSlotId;
-        this.ShinyScrapButton.downNeighborID = UnlockSlotId;
+        this.BackButton.rightNeighborID = ActiveBaseId;
 
         for (int i = 0; i < this.ActiveSlots.Count; i++)
         {
-            ClickableComponent body = this.ActiveSlots[i].Body;
-            body.leftNeighborID = i > 0 ? ActiveBaseId + i - 1 : BackId;
-            body.rightNeighborID = i < this.ActiveSlots.Count - 1 ? ActiveBaseId + i + 1 : UnlockSlotId;
-            body.upNeighborID = i switch
-            {
-                3 => NormalScrapId,
-                4 => ShinyScrapId,
-                _ => BackId
-            };
-            body.downNeighborID = CardBaseId + Math.Min(i, Math.Max(0, this.CardButtons.Count - 1));
+            ClickableComponent slot = this.ActiveSlots[i];
+            slot.leftNeighborID = i == 0 ? FilterBaseId : ActiveBaseId + i - 1;
+            slot.rightNeighborID = i < this.ActiveSlots.Count - 1 ? ActiveBaseId + i + 1 : BossSlotId;
+            slot.upNeighborID = BackId;
+            slot.downNeighborID = this.CardButtons.Count > 0
+                ? CardBaseId + Math.Min(i, this.CardButtons.Count - 1)
+                : PrevPageId;
         }
 
-        this.UnlockSlotButton.leftNeighborID = ActiveBaseId + (VisualActiveSlots - 1);
-        this.UnlockSlotButton.rightNeighborID = EquipId;
-        this.UnlockSlotButton.upNeighborID = ShinyScrapId;
-        this.UnlockSlotButton.downNeighborID = EquipId;
+        this.BossSlot.leftNeighborID = ActiveBaseId + VisualActiveSlots - 1;
+        this.BossSlot.rightNeighborID = SecretSlotId;
+        this.BossSlot.upNeighborID = BackId;
+        this.BossSlot.downNeighborID = this.CardButtons.Count > 0
+            ? CardBaseId + Math.Min(GridColumns - 1, this.CardButtons.Count - 1)
+            : NextPageId;
+
+        this.SecretSlot.leftNeighborID = BossSlotId;
+        this.SecretSlot.rightNeighborID = FavoriteActionId;
+        this.SecretSlot.upNeighborID = BackId;
+        this.SecretSlot.downNeighborID = this.CardButtons.Count > 0
+            ? CardBaseId + Math.Min(GridColumns - 1, this.CardButtons.Count - 1)
+            : NextPageId;
+
+        for (int i = 0; i < this.MainFilterTabs.Count; i++)
+        {
+            ClickableComponent button = this.MainFilterTabs[i].Button;
+            button.rightNeighborID = ActiveBaseId;
+            button.upNeighborID = i > 0 ? this.MainFilterTabs[i - 1].Button.myID : FavoriteFilterId;
+            button.downNeighborID = i + 1 < this.MainFilterTabs.Count
+                ? this.MainFilterTabs[i + 1].Button.myID
+                : NormalScrapId;
+        }
+
+        this.NormalScrapButton.upNeighborID = this.MainFilterTabs.Last().Button.myID;
+        this.NormalScrapButton.downNeighborID = ShinyScrapId;
+        this.NormalScrapButton.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
+        this.ShinyScrapButton.upNeighborID = NormalScrapId;
+        this.ShinyScrapButton.downNeighborID = FavoriteFilterId;
+        this.ShinyScrapButton.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
+
+        this.FavoriteFilterTab.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
+        this.FavoriteFilterTab.upNeighborID = ShinyScrapId;
+        this.FavoriteFilterTab.downNeighborID = this.MainFilterTabs.First().Button.myID;
 
         for (int i = 0; i < this.CardButtons.Count; i++)
         {
             ClickableComponent button = this.CardButtons[i].Button;
-            int col = i % 5;
-            int row = i / 5;
-
-            button.leftNeighborID = col > 0 ? CardBaseId + i - 1 : -1;
-            button.rightNeighborID = col < 4 && i + 1 < this.CardButtons.Count
+            int col = i % GridColumns;
+            int row = i / GridColumns;
+            button.leftNeighborID = col > 0 ? CardBaseId + i - 1 : FavoriteFilterId;
+            button.rightNeighborID = col < GridColumns - 1 && i + 1 < this.CardButtons.Count
                 ? CardBaseId + i + 1
-                : DetailScrollId;
-            button.upNeighborID = row > 0 ? CardBaseId + i - 5 : ActiveBaseId + Math.Min(col, VisualActiveSlots - 1);
-            button.downNeighborID = i + 5 < this.CardButtons.Count ? CardBaseId + i + 5 : EquipId;
+                : EquipActionId;
+            button.upNeighborID = row > 0
+                ? CardBaseId + i - GridColumns
+                : ActiveBaseId + Math.Min(col, VisualActiveSlots - 1);
+            button.downNeighborID = i + GridColumns < this.CardButtons.Count
+                ? CardBaseId + i + GridColumns
+                : UpgradeActionId;
         }
 
-        this.DetailScrollButton.leftNeighborID = this.CardButtons.Count > 0
-            ? CardBaseId + Math.Min(4, this.CardButtons.Count - 1)
-            : UnlockSlotId;
-        this.DetailScrollButton.rightNeighborID = EquipId;
-        this.DetailScrollButton.upNeighborID = DetailScrollId;
-        this.DetailScrollButton.downNeighborID = DetailScrollId;
+        this.PrevPageButton.leftNeighborID = FavoriteFilterId;
+        this.PrevPageButton.rightNeighborID = NextPageId;
+        this.PrevPageButton.upNeighborID = this.CardButtons.Count > 0
+            ? CardBaseId + Math.Max(0, this.CardButtons.Count - Math.Min(GridColumns, this.CardButtons.Count))
+            : ActiveBaseId;
 
-        this.EquipButton.leftNeighborID = DetailScrollId;
-        this.EquipButton.upNeighborID = UnlockSlotId;
-        this.EquipButton.downNeighborID = UnequipId;
+        this.NextPageButton.leftNeighborID = PrevPageId;
+        this.NextPageButton.rightNeighborID = FavoriteActionId;
+        this.NextPageButton.upNeighborID = this.CardButtons.Count > 0
+            ? CardBaseId + this.CardButtons.Count - 1
+            : SecretSlotId;
 
-        this.UnequipButton.leftNeighborID = DetailScrollId;
-        this.UnequipButton.upNeighborID = EquipId;
-        this.UnequipButton.downNeighborID = UpgradeId;
+        int actionReturnId = this.CardButtons.Count > 0 ? CardBaseId + this.CardButtons.Count - 1 : SecretSlotId;
+        this.FavoriteActionButton.leftNeighborID = actionReturnId;
+        this.FavoriteActionButton.rightNeighborID = EquipActionId;
+        this.FavoriteActionButton.upNeighborID = actionReturnId;
+        this.FavoriteActionButton.downNeighborID = UpgradeActionId;
 
-        this.UpgradeButton.leftNeighborID = DetailScrollId;
-        this.UpgradeButton.upNeighborID = UnequipId;
-        this.UpgradeButton.downNeighborID = BackId;
+        this.EquipActionButton.leftNeighborID = FavoriteActionId;
+        this.EquipActionButton.rightNeighborID = actionReturnId;
+        this.EquipActionButton.upNeighborID = actionReturnId;
+        this.EquipActionButton.downNeighborID = DeselectActionId;
+
+        this.UpgradeActionButton.leftNeighborID = actionReturnId;
+        this.UpgradeActionButton.rightNeighborID = DeselectActionId;
+        this.UpgradeActionButton.upNeighborID = FavoriteActionId;
+        this.UpgradeActionButton.downNeighborID = actionReturnId;
+
+        this.DeselectActionButton.leftNeighborID = UpgradeActionId;
+        this.DeselectActionButton.rightNeighborID = actionReturnId;
+        this.DeselectActionButton.upNeighborID = EquipActionId;
+        this.DeselectActionButton.downNeighborID = actionReturnId;
     }
 
     public override void populateClickableComponentList()
@@ -277,555 +476,523 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         base.populateClickableComponentList();
         this.allClickableComponents.Clear();
         this.allClickableComponents.Add(this.BackButton);
-        this.allClickableComponents.Add(this.UnlockSlotButton);
+        this.allClickableComponents.AddRange(this.ActiveSlots);
+        this.allClickableComponents.Add(this.BossSlot);
+        this.allClickableComponents.Add(this.SecretSlot);
+        this.allClickableComponents.AddRange(this.MainFilterTabs.Select(p => p.Button));
         this.allClickableComponents.Add(this.NormalScrapButton);
         this.allClickableComponents.Add(this.ShinyScrapButton);
-        this.allClickableComponents.Add(this.DetailScrollButton);
-
-        foreach ((_, ClickableComponent body, _) in this.ActiveSlots)
-            this.allClickableComponents.Add(body);
-
-        foreach ((_, ClickableComponent button) in this.CardButtons)
-            this.allClickableComponents.Add(button);
-
-        this.allClickableComponents.Add(this.EquipButton);
-        this.allClickableComponents.Add(this.UnequipButton);
-        this.allClickableComponents.Add(this.UpgradeButton);
+        this.allClickableComponents.Add(this.FavoriteFilterTab);
+        this.allClickableComponents.AddRange(this.CardButtons.Select(p => p.Button));
+        this.allClickableComponents.Add(this.PrevPageButton);
+        this.allClickableComponents.Add(this.NextPageButton);
+        this.allClickableComponents.Add(this.FavoriteActionButton);
+        this.allClickableComponents.Add(this.EquipActionButton);
+        this.allClickableComponents.Add(this.UpgradeActionButton);
+        this.allClickableComponents.Add(this.DeselectActionButton);
     }
 
     public override void snapToDefaultClickableComponent()
     {
-        this.currentlySnappedComponent = this.ActiveSlots.FirstOrDefault().Body ?? this.BackButton;
+        this.currentlySnappedComponent = this.ActiveSlots.FirstOrDefault() ?? this.BackButton;
         this.snapCursorToCurrentSnappedComponent();
-    }
-
-    public override void update(GameTime time)
-    {
-        base.update(time);
-
-        // Controller browsing should be inspect-first: moving the left stick/D-pad across cards
-        // updates the detail page immediately instead of requiring an extra A press on every card.
-        if (this.UpgradeCelebrationMs <= 0 && this.currentlySnappedComponent is not null)
-            this.SyncSelectionFromControllerFocus();
-
-        if (this.UpgradeCelebrationMs > 0)
-        {
-            this.UpgradeCelebrationMs = Math.Max(
-                0,
-                this.UpgradeCelebrationMs - (int)time.ElapsedGameTime.TotalMilliseconds
-            );
-
-            if (this.UpgradeCelebrationMs <= 0)
-                this.ClearUpgradeCelebration();
-        }
-    }
-
-    public override void applyMovementKey(int direction)
-    {
-        // 0=up, 1=right, 2=down, 3=left. Stardew routes D-pad/keyboard/left-stick
-        // SnappyMenus movement through this method. 11.44 explicitly bridges the card grid
-        // to the right-side detail panel so controller users can inspect upgrade text.
-        int currentId = this.currentlySnappedComponent?.myID ?? -1;
-        if (direction == 1
-            && currentId >= CardBaseId
-            && currentId < CardBaseId + this.CardButtons.Count)
-        {
-            // 11.45: don't assume the card grid is always five visible columns wide.
-            // UI scale / narrow resolutions can make a visually right-edge card live in
-            // column 1 or 2 even though its logical index isn't col=4. Walk to the nearest
-            // visible card on the same row; if there isn't one, move into the detail panel.
-            if (this.TryFocusCardToRight(currentId))
-                return;
-
-            this.currentlySnappedComponent = this.DetailScrollButton;
-            this.snapCursorToCurrentSnappedComponent();
-            Game1.playSound("shiny4");
-            return;
-        }
-
-        if (this.currentlySnappedComponent?.myID == DetailScrollId)
-        {
-            if (direction == 0)
-            {
-                this.ScrollDetailBy(-28);
-                return;
-            }
-
-            if (direction == 2)
-            {
-                this.ScrollDetailBy(28);
-                return;
-            }
-
-            if (direction == 3)
-            {
-                int targetIndex = Math.Min(4, Math.Max(0, this.CardButtons.Count - 1));
-                if (this.CardButtons.Count > 0)
-                {
-                    this.currentlySnappedComponent = this.CardButtons[targetIndex].Button;
-                    this.snapCursorToCurrentSnappedComponent();
-                }
-                return;
-            }
-
-            if (direction == 1)
-            {
-                this.currentlySnappedComponent = this.EquipButton;
-                this.snapCursorToCurrentSnappedComponent();
-                return;
-            }
-        }
-
-        base.applyMovementKey(direction);
-    }
-
-    private bool TryFocusCardToRight(int currentId)
-    {
-        int currentIndex = currentId - CardBaseId;
-        if (currentIndex < 0 || currentIndex >= this.CardButtons.Count)
-            return false;
-
-        ClickableComponent current = this.CardButtons[currentIndex].Button;
-        Point currentCenter = current.bounds.Center;
-        int rowTolerance = Math.Max(20, current.bounds.Height / 2);
-
-        ClickableComponent? next = this.CardButtons
-            .Select(p => p.Button)
-            .Where(p => p.myID != currentId
-                && p.bounds.Center.X > currentCenter.X
-                && p.bounds.Right <= this.DetailScrollViewport.Left - 4
-                && Math.Abs(p.bounds.Center.Y - currentCenter.Y) <= rowTolerance)
-            .OrderBy(p => p.bounds.Center.X - currentCenter.X)
-            .ThenBy(p => Math.Abs(p.bounds.Center.Y - currentCenter.Y))
-            .FirstOrDefault();
-
-        if (next is null)
-            return false;
-
-        this.currentlySnappedComponent = next;
-        this.snapCursorToCurrentSnappedComponent();
-        return true;
     }
 
     public override void receiveGamePadButton(Buttons b)
     {
-        if (this.UpgradeCelebrationMs > 0)
-        {
-            if (b is Buttons.A or Buttons.B or Buttons.X or Buttons.Y)
-            {
-                this.ClearUpgradeCelebration();
-                Game1.playSound("smallSelect");
-            }
-            return;
-        }
-
-        if (b == Buttons.B)
-        {
-            Game1.playSound("bigDeSelect");
-            this.OnCloseToMachine();
-            return;
-        }
-
+        this.LastInputWasController = true;
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
-        if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight
-            && focusedId >= CardBaseId
-            && focusedId < CardBaseId + this.CardButtons.Count)
-        {
-            if (this.TryFocusCardToRight(focusedId))
-                return;
+        bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
 
-            this.currentlySnappedComponent = this.DetailScrollButton;
-            this.snapCursorToCurrentSnappedComponent();
+        // alpha.23: controller actions are semantic and profile-driven. Individual menus never
+        // hard-code a brand-specific A/B/X/Y layout again.
+        if (this.Controller.IsExit(b))
+        {
+            this.CloseBinderToGameplay();
             return;
         }
 
-        if (this.currentlySnappedComponent?.myID == DetailScrollId)
+        if (this.Controller.IsDeselect(b))
         {
-            if (b is Buttons.LeftThumbstickUp or Buttons.DPadUp)
-            {
-                this.ScrollDetailBy(-28);
-                return;
-            }
-
-            if (b is Buttons.LeftThumbstickDown or Buttons.DPadDown)
-            {
-                this.ScrollDetailBy(28);
-                return;
-            }
-
-            if (b is Buttons.LeftThumbstickLeft or Buttons.DPadLeft)
-            {
-                int targetIndex = Math.Min(4, Math.Max(0, this.CardButtons.Count - 1));
-                if (this.CardButtons.Count > 0)
-                {
-                    this.currentlySnappedComponent = this.CardButtons[targetIndex].Button;
-                    this.snapCursorToCurrentSnappedComponent();
-                }
-                return;
-            }
-
-            if (b is Buttons.LeftThumbstickRight or Buttons.DPadRight)
-            {
-                this.currentlySnappedComponent = this.EquipButton;
-                this.snapCursorToCurrentSnappedComponent();
-                return;
-            }
-
-            // A on the information panel is intentionally inert; up/down scroll it.
-            if (b == Buttons.A)
-                return;
-        }
-
-        if (b == Buttons.A && this.currentlySnappedComponent is not null)
-        {
-            Point center = this.currentlySnappedComponent.bounds.Center;
-            this.receiveLeftClick(center.X, center.Y);
+            if (this.ControllerSelectionLocked && this.LockedCard is not null)
+                this.ReleaseSelectionLock(returnToCard: true);
+            else
+                Game1.playSound("cancel");
             return;
         }
 
-        if ((b == Buttons.X || b == Buttons.Y) && this.currentlySnappedComponent is not null
-            && this.currentlySnappedComponent.myID >= ActiveBaseId
-            && this.currentlySnappedComponent.myID < ActiveBaseId + VisualActiveSlots)
+        if (this.Controller.IsFavorite(b))
         {
-            int slot = this.currentlySnappedComponent.myID - ActiveBaseId;
-            if (slot >= this.UnlockedSlots)
-                return;
-
-            string? id = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
-            CardDefinition? card = id is null ? null : this.Cards.Get(id);
-            if (card is not null)
+            if (this.ControllerSelectionLocked && this.LockedCard is not null)
             {
-                this.Selected = card;
-                this.ResetDetailScroll();
-                this.UnequipCard(card, ModEntry.T("binder.status.unequipped-slot", new { name = card.Name, slot = slot + 1 }));
+                this.RestoreLockedSelectionForAction();
+                this.ToggleFavorite();
+            }
+            else
+            {
+                this.Status = ModEntry.T("binder.favorite.select-first");
+                Game1.playSound("cancel");
             }
             return;
         }
 
-        if (b == Buttons.Y && this.currentlySnappedComponent is not null
-            && this.currentlySnappedComponent.myID >= CardBaseId
-            && this.currentlySnappedComponent.myID < CardBaseId + this.CardButtons.Count)
+        if (collectionFocused && (b == Buttons.LeftShoulder || b == Buttons.RightShoulder))
         {
-            int index = this.currentlySnappedComponent.myID - CardBaseId;
-            CardDefinition card = this.CardButtons[index].Card;
-            this.Selected = card;
-            this.ResetDetailScroll();
-            this.QuickEquipCard(card);
+            int oldIndex = focusedId - CardBaseId;
+            int direction = b == Buttons.LeftShoulder ? -1 : 1;
+            this.ChangePage(direction, oldIndex);
+            return;
+        }
+
+        if (this.Controller.IsConfirm(b) && this.currentlySnappedComponent is not null)
+        {
+            this.ActivateFocusedComponent(fromController: true);
             return;
         }
 
         base.receiveGamePadButton(b);
+        this.SyncBrowsePreviewToFocusedCard();
+    }
+
+    public override void receiveKeyPress(Keys key)
+    {
+        this.LastInputWasController = false;
+
+        if ((key == Keys.Enter || key == Keys.Space) && this.currentlySnappedComponent is not null)
+        {
+            this.ActivateFocusedComponent(fromController: true);
+            return;
+        }
+
+        if (key == Keys.F)
+        {
+            if (this.ControllerSelectionLocked && this.LockedCard is not null)
+            {
+                this.RestoreLockedSelectionForAction();
+                this.ToggleFavorite();
+            }
+            else
+            {
+                this.Status = ModEntry.T("binder.favorite.select-first");
+                Game1.playSound("cancel");
+            }
+            return;
+        }
+
+        if (key == Keys.Back)
+        {
+            if (this.ControllerSelectionLocked && this.LockedCard is not null)
+                this.ReleaseSelectionLock(returnToCard: true);
+            else
+                Game1.playSound("cancel");
+            return;
+        }
+
+        if (key == Keys.Escape)
+        {
+            this.CloseBinderToGameplay();
+            return;
+        }
+
+        base.receiveKeyPress(key);
+        this.SyncBrowsePreviewToFocusedCard();
+    }
+
+    private void ActivateFocusedComponent(bool fromController)
+    {
+        ClickableComponent? focused = this.currentlySnappedComponent;
+        if (focused is null)
+            return;
+
+        int id = focused.myID;
+        if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
+        {
+            int index = id - CardBaseId;
+            CardDefinition card = this.CardButtons[index].Card;
+            this.HandleCollectionActivation(card, fromController);
+            return;
+        }
+
+        if (id == FavoriteActionId)
+        {
+            this.RestoreLockedSelectionForAction();
+            this.ToggleFavorite();
+            return;
+        }
+
+        if (id == EquipActionId)
+        {
+            this.RestoreLockedSelectionForAction();
+            this.ToggleEquip();
+            return;
+        }
+
+        if (id == UpgradeActionId)
+        {
+            this.RestoreLockedSelectionForAction();
+            this.TryUpgradeSelected();
+            return;
+        }
+
+        if (id == DeselectActionId)
+        {
+            this.ReleaseSelectionLock(returnToCard: fromController);
+            return;
+        }
+
+        if (id == NormalScrapId || id == ShinyScrapId)
+        {
+            this.Status = id == NormalScrapId
+                ? ModEntry.T("item.cardboard.desc")
+                : ModEntry.T("item.shiny.desc");
+            Game1.playSound("smallSelect");
+            return;
+        }
+
+        Rectangle r = focused.bounds;
+        this.receiveLeftClick(r.Center.X, r.Center.Y, playSound: true);
     }
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
-        if (this.UpgradeCelebrationMs > 0)
+        this.LastInputWasController = false;
+
+        if (this.BackButton.bounds.Contains(x, y))
         {
-            this.ClearUpgradeCelebration();
+            this.CloseBinderToGameplay();
+            return;
+        }
+
+        // Handle the three bottom controls before collection/navigation hit testing.
+        // A small padded hit target also makes UI-scale rounding at the page edge harmless.
+        if (Inflate(this.FavoriteActionButton.bounds, 3).Contains(x, y))
+        {
+            this.RestoreLockedSelectionForAction();
+            this.ToggleFavorite();
+            return;
+        }
+
+        if (Inflate(this.EquipActionButton.bounds, 3).Contains(x, y))
+        {
+            this.RestoreLockedSelectionForAction();
+            this.ToggleEquip();
+            return;
+        }
+
+        if (Inflate(this.UpgradeActionButton.bounds, 3).Contains(x, y))
+        {
+            this.RestoreLockedSelectionForAction();
+            this.TryUpgradeSelected();
+            return;
+        }
+
+        if (Inflate(this.DeselectActionButton.bounds, 3).Contains(x, y))
+        {
+            this.ReleaseSelectionLock(returnToCard: false);
+            return;
+        }
+
+        if (this.NormalScrapButton.bounds.Contains(x, y))
+        {
+            this.Status = ModEntry.T("item.cardboard.desc");
             Game1.playSound("smallSelect");
             return;
         }
 
-        if (this.Selected is not null && this.DetailScrollTrack.Contains(x, y))
+        if (this.ShinyScrapButton.bounds.Contains(x, y))
         {
-            Rectangle thumb = this.GetDetailScrollThumb();
-            this.DetailScrollDragging = true;
+            this.Status = ModEntry.T("item.shiny.desc");
+            Game1.playSound("smallSelect");
+            return;
+        }
 
-            if (thumb.Contains(x, y))
+        foreach ((BinderFilter filter, ClickableComponent button) in this.MainFilterTabs)
+        {
+            if (!button.bounds.Contains(x, y))
+                continue;
+
+            this.SetFilter(filter);
+            return;
+        }
+
+        if (this.FavoriteFilterTab.bounds.Contains(x, y))
+        {
+            this.SetFilter(BinderFilter.Favorite);
+            return;
+        }
+
+        if (this.PrevPageButton.bounds.Contains(x, y))
+        {
+            if (this.CurrentPage > 0)
             {
-                this.DetailScrollDragOffset = y - thumb.Y;
+                this.CurrentPage--;
+                Game1.playSound("shwip");
+                this.RebuildCardButtons(resetPage: false);
             }
-            else
+            return;
+        }
+
+        if (this.NextPageButton.bounds.Contains(x, y))
+        {
+            int pages = this.PageCount();
+            if (this.CurrentPage + 1 < pages)
             {
-                this.DetailScrollDragOffset = thumb.Height / 2;
-                this.SetDetailScrollFromThumbY(y - this.DetailScrollDragOffset);
+                this.CurrentPage++;
+                Game1.playSound("shwip");
+                this.RebuildCardButtons(resetPage: false);
             }
-
-            Game1.playSound("smallSelect");
             return;
         }
 
-        if (this.BackButton.containsPoint(x, y))
+        for (int i = 0; i < this.ActiveSlots.Count; i++)
         {
-            Game1.playSound("smallSelect");
-            this.OnCloseToMachine();
-            return;
-        }
+            if (!this.ActiveSlots[i].bounds.Contains(x, y))
+                continue;
 
-        foreach ((int slot, ClickableComponent body, ClickableComponent remove) in this.ActiveSlots)
-        {
-            bool unlocked = slot < this.UnlockedSlots;
-            string? id = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
-            CardDefinition? card = id is null ? null : this.Cards.Get(id);
-
-            if (!unlocked && body.containsPoint(x, y))
+            if (i >= this.UnlockedSlots)
             {
                 this.Status = ModEntry.T("binder.status.slot-locked");
                 Game1.playSound("cancel");
                 return;
             }
 
-            if (unlocked && remove.containsPoint(x, y) && card is not null)
+            if (i < this.Save.Data.EquippedCards.Count)
             {
-                this.Selected = card;
-                this.ResetDetailScroll();
-                this.UnequipCard(
-                    card,
-                    ModEntry.T("binder.status.unequipped-slot", new { name = card.Name, slot = slot + 1 })
-                );
-                return;
-            }
-
-            if (body.containsPoint(x, y))
-            {
-                if (card is null)
-                {
-                    this.Status = ModEntry.T("binder.status.slot-empty", new { slot = slot + 1 });
-                    Game1.playSound("smallSelect");
-                    return;
-                }
-
-                this.Selected = card;
-                this.ResetDetailScroll();
-                if (this.IsQuickDoubleClick($"active:{slot}"))
-                {
-                    this.UnequipCard(card, ModEntry.T("binder.status.unequipped-slot", new { name = card.Name, slot = slot + 1 }));
-                    return;
-                }
-
-                this.Status = ModEntry.T("binder.status.slot-equipped", new { slot = slot + 1 });
+                this.Selected = this.Cards.Get(this.Save.Data.EquippedCards[i]);
+                this.Status = this.Selected is null
+                    ? ModEntry.T("binder.status.pick")
+                    : ModEntry.T("binder.status.selected", new { name = this.Selected.Name });
                 Game1.playSound("smallSelect");
-                return;
             }
+            else
+            {
+                this.Status = ModEntry.T("binder.status.slot-empty", new { slot = i + 1 });
+                Game1.playSound("smallSelect");
+            }
+            return;
+        }
+
+        if (this.BossSlot.bounds.Contains(x, y))
+        {
+            this.Status = ModEntry.T("binder.boss-slot.locked");
+            Game1.playSound("cancel");
+            return;
+        }
+
+        if (this.SecretSlot.bounds.Contains(x, y))
+        {
+            this.Status = ModEntry.T("binder.secret-slot.locked");
+            Game1.playSound("cancel");
+            return;
         }
 
         foreach ((CardDefinition card, ClickableComponent button) in this.CardButtons)
         {
-            if (!button.containsPoint(x, y))
+            if (!button.bounds.Contains(x, y))
                 continue;
 
-            if (!this.Save.Data.OwnedCards.Contains(card.Id))
-            {
-                this.Status = ModEntry.T("binder.status.not-owned");
-                Game1.playSound("cancel");
-                return;
-            }
-
-            this.Selected = card;
-            this.ResetDetailScroll();
-            if (this.IsQuickDoubleClick($"card:{card.Id}"))
-            {
-                this.QuickEquipCard(card);
-                return;
-            }
-            this.Status = ModEntry.T("binder.status.selected", new { name = card.Name });
-            Game1.playSound("smallSelect");
+            this.HandleCollectionActivation(card, fromController: false);
             return;
         }
 
-        if (this.UnlockSlotButton.containsPoint(x, y))
+        base.receiveLeftClick(x, y, playSound);
+    }
+
+    private void HandleCollectionActivation(CardDefinition card, bool fromController)
+    {
+        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
+        double now = Game1.currentGameTime.TotalGameTime.TotalMilliseconds;
+        double elapsed = now - this.LastQuickToggleAtMs;
+        bool secondActivation = owned
+            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)
+            && elapsed >= QuickToggleMinMs
+            && elapsed <= QuickToggleWindowMs;
+
+        this.LastQuickToggleCardId = card.Id;
+        this.LastQuickToggleAtMs = now;
+
+        // Any explicit confirm (controller A or mouse click) creates/replaces the hard lock.
+        // Free browsing never mutates this card; only DESELECT clears it.
+        this.LockedCard = card;
+        this.ControllerSelectionLocked = true;
+        this.PreviewCard = card;
+        this.Selected = card;
+
+        if (secondActivation)
         {
-            int unlockCost = this.Upgrades.GetNextSlotUnlockCost();
-            if (unlockCost <= 0)
-            {
-                this.Status = ModEntry.T("binder.status.slot-maxed");
-                Game1.playSound("smallSelect");
-            }
-            else if (this.Upgrades.TryUnlockNextSlot(out int newCount, out int cost))
-            {
-                this.Status = ModEntry.T("binder.status.slot-unlocked", new { slot = newCount, cost });
-                Game1.playSound("discoverMineral");
-            }
-            else
-            {
-                this.Status = ModEntry.T("binder.status.slot-not-enough-dust", new { cost = unlockCost });
-                Game1.playSound("cancel");
-            }
+            this.LastQuickToggleCardId = null;
+            this.LastQuickToggleAtMs = 0;
+            this.ToggleEquip();
             return;
         }
 
-        if (this.Selected is not null && this.EquipButton.containsPoint(x, y))
+        this.Status = owned
+            ? ModEntry.T("binder.status.selected", new { name = card.Name })
+            : ModEntry.T("binder.status.not-owned");
+        Game1.playSound(owned ? "smallSelect" : "cancel");
+    }
+
+    private void ReleaseSelectionLock(bool returnToCard)
+    {
+        CardDefinition? releasedCard = this.LockedCard ?? this.Selected;
+
+        this.ControllerSelectionLocked = false;
+        this.LockedCard = null;
+        this.LastQuickToggleCardId = null;
+        this.LastQuickToggleAtMs = 0;
+        this.Status = ModEntry.T("binder.status.browsing");
+        Game1.playSound("shwip");
+
+        if (returnToCard && Game1.options.SnappyMenus && releasedCard is not null)
         {
-            if (this.Loadout.IsEquipped(this.Selected.Id))
+            ClickableComponent? target = this.CardButtons
+                .FirstOrDefault(p => p.Card.Id.Equals(releasedCard.Id, StringComparison.OrdinalIgnoreCase))
+                .Button;
+            if (target is not null)
             {
-                this.Status = ModEntry.T("binder.status.already-equipped", new { name = this.Selected.Name });
-                Game1.playSound("smallSelect");
+                this.currentlySnappedComponent = target;
+                this.snapCursorToCurrentSnappedComponent();
             }
-            else if (this.Loadout.Equip(this.Selected.Id))
-            {
-                this.OnLoadoutChanged();
-                this.Status = ModEntry.T("binder.status.equipped", new { name = this.Selected.Name });
-                Game1.playSound("coin");
-            }
-            else
-            {
-                this.Status = ModEntry.T("binder.status.full", new { slots = this.UnlockedSlots });
-                Game1.playSound("cancel");
-            }
+        }
+
+        this.SyncBrowsePreviewToFocusedCard();
+    }
+
+    private void SyncBrowsePreviewToFocusedCard()
+    {
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+        {
+            // Keep rendering and all action state pinned to the explicit lock.
+            this.Selected = this.LockedCard;
             return;
         }
 
-        if (this.Selected is not null && this.UnequipButton.containsPoint(x, y))
+        int focusedId = this.currentlySnappedComponent?.myID ?? -1;
+        if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)
+            return;
+
+        int index = focusedId - CardBaseId;
+        CardDefinition card = this.CardButtons[index].Card;
+        this.PreviewCard = card;
+        this.Selected = card;
+        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
+            ? ModEntry.T("binder.status.preview", new { name = card.Name })
+            : ModEntry.T("binder.status.not-owned");
+    }
+
+    private void FocusDetailActionsForSelected(int selectedButtonId)
+    {
+        this.RestoreLockedSelectionForAction();
+        if (!this.ControllerSelectionLocked || this.LockedCard is null)
+            return;
+
+        this.FavoriteActionButton.leftNeighborID = selectedButtonId;
+        this.EquipActionButton.leftNeighborID = selectedButtonId;
+        this.UpgradeActionButton.leftNeighborID = selectedButtonId;
+        this.DeselectActionButton.leftNeighborID = selectedButtonId;
+        this.currentlySnappedComponent = this.EquipActionButton;
+        this.snapCursorToCurrentSnappedComponent();
+        Game1.playSound("shwip");
+    }
+
+    private void RestoreLockedSelectionForAction()
+    {
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+            this.Selected = this.LockedCard;
+    }
+
+    private void SetFilter(BinderFilter filter)
+    {
+        if (this.CurrentFilter == filter)
+            return;
+
+        this.CurrentFilter = filter;
+        this.CurrentPage = 0;
+        this.LastQuickToggleCardId = null;
+        this.LastQuickToggleAtMs = 0;
+        this.Status = filter == BinderFilter.Favorite
+            ? ModEntry.T("binder.favorite.filter")
+            : ModEntry.T("binder.status.pick");
+        Game1.playSound("smallSelect");
+        this.RebuildCardButtons(resetPage: true);
+
+        if (Game1.options.SnappyMenus && this.CardButtons.Count > 0)
         {
-            this.UnequipCard(
-                this.Selected,
-                ModEntry.T("binder.status.unequipped", new { name = this.Selected.Name })
-            );
+            this.currentlySnappedComponent = this.CardButtons[0].Button;
+            this.snapCursorToCurrentSnappedComponent();
+        }
+    }
+
+    private void ChangePage(int direction, int preferredCardIndex)
+    {
+        int next = Math.Clamp(this.CurrentPage + direction, 0, this.PageCount() - 1);
+        if (next == this.CurrentPage)
+        {
+            Game1.playSound("cancel");
             return;
         }
 
-        if (this.Selected is not null && this.UpgradeButton.containsPoint(x, y))
+        this.CurrentPage = next;
+        this.RebuildCardButtons(resetPage: false);
+        if (Game1.options.SnappyMenus && this.CardButtons.Count > 0)
         {
-            int required = this.Upgrades.GetRequiredCopies(this.Selected);
-            int ownedCopies = this.Upgrades.GetCopies(this.Selected);
-
-            if (required <= 0)
-            {
-                this.Status = ModEntry.T("binder.status.card-maxed", new { name = this.Selected.Name });
-                Game1.playSound("smallSelect");
-            }
-            else
-            {
-                int oldLevel = this.Upgrades.GetLevel(this.Selected);
-                string beforeEffect =
-                    this.Upgrades.GetLevelEffectText(this.Selected, oldLevel);
-
-                if (this.Upgrades.TryUpgrade(
-                    this.Selected,
-                    out int newLevel,
-                    out int spent))
-                {
-                    string afterEffect =
-                        this.Upgrades.GetLevelEffectText(this.Selected, newLevel);
-
-                    this.Status = ModEntry.T(
-                        "binder.status.card-upgraded",
-                        new
-                        {
-                            name = this.Selected.Name,
-                            level = newLevel,
-                            copies = spent
-                        }
-                    );
-
-                    this.StartUpgradeCelebration(
-                        this.Selected,
-                        oldLevel,
-                        newLevel,
-                        spent,
-                        beforeEffect,
-                        afterEffect
-                    );
-
-                    Game1.playSound("reward");
-                }
-                else
-                {
-                    this.Status = ModEntry.T(
-                        "binder.status.card-not-enough-copies",
-                        new { have = ownedCopies, need = required }
-                    );
-                    Game1.playSound("cancel");
-                }
-            }
+            this.currentlySnappedComponent = this.CardButtons[Math.Min(preferredCardIndex, this.CardButtons.Count - 1)].Button;
+            this.snapCursorToCurrentSnappedComponent();
         }
+        Game1.playSound("shwip");
     }
 
-    public override void receiveScrollWheelAction(int direction)
+    private void ToggleFavorite()
     {
-        if (this.Selected is not null)
+        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
         {
-            Point mouse = new(Game1.getMouseX(ui_scale: true), Game1.getMouseY(ui_scale: true));
-            if (this.DetailScrollViewport.Contains(mouse)
-                || this.DetailScrollTrack.Contains(mouse))
-            {
-                int delta = direction > 0 ? -48 : 48;
-                this.DetailScrollOffset = Math.Clamp(
-                    this.DetailScrollOffset + delta,
-                    0,
-                    this.GetDetailMaxScroll()
-                );
-                return;
-            }
-        }
-
-        base.receiveScrollWheelAction(direction);
-    }
-
-    public override void leftClickHeld(int x, int y)
-    {
-        if (this.DetailScrollDragging)
-        {
-            this.SetDetailScrollFromThumbY(y - this.DetailScrollDragOffset);
+            this.Status = ModEntry.T("binder.favorite.locked");
+            Game1.playSound("cancel");
             return;
         }
 
-        base.leftClickHeld(x, y);
-    }
-
-    public override void releaseLeftClick(int x, int y)
-    {
-        this.DetailScrollDragging = false;
-        base.releaseLeftClick(x, y);
-    }
-
-    public override void receiveRightClick(int x, int y, bool playSound = true)
-    {
-        foreach ((int slot, ClickableComponent body, _) in this.ActiveSlots)
+        if (this.Save.Data.FavoriteCardIds.Contains(this.Selected.Id))
         {
-            if (slot >= this.UnlockedSlots || !body.containsPoint(x, y))
-                continue;
-
-            string? id = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
-            CardDefinition? card = id is null ? null : this.Cards.Get(id);
-            if (card is null)
-                return;
-
-            this.Selected = card;
-            this.ResetDetailScroll();
-            this.UnequipCard(
-                card,
-                ModEntry.T("binder.status.unequipped-slot", new { name = card.Name, slot = slot + 1 })
-            );
-            return;
+            this.Save.Data.FavoriteCardIds.Remove(this.Selected.Id);
+            this.Status = ModEntry.T("binder.favorite.removed", new { name = this.Selected.Name });
+        }
+        else
+        {
+            this.Save.Data.FavoriteCardIds.Add(this.Selected.Id);
+            this.Status = ModEntry.T("binder.favorite.added", new { name = this.Selected.Name });
         }
 
-        base.receiveRightClick(x, y, playSound);
+        this.Save.Save();
+        Game1.playSound("coin");
+
+        if (this.CurrentFilter == BinderFilter.Favorite)
+            this.RebuildCardButtons(resetPage: false);
     }
 
-    private bool IsQuickDoubleClick(string key)
+    private void ToggleEquip()
     {
-        long now = Environment.TickCount64;
-        bool result = this.LastQuickClickKey.Equals(key, StringComparison.Ordinal)
-            && now - this.LastQuickClickAtMs <= DoubleClickWindowMs;
-        this.LastQuickClickKey = key;
-        this.LastQuickClickAtMs = now;
-        if (result)
-        {
-            this.LastQuickClickKey = "";
-            this.LastQuickClickAtMs = 0;
-        }
-        return result;
-    }
-
-    private void QuickEquipCard(CardDefinition card)
-    {
-        if (!this.Save.Data.OwnedCards.Contains(card.Id))
+        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
         {
             this.Status = ModEntry.T("binder.status.not-owned");
             Game1.playSound("cancel");
             return;
         }
-        if (this.Loadout.IsEquipped(card.Id))
+
+        if (this.Loadout.IsEquipped(this.Selected.Id))
         {
-            this.Status = ModEntry.T("binder.status.already-equipped", new { name = card.Name });
-            Game1.playSound("smallSelect");
+            if (this.Loadout.Unequip(this.Selected.Id))
+            {
+                this.Status = ModEntry.T("binder.status.unequipped", new { name = this.Selected.Name });
+                this.OnLoadoutChanged();
+                Game1.playSound("dwop");
+            }
             return;
         }
-        if (this.Loadout.Equip(card.Id))
+
+        if (this.Loadout.Equip(this.Selected.Id))
         {
+            this.Status = ModEntry.T("binder.status.equipped", new { name = this.Selected.Name });
             this.OnLoadoutChanged();
-            this.Status = ModEntry.T("binder.status.equipped", new { name = card.Name });
             Game1.playSound("coin");
         }
         else
@@ -835,1207 +1002,979 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         }
     }
 
-    private void DrawScrapWallet(SpriteBatch b)
+    private void TryUnlockSlot()
     {
-        if (!this.Save.Data.BinderUnlocked)
+        if (this.UnlockedSlots >= VisualActiveSlots)
+        {
+            this.Status = ModEntry.T("binder.status.slot-maxed");
+            Game1.playSound("cancel");
             return;
+        }
 
-        DrawScrapSlot(
-            b,
-            this.NormalScrapButton.bounds,
-            0,
-            this.Save.Data.CardboardScraps
-        );
-        DrawScrapSlot(
-            b,
-            this.ShinyScrapButton.bounds,
-            1,
-            this.Save.Data.ShinyScraps
-        );
+        if (this.Upgrades.TryUnlockNextSlot(out int newSlotCount, out int cost))
+        {
+            this.Status = ModEntry.T("binder.status.slot-unlocked", new { slot = newSlotCount, cost });
+            Game1.playSound("reward");
+            return;
+        }
 
-        if (this.currentlySnappedComponent?.myID == NormalScrapId)
-            CardchaUi.DrawFocus(b, this.NormalScrapButton.bounds);
-        if (this.currentlySnappedComponent?.myID == ShinyScrapId)
-            CardchaUi.DrawFocus(b, this.ShinyScrapButton.bounds);
+        this.Status = ModEntry.T("binder.status.slot-not-enough-dust", new { cost = this.Upgrades.GetNextSlotUnlockCost() });
+        Game1.playSound("cancel");
     }
 
-    private void DrawScrapSlot(SpriteBatch b, Rectangle slot, int spriteIndex, int count)
+    private void TryUpgradeSelected()
     {
-        b.Draw(Game1.staminaRect, slot, new Color(58, 45, 62));
-        CardchaUi.DrawBorder(b, slot, CardchaUi.Gold * 0.72f, 2);
-
-        Rectangle icon = new(slot.X + 10, slot.Y + 6, 34, 34);
-        if (this.ScrapIcons is not null)
+        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
         {
-            b.Draw(
-                this.ScrapIcons,
-                icon,
-                new Rectangle(spriteIndex * 16, 0, 16, 16),
-                Color.White
+            this.Status = ModEntry.T("binder.status.not-owned");
+            Game1.playSound("cancel");
+            return;
+        }
+
+        if (this.Upgrades.IsMaxLevel(this.Selected))
+        {
+            this.Status = ModEntry.T("binder.status.card-maxed", new { name = this.Selected.Name });
+            Game1.playSound("cancel");
+            return;
+        }
+
+        int have = this.Upgrades.GetCopies(this.Selected);
+        int need = this.Upgrades.GetRequiredCopies(this.Selected);
+        if (!this.Upgrades.TryUpgrade(this.Selected, out int newLevel, out int copiesSpent))
+        {
+            this.Status = ModEntry.T("binder.status.card-not-enough-copies", new { have, need });
+            Game1.playSound("cancel");
+            return;
+        }
+
+        this.Status = ModEntry.T("binder.status.card-upgraded", new { name = this.Selected.Name, level = newLevel, copies = copiesSpent });
+        Game1.playSound("reward");
+    }
+
+    private int PageCount()
+        => Math.Max(1, (int)Math.Ceiling(this.FilteredCards().Count / (double)CardsPerPage));
+
+    private string GetDisplayEffectText(CardDefinition card, int level)
+    {
+        int index = Math.Max(0, level - 1);
+        string localizedKey = $"card.{card.Id}.star.{level}";
+        string localizedRule = ModEntry.T(localizedKey);
+        if (!string.IsNullOrWhiteSpace(localizedRule) && !localizedRule.Equals(localizedKey, StringComparison.OrdinalIgnoreCase))
+            return localizedRule;
+
+        // Fallback for third-party language packs which haven't copied alpha.23 star keys yet.
+        if (index < card.StarRules.Count && !string.IsNullOrWhiteSpace(card.StarRules[index]))
+        {
+            string rule = card.StarRules[index];
+            if (index > 0 && card.StarRules.Count > 0 && !string.IsNullOrWhiteSpace(card.StarRules[0]))
+                return CompleteStarRule(card.StarRules[0], rule);
+
+            return rule;
+        }
+
+        return this.Upgrades.GetLevelEffectText(card, level);
+    }
+
+    /// <summary>
+    /// StarRules intentionally store many later levels as compact deltas (for example "+5%").
+    /// Rebuild those deltas onto the level-one sentence so every Binder row names its trigger,
+    /// stat, duration, cap, and cooldown instead of showing an isolated number.
+    /// </summary>
+    private static string CompleteStarRule(string levelOneRule, string compactRule)
+    {
+        if (string.IsNullOrWhiteSpace(levelOneRule)
+            || string.IsNullOrWhiteSpace(compactRule)
+            || levelOneRule.Equals(compactRule, StringComparison.OrdinalIgnoreCase))
+        {
+            return compactRule;
+        }
+
+        List<EffectNumberToken> templateTokens = ReadEffectNumberTokens(levelOneRule);
+        List<EffectNumberToken> valueTokens = ReadEffectNumberTokens(compactRule);
+        if (templateTokens.Count == 0 || valueTokens.Count == 0)
+            return AddMissingTriggerContext(levelOneRule, compactRule);
+
+        Dictionary<int, string> replacements = new();
+        HashSet<int> usedTemplateIndexes = new();
+        int lastMatchedTemplateIndex = -1;
+
+        foreach (EffectNumberToken value in valueTokens)
+        {
+            List<int> candidates = Enumerable.Range(0, templateTokens.Count)
+                .Where(i => !usedTemplateIndexes.Contains(i))
+                .Where(i => UnitsCompatible(templateTokens[i].Unit, value.Unit))
+                .ToList();
+
+            if (candidates.Count == 0)
+                return AddMissingTriggerContext(levelOneRule, compactRule);
+
+            List<int> sameSign = candidates
+                .Where(i => templateTokens[i].Sign.Equals(value.Sign, StringComparison.Ordinal))
+                .ToList();
+            if (sameSign.Count > 0)
+                candidates = sameSign;
+
+            int chosen = candidates.FirstOrDefault(i => i > lastMatchedTemplateIndex, -1);
+            if (chosen < 0)
+                chosen = candidates[0];
+
+            usedTemplateIndexes.Add(chosen);
+            lastMatchedTemplateIndex = chosen;
+            replacements[chosen] = value.Raw;
+        }
+
+        StringBuilder completed = new();
+        int cursor = 0;
+        for (int i = 0; i < templateTokens.Count; i++)
+        {
+            EffectNumberToken token = templateTokens[i];
+            completed.Append(levelOneRule, cursor, token.Start - cursor);
+            completed.Append(replacements.TryGetValue(i, out string? replacement) ? replacement : token.Raw);
+            cursor = token.Start + token.Length;
+        }
+        completed.Append(levelOneRule, cursor, levelOneRule.Length - cursor);
+        return completed.ToString();
+    }
+
+    private static string AddMissingTriggerContext(string levelOneRule, string compactRule)
+    {
+        int triggerEnd = levelOneRule.IndexOf(':');
+        if (triggerEnd <= 0 || compactRule.Contains(':'))
+            return compactRule;
+
+        string trigger = levelOneRule[..(triggerEnd + 1)].Trim();
+        return $"{trigger} {compactRule.Trim()}";
+    }
+
+    private static List<EffectNumberToken> ReadEffectNumberTokens(string text)
+    {
+        List<EffectNumberToken> result = new();
+        foreach (Match match in EffectNumberRegex.Matches(text))
+        {
+            string unit = NormalizeEffectUnit(match.Groups["unit"].Value);
+            if (unit == "s")
+            {
+                string prefix = text[..match.Index];
+                if (Regex.IsMatch(prefix, @"ICD\s*$", RegexOptions.IgnoreCase))
+                    unit = "icd-s";
+                else if (Regex.IsMatch(prefix, @"\bCD\s*$", RegexOptions.IgnoreCase))
+                    unit = "cd-s";
+            }
+
+            result.Add(new EffectNumberToken(
+                match.Index,
+                match.Length,
+                match.Value,
+                match.Groups["sign"].Value,
+                unit
+            ));
+        }
+        return result;
+    }
+
+    private static string NormalizeEffectUnit(string raw)
+    {
+        string unit = Regex.Replace(raw ?? string.Empty, @"\s+", string.Empty).ToLowerInvariant();
+        return unit switch
+        {
+            "%maxhp" => "percent-max-hp",
+            "%hp" => "percent-hp",
+            "%" => "percent",
+            "hp/s" => "hp-per-second",
+            "hp" => "hp",
+            "px" => "px",
+            "dust" => "dust",
+            "fate" => "fate",
+            "defense" or "def" => "defense",
+            "s" => "s",
+            _ => "number"
+        };
+    }
+
+    private static bool UnitsCompatible(string template, string value)
+    {
+        if (template.Equals(value, StringComparison.Ordinal))
+            return true;
+
+        bool templatePercent = template.StartsWith("percent", StringComparison.Ordinal);
+        bool valuePercent = value.StartsWith("percent", StringComparison.Ordinal);
+        return templatePercent && valuePercent;
+    }
+
+    private readonly record struct EffectNumberToken(
+        int Start,
+        int Length,
+        string Raw,
+        string Sign,
+        string Unit
+    );
+
+    private void CloseBinderToGameplay()
+    {
+        Game1.playSound("bigDeSelect");
+        Game1.exitActiveMenu();
+    }
+
+    private void CloseBinder()
+        => this.CloseBinderToGameplay();
+
+    public override void draw(SpriteBatch b)
+    {
+        if (this.BackgroundMenu is not null)
+            this.BackgroundMenu.draw(b);
+        else
+            this.drawBackground(b);
+        b.Draw(Game1.fadeToBlackRect, new Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.34f);
+
+        this.DrawBook(b);
+        this.DrawTabs(b);
+        this.DrawLeftPage(b);
+        this.DrawRightPage(b);
+        this.DrawResourceTooltipIfNeeded(b);
+        this.DrawControlHintBar(b);
+
+        this.drawMouse(b);
+    }
+
+    private void DrawControlHintBar(SpriteBatch b)
+    {
+        int y = this.OuterBook.Bottom + 6;
+        int availableHeight = Game1.uiViewport.Height - y - 4;
+        if (availableHeight < 20)
+            return;
+
+        int barHeight = Math.Min(34, availableHeight);
+        int barWidth = Math.Min(this.OuterBook.Width - 80, 1120);
+        Rectangle bar = new(this.OuterBook.Center.X - barWidth / 2, y, barWidth, barHeight);
+
+        DrawRoundedRect(b, bar, new Color(19, 24, 31) * 0.90f, 10);
+        DrawRoundedBorder(b, bar, CardchaUi.Gold * 0.72f, 2, 10);
+
+        bool hasLock = this.ControllerSelectionLocked && this.LockedCard is not null;
+        if (this.LastInputWasController)
+        {
+            this.DrawControlHintItems(b, bar, new[]
+            {
+                new ControlHint(this.Controller.GetLabel(ControllerAction.Confirm), ModEntry.T("binder.hint.select"), true),
+                new ControlHint(this.Controller.GetLabel(ControllerAction.Favorite), ModEntry.T("binder.hint.favorite"), hasLock),
+                new ControlHint(this.Controller.GetLabel(ControllerAction.Deselect), ModEntry.T("binder.hint.deselect"), hasLock),
+                new ControlHint(this.Controller.GetLabel(ControllerAction.Exit), ModEntry.T("binder.hint.close"), true)
+            });
+        }
+        else
+        {
+            this.DrawControlHintItems(b, bar, new[]
+            {
+                new ControlHint("Enter/Space", ModEntry.T("binder.hint.select"), true),
+                new ControlHint("F", ModEntry.T("binder.hint.favorite"), hasLock),
+                new ControlHint("Backspace", ModEntry.T("binder.hint.deselect"), hasLock),
+                new ControlHint("Esc", ModEntry.T("binder.hint.close"), true)
+            });
+        }
+    }
+
+    private void DrawControlHintItems(SpriteBatch b, Rectangle bar, IReadOnlyList<ControlHint> hints)
+    {
+        float totalNatural = 0f;
+        foreach (ControlHint hint in hints)
+            totalNatural += this.MeasureControlHint(hint);
+
+        float gap = 18f;
+        totalNatural += gap * (hints.Count - 1);
+        float fitScale = totalNatural > bar.Width - 20
+            ? Math.Max(0.62f, (bar.Width - 20) / totalNatural)
+            : 1f;
+
+        float x = bar.Center.X - totalNatural * fitScale / 2f;
+        float centerY = bar.Center.Y;
+        foreach (ControlHint hint in hints)
+        {
+            float naturalWidth = this.MeasureControlHint(hint);
+            this.DrawControlHintItem(b, new Vector2(x, centerY), hint, fitScale);
+            x += (naturalWidth + gap) * fitScale;
+        }
+    }
+
+    private float MeasureControlHint(ControlHint hint)
+    {
+        Vector2 keySize = Game1.smallFont.MeasureString(hint.Key);
+        Vector2 textSize = Game1.smallFont.MeasureString(hint.Label);
+        float keyWidth = Math.Max(26f, keySize.X + 12f);
+        return keyWidth + 7f + textSize.X;
+    }
+
+    private void DrawControlHintItem(SpriteBatch b, Vector2 position, ControlHint hint, float scale)
+    {
+        Color tint = hint.Enabled ? Color.White : Color.White * 0.38f;
+        Vector2 keyText = Game1.smallFont.MeasureString(hint.Key);
+        float keyWidth = Math.Max(26f, keyText.X + 12f);
+        float keyHeight = 23f;
+        Rectangle keyBox = new(
+            (int)position.X,
+            (int)(position.Y - keyHeight * scale / 2f),
+            Math.Max(18, (int)(keyWidth * scale)),
+            Math.Max(16, (int)(keyHeight * scale))
+        );
+
+        DrawRoundedRect(b, keyBox, new Color(58, 68, 78) * (hint.Enabled ? 0.95f : 0.55f), 6);
+        DrawRoundedBorder(b, keyBox, CardchaUi.Gold * (hint.Enabled ? 0.90f : 0.38f), 1, 6);
+
+        Vector2 keyDrawSize = Game1.smallFont.MeasureString(hint.Key) * scale;
+        b.DrawString(
+            Game1.smallFont,
+            hint.Key,
+            new Vector2(keyBox.Center.X - keyDrawSize.X / 2f, keyBox.Center.Y - keyDrawSize.Y / 2f),
+            tint,
+            0f,
+            Vector2.Zero,
+            scale,
+            SpriteEffects.None,
+            1f
+        );
+
+        Vector2 labelPos = new(keyBox.Right + 7f * scale, position.Y);
+        Vector2 labelSize = Game1.smallFont.MeasureString(hint.Label) * scale;
+        b.DrawString(
+            Game1.smallFont,
+            hint.Label,
+            new Vector2(labelPos.X, labelPos.Y - labelSize.Y / 2f),
+            tint,
+            0f,
+            Vector2.Zero,
+            scale,
+            SpriteEffects.None,
+            1f
+        );
+    }
+
+    private readonly record struct ControlHint(string Key, string Label, bool Enabled);
+
+    private void DrawBook(SpriteBatch b)
+    {
+        DrawRoundedRect(b, this.OuterBook, CardchaUi.LeatherDark, 18);
+        DrawRoundedRect(b, Inflate(this.OuterBook, -6), CardchaUi.Leather, 14);
+        DrawRoundedBorder(b, this.OuterBook, new Color(105, 56, 32), 4, 18);
+        DrawRoundedBorder(b, Inflate(this.OuterBook, -7), CardchaUi.Gold * 0.92f, 3, 14);
+        CardchaUi.DrawCornerOrnaments(b, Inflate(this.OuterBook, -3), CardchaUi.Gold);
+
+        DrawRoundedRect(b, this.LeftPage, CardchaUi.ParchmentLight, 12);
+        DrawRoundedRect(b, this.RightPage, CardchaUi.ParchmentLight, 12);
+        this.DrawPagePattern(b, this.LeftPage);
+        this.DrawPagePattern(b, this.RightPage);
+        DrawRoundedBorder(b, this.LeftPage, CardchaUi.PaperShadow, 3, 12);
+        DrawRoundedBorder(b, this.RightPage, CardchaUi.PaperShadow, 3, 12);
+        DrawRoundedBorder(b, Inflate(this.LeftPage, -7), CardchaUi.PaperShadow * 0.35f, 1, 8);
+        DrawRoundedBorder(b, Inflate(this.RightPage, -7), CardchaUi.PaperShadow * 0.35f, 1, 8);
+        CardchaUi.DrawCornerOrnaments(b, Inflate(this.LeftPage, -8), CardchaUi.PaperShadow * 0.72f);
+        CardchaUi.DrawCornerOrnaments(b, Inflate(this.RightPage, -8), CardchaUi.PaperShadow * 0.72f);
+
+        int seamX = (this.LeftPage.Right + this.RightPage.Left) / 2;
+        b.Draw(Game1.staminaRect, new Rectangle(seamX - 4, this.LeftPage.Y + 8, 8, this.LeftPage.Height - 16), CardchaUi.LeatherDark * 0.88f);
+        b.Draw(Game1.staminaRect, new Rectangle(seamX - 3, this.LeftPage.Y + 12, 1, this.LeftPage.Height - 24), CardchaUi.Gold * 0.65f);
+        b.Draw(Game1.staminaRect, new Rectangle(seamX + 2, this.LeftPage.Y + 12, 1, this.LeftPage.Height - 24), CardchaUi.Gold * 0.65f);
+        for (int y = this.LeftPage.Y + 60; y < this.LeftPage.Bottom - 50; y += 120)
+        {
+            Rectangle stud = new(seamX - 7, y, 14, 14);
+            DrawCircle(b, stud, CardchaUi.Gold);
+            DrawCircle(b, Inflate(stud, -3), new Color(48, 66, 81));
+        }
+    }
+
+    private void DrawPagePattern(SpriteBatch b, Rectangle page)
+    {
+        Color ink = CardchaUi.PaperShadow * 0.12f;
+        for (int y = page.Y + 34; y < page.Bottom - 28; y += 54)
+        {
+            int row = (y - page.Y) / 54;
+            for (int x = page.X + 34 + (row % 2) * 27; x < page.Right - 28; x += 54)
+            {
+                b.Draw(Game1.staminaRect, new Rectangle(x, y, 2, 2), ink);
+                b.Draw(Game1.staminaRect, new Rectangle(x - 2, y + 2, 6, 1), ink * 0.75f);
+            }
+        }
+    }
+
+    private void DrawTabs(SpriteBatch b)
+    {
+        foreach ((BinderFilter filter, ClickableComponent button) in this.MainFilterTabs)
+            this.DrawBookmark(b, button, this.FilterLabel(filter), this.CurrentFilter == filter, this.FilterColor(filter));
+
+        this.DrawResourceSlot(b, this.NormalScrapButton, shiny: false);
+        this.DrawResourceSlot(b, this.ShinyScrapButton, shiny: true);
+
+        this.DrawBookmark(
+            b,
+            this.FavoriteFilterTab,
+            "★ " + ModEntry.T("binder.favorite"),
+            this.CurrentFilter == BinderFilter.Favorite,
+            CardchaUi.Gold
+        );
+    }
+
+    private void DrawLeftPage(SpriteBatch b)
+    {
+        this.DrawSmallButton(b, this.BackButton, "X", CardchaUi.Leather);
+
+        string progress = ModEntry.T("binder.discovered", new
+        {
+            owned = this.Save.Data.OwnedCards.Count,
+            total = this.Cards.All.Count
+        });
+        Rectangle title = new(this.LeftPage.X + 82, this.LeftPage.Y + 12, this.LeftPage.Width - 104, 42);
+        DrawRoundedRect(b, title, new Color(38, 53, 68), 8);
+        DrawRoundedBorder(b, title, CardchaUi.Gold, 2, 8);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.dialogueFont, ModEntry.T("binder.title"), Inflate(title, -5), new Color(255, 205, 88), maxLines: 1, minScale: 0.55f, centerX: true, maxScale: 1.0f, centerY: true);
+
+        for (int i = 0; i < this.ActiveSlots.Count; i++)
+            this.DrawActiveCircle(b, i, this.ActiveSlots[i]);
+        this.DrawBossCircle(b);
+        this.DrawSecretCircle(b);
+
+        Utility.drawTextWithShadow(b, ModEntry.T("binder.collection"), Game1.smallFont, new Vector2(this.CollectionArea.X, this.CollectionArea.Y - 29), CardchaUi.InkBrown);
+        string filterCaption = this.CurrentFilter == BinderFilter.Favorite
+            ? ModEntry.T("binder.favorite")
+            : this.FilterLabel(this.CurrentFilter);
+        Vector2 filterSize = Game1.smallFont.MeasureString(filterCaption);
+        b.DrawString(Game1.smallFont, filterCaption, new Vector2(this.CollectionArea.Right - filterSize.X, this.CollectionArea.Y - 28), this.FilterColor(this.CurrentFilter), 0f, Vector2.Zero, 1f, SpriteEffects.None, 1f);
+
+        if (this.CardButtons.Count == 0 && this.CurrentFilter == BinderFilter.Favorite)
+        {
+            CardchaUi.DrawAutoFitWrappedText(
+                b,
+                Game1.smallFont,
+                ModEntry.T("binder.favorite.empty"),
+                this.CollectionArea,
+                Color.DarkSlateGray,
+                maxLines: 3,
+                minScale: 0.75f,
+                centerX: true,
+                maxScale: 1.15f,
+                centerY: true
+            );
+        }
+        else
+        {
+            foreach ((CardDefinition card, ClickableComponent button) in this.CardButtons)
+                this.DrawCollectionCell(b, card, button);
+        }
+
+        int pages = this.PageCount();
+        this.DrawPageSeal(b, this.PrevPageButton, pointsLeft: true, enabled: this.CurrentPage > 0);
+        this.DrawPageSeal(b, this.NextPageButton, pointsLeft: false, enabled: this.CurrentPage + 1 < pages);
+
+        string pageText = ModEntry.T("binder.collection.page", new { page = this.CurrentPage + 1, pages });
+        Rectangle pageArea = new(this.PrevPageButton.bounds.Right + 8, this.PrevPageButton.bounds.Y, this.NextPageButton.bounds.X - this.PrevPageButton.bounds.Right - 16, this.PrevPageButton.bounds.Height);
+
+        // Keep Trang x/y in its existing centered pageArea. The compact discovery count
+        // simply shares the same footer line on its left side.
+        Rectangle discoveryArea = new(
+            pageArea.X,
+            pageArea.Y,
+            Math.Max(100, pageArea.Width / 2 - 40),
+            pageArea.Height
+        );
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, progress, discoveryArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.75f, centerX: false, maxScale: 1f, centerY: true);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, pageText, pageArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.65f, centerX: true, maxScale: 1f);
+    }
+
+    private void DrawRightPage(SpriteBatch b)
+    {
+        Rectangle header = new(this.RightPage.X + 24, this.RightPage.Y + 18, this.RightPage.Width - 48, 44);
+        DrawRoundedRect(b, header, new Color(38, 53, 68), 8);
+        DrawRoundedBorder(b, header, CardchaUi.Gold, 2, 8);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.dialogueFont, ModEntry.T("binder.details"), Inflate(header, -5), new Color(255, 205, 88), maxLines: 1, minScale: 0.55f, centerX: true, maxScale: 1.05f, centerY: true);
+
+        if (this.Selected is null)
+        {
+            Rectangle empty = new(this.RightPage.X + 44, this.RightPage.Y + 120, this.RightPage.Width - 88, this.RightPage.Height - 250);
+            CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, ModEntry.T("binder.inspect-help"), empty, Color.DarkSlateGray, maxLines: 5, minScale: 0.80f, centerX: true, maxScale: 1.25f, centerY: true);
+            this.DrawStatus(b);
+            this.DrawActionButtons(b, owned: false);
+            return;
+        }
+
+        bool owned = this.Save.Data.OwnedCards.Contains(this.Selected.Id);
+        int baseId = this.Selected.StableBaseId;
+        Rectangle icon = new(this.RightPage.X + 32, this.RightPage.Y + 76, 104, 104);
+        DrawRoundedRect(b, icon, new Color(225, 205, 171), 12);
+        DrawRoundedBorder(b, icon, CardchaUi.RarityColor(this.Selected.Rarity), 4, 12);
+        Rectangle iconInner = new(icon.X + 12, icon.Y + 12, icon.Width - 24, icon.Height - 24);
+        if (owned)
+            this.Renderer.DrawIcon(b, iconInner, this.Selected);
+        else
+            this.Renderer.DrawIconGrayscale(b, iconInner, this.Selected, 0.82f);
+
+        Rectangle nameArea = new(icon.Right + 18, icon.Y, this.RightPage.Right - icon.Right - 42, 48);
+        string name = owned ? this.Selected.Name : "???";
+        DrawRoundedRect(b, nameArea, new Color(51, 50, 51), 7);
+        DrawRoundedBorder(b, nameArea, CardchaUi.Gold * 0.85f, 2, 7);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.dialogueFont, name, Inflate(nameArea, -6), new Color(255, 205, 88), maxLines: 2, minScale: 0.50f, centerX: true, maxScale: 0.95f, centerY: true);
+        Utility.drawTextWithShadow(b, $"#{baseId:00}", Game1.smallFont, new Vector2(nameArea.X, nameArea.Bottom + 2), Color.DarkSlateGray);
+        Utility.drawTextWithShadow(b, CardchaUi.RarityText(this.Selected.Rarity), Game1.smallFont, new Vector2(nameArea.X + 70, nameArea.Bottom + 2), CardchaUi.RarityColor(this.Selected.Rarity));
+
+        if (!owned)
+        {
+            Rectangle lockedInfo = new(this.RightPage.X + 34, icon.Bottom + 40, this.RightPage.Width - 68, 180);
+            DrawRoundedRect(b, lockedInfo, new Color(224, 214, 196), 10);
+            CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, ModEntry.T("binder.status.not-owned"), Inflate(lockedInfo, -18), Color.DarkSlateGray, maxLines: 3, minScale: 0.75f, centerX: true, maxScale: 1.0f, centerY: true);
+            this.DrawStatus(b);
+            this.DrawActionButtons(b, owned: false);
+            return;
+        }
+
+        int level = this.Upgrades.GetLevel(this.Selected);
+        int maxLevel = this.Upgrades.GetMaxLevel(this.Selected);
+        Utility.drawTextWithShadow(b, $"Lv{level}   •   {new string('★', level)}{new string('☆', Math.Max(0, maxLevel - level))}", Game1.smallFont, new Vector2(nameArea.X, nameArea.Bottom + 31), CardchaUi.InkBrown);
+
+        Rectangle current = new(this.RightPage.X + 30, icon.Bottom + 22, this.RightPage.Width - 60, 112);
+        DrawRoundedRect(b, current, new Color(238, 220, 187), 10);
+        DrawRoundedBorder(b, current, CardchaUi.PaperShadow, 2, 10);
+        Utility.drawTextWithShadow(b, ModEntry.T("binder.current-effect"), Game1.smallFont, new Vector2(current.X + 12, current.Y + 8), CardchaUi.InkBrown);
+        Rectangle currentText = new(current.X + 12, current.Y + 36, current.Width - 24, current.Height - 44);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.GetDisplayEffectText(this.Selected, level), currentText, Color.DarkSlateGray, maxLines: 3, minScale: 0.86f, centerX: true, maxScale: 1.28f, centerY: true);
+
+        Rectangle levels = new(this.RightPage.X + 30, current.Bottom + 12, this.RightPage.Width - 60, Math.Max(155, this.UpgradeActionButton.bounds.Y - current.Bottom - 56));
+        DrawRoundedRect(b, levels, new Color(246, 229, 198), 10);
+        DrawRoundedBorder(b, levels, CardchaUi.PaperShadow, 2, 10);
+        Utility.drawTextWithShadow(b, ModEntry.T("binder.all-levels"), Game1.smallFont, new Vector2(levels.X + 12, levels.Y + 7), CardchaUi.InkBrown);
+
+        int rowY = levels.Y + 34;
+        int availableH = levels.Bottom - rowY - 8;
+        int rowH = Math.Max(24, availableH / Math.Max(1, maxLevel));
+        for (int star = 1; star <= maxLevel; star++)
+        {
+            Rectangle row = new(levels.X + 10, rowY + (star - 1) * rowH, levels.Width - 20, rowH - 2);
+            if (star == level)
+                DrawRoundedRect(b, row, CardchaUi.Gold * 0.18f, 5);
+
+            string rowText = $"★{star}   {this.GetDisplayEffectText(this.Selected, star)}";
+            CardchaUi.DrawAutoFitWrappedText(
+                b,
+                Game1.smallFont,
+                rowText,
+                Inflate(row, -4),
+                star <= level ? CardchaUi.InkBrown : Color.DarkSlateGray,
+                maxLines: 2,
+                minScale: 0.84f,
+                centerX: true,
+                maxScale: 1.25f,
+                centerY: true
             );
         }
 
+        this.DrawStatus(b);
+        this.DrawActionButtons(b, owned: true);
+    }
+
+    private void DrawCollectionCell(SpriteBatch b, CardDefinition card, ClickableComponent button)
+    {
+        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
+        bool equipped = this.Loadout.IsEquipped(card.Id);
+        bool favorite = this.Save.Data.FavoriteCardIds.Contains(card.Id);
+        bool selected = ReferenceEquals(this.Selected, card) || this.Selected?.Id.Equals(card.Id, StringComparison.OrdinalIgnoreCase) == true;
+        bool locked = this.ControllerSelectionLocked
+            && this.LockedCard?.Id.Equals(card.Id, StringComparison.OrdinalIgnoreCase) == true;
+        bool focused = this.currentlySnappedComponent?.myID == button.myID;
+        Color rarity = CardchaUi.RarityColor(card.Rarity);
+
+        Rectangle r = button.bounds;
+        Color outerEdge = locked ? new Color(82, 205, 255) : focused ? Color.White : selected ? Color.White : rarity;
+        DrawRoundedRect(b, r, outerEdge, 9);
+        if (locked)
+            DrawRoundedBorder(b, Inflate(r, -2), Color.White * 0.92f, 2, 8);
+        Rectangle inner = new(r.X + 4, r.Y + 4, r.Width - 8, r.Height - 8);
+        DrawRoundedRect(b, inner, owned ? new Color(239, 220, 187) : new Color(198, 194, 184), 7);
+
+        int level = owned ? this.Upgrades.GetLevel(card) : 0;
+        int badgeSize = Math.Clamp(Math.Min(inner.Width, inner.Height) / 3, 22, 30);
+        Rectangle idBadge = new(inner.X + 3, inner.Y + 3, badgeSize, badgeSize);
+        Rectangle levelBadge = new(inner.Right - badgeSize - 3, inner.Y + 3, badgeSize, badgeSize);
+        DrawCircle(b, idBadge, rarity);
+        DrawCircle(b, Inflate(idBadge, -2), new Color(249, 235, 205));
+        DrawCircle(b, levelBadge, rarity);
+        DrawCircle(b, Inflate(levelBadge, -2), new Color(249, 235, 205));
+        CardchaUi.DrawScaledText(b, Game1.smallFont, card.StableBaseId.ToString("00"), idBadge, CardchaUi.InkBrown, centerX: true, centerY: true, padding: 4, maxScale: 0.68f);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, owned ? level.ToString() : "–", levelBadge, CardchaUi.InkBrown, centerX: true, centerY: true, padding: 4, maxScale: 0.68f);
+
+        int topPad = badgeSize / 2 + 5;
+        int bottomPad = 8;
+        int iconSize = Math.Max(24, Math.Min(inner.Width - 14, inner.Height - topPad - bottomPad));
+        Rectangle icon = new(inner.Center.X - iconSize / 2, inner.Y + topPad, iconSize, iconSize);
+        if (owned)
+            this.Renderer.DrawIcon(b, icon, card);
+        else
+            this.Renderer.DrawIconGrayscale(b, icon, card, 0.82f);
+
+        if (favorite && owned)
+        {
+            string mark = "★";
+            Vector2 markSize = Game1.tinyFont.MeasureString(mark);
+            Utility.drawTextWithShadow(b, mark, Game1.tinyFont, new Vector2(inner.Right - markSize.X - 4, inner.Bottom - markSize.Y + 2), CardchaUi.Gold);
+        }
+
+        if (equipped)
+        {
+            Rectangle overlay = new(inner.X + 1, inner.Y + 1, inner.Width - 2, inner.Height - 2);
+            DrawRoundedRect(b, overlay, Color.Black * 0.42f, 7);
+            CardchaUi.DrawAutoFitWrappedText(
+                b,
+                Game1.smallFont,
+                ModEntry.T("binder.collection.equipped"),
+                overlay,
+                new Color(255, 236, 184),
+                maxLines: 2,
+                minScale: 0.48f,
+                centerX: true,
+                maxScale: 0.84f,
+                centerY: true
+            );
+        }
+    }
+
+    private void DrawActiveCircle(SpriteBatch b, int index, ClickableComponent slot)
+    {
+        bool unlocked = index < this.UnlockedSlots;
+        CardDefinition? card = index < this.Save.Data.EquippedCards.Count
+            ? this.Cards.Get(this.Save.Data.EquippedCards[index])
+            : null;
+        Color border = !unlocked ? new Color(120, 105, 100) : card is null ? new Color(168, 150, 125) : CardchaUi.RarityColor(card.Rarity);
+        bool focused = this.currentlySnappedComponent?.myID == slot.myID;
+
+        DrawCircle(b, slot.bounds, focused ? Color.White : border);
+        Rectangle inner = Inflate(slot.bounds, -4);
+        DrawCircle(b, inner, unlocked ? new Color(231, 211, 178) : new Color(178, 166, 150));
+
+        if (!unlocked)
+        {
+            DrawLockIcon(b, inner);
+            return;
+        }
+
+        if (card is null)
+        {
+            DrawCircle(b, Inflate(inner, -10), new Color(189, 173, 151));
+            return;
+        }
+
+        Rectangle icon = Inflate(inner, -9);
+        this.Renderer.DrawIcon(b, icon, card);
+    }
+
+    private void DrawBossCircle(SpriteBatch b)
+    {
+        bool focused = this.currentlySnappedComponent?.myID == BossSlotId;
+        Color mythic = CardchaUi.RarityColor(CardRarity.Mythic);
+        DrawCircle(b, this.BossSlot.bounds, focused ? Color.White : mythic);
+        Rectangle inner = Inflate(this.BossSlot.bounds, -4);
+        DrawCircle(b, inner, new Color(181, 176, 164));
+        DrawLockIcon(b, Inflate(inner, -8));
+    }
+
+    private void DrawSecretCircle(SpriteBatch b)
+    {
+        bool focused = this.currentlySnappedComponent?.myID == SecretSlotId;
+        Color chachaPink = new(238, 105, 181);
+        DrawCircle(b, this.SecretSlot.bounds, focused ? Color.White : chachaPink);
+        Rectangle inner = Inflate(this.SecretSlot.bounds, -4);
+        DrawCircle(b, inner, new Color(161, 137, 157));
+        DrawLockIcon(b, Inflate(inner, -8));
+    }
+
+    private void DrawActionButtons(SpriteBatch b, bool owned)
+    {
+        bool favorite = owned && this.Selected is not null && this.Save.Data.FavoriteCardIds.Contains(this.Selected.Id);
+        bool equipped = owned && this.Selected is not null && this.Loadout.IsEquipped(this.Selected.Id);
+        bool maxed = !owned || this.Selected is null || this.Upgrades.IsMaxLevel(this.Selected);
+        int have = this.Selected is null ? 0 : this.Upgrades.GetCopies(this.Selected);
+        int need = this.Selected is null ? 0 : this.Upgrades.GetRequiredCopies(this.Selected);
+
+        this.DrawSmallButton(
+            b,
+            this.FavoriteActionButton,
+            favorite ? "★ " + ModEntry.T("binder.favorite.remove") : "☆ " + ModEntry.T("binder.favorite.add"),
+            owned ? CardchaUi.Gold : new Color(130, 120, 112)
+        );
+
+        this.DrawSmallButton(
+            b,
+            this.EquipActionButton,
+            equipped ? ModEntry.T("binder.unequip") : ModEntry.T("binder.equip"),
+            owned ? (equipped ? CardchaUi.DangerRed : CardchaUi.GoodGreen) : new Color(130, 120, 112)
+        );
+
+        string upgrade = maxed
+            ? ModEntry.T("binder.upgrade.max")
+            : ModEntry.T("binder.upgrade", new { have, need });
+        Color upgradeColor = !maxed && have >= need ? CardchaUi.PremiumPurple : new Color(130, 120, 112);
+        this.DrawSmallButton(b, this.UpgradeActionButton, upgrade, upgradeColor);
+
+        this.DrawSmallButton(
+            b,
+            this.DeselectActionButton,
+            ModEntry.T("binder.deselect"),
+            this.ControllerSelectionLocked ? new Color(75, 102, 123) : new Color(130, 120, 112)
+        );
+    }
+
+    private void DrawStatus(SpriteBatch b)
+    {
+        Rectangle statusArea = new(
+            this.RightPage.X + 28,
+            this.FavoriteActionButton.bounds.Y - 38,
+            this.RightPage.Width - 56,
+            32
+        );
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.Status, statusArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.75f, centerX: true, maxScale: 1.0f, centerY: true);
+    }
+
+    private string FilterLabel(BinderFilter filter)
+        => filter switch
+        {
+            BinderFilter.All => ModEntry.T("binder.filter.all"),
+            BinderFilter.Common => ModEntry.T("rarity.common"),
+            BinderFilter.Rare => ModEntry.T("rarity.rare"),
+            BinderFilter.Epic => ModEntry.T("rarity.epic"),
+            BinderFilter.Legendary => ModEntry.T("rarity.legendary"),
+            BinderFilter.Mythic => ModEntry.T("rarity.mythic"),
+            BinderFilter.Favorite => ModEntry.T("binder.favorite"),
+            _ => ModEntry.T("binder.filter.all")
+        };
+
+    private Color FilterColor(BinderFilter filter)
+        => filter switch
+        {
+            BinderFilter.Common => CardchaUi.RarityColor(CardRarity.Common),
+            BinderFilter.Rare => CardchaUi.RarityColor(CardRarity.Rare),
+            BinderFilter.Epic => CardchaUi.RarityColor(CardRarity.Epic),
+            BinderFilter.Legendary => CardchaUi.RarityColor(CardRarity.Legendary),
+            BinderFilter.Mythic => CardchaUi.RarityColor(CardRarity.Mythic),
+            BinderFilter.Favorite => CardchaUi.Gold,
+            _ => CardchaUi.Leather
+        };
+
+    private void DrawBookmark(SpriteBatch b, ClickableComponent button, string text, bool active, Color accent)
+    {
+        Rectangle r = button.bounds;
+        Point mouse = CardchaUi.GetUiMousePoint();
+        bool hover = r.Contains(mouse.X, mouse.Y);
+        Color fill = active ? CardchaUi.ParchmentLight : hover ? CardchaUi.LeatherLight : CardchaUi.LeatherDark;
+        Color ink = active ? CardchaUi.InkBrown : Color.White;
+        DrawRoundedRect(b, r, accent, 7);
+        DrawRoundedRect(b, Inflate(r, -3), fill, 5);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, text, Inflate(r, -7), ink, maxLines: 2, minScale: 0.70f, centerX: true, maxScale: 1.18f, centerY: true);
+    }
+
+    private void DrawResourceSlot(SpriteBatch b, ClickableComponent button, bool shiny)
+    {
+        Point mouse = CardchaUi.GetUiMousePoint();
+        bool highlighted = button.bounds.Contains(mouse.X, mouse.Y)
+            || this.currentlySnappedComponent?.myID == button.myID;
+        Color edge = highlighted
+            ? Color.White
+            : shiny ? CardchaUi.PremiumPurple : new Color(154, 91, 43);
+
+        DrawRoundedRect(b, button.bounds, edge, 7);
+        DrawRoundedRect(b, Inflate(button.bounds, -3), new Color(77, 47, 35), 5);
+        DrawRoundedBorder(b, Inflate(button.bounds, -5), CardchaUi.Gold * 0.72f, 2, 4);
+
+        if (!this.ScrapTextureChecked)
+        {
+            this.ScrapTextureChecked = true;
+            try
+            {
+                this.ScrapTexture = Game1.content.Load<Texture2D>(ItemAssetService.TextureAsset);
+            }
+            catch
+            {
+                this.ScrapTexture = null;
+            }
+        }
+
+        int insetX = 4;
+        int insetTop = 2;
+        int reservedCountHeight = 18;
+        Rectangle iconArea = new(
+            button.bounds.X + insetX,
+            button.bounds.Y + insetTop,
+            button.bounds.Width - insetX * 2,
+            Math.Max(26, button.bounds.Height - reservedCountHeight - insetTop)
+        );
+
+        if (this.ScrapTexture is not null)
+        {
+            Rectangle source = new(shiny ? 16 : 0, 0, 16, 16);
+            b.Draw(this.ScrapTexture, iconArea, source, Color.White);
+        }
+        else
+        {
+            DrawCircle(b, iconArea, shiny ? new Color(199, 90, 232) : new Color(205, 136, 65));
+        }
+
+        int count = this.Resources.Count(shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId);
+        Rectangle countArea = new(button.bounds.X + 1, button.bounds.Bottom - 27, button.bounds.Width - 2, 25);
         CardchaUi.DrawScaledText(
             b,
             Game1.smallFont,
-            $"×{Math.Max(0, count)}",
-            new Rectangle(slot.X + 3, slot.Bottom - 23, slot.Width - 6, 20),
+            $"×{count}",
+            countArea,
             Color.White,
             centerX: true,
             centerY: true,
             padding: 1,
-            maxScale: 0.92f
+            maxScale: 1.40f
         );
     }
 
-    public override void draw(SpriteBatch b)
+    private void DrawResourceTooltipIfNeeded(SpriteBatch b)
     {
-        b.Draw(
-            Game1.fadeToBlackRect,
-            Game1.graphics.GraphicsDevice.Viewport.Bounds,
-            Color.Black * 0.80f
-        );
-
-        Rectangle book = new(
-            this.xPositionOnScreen,
-            this.yPositionOnScreen,
-            this.width,
-            this.height
-        );
-
-        // Outer leather shell.
-        b.Draw(Game1.staminaRect, book, CardchaUi.LeatherDark);
-        CardchaUi.DrawBorder(b, book, new Color(35, 23, 28), 6);
-
-        Rectangle leatherInset = new(
-            book.X + 8,
-            book.Y + 8,
-            book.Width - 16,
-            book.Height - 16
-        );
-        b.Draw(Game1.staminaRect, leatherInset, CardchaUi.Leather);
-        CardchaUi.DrawBorder(b, leatherInset, CardchaUi.Gold * 0.85f, 3);
-        CardchaUi.DrawCornerOrnaments(b, leatherInset, CardchaUi.Gold * 0.72f);
-
-        // Two-page spread inspired by a real collector journal.
-        int splitX = this.xPositionOnScreen + this.width - 350;
-        Rectangle leftPage = new(
-            this.xPositionOnScreen + 28,
-            this.yPositionOnScreen + 22,
-            splitX - (this.xPositionOnScreen + 28) - 10,
-            this.height - 44
-        );
-        Rectangle rightPage = new(
-            splitX + 10,
-            this.yPositionOnScreen + 22,
-            this.xPositionOnScreen + this.width - 28 - (splitX + 10),
-            this.height - 44
-        );
-
-        CardchaUi.DrawInsetPanel(
-            b,
-            leftPage,
-            new Color(48, 39, 56),
-            new Color(112, 82, 67),
-            3,
-            5
-        );
-        CardchaUi.DrawInsetPanel(
-            b,
-            rightPage,
-            new Color(239, 218, 183),
-            CardchaUi.PaperShadow,
-            3,
-            5
-        );
-
-        // Center spine / page shadow.
-        b.Draw(
-            Game1.staminaRect,
-            new Rectangle(splitX - 2, this.yPositionOnScreen + 28, 5, this.height - 56),
-            new Color(43, 31, 37)
-        );
-        b.Draw(
-            Game1.staminaRect,
-            new Rectangle(splitX + 3, this.yPositionOnScreen + 32, 2, this.height - 64),
-            Color.White * 0.12f
-        );
-
-        // Decorative category bookmarks on the far-left edge.
-        Color[] tabColors =
-        {
-            new Color(154, 85, 58),
-            new Color(62, 111, 151),
-            new Color(74, 124, 83),
-            new Color(151, 68, 75)
-        };
-
-        for (int i = 0; i < tabColors.Length; i++)
-        {
-            Rectangle tab = new(
-                this.xPositionOnScreen - 8,
-                this.yPositionOnScreen + 164 + i * 76,
-                42,
-                58
-            );
-            b.Draw(Game1.staminaRect, tab, tabColors[i]);
-            CardchaUi.DrawBorder(b, tab, new Color(45, 31, 35), 2);
-
-            string glyph = i switch
-            {
-                0 => "★",
-                1 => "◆",
-                2 => "✦",
-                _ => "?"
-            };
-
-            CardchaUi.DrawScaledText(
-                b,
-                Game1.smallFont,
-                glyph,
-                tab,
-                Color.White,
-                centerX: true,
-                centerY: true,
-                padding: 8
-            );
-        }
-
-        CardchaUi.DrawNotebookTab(b, this.BackButton, this.BackLabel);
-
-        Rectangle titlePaper = new(
-            this.xPositionOnScreen + 260,
-            this.yPositionOnScreen + 26,
-            430,
-            72
-        );
-        CardchaUi.DrawPaperHeader(
-            b,
-            titlePaper,
-            ModEntry.T("binder.title"),
-            ModEntry.T(
-                "binder.discovered",
-                new
-                {
-                    owned = this.Save.Data.OwnedCards.Count,
-                    total = this.Cards.All.Count
-                }
-            )
-        );
-
-        this.DrawScrapWallet(b);
-
-        // Active cards rack.
-        Rectangle activeRack = new(
-            this.xPositionOnScreen + 42,
-            this.yPositionOnScreen + 100,
-            600,
-            190
-        );
-        CardchaUi.DrawInsetPanel(
-            b,
-            activeRack,
-            new Color(65, 51, 69),
-            new Color(144, 102, 74),
-            3,
-            5
-        );
-
-        Rectangle activeTitle = new(
-            activeRack.X + 12,
-            activeRack.Y + 8,
-            370,
-            32
-        );
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T("binder.active-loadout", new { slots = this.UnlockedSlots }),
-            activeTitle,
-            new Color(247, 224, 181),
-            padding: 2,
-            maxScale: 1.30f
-        );
-
-        Rectangle hintArea = new(
-            activeRack.X + 12,
-            activeRack.Y + 38,
-            540,
-            22
-        );
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T("binder.hint"),
-            hintArea,
-            new Color(207, 196, 184),
-            padding: 2,
-            maxScale: 1.18f
-        );
-
-        int nextSlotCost = this.Upgrades.GetNextSlotUnlockCost();
-        string unlockLabel = nextSlotCost <= 0
-            ? ModEntry.T("binder.slot.maxed")
-            : ModEntry.T("binder.unlock-slot", new { cost = nextSlotCost });
-
-        bool canUnlockSlot =
-            nextSlotCost > 0
-            && this.Save.Data.SuspiciousDust >= nextSlotCost;
-
-        CardchaUi.DrawButton(
-            b,
-            this.UnlockSlotButton,
-            unlockLabel,
-            CardchaUi.PremiumPurple,
-            enabled: canUnlockSlot
-        );
-
-        foreach ((int slot, ClickableComponent body, ClickableComponent remove) in this.ActiveSlots)
-        {
-            bool unlocked = slot < this.UnlockedSlots;
-            string? id = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
-            CardDefinition? card = id is null ? null : this.Cards.Get(id);
-
-            bool selected =
-                card is not null
-                && this.Selected?.Id.Equals(card.Id, StringComparison.OrdinalIgnoreCase) == true;
-
-            bool focused = this.currentlySnappedComponent?.myID == body.myID;
-
-            this.Renderer.DrawActiveSlot(
-                b,
-                body.bounds,
-                remove.bounds,
-                card,
-                slot + 1,
-                selected || focused,
-                unlocked
-            );
-
-            if (focused)
-                CardchaUi.DrawFocus(b, body.bounds);
-        }
-
-        // Collection page.
-        Rectangle collectionHeader = new(
-            this.xPositionOnScreen + 48,
-            this.yPositionOnScreen + 292,
-            590,
-            28
-        );
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T("binder.collection"),
-            collectionHeader,
-            new Color(247, 224, 181),
-            padding: 2,
-            maxScale: 1.30f
-        );
-
-        foreach ((CardDefinition card, ClickableComponent button) in this.CardButtons)
-        {
-            bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
-            bool equipped = this.Loadout.IsEquipped(card.Id);
-            bool focused = this.currentlySnappedComponent?.myID == button.myID;
-
-            this.Renderer.DrawCollectionCard(
-                b,
-                button.bounds,
-                card,
-                owned,
-                equipped,
-                this.Selected?.Id == card.Id || focused
-            );
-
-            if (owned)
-            {
-                Rectangle levelBadge = new(
-                    button.bounds.X + 4,
-                    button.bounds.Y + 4,
-                    40,
-                    23
-                );
-                b.Draw(
-                    Game1.staminaRect,
-                    levelBadge,
-                    new Color(42, 34, 43) * 0.88f
-                );
-                CardchaUi.DrawBorder(
-                    b,
-                    levelBadge,
-                    CardchaUi.Gold * 0.65f,
-                    1
-                );
-                CardchaUi.DrawScaledText(
-                    b,
-                    Game1.smallFont,
-                    $"Lv{this.Upgrades.GetLevel(card)}",
-                    levelBadge,
-                    Color.White,
-                    centerX: true,
-                    centerY: true,
-                    padding: 2,
-                    maxScale: 0.82f
-                );
-            }
-
-            if (focused)
-                CardchaUi.DrawFocus(b, button.bounds);
-        }
-
-        // Right detail page.
-        int sideX = this.xPositionOnScreen + this.width - 325;
-        int sideY = this.yPositionOnScreen + 52;
-
-        Rectangle detailTitle = new(
-            sideX + 8,
-            sideY,
-            254,
-            42
-        );
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.dialogueFont,
-            ModEntry.T("binder.details"),
-            detailTitle,
-            CardchaUi.InkBrown,
-            centerX: true,
-            centerY: true,
-            padding: 2
-        );
-
-        // Decorative divider.
-        b.Draw(
-            Game1.staminaRect,
-            new Rectangle(sideX + 24, sideY + 46, 220, 2),
-            CardchaUi.PaperShadow
-        );
-        b.Draw(
-            Game1.staminaRect,
-            new Rectangle(sideX + 112, sideY + 42, 44, 10),
-            CardchaUi.Gold * 0.55f
-        );
-
-        if (this.Selected is null)
-        {
-            CardchaUi.DrawWrappedText(
-                b,
-                Game1.smallFont,
-                ModEntry.T("binder.inspect-help"),
-                new Rectangle(sideX + 20, sideY + 74, 230, 150),
-                Color.DarkSlateGray,
-                maxLines: 6
-            );
-        }
-        else
-        {
-            Rectangle iconFrame = new(
-                sideX + 89,
-                sideY + 56,
-                92,
-                92
-            );
-            b.Draw(
-                Game1.staminaRect,
-                iconFrame,
-                new Color(228, 196, 145)
-            );
-            CardchaUi.DrawBorder(
-                b,
-                iconFrame,
-                CardchaUi.RarityColor(this.Selected.Rarity),
-                4
-            );
-            CardchaUi.DrawCornerOrnaments(
-                b,
-                iconFrame,
-                CardchaUi.Gold * 0.55f
-            );
-            this.Renderer.DrawIcon(
-                b,
-                new Rectangle(
-                    iconFrame.X + 12,
-                    iconFrame.Y + 12,
-                    iconFrame.Width - 24,
-                    iconFrame.Height - 24
-                ),
-                this.Selected
-            );
-
-            Rectangle nameArea = new(
-                sideX + 18,
-                sideY + 146,
-                234,
-                44
-            );
-            CardchaUi.DrawAutoFitWrappedText(
-                b,
-                Game1.smallFont,
-                this.Selected.Name,
-                nameArea,
-                CardchaUi.RarityColor(this.Selected.Rarity),
-                maxLines: 2,
-                minScale: 0.62f,
-                centerX: true,
-                maxScale: 1.12f
-            );
-
-            Rectangle rarityArea = new(
-                sideX + 18,
-                sideY + 190,
-                234,
-                22
-            );
-            CardchaUi.DrawScaledText(
-                b,
-                Game1.smallFont,
-                CardchaUi.RarityText(this.Selected.Rarity),
-                rarityArea,
-                Color.Black,
-                padding: 0,
-                maxScale: 1.22f
-            );
-
-            int level = this.Upgrades.GetLevel(this.Selected);
-            int maxLevel = this.Upgrades.GetMaxLevel(this.Selected);
-
-            Rectangle levelArea = new(
-                sideX + 18,
-                sideY + 214,
-                234,
-                22
-            );
-            CardchaUi.DrawScaledText(
-                b,
-                Game1.smallFont,
-                ModEntry.T("binder.level", new { level, max = maxLevel }),
-                levelArea,
-                Color.Black,
-                padding: 0,
-                maxScale: 1.22f
-            );
-
-            CardchaUi.DrawStars(
-                b,
-                new Rectangle(sideX + 18, sideY + 238, 234, 24),
-                level,
-                maxLevel,
-                CardchaUi.Gold
-            );
-
-            this.DrawScrollableDetailContent(b);
-        }
-
-        // Status parchment strip deliberately bounded so long Vietnamese text
-        // never overlaps the buttons below.
-        Rectangle statusStrip = new(
-            sideX + 10,
-            this.yPositionOnScreen + this.height - 270,
-            250,
-            56
-        );
-        b.Draw(
-            Game1.staminaRect,
-            statusStrip,
-            new Color(228, 196, 145) * 0.70f
-        );
-        CardchaUi.DrawBorder(
-            b,
-            statusStrip,
-            Color.SaddleBrown * 0.45f,
-            2
-        );
-        CardchaUi.DrawAutoFitWrappedText(
-            b,
-            Game1.smallFont,
-            this.Status,
-            new Rectangle(
-                statusStrip.X + 6,
-                statusStrip.Y + 5,
-                statusStrip.Width - 12,
-                statusStrip.Height - 10
-            ),
-            Color.DarkSlateGray,
-            maxLines: 2,
-            minScale: 0.78f,
-            maxScale: 1.16f
-        );
-
-        bool canEquip =
-            this.Selected is not null
-            && !this.Loadout.IsEquipped(this.Selected.Id);
-
-        bool canUnequip =
-            this.Selected is not null
-            && this.Loadout.IsEquipped(this.Selected.Id);
-
-        bool canUpgrade =
-            this.Selected is not null
-            && this.Upgrades.GetRequiredCopies(this.Selected) > 0
-            && this.Upgrades.GetCopies(this.Selected) >= this.Upgrades.GetRequiredCopies(this.Selected)
-            && this.Save.Data.OwnedCards.Contains(this.Selected.Id);
-
-        CardchaUi.DrawButton(
-            b,
-            this.EquipButton,
-            ModEntry.T("binder.equip"),
-            CardchaUi.GoodGreen,
-            canEquip
-        );
-        CardchaUi.DrawButton(
-            b,
-            this.UnequipButton,
-            ModEntry.T("binder.unequip"),
-            CardchaUi.DangerRed,
-            canUnequip
-        );
-
-        string upgradeLabel =
-            this.Selected is null
-            || this.Upgrades.GetRequiredCopies(this.Selected) <= 0
-                ? ModEntry.T("binder.upgrade.max")
-                : ModEntry.T(
-                    "binder.upgrade",
-                    new
-                    {
-                        have = this.Upgrades.GetCopies(this.Selected),
-                        need = this.Upgrades.GetRequiredCopies(this.Selected)
-                    }
-                );
-
-        CardchaUi.DrawButton(
-            b,
-            this.UpgradeButton,
-            upgradeLabel,
-            CardchaUi.Gold,
-            canUpgrade
-        );
-
-        if (this.currentlySnappedComponent?.myID == EquipId)
-            CardchaUi.DrawFocus(b, this.EquipButton.bounds);
-        if (this.currentlySnappedComponent?.myID == UnequipId)
-            CardchaUi.DrawFocus(b, this.UnequipButton.bounds);
-        if (this.currentlySnappedComponent?.myID == UpgradeId)
-            CardchaUi.DrawFocus(b, this.UpgradeButton.bounds);
-        if (this.currentlySnappedComponent?.myID == BackId)
-            CardchaUi.DrawFocus(b, this.BackButton.bounds);
-        if (this.currentlySnappedComponent?.myID == UnlockSlotId)
-            CardchaUi.DrawFocus(b, this.UnlockSlotButton.bounds);
-
-        if (this.currentlySnappedComponent?.myID == DetailScrollId)
-            CardchaUi.DrawFocus(b, Rectangle.Union(this.DetailScrollViewport, this.DetailScrollTrack));
-
-        this.DrawScrapInspectTooltip(b);
-
-        if (this.UpgradeCelebrationMs > 0)
-            this.DrawUpgradeCelebration(b);
-
-        drawMouse(b);
-    }
-
-    private void SyncSelectionFromControllerFocus()
-    {
-        int id = this.currentlySnappedComponent?.myID ?? -1;
-        CardDefinition? next = null;
-
-        if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
-        {
-            next = this.CardButtons[id - CardBaseId].Card;
-        }
-        else if (id >= ActiveBaseId && id < ActiveBaseId + this.ActiveSlots.Count)
-        {
-            int slot = id - ActiveBaseId;
-            string? cardId = this.Save.Data.EquippedCards.ElementAtOrDefault(slot);
-            if (!string.IsNullOrWhiteSpace(cardId))
-                next = this.Cards.Get(cardId);
-        }
-
-        if (next is null || string.Equals(this.Selected?.Id, next.Id, StringComparison.OrdinalIgnoreCase))
-            return;
-
-        this.Selected = next;
-        this.ResetDetailScroll();
-    }
-
-    private void ScrollDetailBy(int delta)
-    {
-        int max = this.GetDetailMaxScroll();
-        if (max <= 0)
-        {
-            this.DetailScrollOffset = 0;
-            return;
-        }
-
-        int before = this.DetailScrollOffset;
-        this.DetailScrollOffset = Math.Clamp(this.DetailScrollOffset + delta, 0, max);
-        if (this.DetailScrollOffset != before)
-            Game1.playSound("smallSelect");
-    }
-
-    private void DrawScrapInspectTooltip(SpriteBatch b)
-    {
-        if (!this.Save.Data.BinderUnlocked)
-            return;
-
         Point mouse = CardchaUi.GetUiMousePoint();
-        int focus = this.currentlySnappedComponent?.myID ?? -1;
-        bool normal = focus == NormalScrapId || this.NormalScrapButton.bounds.Contains(mouse);
-        bool shiny = focus == ShinyScrapId || this.ShinyScrapButton.bounds.Contains(mouse);
-        if (!normal && !shiny)
+        ClickableComponent? target = null;
+        bool shiny = false;
+
+        if (this.NormalScrapButton.bounds.Contains(mouse.X, mouse.Y)
+            || this.currentlySnappedComponent?.myID == NormalScrapId)
+        {
+            target = this.NormalScrapButton;
+        }
+        else if (this.ShinyScrapButton.bounds.Contains(mouse.X, mouse.Y)
+            || this.currentlySnappedComponent?.myID == ShinyScrapId)
+        {
+            target = this.ShinyScrapButton;
+            shiny = true;
+        }
+
+        if (target is null)
             return;
 
-        string name = ModEntry.T(normal ? "item.cardboard.name" : "item.shiny.name");
-        string desc = ModEntry.T(normal ? "item.cardboard.desc" : "item.shiny.desc");
-        Rectangle source = normal ? this.NormalScrapButton.bounds : this.ShinyScrapButton.bounds;
-
-        int width = 330;
-        int height = 116;
-        int x = Math.Clamp(source.Center.X - width / 2, 12, Game1.uiViewport.Width - width - 12);
-        int y = Math.Clamp(source.Bottom + 8, 12, Game1.uiViewport.Height - height - 12);
+        string name = ModEntry.T(shiny ? "item.shiny.name" : "item.cardboard.name");
+        string desc = ModEntry.T(shiny ? "item.shiny.desc" : "item.cardboard.desc");
+        int count = this.Resources.Count(shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId);
+        int maxWidth = Math.Min(360, Math.Max(230, Game1.uiViewport.Width / 3));
+        int pad = 12;
+        string body = Game1.parseText($"{name}  ×{count}\n{desc}", Game1.smallFont, maxWidth - pad * 2);
+        Vector2 measured = Game1.smallFont.MeasureString(body);
+        int width = Math.Min(maxWidth, Math.Max(220, (int)Math.Ceiling(measured.X) + pad * 2));
+        int height = Math.Max(72, (int)Math.Ceiling(measured.Y) + pad * 2);
+        int x = Math.Min(target.bounds.Right + 12, Game1.uiViewport.Width - width - 8);
+        int y = Math.Clamp(target.bounds.Y, 8, Game1.uiViewport.Height - height - 8);
         Rectangle panel = new(x, y, width, height);
 
-        CardchaUi.DrawInsetPanel(
-            b,
-            panel,
-            new Color(241, 223, 190),
-            CardchaUi.Gold * 0.82f,
-            2,
-            4
-        );
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            name,
-            new Rectangle(panel.X + 12, panel.Y + 8, panel.Width - 24, 28),
-            CardchaUi.InkBrown,
-            centerX: true,
-            centerY: true,
-            padding: 1,
-            maxScale: 1.05f
-        );
-        CardchaUi.DrawWrappedText(
-            b,
-            Game1.smallFont,
-            desc,
-            new Rectangle(panel.X + 14, panel.Y + 40, panel.Width - 28, panel.Height - 48),
-            Color.DarkSlateGray,
-            maxLines: 4
-        );
+        DrawRoundedRect(b, panel, new Color(34, 37, 45) * 0.96f, 8);
+        DrawRoundedBorder(b, panel, shiny ? CardchaUi.PremiumPurple : CardchaUi.Gold, 2, 8);
+        b.DrawString(Game1.smallFont, body, new Vector2(panel.X + pad, panel.Y + pad), Color.White);
     }
 
-    private void StartUpgradeCelebration(
-        CardDefinition card,
-        int fromLevel,
-        int toLevel,
-        int copiesSpent,
-        string beforeEffect,
-        string afterEffect)
+    private void DrawPageSeal(SpriteBatch b, ClickableComponent button, bool pointsLeft, bool enabled)
     {
-        this.UpgradeCelebrationCard = card;
-        this.UpgradeCelebrationFromLevel = fromLevel;
-        this.UpgradeCelebrationToLevel = toLevel;
-        this.UpgradeCelebrationCopiesSpent = copiesSpent;
-        this.UpgradeCelebrationBefore = beforeEffect;
-        this.UpgradeCelebrationAfter = afterEffect;
-        this.UpgradeCelebrationMs = UpgradeCelebrationDurationMs;
+        bool focused = this.currentlySnappedComponent?.myID == button.myID;
+        Color edge = focused ? Color.White : enabled ? CardchaUi.Gold : new Color(126, 111, 103);
+        DrawCircle(b, button.bounds, edge);
+        DrawCircle(b, Inflate(button.bounds, -4), enabled ? CardchaUi.Leather : new Color(145, 130, 120));
+        this.DrawPixelChevron(b, button.bounds, pointsLeft, Color.White * (enabled ? 1f : 0.72f));
     }
 
-    private void ClearUpgradeCelebration()
+    private void DrawPixelChevron(SpriteBatch b, Rectangle bounds, bool pointsLeft, Color color)
     {
-        this.UpgradeCelebrationMs = 0;
-        this.UpgradeCelebrationCard = null;
-        this.UpgradeCelebrationBefore = "";
-        this.UpgradeCelebrationAfter = "";
-    }
+        // Draw with tiny rectangles instead of a font glyph. Stardew's font maps some
+        // punctuation/triangle glyphs to hearts/stars, which caused the old page buttons.
+        int step = Math.Max(2, bounds.Height / 8);
+        int dot = Math.Max(2, step);
+        int arm = Math.Max(3, bounds.Height / (step * 2) - 1);
+        int pointX = bounds.Center.X + (pointsLeft ? -step * 2 : step * 2);
+        int dir = pointsLeft ? 1 : -1;
 
-    private void DrawUpgradeCelebration(SpriteBatch b)
-    {
-        CardDefinition? card = this.UpgradeCelebrationCard;
-        if (card is null)
-            return;
-
-        float progress = 1f - Math.Clamp(
-            this.UpgradeCelebrationMs / (float)UpgradeCelebrationDurationMs,
-            0f,
-            1f
-        );
-
-        float fadeIn = Math.Clamp(progress / 0.12f, 0f, 1f);
-        float fadeOut = Math.Clamp(this.UpgradeCelebrationMs / 260f, 0f, 1f);
-        float alpha = Math.Min(fadeIn, fadeOut);
-
-        Rectangle screen = Game1.graphics.GraphicsDevice.Viewport.Bounds;
-        b.Draw(
-            Game1.fadeToBlackRect,
-            screen,
-            Color.Black * (0.58f * alpha)
-        );
-
-        int panelW = Math.Min(720, screen.Width - 48);
-        int panelH = Math.Min(430, screen.Height - 48);
-
-        Rectangle panel = new(
-            screen.Center.X - panelW / 2,
-            screen.Center.Y - panelH / 2,
-            panelW,
-            panelH
-        );
-
-        b.Draw(
-            Game1.staminaRect,
-            panel,
-            CardchaUi.ParchmentLight * alpha
-        );
-        CardchaUi.DrawBorder(
-            b,
-            panel,
-            CardchaUi.Gold * alpha,
-            5
-        );
-        CardchaUi.DrawCornerOrnaments(
-            b,
-            panel,
-            CardchaUi.Gold * (0.85f * alpha)
-        );
-
-        Rectangle title =
-            new(panel.X + 28, panel.Y + 18, panel.Width - 56, 46);
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.dialogueFont,
-            ModEntry.T("binder.upgrade-celebration.title"),
-            title,
-            new Color(105, 62, 34) * alpha,
-            centerX: true,
-            centerY: true,
-            padding: 2,
-            maxScale: 1.05f
-        );
-
-        Rectangle cardRect =
-            new(panel.X + 38, panel.Y + 86, 168, 214);
-
-        this.Renderer.DrawRevealCard(
-            b,
-            cardRect,
-            card,
-            ModEntry.T(
-                "binder.upgrade-celebration.level",
-                new
-                {
-                    from = this.UpgradeCelebrationFromLevel,
-                    to = this.UpgradeCelebrationToLevel
-                }
-            )
-        );
-
-        string stars =
-            new string('★', Math.Max(1, this.UpgradeCelebrationToLevel));
-
-        Rectangle starsRect =
-            new(cardRect.X - 4, cardRect.Bottom + 6, cardRect.Width + 8, 32);
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            stars,
-            starsRect,
-            CardchaUi.Gold * alpha,
-            centerX: true,
-            centerY: true,
-            padding: 2,
-            maxScale: 1.20f
-        );
-
-        int infoX = panel.X + 236;
-        int infoW = panel.Right - infoX - 28;
-
-        Rectangle nameRect =
-            new(infoX, panel.Y + 82, infoW, 42);
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.dialogueFont,
-            card.Name,
-            nameRect,
-            CardchaUi.InkBrown * alpha,
-            centerX: true,
-            centerY: true,
-            padding: 2,
-            maxScale: 0.95f
-        );
-
-        Rectangle beforeBox =
-            new(infoX, panel.Y + 138, infoW, 92);
-        Rectangle afterBox =
-            new(infoX, panel.Y + 242, infoW, 112);
-
-        CardchaUi.DrawInsetPanel(
-            b,
-            beforeBox,
-            new Color(231, 213, 188) * alpha,
-            CardchaUi.PaperShadow * alpha,
-            2,
-            3
-        );
-        CardchaUi.DrawInsetPanel(
-            b,
-            afterBox,
-            new Color(255, 232, 167) * alpha,
-            CardchaUi.Gold * alpha,
-            3,
-            3
-        );
-
-        Rectangle beforeTitle =
-            new(beforeBox.X + 10, beforeBox.Y + 6, beforeBox.Width - 20, 26);
-        Rectangle beforeBody =
-            new(beforeBox.X + 10, beforeBox.Y + 32, beforeBox.Width - 20, beforeBox.Height - 38);
-        Rectangle afterTitle =
-            new(afterBox.X + 10, afterBox.Y + 6, afterBox.Width - 20, 26);
-        Rectangle afterBody =
-            new(afterBox.X + 10, afterBox.Y + 32, afterBox.Width - 20, afterBox.Height - 38);
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T("binder.upgrade-celebration.before"),
-            beforeTitle,
-            CardchaUi.InkBrown * alpha,
-            padding: 1,
-            maxScale: 1.05f
-        );
-
-        CardchaUi.DrawWrappedTextFixedClipped(
-            b,
-            Game1.smallFont,
-            this.UpgradeCelebrationBefore,
-            beforeBody,
-            beforeBox,
-            Color.Black * alpha,
-            maximumLines: 3
-        );
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T("binder.upgrade-celebration.after"),
-            afterTitle,
-            new Color(130, 78, 26) * alpha,
-            padding: 1,
-            maxScale: 1.08f
-        );
-
-        CardchaUi.DrawWrappedTextFixedClipped(
-            b,
-            Game1.smallFont,
-            this.UpgradeCelebrationAfter,
-            afterBody,
-            afterBox,
-            Color.Black * alpha,
-            maximumLines: 4
-        );
-
-        Rectangle footer =
-            new(panel.X + 30, panel.Bottom - 54, panel.Width - 60, 32);
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            ModEntry.T(
-                "binder.upgrade-celebration.footer",
-                new { copies = this.UpgradeCelebrationCopiesSpent }
-            ),
-            footer,
-            new Color(92, 72, 61) * alpha,
-            centerX: true,
-            centerY: true,
-            padding: 2,
-            maxScale: 1.05f
-        );
-    }
-
-    private void ResetDetailScroll()
-    {
-        this.DetailScrollOffset = 0;
-        this.DetailScrollDragging = false;
-    }
-
-    private int GetDetailMaxScroll()
-        => Math.Max(0, this.DetailContentHeight - this.DetailScrollViewport.Height);
-
-    private Rectangle GetDetailScrollThumb()
-    {
-        int maxScroll = this.GetDetailMaxScroll();
-        if (maxScroll <= 0)
-            return this.DetailScrollTrack;
-
-        int thumbHeight = Math.Max(
-            30,
-            (int)Math.Round(
-                this.DetailScrollTrack.Height
-                * (this.DetailScrollViewport.Height / (double)Math.Max(this.DetailContentHeight, 1))
-            )
-        );
-
-        thumbHeight = Math.Min(this.DetailScrollTrack.Height, thumbHeight);
-        int travel = Math.Max(1, this.DetailScrollTrack.Height - thumbHeight);
-        int y = this.DetailScrollTrack.Y
-            + (int)Math.Round(travel * (this.DetailScrollOffset / (double)maxScroll));
-
-        return new Rectangle(
-            this.DetailScrollTrack.X,
-            y,
-            this.DetailScrollTrack.Width,
-            thumbHeight
-        );
-    }
-
-    private void SetDetailScrollFromThumbY(int thumbY)
-    {
-        int maxScroll = this.GetDetailMaxScroll();
-        if (maxScroll <= 0)
+        for (int i = 0; i <= arm; i++)
         {
-            this.DetailScrollOffset = 0;
-            return;
+            int x = pointX + dir * i * step;
+            int dy = i * step;
+            b.Draw(Game1.staminaRect, new Rectangle(x - dot / 2, bounds.Center.Y - dy - dot / 2, dot, dot), color);
+            if (i > 0)
+                b.Draw(Game1.staminaRect, new Rectangle(x - dot / 2, bounds.Center.Y + dy - dot / 2, dot, dot), color);
         }
-
-        Rectangle thumb = this.GetDetailScrollThumb();
-        int travel = Math.Max(1, this.DetailScrollTrack.Height - thumb.Height);
-        int local = Math.Clamp(
-            thumbY - this.DetailScrollTrack.Y,
-            0,
-            travel
-        );
-
-        this.DetailScrollOffset = (int)Math.Round(
-            maxScroll * (local / (double)travel)
-        );
     }
 
-    private void DrawScrollableDetailContent(SpriteBatch b)
+    private void DrawSmallButton(SpriteBatch b, ClickableComponent button, string text, Color fill)
     {
-        if (this.Selected is null)
-            return;
-
-        CardDefinition card = this.Selected;
-        int currentLevel = this.Upgrades.GetLevel(card);
-        int maxLevel = this.Upgrades.GetMaxLevel(card);
-        int copies = this.Upgrades.GetCopies(card);
-        int needed = this.Upgrades.GetRequiredCopies(card);
-
-        int virtualY = 0;
-
-        string currentEffect = this.Upgrades.GetLevelEffectText(card, currentLevel);
-        this.DrawDetailBlock(
-            b,
-            ref virtualY,
-            ModEntry.T("binder.current-effect"),
-            currentEffect,
-            current: true
-        );
-
-        string copyText = needed <= 0
-            ? ModEntry.T("binder.copies.max", new { have = copies })
-            : ModEntry.T("binder.copies", new { have = copies, need = needed });
-
-        this.DrawDetailBlock(
-            b,
-            ref virtualY,
-            ModEntry.T("binder.upgrade-material"),
-            copyText,
-            current: false
-        );
-
-        virtualY += 4;
-
-        this.DrawDetailHeader(
-            b,
-            ref virtualY,
-            ModEntry.T("binder.all-levels")
-        );
-
-        for (int level = 1; level <= maxLevel; level++)
-        {
-            bool isCurrent = level == currentLevel;
-            string label = ModEntry.T(
-                "binder.level-row",
-                new { level, max = maxLevel }
-            );
-            string effectText = this.Upgrades.GetLevelEffectText(card, level);
-
-            this.DrawDetailBlock(
-                b,
-                ref virtualY,
-                label,
-                effectText,
-                isCurrent
-            );
-        }
-
-        this.DetailContentHeight = Math.Max(
-            this.DetailScrollViewport.Height,
-            virtualY + 6
-        );
-
-        this.DetailScrollOffset = Math.Clamp(
-            this.DetailScrollOffset,
-            0,
-            this.GetDetailMaxScroll()
-        );
-
-        Rectangle thumb = this.GetDetailScrollThumb();
-        CardchaUi.DrawScrollbar(
-            b,
-            this.DetailScrollTrack,
-            thumb,
-            this.DetailScrollDragging
-        );
+        Point mouse = CardchaUi.GetUiMousePoint();
+        bool hover = button.bounds.Contains(mouse.X, mouse.Y);
+        Color edge = hover || this.currentlySnappedComponent?.myID == button.myID ? Color.White : Color.Black * 0.45f;
+        DrawRoundedRect(b, button.bounds, edge, 7);
+        DrawRoundedRect(b, Inflate(button.bounds, -3), fill, 5);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, text, Inflate(button.bounds, -6), Color.White, maxLines: 2, minScale: 0.62f, centerX: true, maxScale: 1.08f, centerY: true);
     }
 
-    private void DrawDetailHeader(
-        SpriteBatch b,
-        ref int virtualY,
-        string text)
+    private static void DrawLockIcon(SpriteBatch b, Rectangle area)
     {
-        int height = Game1.smallFont.LineSpacing + 12;
+        int bodyW = Math.Clamp(area.Width / 2, 14, 28);
+        int bodyH = Math.Clamp(area.Height / 3, 11, 21);
+        int shackleH = Math.Clamp(area.Height / 4, 7, 15);
+        int line = Math.Clamp(area.Width / 18, 2, 4);
+        int bodyX = area.Center.X - bodyW / 2;
+        int bodyY = area.Center.Y - bodyH / 4;
+        int shackleLeft = bodyX + line + 1;
+        int shackleRight = bodyX + bodyW - line * 2 - 1;
+        int shackleTop = bodyY - shackleH;
 
-        Rectangle virtualRect = new(
-            this.DetailScrollViewport.X,
-            this.DetailScrollViewport.Y + virtualY - this.DetailScrollOffset,
-            this.DetailScrollViewport.Width,
-            height
-        );
+        b.Draw(Game1.staminaRect, new Rectangle(shackleLeft, shackleTop, Math.Max(3, shackleRight - shackleLeft), line), CardchaUi.Gold);
+        b.Draw(Game1.staminaRect, new Rectangle(shackleLeft, shackleTop, line, shackleH + line), CardchaUi.Gold);
+        b.Draw(Game1.staminaRect, new Rectangle(shackleRight, shackleTop, line, shackleH + line), CardchaUi.Gold);
 
-        if (virtualRect.Top >= this.DetailScrollViewport.Top
-            && virtualRect.Bottom <= this.DetailScrollViewport.Bottom)
-        {
-            Utility.drawTextWithShadow(
-                b,
-                text,
-                Game1.smallFont,
-                new Vector2(virtualRect.X, virtualRect.Y + 3),
-                CardchaUi.InkBrown
-            );
-        }
+        Rectangle body = new(bodyX, bodyY, bodyW, bodyH);
+        DrawRoundedRect(b, body, CardchaUi.LeatherDark, 3);
+        DrawRoundedBorder(b, body, CardchaUi.Gold, Math.Max(1, line - 1), 3);
 
-        virtualY += height + 2;
+        int keySize = Math.Clamp(bodyW / 6, 3, 5);
+        Rectangle key = new(body.Center.X - keySize / 2, body.Y + Math.Max(3, bodyH / 4), keySize, keySize);
+        DrawCircle(b, key, CardchaUi.Gold);
+        b.Draw(Game1.staminaRect, new Rectangle(body.Center.X - 1, key.Bottom - 1, 2, Math.Max(2, body.Bottom - key.Bottom - 3)), CardchaUi.Gold);
     }
 
-    private void DrawDetailBlock(
-        SpriteBatch b,
-        ref int virtualY,
-        string title,
-        string body,
-        bool current)
+    private static Rectangle Inflate(Rectangle rect, int amount)
+        => new(rect.X - amount, rect.Y - amount, rect.Width + amount * 2, rect.Height + amount * 2);
+
+    private static void DrawRoundedBorder(SpriteBatch b, Rectangle rect, Color color, int thickness, int radius)
     {
-        int horizontalPadding = 8;
-        int titleHeight = Game1.smallFont.LineSpacing + 8;
-        int bodyWidth = this.DetailScrollViewport.Width - horizontalPadding * 2;
-
-        int bodyHeight = CardchaUi.MeasureWrappedTextHeight(
-            Game1.smallFont,
-            body,
-            bodyWidth,
-            minimumLines: 1,
-            maximumLines: 6
-        );
-
-        // The FRAME grows to fit the readable text. We no longer shrink the text
-        // to fit a predetermined box.
-        int height = titleHeight + bodyHeight + 12;
-
-        Rectangle virtualRect = new(
-            this.DetailScrollViewport.X,
-            this.DetailScrollViewport.Y + virtualY - this.DetailScrollOffset,
-            this.DetailScrollViewport.Width,
-            height
-        );
-
-        if (virtualRect.Bottom >= this.DetailScrollViewport.Top
-            && virtualRect.Top <= this.DetailScrollViewport.Bottom)
-        {
-            Rectangle visible = Rectangle.Intersect(
-                virtualRect,
-                this.DetailScrollViewport
-            );
-
-            b.Draw(
-                Game1.staminaRect,
-                visible,
-                current
-                    ? new Color(255, 231, 172) * 0.78f
-                    : new Color(246, 228, 195) * 0.60f
-            );
-
-            if (visible.Height >= 18)
-            {
-                CardchaUi.DrawBorder(
-                    b,
-                    visible,
-                    current
-                        ? CardchaUi.Gold * 0.75f
-                        : CardchaUi.PaperShadow * 0.55f,
-                    2
-                );
-            }
-
-            Rectangle titleArea = new(
-                virtualRect.X + horizontalPadding,
-                virtualRect.Y + 5,
-                bodyWidth,
-                titleHeight - 4
-            );
-
-            if (titleArea.Top >= this.DetailScrollViewport.Top
-                && titleArea.Bottom <= this.DetailScrollViewport.Bottom)
-            {
-                Utility.drawTextWithShadow(
-                    b,
-                    title,
-                    Game1.smallFont,
-                    new Vector2(titleArea.X, titleArea.Y),
-                    current
-                        ? new Color(126, 78, 39)
-                        : CardchaUi.InkBrown
-                );
-            }
-
-            Rectangle bodyArea = new(
-                virtualRect.X + horizontalPadding,
-                virtualRect.Y + titleHeight,
-                bodyWidth,
-                bodyHeight
-            );
-
-            CardchaUi.DrawWrappedTextFixedClipped(
-                b,
-                Game1.smallFont,
-                body,
-                bodyArea,
-                this.DetailScrollViewport,
-                Color.Black,
-                maximumLines: 6
-            );
-        }
-
-        virtualY += height + 4;
+        // Keep the already-drawn rounded fill intact; use a thin conventional border on top.
+        // The corner silhouette remains rounded because the fill underneath is rounded.
+        CardchaUi.DrawBorder(b, rect, color, Math.Max(1, thickness));
     }
 
-    private void UnequipCard(CardDefinition card, string successMessage)
+    private static void DrawRoundedRect(SpriteBatch b, Rectangle rect, Color color, int radius)
     {
-        if (this.Loadout.Unequip(card.Id))
+        radius = Math.Clamp(radius, 1, Math.Min(rect.Width, rect.Height) / 2);
+        b.Draw(Game1.staminaRect, new Rectangle(rect.X + radius, rect.Y, rect.Width - radius * 2, rect.Height), color);
+        b.Draw(Game1.staminaRect, new Rectangle(rect.X, rect.Y + radius, rect.Width, rect.Height - radius * 2), color);
+
+        DrawQuarterCircle(b, new Point(rect.X + radius, rect.Y + radius), radius, color, 0);
+        DrawQuarterCircle(b, new Point(rect.Right - radius - 1, rect.Y + radius), radius, color, 1);
+        DrawQuarterCircle(b, new Point(rect.X + radius, rect.Bottom - radius - 1), radius, color, 2);
+        DrawQuarterCircle(b, new Point(rect.Right - radius - 1, rect.Bottom - radius - 1), radius, color, 3);
+    }
+
+    private static void DrawQuarterCircle(SpriteBatch b, Point center, int radius, Color color, int quadrant)
+    {
+        for (int y = 0; y < radius; y++)
         {
-            this.OnLoadoutChanged();
-            this.Status = successMessage;
-            Game1.playSound("smallSelect");
+            int x = (int)Math.Floor(Math.Sqrt(Math.Max(0, radius * radius - y * y)));
+            int width = Math.Max(1, x);
+            int drawY = quadrant < 2 ? center.Y - y : center.Y + y;
+            int drawX = quadrant is 0 or 2 ? center.X - width : center.X;
+            b.Draw(Game1.staminaRect, new Rectangle(drawX, drawY, width, 1), color);
         }
-        else
+    }
+
+    private static void DrawCircle(SpriteBatch b, Rectangle rect, Color color)
+    {
+        int cx = rect.Center.X;
+        int cy = rect.Center.Y;
+        int rx = Math.Max(1, rect.Width / 2);
+        int ry = Math.Max(1, rect.Height / 2);
+
+        for (int y = -ry; y <= ry; y++)
         {
-            this.Status = ModEntry.T("binder.status.not-equipped");
-            Game1.playSound("cancel");
+            double normalized = 1d - (y * y) / (double)(ry * ry);
+            int half = (int)Math.Floor(rx * Math.Sqrt(Math.Max(0d, normalized)));
+            b.Draw(Game1.staminaRect, new Rectangle(cx - half, cy + y, Math.Max(1, half * 2 + 1), 1), color);
         }
     }
 }
