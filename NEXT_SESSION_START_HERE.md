@@ -7,8 +7,15 @@ Before editing code, read:
 3. `BUILD.md`
 4. `docs/STORY_GAMEPLAY_BIBLE.md`
 
-### Critical source-sync warning
-The branch documentation is at alpha.23, but the checked-in GitHub `src/Cardcha/manifest.json` still reports alpha.10. Until source synchronization is completed, the packaged `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip` is the latest source candidate. Do not treat the older GitHub `src/` tree as alpha.23 by assumption.
+## Source status
+The alpha.23 source is now synchronized and verified on GitHub.
+
+Canonical source:
+- branch: `binder-v0.3-alpha1`
+- source sync commit: `69a0f5d8cccddb2200e2a8748904dabf754275ad`
+- exact `src/Cardcha` tree: `389fec3708f19e759ae6ab7aab33f98c5455e197`
+
+That tree matches all 69 files in `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip` byte-for-byte. Use checked-in GitHub `src/Cardcha` as the source of truth.
 
 ## Current candidate
 - Version: `0.3.0-alpha.23`
@@ -37,7 +44,7 @@ The branch documentation is at alpha.23, but the checked-in GitHub `src/Cardcha/
 - Ritual-local rectangular glow/aura was removed; resonance flash uses the full rounded large panel and repaints the outer gold frame.
 
 ## EN / VI localization
-- All 80 card names and descriptions are present in both `default.json` and `vi.json` in the alpha.23 source snapshot.
+- All 80 card names and descriptions are present in both `default.json` and `vi.json`.
 - All 304 per-star rule rows are localized in both languages and preferred by the Binder over legacy `cards.json` StarRules.
 - damage variance wording is clarified as random damage fluctuation / `độ dao động ngẫu nhiên của sát thương`.
 - mixed English fragments in audited Vietnamese card rules were normalized.
@@ -61,8 +68,9 @@ It records MiMi full-NPC direction, 17:30 TV/BL-shipping secret, relationship-aw
 - `Cardcha_v0.3.0-alpha.23_SOURCE_SNAPSHOT.zip`
 
 ## Validation status
-Targeted static validation: **53/53 PASS**.
-Real Windows compile with Stardew/SMAPI references is still required.
+- GitHub source sync: **VERIFIED**
+- targeted static validation: **53/53 PASS**
+- real Windows compile with Stardew/SMAPI references is still required.
 
 ## Next repository hygiene task
-After alpha.23 is compile/test-confirmed, synchronize the alpha.23 source snapshot into GitHub and record the exact last-known-good commit in `PROJECT_HANDOFF.md`.
+After alpha.23 is compile/test-confirmed, record the exact last-known-good commit/build artifact and the Stardew/SMAPI versions used for that confirmation.
