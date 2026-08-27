@@ -1,0 +1,136 @@
+name: Cardcha alpha26.5 CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+
+      - name: Reconstruct staged alpha26.4 base
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            cat build-input-alpha264/source.part.01.b64
+            cat build-input-alpha264/source.part.02.b64
+            head -c 9000 build-input-alpha264/source.chunk.04.b64
+            cat build-input-alpha264/source.chunk.05.b64
+            cat build-input-alpha264/source.fix.06.b64
+            cat build-input-alpha264/source.fix.07.b64
+            cat build-input-alpha264/source.chunk.08-09.b64
+            cat build-input-alpha264/source.chunk.10-11.b64
+            cat build-input-alpha264/source.chunk.12-13.b64
+            cat build-input-alpha264/source.chunk.14-15.b64
+            cat build-input-alpha264/source.tail.16.b64
+          } > /tmp/cardcha-source.b64
+          test "$(wc -c < /tmp/cardcha-source.b64)" -eq 138712
+          base64 --decode /tmp/cardcha-source.b64 > /tmp/cardcha-source.tar.xz
+          xz -t /tmp/cardcha-source.tar.xz
+          mkdir -p build-src
+          tar -xJf /tmp/cardcha-source.tar.xz -C build-src
+          test -f build-src/Cardcha/Cardcha.csproj
+
+      - name: Reapply accepted alpha26.4 guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          root = Path('build-src/Cardcha')
+
+          p = root / 'UI' / 'CardchaBinderMenu.cs'
+          s = p.read_text(encoding='utf-8')
+          start = s.index('    private void HandleCollectionActivation(CardDefinition card, bool fromController)')
+          end = s.index('    private void ReleaseSelectionLock(bool returnToCard)', start)
+          replacement = '''    private void HandleCollectionActivation(CardDefinition card, bool fromController)\n    {\n        bool owned = this.Save.Data.OwnedCards.Contains(card.Id);\n        double now = Environment.TickCount64;\n        double elapsed = now - this.LastQuickToggleAtMs;\n        bool secondActivation = owned\n            && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)\n            && elapsed >= QuickToggleMinMs\n            && elapsed <= QuickToggleWindowMs;\n\n        this.LastQuickToggleCardId = card.Id;\n        this.LastQuickToggleAtMs = now;\n\n        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n\n        if (secondActivation)\n        {\n            this.LastQuickToggleCardId = null;\n            this.LastQuickToggleAtMs = 0;\n            this.ToggleEquip();\n            return;\n        }\n\n        this.Status = owned\n            ? ModEntry.T("binder.status.selected", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");\n        Game1.playSound(owned ? "smallSelect" : "cancel");\n    }\n\n'''
+          s = s[:start] + replacement + s[end:]
+          p.write_text(s, encoding='utf-8')
+
+          edits = {
+              root / 'Services' / 'WorldActorService.cs': [(r'private const float ChaChaNativeScale = [0-9.]+f;', 'private const float ChaChaNativeScale = 0.5625f;')],
+              root / 'UI' / 'CardchaMachineMenu.cs': [(r'\\b1\\.55f\\b', '1.9375f')],
+              root / 'UI' / 'CardchaPullAnimationMenu.cs': [(r'float scale = 2\\.55f;', 'float scale = 3.1875f;'), (r'float scale = 2\\.45f;', 'float scale = 3.0625f;')],
+              root / 'UI' / 'ChaChaResonanceMenu.cs': [(r'float scale = Math\\.Clamp\\(anim\\.Height / 56f, 1\\.45f, 2\\.15f\\);', 'float scale = Math.Clamp(anim.Height / 56f, 1.45f, 2.15f) * 1.25f;')],
+          }
+          for file, rules in edits.items():
+              text = file.read_text(encoding='utf-8')
+              for pattern, repl in rules:
+                  text = re.sub(pattern, repl, text)
+              file.write_text(text, encoding='utf-8')
+          PY
+
+      - name: Apply alpha26.5 overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat build-input-alpha265/overlay.part.00.b64 \
+              build-input-alpha265/overlay.part.01.b64 \
+              build-input-alpha265/overlay.part.02.b64 \
+              build-input-alpha265/overlay.part.03.b64 \
+              build-input-alpha265/overlay.part.04.b64 > /tmp/alpha265-overlay.b64
+          test "$(wc -c < /tmp/alpha265-overlay.b64)" -eq 73228
+          base64 --decode /tmp/alpha265-overlay.b64 > /tmp/alpha265-overlay.tar.xz
+          xz -t /tmp/alpha265-overlay.tar.xz
+          mkdir -p /tmp/alpha265-overlay
+          tar -xJf /tmp/alpha265-overlay.tar.xz -C /tmp/alpha265-overlay
+          test -f /tmp/alpha265-overlay/Cardcha/manifest.json
+          cp -a /tmp/alpha265-overlay/Cardcha/. build-src/Cardcha/
+
+      - name: Validate alpha26.5 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('build-src/Cardcha')
+          checks = {
+            root/'manifest.json': ['0.3.0-alpha.26.5'],
+            root/'ModConfig.cs': ['StandardLegendaryPity { get; set; } = 70', 'PremiumLegendaryPity { get; set; } = 30'],
+            root/'Models'/'SaveData.cs': ['DuplicatePullStreak', 'SuspiciousDust'],
+            root/'Services'/'GachaService.cs': ['CollectionInsuranceDuplicates = 20', 'guaranteedNew', 'Card Dust'],
+            root/'UI'/'CardchaBinderMenu.cs': ['QuickToggleMinMs = 220d', 'CardDustId = 2022', 'PrevPageId', 'NextPageId'],
+            root/'UI'/'ChaChaResonanceMenu.cs': ['resonance.card-dust'],
+          }
+          for file, needles in checks.items():
+              text = file.read_text(encoding='utf-8')
+              for needle in needles:
+                  assert needle in text, f'{needle!r} missing from {file}'
+          print('alpha26.5 static contracts PASS')
+          PY
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Build Cardcha DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build build-src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
+          DLL="$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)"
+          test -n "$DLL"
+          echo "DLL=$DLL"
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp "$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)" artifact/Cardcha.dll
+          PDB="$(find build-src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"
+          if [ -n "$PDB" ]; then cp "$PDB" artifact/Cardcha.pdb; fi
+          cp build-src/Cardcha/manifest.json artifact/manifest.json
+          tar -cJf artifact/Cardcha_alpha26.5_SOURCE.tar.xz -C build-src Cardcha
+
+      - name: Upload alpha26.5 compiler output
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha26.5-compiler-output
+          path: artifact
+          if-no-files-found: error
