@@ -1,4 +1,4 @@
-name: Cardcha alpha27.0.6 attic vanilla-style rework
+name: Cardcha alpha27.0.7 true Stardew attic map
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
@@ -12,64 +12,62 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Prepare alpha27.0.6 vanilla-style attic
+      - name: Prepare alpha27.0.7 true Stardew attic
         shell: bash
         run: |
           set -euo pipefail
-          python3 -m pip install --quiet pillow
-          python3 build_assets/make_mimi_attic_vanilla_style.py
+          python3 build_assets/make_mimi_attic_true_stardew_map.py
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
           import json, xml.etree.ElementTree as ET
 
           r = Path('src/Cardcha')
-          png = r / 'assets/mimi_attic_tiles.png'
           tmx = r / 'assets/mimi_attic.tmx'
-          assert png.exists() and tmx.exists(), 'custom attic assets missing'
-          with Image.open(png) as image:
-              image.load()
-              assert image.size == (352, 224), image.size
-              assert image.mode == 'RGBA', image.mode
+          old_png = r / 'assets/mimi_attic_tiles.png'
+          assert tmx.exists(), 'true Stardew attic TMX missing'
+          assert not old_png.exists(), '0.6 room-sized PNG must not ship in 0.7'
 
           root = ET.parse(tmx).getroot()
           assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
           assert [x.attrib.get('name') for x in root.findall('layer')] == ['Back', 'Buildings', 'Front']
           props = {p.attrib.get('name'): p.attrib.get('value') for p in root.find('properties').findall('property')}
-          assert props.get('CardchaAtticVersion') == 'alpha.27.0.6'
-          assert props.get('CardchaVisualDirection') == 'vanilla-style-shell|dark-border|doorway|lived-in'
-
-          p = r / 'Services/MimiHomeService.cs'
-          s = p.read_text()
-          s = s.replace('using the alpha.27.0.5 custom interior map.', 'using the alpha.27.0.6 vanilla-style custom interior map.')
-          p.write_text(s)
-          assert 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";' in s
+          assert props.get('CardchaAtticVersion') == 'alpha.27.0.7'
+          assert props.get('CardchaVisualDirection') == 'true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime'
+          image = root.find('tileset/image')
+          assert image is not None and image.attrib.get('source') == 'Maps/townInterior'
 
           p = r / 'Services/MimiAtticVisualService.cs'
           s = p.read_text()
-          s = s.replace('Alpha.27.0.5 custom interior layer', 'Alpha.27.0.6 vanilla-style custom interior layer')
-          s = s.replace('Still only an eligibility hook in alpha.27.0.5.', 'Still only an eligibility hook in alpha.27.0.6.')
+          assert 'EnsureVanillaFurniture' in s
+          assert 'ItemRegistry.Create<Furniture>' in s
+          assert 'DecorVersion = "alpha.27.0.7"' in s
+          assert '(F)2058' in s and '(F)1466' in s and '(F)432' in s
+
+          p = r / 'Services/MimiHomeService.cs'
+          s = p.read_text()
+          s = s.replace('using the alpha.27.0.6 vanilla-style custom interior map.', 'using the alpha.27.0.7 true Stardew tile/furniture map.')
           p.write_text(s)
-          assert 'AtticMapAssetName = "Maps/Cardcha_MiMiAttic"' in s
-          assert 'LoadFromModFile<xTile.Map>' in s
-          assert 'IsSecretTvRoutineEligible' in s
+          assert 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";' in s
 
           p = r / 'ModEntry.cs'
           s = p.read_text()
-          s = s.replace('v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST', 'v0.3.0-alpha.27.0.6 MIMI ATTIC VANILLA STYLE REWORK TEST')
+          s = s.replace(
+              'v0.3.0-alpha.27.0.6 MIMI ATTIC VANILLA STYLE REWORK TEST',
+              'v0.3.0-alpha.27.0.7 MIMI ATTIC TRUE STARDEW MAP TEST'
+          )
           p.write_text(s)
 
           p = r / 'Cardcha.csproj'
-          s = p.read_text().replace('0.3.0-alpha.27.0.5', '0.3.0-alpha.27.0.6')
+          s = p.read_text().replace('0.3.0-alpha.27.0.6', '0.3.0-alpha.27.0.7')
           p.write_text(s)
 
           p = r / 'Directory.Build.targets'
-          s = p.read_text().replace('0.3.0-alpha.27.0.5', '0.3.0-alpha.27.0.6').replace('CardchaAlpha2705Manifest', 'CardchaAlpha2706Manifest')
+          s = p.read_text().replace('0.3.0-alpha.27.0.6', '0.3.0-alpha.27.0.7').replace('CardchaAlpha2706Manifest', 'CardchaAlpha2707Manifest')
           p.write_text(s)
 
           p = r / 'manifest.json'
           d = json.loads(p.read_text(encoding='utf-8-sig'))
-          d['Version'] = '0.3.0-alpha.27.0.6'
+          d['Version'] = '0.3.0-alpha.27.0.7'
           p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
           PY
 
@@ -88,8 +86,9 @@ jobs:
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -f stage/Cardcha/assets/mimi_attic.tmx
-          test -f stage/Cardcha/assets/mimi_attic_tiles.png
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.6_MiMiAttic_VanillaStyleRework_TEST.zip Cardcha)
+          test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
+          grep -q 'Maps/townInterior' stage/Cardcha/assets/mimi_attic.tmx
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7_MiMiAttic_TrueStardewMap_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - name: Commit compiled milestone source
@@ -99,10 +98,10 @@ jobs:
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.6: generate validated MiMi attic vanilla-style asset' && git push origin cardcha-alpha27-mimi-real-npc)
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7: build true Stardew MiMi attic map' && git push origin cardcha-alpha27-mimi-real-npc)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-attic-vanilla-style-rework
+          name: cardcha-alpha27-attic-true-stardew-map
           path: artifact
           if-no-files-found: error
