@@ -1,4 +1,4 @@
-name: Cardcha alpha27.0.7.2 asset regression and reveal controller fix
+name: Cardcha alpha27.0.7.3 MiMi attic map-load lag hotfix
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
@@ -12,7 +12,7 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Prepare alpha27.0.7.2 controller fix
+      - name: Prepare alpha27.0.7.3 attic hotfix
         shell: bash
         run: |
           set -euo pipefail
@@ -20,53 +20,98 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import json
+          import xml.etree.ElementTree as ET
 
           r = Path('src/Cardcha')
 
-          # Keep the 0.7.1 attic test bypass and true-Stardew map intact.
-          home = (r / 'Services/MimiHomeService.cs').read_text()
-          visual = (r / 'Services/MimiAtticVisualService.cs').read_text()
-          entry = (r / 'ModEntry.cs').read_text()
-          assert 'DebugToggleAtticAccess' in home
-          assert 'TestAccessActive' in visual
-          assert 'cardcha_test_attic' in entry
+          # Fix the actual TMX failure path first. For unchanged vanilla tilesheets SMAPI's
+          # documented convention is a dot-prefixed local reference, which falls back to
+          # Content/Maps without treating "Maps/" as a relative subfolder of assets.
+          tmx = r / 'assets/mimi_attic.tmx'
+          root = ET.parse(tmx).getroot()
+          image = root.find('./tileset/image')
+          assert image is not None
+          assert image.attrib.get('source') == '.townInterior.png', image.attrib
+          assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
+          props = {p.attrib.get('name'): p.attrib.get('value') for p in root.findall('./properties/property')}
+          assert props.get('CardchaAtticVersion') == 'alpha.27.0.7.3'
 
-          # Controller regression: some runtimes synthesize a mouse click after a gamepad
-          # confirm. Mouse activation works, but that duplicate click immediately closes the
-          # detail overlay the controller just opened. Suppress the duplicate after activating
-          # a result, using the same guard already used when closing detail with a controller.
-          p = r / 'UI/CardchaRevealMenu.cs'
+          # Critical lag guard: if attic creation throws, do NOT retry and dump a full exception
+          # every game tick. Retry only after a save/day/title reset. This turns a broken attic
+          # into one clean error instead of a 60-Hz exception storm.
+          p = r / 'Services/MimiHomeService.cs'
           s = p.read_text()
-          old = '''                this.RevealResult(resultIndex);\n                this.currentlySnappedComponent = this.ResultButtons[resultIndex];\n'''
-          new = '''                this.RevealResult(resultIndex);\n                this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;\n                this.currentlySnappedComponent = this.ResultButtons[resultIndex];\n'''
-          if new not in s:
-              assert old in s, 'RevealResult controller anchor changed unexpectedly'
-              s = s.replace(old, new, 1)
-          p.write_text(s)
-          assert 'this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;' in s
-          assert s.count('this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;') >= 2
 
-          # Version/log bump only; canonical user-supplied PNGs are injected into the final
-          # TEST artifact after CI compile and verified byte-for-byte before handoff.
+          field_anchor = '''    private Point? CachedWizardStairTile;\n    private Point? CachedAtticStairTile;\n    private bool LoggedAtticCreation;\n'''
+          field_new = '''    private Point? CachedWizardStairTile;\n    private Point? CachedAtticStairTile;\n    private bool LoggedAtticCreation;\n    private bool AtticCreationFailed;\n    private bool LoggedAtticFailure;\n'''
+          if 'private bool AtticCreationFailed;' not in s:
+              assert field_anchor in s
+              s = s.replace(field_anchor, field_new, 1)
+
+          save_anchor = '''    public void OnSaveLoaded()\n    {\n        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.EnsureAtticLocation();\n'''
+          save_new = '''    public void OnSaveLoaded()\n    {\n        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.AtticCreationFailed = false;\n        this.LoggedAtticFailure = false;\n        this.EnsureAtticLocation();\n'''
+          if save_new not in s:
+              assert save_anchor in s
+              s = s.replace(save_anchor, save_new, 1)
+
+          day_anchor = '''    public void OnDayStarted()\n    {\n        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.EnsureAtticLocation();\n'''
+          day_new = '''    public void OnDayStarted()\n    {\n        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.AtticCreationFailed = false;\n        this.LoggedAtticFailure = false;\n        this.EnsureAtticLocation();\n'''
+          if day_new not in s:
+              assert day_anchor in s
+              s = s.replace(day_anchor, day_new, 1)
+
+          title_anchor = '''        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.LoggedAtticCreation = false;\n'''
+          title_new = '''        this.CachedWizardStairTile = null;\n        this.CachedAtticStairTile = null;\n        this.LoggedAtticCreation = false;\n        this.AtticCreationFailed = false;\n        this.LoggedAtticFailure = false;\n'''
+          if title_new not in s:
+              assert title_anchor in s
+              s = s.replace(title_anchor, title_new, 1)
+
+          ensure_anchor = '''        if (!Context.IsWorldReady)\n            return null;\n\n        GameLocation? existing = Game1.getLocationFromName(AtticLocationName);\n'''
+          ensure_new = '''        if (!Context.IsWorldReady)\n            return null;\n\n        if (this.AtticCreationFailed)\n            return null;\n\n        GameLocation? existing = Game1.getLocationFromName(AtticLocationName);\n'''
+          if ensure_new not in s:
+              assert ensure_anchor in s
+              s = s.replace(ensure_anchor, ensure_new, 1)
+
+          catch_anchor = '''        catch (Exception ex)\n        {\n            this.Monitor.Log($"Couldn't create MiMi attic location: {ex}", LogLevel.Error);\n            return null;\n        }\n'''
+          catch_new = '''        catch (Exception ex)\n        {\n            this.AtticCreationFailed = true;\n            if (!this.LoggedAtticFailure)\n            {\n                this.LoggedAtticFailure = true;\n                this.Monitor.Log(\n                    $"Couldn't create MiMi attic location. Further retries are suppressed until the next save/day reload to prevent an exception loop. {ex.GetType().Name}: {ex.Message}",\n                    LogLevel.Error\n                );\n            }\n            return null;\n        }\n'''
+          if catch_new not in s:
+              assert catch_anchor in s
+              s = s.replace(catch_anchor, catch_new, 1)
+
+          s = s.replace('alpha.27.0.7.1 true Stardew map with runtime-only TEST access', 'alpha.27.0.7.3 true Stardew map hotfix with guarded runtime access')
+          p.write_text(s)
+          assert 'Further retries are suppressed until the next save/day reload' in s
+          assert 'if (this.AtticCreationFailed)' in s
+
+          # Refresh runtime decor marker so an already-created test attic doesn't keep stale decor.
+          p = r / 'Services/MimiAtticVisualService.cs'
+          s = p.read_text().replace('private const string DecorVersion = "alpha.27.0.7";', 'private const string DecorVersion = "alpha.27.0.7.3";')
+          p.write_text(s)
+
+          # Version/log bump.
           p = r / 'ModEntry.cs'
-          s = p.read_text().replace(
-              'v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS',
-              'v0.3.0-alpha.27.0.7.2 ASSET RESTORE + REVEAL CONTROLLER FIX TEST'
-          )
+          s = p.read_text()
+          s = s.replace('v0.3.0-alpha.27.0.7.2 ASSET RESTORE + REVEAL CONTROLLER FIX TEST', 'v0.3.0-alpha.27.0.7.3 MIMI ATTIC MAP-LOAD LAG HOTFIX TEST')
+          s = s.replace('v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS', 'v0.3.0-alpha.27.0.7.3 MIMI ATTIC MAP-LOAD LAG HOTFIX TEST')
           p.write_text(s)
 
           p = r / 'Cardcha.csproj'
-          s = p.read_text().replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.2')
+          s = p.read_text().replace('0.3.0-alpha.27.0.7.2', '0.3.0-alpha.27.0.7.3').replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.3')
           p.write_text(s)
 
           p = r / 'Directory.Build.targets'
-          s = p.read_text().replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.2').replace('CardchaAlpha27071Manifest', 'CardchaAlpha27072Manifest')
+          s = p.read_text().replace('0.3.0-alpha.27.0.7.2', '0.3.0-alpha.27.0.7.3').replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.3')
+          s = s.replace('CardchaAlpha27072Manifest', 'CardchaAlpha27073Manifest').replace('CardchaAlpha27071Manifest', 'CardchaAlpha27073Manifest')
           p.write_text(s)
 
           p = r / 'manifest.json'
           d = json.loads(p.read_text(encoding='utf-8-sig'))
-          d['Version'] = '0.3.0-alpha.27.0.7.2'
+          d['Version'] = '0.3.0-alpha.27.0.7.3'
           p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+
+          # Preserve prior controller hotfix.
+          reveal = (r / 'UI/CardchaRevealMenu.cs').read_text()
+          assert reveal.count('this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;') >= 2
           PY
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
@@ -74,7 +119,7 @@ jobs:
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Package controller-fixed TEST base
+      - name: Validate and package hotfix TEST
         shell: bash
         run: |
           set -euo pipefail
@@ -83,10 +128,16 @@ jobs:
           cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
+          test -s stage/Cardcha/Cardcha.dll
           test -f stage/Cardcha/assets/mimi_attic.tmx
           test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
-          grep -q 'Maps/townInterior' stage/Cardcha/assets/mimi_attic.tmx
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.2_ControllerFixed_BASE.zip Cardcha)
+          grep -q 'source=".townInterior.png"' stage/Cardcha/assets/mimi_attic.tmx
+          ! grep -q 'source="Maps/townInterior"' stage/Cardcha/assets/mimi_attic.tmx
+          grep -q 'alpha.27.0.7.3' stage/Cardcha/assets/mimi_attic.tmx
+          grep -q '0.3.0-alpha.27.0.7.3' stage/Cardcha/manifest.json
+
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.3_MiMiAttic_MapLoadLagHotfix_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - name: Commit compiled milestone source
@@ -96,10 +147,10 @@ jobs:
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.7.2: fix reveal controller duplicate click' && git push origin cardcha-alpha27-mimi-real-npc)
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.3: fix MiMi attic map load and suppress retry storm' && git push origin cardcha-alpha27-mimi-real-npc)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-controller-fixed-base
+          name: cardcha-alpha27-mimi-attic-mapload-hotfix
           path: artifact
           if-no-files-found: error
