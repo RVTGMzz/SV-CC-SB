@@ -29,6 +29,8 @@ internal sealed class MimiHomeService
     private Point? CachedWizardStairTile;
     private Point? CachedAtticStairTile;
     private bool LoggedAtticCreation;
+    private bool AtticCreationFailed;
+    private bool LoggedAtticFailure;
 
     public MimiHomeService(
         IModHelper helper,
@@ -50,6 +52,8 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
+        this.AtticCreationFailed = false;
+        this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
         this.EnforceSchedule();
     }
@@ -58,6 +62,8 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
+        this.AtticCreationFailed = false;
+        this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
         this.EnforceSchedule();
     }
@@ -78,6 +84,8 @@ internal sealed class MimiHomeService
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
         this.LoggedAtticCreation = false;
+        this.AtticCreationFailed = false;
+        this.LoggedAtticFailure = false;
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -186,6 +194,9 @@ internal sealed class MimiHomeService
         if (!Context.IsWorldReady)
             return null;
 
+        if (this.AtticCreationFailed)
+            return null;
+
         GameLocation? existing = Game1.getLocationFromName(AtticLocationName);
         if (existing is not null)
             return existing;
@@ -198,13 +209,21 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.1 true Stardew map with runtime-only TEST access.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.3 true Stardew map hotfix with guarded runtime access.", LogLevel.Info);
             }
             return attic;
         }
         catch (Exception ex)
         {
-            this.Monitor.Log($"Couldn't create MiMi attic location: {ex}", LogLevel.Error);
+            this.AtticCreationFailed = true;
+            if (!this.LoggedAtticFailure)
+            {
+                this.LoggedAtticFailure = true;
+                this.Monitor.Log(
+                    $"Couldn't create MiMi attic location. Further retries are suppressed until the next save/day reload to prevent an exception loop. {ex.GetType().Name}: {ex.Message}",
+                    LogLevel.Error
+                );
+            }
             return null;
         }
     }

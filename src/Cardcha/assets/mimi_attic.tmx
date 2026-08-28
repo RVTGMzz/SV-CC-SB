@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="22" height="14" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAtticVersion" value="alpha.27.0.7"/>
+  <property name="CardchaAtticVersion" value="alpha.27.0.7.3"/>
   <property name="CardchaZoneLayout" value="landing|research|personal|tv-secret|chacha"/>
   <property name="CardchaVisualDirection" value="true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime"/>
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
-  <image source="Maps/townInterior" width="512" height="1088"/>
+  <image source=".townInterior.png" width="512" height="1088"/>
  </tileset>
  <layer id="1" name="Back" width="22" height="14">
   <data encoding="csv">

@@ -20,7 +20,7 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
-    private const string DecorVersion = "alpha.27.0.7";
+    private const string DecorVersion = "alpha.27.0.7.3";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
