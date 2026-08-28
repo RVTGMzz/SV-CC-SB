@@ -1,0 +1,107 @@
+name: Cardcha alpha27.0.7.6 UI social room polish v2
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-076-ui-room-v2.yml' ]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Apply alpha27.0.7.6 source polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+          from PIL import Image
+          r=Path('src/Cardcha'); oldv='0.3.0-alpha.27.0.7.5'; newv='0.3.0-alpha.27.0.7.6'
+
+          p=r/'UI/CardchaMachineMenu.cs'; s=p.read_text()
+          a='''        this.Binder = new ClickableComponent(\n            new Rectangle(this.xPositionOnScreen + this.width / 2 - 150, this.yPositionOnScreen + this.height - 105, 300, 64),\n            "binder"\n        ) { myID = BinderId };'''
+          b='''        this.Binder = new ClickableComponent(\n            new Rectangle(this.xPositionOnScreen + this.width / 2 - 205, this.yPositionOnScreen + this.height - 72, 410, 56),\n            "binder"\n        ) { myID = BinderId };'''
+          assert a in s; s=s.replace(a,b,1)
+          a='''        Rectangle statusPanel = new(\n            this.xPositionOnScreen + 52,\n            this.yPositionOnScreen + this.height - 172,\n            this.width - 104,\n            62\n        );\n        b.Draw(\n            Game1.staminaRect,\n            statusPanel,\n            new Color(244, 222, 183) * 0.86f\n        );\n        CardchaUi.DrawBorder(\n            b,\n            statusPanel,\n            CardchaUi.PaperShadow,\n            2\n        );\n        CardchaUi.DrawAutoFitWrappedText(\n            b,\n            Game1.smallFont,\n            this.Status,\n            new Rectangle(\n                statusPanel.X + 8,\n                statusPanel.Y + 6,\n                statusPanel.Width - 16,\n                statusPanel.Height - 12\n            ),\n            Color.DarkSlateGray,\n            maxLines: 2,\n            minScale: 0.78f,\n            maxScale: 1.20f\n        );'''
+          b='''        // 0.7.6: unframed machine-status caption below pity meters.\n        Rectangle statusPanel = new(\n            this.xPositionOnScreen + 70,\n            this.yPositionOnScreen + this.height - 118,\n            this.width - 140,\n            34\n        );\n        CardchaUi.DrawAutoFitWrappedText(\n            b,\n            Game1.smallFont,\n            this.Status,\n            statusPanel,\n            new Color(248, 226, 188),\n            maxLines: 2,\n            minScale: 0.76f,\n            centerX: true,\n            maxScale: 1.12f,\n            centerY: true\n        );'''
+          assert a in s; s=s.replace(a,b,1); p.write_text(s)
+
+          p=r/'UI/CardchaBinderMenu.cs'; s=p.read_text()
+          a='''        Utility.drawTextWithShadow(b, CardchaUi.RarityText(this.Selected.Rarity), Game1.smallFont, new Vector2(nameArea.X + 70, nameArea.Bottom + 2), CardchaUi.RarityColor(this.Selected.Rarity));\n\n        if (!owned)'''
+          b='''        Utility.drawTextWithShadow(b, CardchaUi.RarityText(this.Selected.Rarity), Game1.smallFont, new Vector2(nameArea.X + 70, nameArea.Bottom + 2), CardchaUi.RarityColor(this.Selected.Rarity));\n        if (owned)\n        {\n            Rectangle viewingArea = new(nameArea.X + nameArea.Width / 2, nameArea.Bottom, nameArea.Width / 2, 27);\n            string viewing = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            this.DrawRightAlignedSingleLine(b, viewing, viewingArea, Color.DarkSlateGray);\n        }\n\n        if (!owned)'''
+          assert a in s; s=s.replace(a,b,1)
+          a='''    private void DrawStatus(SpriteBatch b)\n    {\n        if (this.IsLoadoutFullStatus())\n            return;\n        Rectangle statusArea = new('''
+          b='''    private void DrawStatus(SpriteBatch b)\n    {\n        if (this.IsLoadoutFullStatus())\n            return;\n        if (this.Selected is not null)\n        {\n            string preview = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });\n            if (this.Status == preview || this.Status == selected)\n                return;\n        }\n        Rectangle statusArea = new('''
+          assert a in s; s=s.replace(a,b,1); p.write_text(s)
+
+          src=Image.open(r/'assets/mimi_walk.png').convert('RGBA'); assert src.size==(128,192)
+          runtime=src.copy(); mini=src.crop((0,0,32,48)).resize((16,24), Image.Resampling.NEAREST)
+          mug=Image.new('RGBA',(16,15),(0,0,0,0)); mug.paste(mini.crop((0,0,16,15)),(0,0)); runtime.paste(mug,(0,0)); runtime.save(r/'assets/mimi_walk_runtime.png', optimize=True)
+          p=r/'Services/MimiMysteryTownService.cs'; s=p.read_text().replace('private const string MimiWalkSheetPath = "assets/mimi_walk.png";','private const string MimiWalkSheetPath = "assets/mimi_walk_runtime.png";').replace('SetRectangleProperty(mimi, "MugShotSourceRect", 8, 1, 16, 15);','SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);'); p.write_text(s)
+
+          p=r/'Services/MimiAtticVisualService.cs'; s=p.read_text().replace('private const string DecorVersion = "alpha.27.0.7.5";','private const string DecorVersion = "alpha.27.0.7.6";').replace('TryAddFurniture(attic, "(F)432", 3, 10);                 // Green Couch.','TryAddFurniture(attic, "(F)432", 3, 10, rotation: 2);    // Green Couch faces the TV.'); p.write_text(s)
+
+          tmx=r/'assets/mimi_attic.tmx'; root=ET.parse(tmx).getroot(); props={x.attrib.get('name'):x for x in root.findall('./properties/property')}; props['CardchaAtticVersion'].set('value','alpha.27.0.7.6'); props['CardchaVisualDirection'].set('value','true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime|strict-csv|closed-shell-corners')
+          w,h=int(root.attrib['width']),int(root.attrib['height']); layers={x.attrib['name']:x for x in root.findall('./layer')}
+          def mat(layer):
+              v=[int(x.strip()) for x in (layer.find('data').text or '').split(',') if x.strip()]; assert len(v)==w*h; return [v[y*w:(y+1)*w] for y in range(h)]
+          def put(layer,m): layer.find('data').text='\n'+',\n'.join(','.join(map(str,row)) for row in m)+'\n'
+          bd=mat(layers['Buildings']); fr=mat(layers['Front'])
+          for y in range(4,13): bd[y][1]=68; bd[y][20]=69
+          for x in range(2,10): bd[12][x]=1
+          for x in range(12,20): bd[12][x]=1
+          bd[12][10]=bd[12][11]=0
+          fr[12]=[0]*w; fr[12][1]=165; fr[12][20]=167
+          for x in range(2,10): fr[12][x]=166
+          for x in range(12,20): fr[12][x]=166
+          put(layers['Buildings'],bd); put(layers['Front'],fr); ET.indent(root,space=' '); ET.ElementTree(root).write(tmx,encoding='UTF-8',xml_declaration=True)
+
+          for path in [r/'Cardcha.csproj',r/'Directory.Build.targets']:
+              path.write_text(path.read_text().replace(oldv,newv).replace('CardchaAlpha27075Manifest','CardchaAlpha27076Manifest'))
+          d=json.loads((r/'manifest.json').read_text(encoding='utf-8-sig')); d['Version']=newv; (r/'manifest.json').write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
+          p=r/'ModEntry.cs'; p.write_text(p.read_text().replace('v0.3.0-alpha.27.0.7.5 MIMI POLISH PASS TEST','v0.3.0-alpha.27.0.7.6 UI SOCIAL + ATTIC SHELL POLISH TEST'))
+          PY
+      - name: Validate 0.7.6 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, xml.etree.ElementTree as ET
+          r=Path('src/Cardcha'); assert json.loads((r/'manifest.json').read_text())['Version']=='0.3.0-alpha.27.0.7.6'
+          with Image.open(r/'assets/mimi_walk_runtime.png') as im: im.load(); assert im.size==(128,192)
+          assert '410, 56' in (r/'UI/CardchaMachineMenu.cs').read_text(); assert 'Rectangle viewingArea' in (r/'UI/CardchaBinderMenu.cs').read_text(); assert 'assets/mimi_walk_runtime.png' in (r/'Services/MimiMysteryTownService.cs').read_text(); assert 'rotation: 2' in (r/'Services/MimiAtticVisualService.cs').read_text()
+          root=ET.parse(r/'assets/mimi_attic.tmx').getroot(); expected=22*14
+          for layer in root.findall('./layer'):
+              toks=[x.strip() for x in (layer.find('data').text or '').split(',')]; assert all(toks) and len(toks)==expected; [int(x) for x in toks]
+          print('0.7.6 validation PASS')
+          PY
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage; mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/; cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll; test -f stage/Cardcha/assets/mimi_walk_runtime.png; test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.6_UISocial_AtticShellPolish_TEST.zip Cardcha); sha256sum artifact/*.zip > artifact/SHA256.txt
+      - name: Commit milestone source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha; git config user.name ronvotri; git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.6: polish machine binder social mugshot and attic shell' && git push origin cardcha-alpha27-mimi-real-npc)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-076-ui-social-attic-polish
+          path: artifact
+          if-no-files-found: error
