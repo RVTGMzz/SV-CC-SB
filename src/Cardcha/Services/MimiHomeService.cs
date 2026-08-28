@@ -209,7 +209,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.3 true Stardew map hotfix with guarded runtime access.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.4 strict-TMX map hotfix with guarded runtime access.", LogLevel.Info);
             }
             return attic;
         }
