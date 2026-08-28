@@ -122,3 +122,5 @@ jobs:
           name: cardcha-alpha27-077-attic-acceptance-polish
           path: artifact
           if-no-files-found: error
+
+# retry after repairing canonical mugshot payload
