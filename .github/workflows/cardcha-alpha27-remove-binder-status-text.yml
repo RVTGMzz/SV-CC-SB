@@ -1,0 +1,44 @@
+name: Cardcha remove redundant Binder status text
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-remove-binder-status-text.yml' ]
+permissions:
+  contents: write
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Remove redundant Binder status captions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ['default.json', 'vi.json']:
+              p = Path('src/Cardcha/i18n') / name
+              data = json.loads(p.read_text(encoding='utf-8-sig'))
+              data['binder.status.preview'] = ''
+              data['binder.status.pick'] = ''
+              p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+          PY
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+          for name in ['default.json', 'vi.json']:
+              d=json.loads((Path('src/Cardcha/i18n')/name).read_text())
+              assert d['binder.status.preview']==''
+              assert d['binder.status.pick']==''
+          print('Binder redundant status text removed')
+          PY
+      - name: Commit source patch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha/i18n/default.json src/Cardcha/i18n/vi.json
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'ui: remove redundant Binder preview and pick captions' && git push origin cardcha-alpha27-mimi-real-npc)
