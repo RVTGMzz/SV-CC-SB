@@ -1,5 +1,9 @@
 # NEXT SESSION — Cardcha Alpha.27
 
+> **READ FIRST:** `docs/PROJECT_WORKING_RULES.md` is the persistent Cardcha working contract. Read it before changing code, maps, assets, progression, or sending a TEST build.
+>
+> In particular, before asking the user to test anything that has gameplay prerequisites, always state the prerequisites and provide/propose a test-only bypass when appropriate. Every TEST handoff must include: **Prerequisites → How to test → Debug bypass → What to verify → Out of scope**.
+
 ## Current branches
 
 - `main` = temporary rollback baseline `v0.3.0-alpha.26.5.3`.
@@ -13,7 +17,7 @@ Latest compiled visual candidate:
 - `v0.3.0-alpha.27.0.7 — MiMi Attic True Stardew Map TEST`.
 - CI compile: **PASS**.
 - CI package: **PASS**.
-- Source milestone commit: `9c1fe1f2d032c2c57297018deb36369580f0fa4a` (before this handoff-only docs commit).
+- Source milestone commit: `9c1fe1f2d032c2c57297018deb36369580f0fa4a` (before handoff/rules docs commits).
 - TEST ZIP SHA256: `92727032dd9572a16a0e63b3675084ed1b0d7bab4b52fe9f6e9a2ef4953fd1f1`.
 
 Implemented alpha.27 foundation still includes:
@@ -81,6 +85,15 @@ The produced TEST ZIP was unpacked and checked:
 - ZIP integrity test passed;
 - external SHA256 matches the workflow-generated `SHA256.txt`.
 
+## 0.7 TEST access conditions
+
+Do not forget to tell the tester these conditions before asking for an in-game test:
+- normal attic access requires the MiMi meetup/story prerequisite to be completed;
+- normal attic access requires **2 hearts** with MiMi;
+- access is through the attic interaction point associated with WizardHouse.
+
+If the tester only needs to validate the room and does not have the required friendship/story state, add or propose a **test-only attic bypass command** rather than silently removing the real progression requirement.
+
 ## Next action
 
 Use `v0.3.0-alpha.27.0.7_MiMiAttic_TrueStardewMap_TEST` for the next **in-game acceptance pass**. Verify:
@@ -98,10 +111,11 @@ Only after this room passes acceptance should the project start the full 17:30 T
 
 ## Read these docs before changing alpha.27
 
-1. `docs/alpha27/MIMI_ATTIC_DESIGN_BIBLE.md`
-2. `docs/alpha27/MIMI_CHARACTER_GIFTS_SCHEDULE.md`
-3. `PROJECT_HANDOFF.md`
-4. `docs/STORY_GAMEPLAY_BIBLE.md`
+1. `docs/PROJECT_WORKING_RULES.md`
+2. `docs/alpha27/MIMI_ATTIC_DESIGN_BIBLE.md`
+3. `docs/alpha27/MIMI_CHARACTER_GIFTS_SCHEDULE.md`
+4. `PROJECT_HANDOFF.md`
+5. `docs/STORY_GAMEPLAY_BIBLE.md`
 
 ## Build rule
 
