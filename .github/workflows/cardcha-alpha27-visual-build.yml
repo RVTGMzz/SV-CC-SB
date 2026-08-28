@@ -1,4 +1,4 @@
-name: Cardcha alpha27.0.4 attic compile
+name: Cardcha alpha27.0.5 attic custom interior
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
@@ -11,61 +11,94 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
-      - name: Prepare milestone
+
+      - name: Prepare alpha27.0.5 custom attic
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import base64,json
-          r=Path('src/Cardcha')
-          b=base64.b64decode(Path('build_assets/mimi_attic_props.png.b64').read_text().strip(),validate=True)
-          assert b.startswith(b'\x89PNG\r\n\x1a\n')
-          (r/'assets/mimi_attic_props.png').write_bytes(b)
-          p=r/'ModEntry.cs'; s=p.read_text()
-          s=s.replace('new MimiAtticVisualService(this.Save)','new MimiAtticVisualService(helper, this.Save)')
-          a='        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;\n'
-          v='        helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;\n'
-          if v not in s: s=s.replace(a,a+v,1)
-          s=s.replace('v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST','v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST')
+          import json, struct, xml.etree.ElementTree as ET
+
+          r = Path('src/Cardcha')
+          png = r / 'assets/mimi_attic_tiles.png'
+          tmx = r / 'assets/mimi_attic.tmx'
+          assert png.exists() and tmx.exists(), 'custom attic assets missing'
+          raw = png.read_bytes()
+          assert raw.startswith(b'\x89PNG\r\n\x1a\n'), 'attic tiles is not PNG'
+          width, height = struct.unpack('>II', raw[16:24])
+          assert (width, height) == (352, 224), (width, height)
+
+          root = ET.parse(tmx).getroot()
+          assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
+          assert [x.attrib.get('name') for x in root.findall('layer')] == ['Back', 'Buildings', 'Front']
+
+          p = r / 'Services/MimiHomeService.cs'
+          s = p.read_text()
+          s = s.replace('private const string AtticMapPath = "Maps/Shed";', 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";')
+          s = s.replace('using the alpha.27 safe interior map foundation.', 'using the alpha.27.0.5 custom interior map.')
           p.write_text(s)
-          tr={
-          'default.json':{
-          'mimi.attic.inspect.desk':'MiMi’s desk is covered in arrows, warnings, Cardboard Scrap bookmarks, and one rule: “Do NOT let ChaCha choose the calibration target.”',
-          'mimi.attic.inspect.tv':'The remote is still warm. Snacks, a romance-drama schedule, and suspiciously detailed character pairings are tucked beside it.',
-          'mimi.attic.inspect.chacha':'ChaCha’s cushion has tiny brackets, a Card Dust jar, and three adjustment knobs. Comfort apparently has a research budget.'},
-          'vi.json':{
-          'mimi.attic.inspect.desk':'Bàn của MiMi đầy mũi tên, cảnh báo, Cardboard Scrap làm dấu trang và một luật: “ĐỪNG để ChaCha chọn mục tiêu hiệu chuẩn.”',
-          'mimi.attic.inspect.tv':'Remote vẫn còn ấm. Đồ ăn vặt, lịch phim tình cảm và một trang ghép cặp nhân vật chi tiết đáng ngờ được giấu bên cạnh.',
-          'mimi.attic.inspect.chacha':'Đệm của ChaCha có giá đỡ tí hon, một lọ Card Dust và ba núm chỉnh. Xem ra độ thoải mái cũng có ngân sách nghiên cứu.'}}
-          for n,x in tr.items():
-              q=r/'i18n'/n; d=json.loads(q.read_text(encoding='utf-8-sig')); d.update(x); q.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
-          for n in ['Cardcha.csproj','Directory.Build.targets']:
-              q=r/n; t=q.read_text().replace('0.3.0-alpha.27.0.3','0.3.0-alpha.27.0.4').replace('CardchaAlpha2703Manifest','CardchaAlpha2704Manifest'); q.write_text(t)
-          q=r/'manifest.json'; d=json.loads(q.read_text(encoding='utf-8-sig')); d['Version']='0.3.0-alpha.27.0.4'; q.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
-          assert 'IsSecretTvRoutineEligible' in (r/'Services/MimiAtticVisualService.cs').read_text()
+          assert 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";' in s
+
+          p = r / 'ModEntry.cs'
+          s = p.read_text()
+          anchor = '        helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;\n'
+          hook = '        helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;\n'
+          if hook not in s:
+              s = s.replace(anchor, anchor + hook, 1)
+          s = s.replace('v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST', 'v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST')
+          p.write_text(s)
+          assert hook in s
+
+          p = r / 'Cardcha.csproj'
+          s = p.read_text().replace('0.3.0-alpha.27.0.4', '0.3.0-alpha.27.0.5')
+          p.write_text(s)
+
+          p = r / 'Directory.Build.targets'
+          s = p.read_text().replace('0.3.0-alpha.27.0.4', '0.3.0-alpha.27.0.5').replace('CardchaAlpha2704Manifest', 'CardchaAlpha2705Manifest')
+          p.write_text(s)
+
+          p = r / 'manifest.json'
+          d = json.loads(p.read_text(encoding='utf-8-sig'))
+          d['Version'] = '0.3.0-alpha.27.0.5'
+          p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+
+          visual = (r / 'Services/MimiAtticVisualService.cs').read_text()
+          assert 'AtticMapAssetName = "Maps/Cardcha_MiMiAttic"' in visual
+          assert 'LoadFromModFile<xTile.Map>' in visual
+          assert 'IsSecretTvRoutineEligible' in visual
           PY
+
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
-      - name: Package
+
+      - name: Package TEST
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf artifact stage; mkdir -p artifact stage/Cardcha
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
           cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST.zip Cardcha)
+          test -f stage/Cardcha/assets/mimi_attic.tmx
+          test -f stage/Cardcha/assets/mimi_attic_tiles.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.5_MiMiAttic_CustomInterior_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
-      - name: Commit source
+
+      - name: Commit compiled milestone source
         shell: bash
         run: |
+          set -euo pipefail
           git add src/Cardcha
-          git config user.name ronvotri; git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.4: build MiMi attic visual foundation' && git push origin cardcha-alpha27-mimi-real-npc)
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.5: build MiMi attic custom interior' && git push origin cardcha-alpha27-mimi-real-npc)
+
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-attic-visual-foundation
+          name: cardcha-alpha27-attic-custom-interior
           path: artifact
           if-no-files-found: error
