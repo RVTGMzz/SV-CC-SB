@@ -5,18 +5,18 @@
 - `main` = temporary rollback baseline `v0.3.0-alpha.26.5.3`.
 - Active development branch = `cardcha-alpha27-mimi-real-npc`.
 - Do **not** rebuild alpha.27 from old alpha.25/26 snapshots; continue from the active branch source.
+- Do **not** merge alpha.27 into `main` automatically.
 
 ## Current alpha.27 status
 
 Latest compiled visual candidate:
-- `v0.3.0-alpha.27.0.6 — MiMi Attic Vanilla-Style Rework TEST`.
+- `v0.3.0-alpha.27.0.7 — MiMi Attic True Stardew Map TEST`.
 - CI compile: **PASS**.
 - CI package: **PASS**.
-- PNG was regenerated on the CI runner and then opened/decoded from the produced TEST ZIP successfully.
-- Current source milestone commit: `b7b544d5c35189f5b03a75a5402f07dda7e0bee3` (before this handoff-only docs commit).
-- TEST ZIP SHA256: `d843a2c19b7c998311570cefbaf420f13eb048b949d5361d8aa2f0ee8dc9b80f`.
+- Source milestone commit: `9c1fe1f2d032c2c57297018deb36369580f0fa4a` (before this handoff-only docs commit).
+- TEST ZIP SHA256: `92727032dd9572a16a0e63b3675084ed1b0d7bab4b52fe9f6e9a2ef4953fd1f1`.
 
-Implemented alpha.27 foundation includes:
+Implemented alpha.27 foundation still includes:
 - MiMi real friendship/social NPC after Wizard-house meetup;
 - Social tab + vanilla gifting;
 - birthday **Spring 17**;
@@ -28,55 +28,73 @@ Implemented alpha.27 foundation includes:
 - Wizard House work fallback during harsh weather;
 - staircase/access integration without wholesale WizardHouse replacement.
 
-## Alpha.27.0.6 — MiMi Attic Vanilla-Style Rework
+## Alpha.27.0.7 — MiMi Attic True Stardew Map
 
-This is the visual-direction correction after alpha.27.0.5. The user preferred a room that reads much closer to normal Stardew indoor maps: dark/black void around the room, stronger wall shell, a visually obvious doorway/stair opening, and furniture with darker outlines instead of a flat custom-background look.
+This milestone replaces the rejected alpha.27.0.6 visual technique. The user approved a concept with the normal Stardew indoor visual language: black void outside the room, warm wood/purple lived-in interior, research upper-left, personal/bed upper-right, TV nook lower-left, ChaCha corner lower-right, and bottom-center landing.
 
-Five locked zones are still represented:
+Important locked technical direction:
+- **Do not return to a room-sized custom background PNG.**
+- The room shell is a real **22x14 TMX tile map**.
+- `assets/mimi_attic.tmx` references the game's vanilla `Maps/townInterior` tilesheet directly.
+- The rejected `assets/mimi_attic_tiles.png` 352x224 full-room pseudo-tilesheet is intentionally removed from the 0.7 TEST package.
+- Beds, tables, chairs, TV, couch, rugs, plants, dresser, window, posters, etc. are instantiated as real vanilla Stardew `Furniture` objects so the game owns their sprite proportions, shadows, draw ordering, and furniture collision.
+- Keep custom Cardcha art subtle and add it only after the vanilla-base room passes visual/gameplay acceptance.
+
+Five locked zones:
 1. entrance / stair landing;
 2. research desk;
 3. bed / personal corner;
 4. TV secret zone;
 5. ChaCha / upgrade corner.
 
+Current 0.7 layout intent:
+- research / bookcase / desk: upper-left;
+- bed / dresser / bedside: upper-right;
+- TV + couch nook: lower-left;
+- ChaCha / prototype table: lower-right;
+- bottom-center doorway/landing and a clear central walking route.
+
 Implementation notes:
-- attic map asset remains `Maps/Cardcha_MiMiAttic`;
-- map source remains `assets/mimi_attic.tmx` at **22x14 tiles** with Back / Buildings / Front layers;
-- room pixel art remains `assets/mimi_attic_tiles.png` at **352x224**;
-- visual shell now includes visible black exterior/void, heavier dark room edges, wood trim, and a bottom-center doorway/stairwell opening;
-- sleeping corner, research desk, central lived-in rug/table, tucked-away TV corner, and ChaCha prototype corner were redrawn to feel more like a Stardew indoor room and less like a flat mockup/workshop;
-- Buildings-layer collision was updated to keep the central route and landing clear while blocking walls/furniture groundwork;
-- desk / TV / ChaCha inspect groundwork and EN/VI flavor text remain active;
+- attic asset name remains `Maps/Cardcha_MiMiAttic`;
+- runtime location ID remains `Cardcha_MiMiAttic`;
+- map layers remain `Back`, `Buildings`, `Front`;
+- inspect groundwork + EN/VI flavor text remain active for Desk / TV / ChaCha;
 - attic remains MiMi's home, not the main shop;
 - the **17:30 / 6-heart** TV routine remains only an eligibility hook;
 - full TV event, full heart event, full ChaCha upgrade mechanic, and Community Center contribution mechanic remain out of scope.
 
-## Reproducible art generation
-
-- `build_assets/make_mimi_attic_vanilla_style.py` is the text-source generator for the 0.6 room art.
-- CI installs Pillow, regenerates `assets/mimi_attic_tiles.png`, opens/decodes the generated image, then compiles and packages the mod.
-- This avoids binary corruption from direct connector upload and keeps the room art reproducible.
-
 ## Canon MiMi assets
 
 - `mimi_portraits.png` canonical size = **768x128**.
-- Do not silently restore the rejected 1152x192 or 1536x256 portrait experiments.
-- Alpha.27.0.6 TEST package was checked and still contains the canonical 768x128 portrait.
+- Do not silently restore rejected portrait experiments.
+- Alpha.27.0.7 TEST package was checked and still contains the canonical 768x128 portrait.
+
+## 0.7 package verification
+
+The produced TEST ZIP was unpacked and checked:
+- `Cardcha.dll` exists;
+- manifest version is `0.3.0-alpha.27.0.7`;
+- `assets/mimi_attic.tmx` exists and references `Maps/townInterior`;
+- `assets/mimi_attic_tiles.png` is absent as intended;
+- `mimi_portraits.png` is 768x128;
+- EN and VI contain `mimi.attic.inspect.desk`, `.tv`, and `.chacha`;
+- ZIP integrity test passed;
+- external SHA256 matches the workflow-generated `SHA256.txt`.
 
 ## Next action
 
-Use `v0.3.0-alpha.27.0.6_MiMiAttic_VanillaStyleRework_TEST` for the next in-game acceptance pass when a test machine is available. Verify:
-- the custom TMX loads without SMAPI/xTile errors;
-- black exterior/room shell looks natural at actual Stardew camera scale;
-- bottom-center doorway/stairwell visually reads as the entrance/exit;
-- the 2-heart staircase access still works;
-- MiMi can stand/move safely in the attic;
-- collisions do not trap the player or MiMi;
-- desk / TV / ChaCha inspect points are reachable.
+Use `v0.3.0-alpha.27.0.7_MiMiAttic_TrueStardewMap_TEST` for the next **in-game acceptance pass**. Verify:
+- TMX resolves vanilla `Maps/townInterior` without xTile/SMAPI errors;
+- room shell and doorway read naturally at actual Stardew camera scale;
+- all runtime vanilla furniture IDs render correctly in the installed Stardew version;
+- MiMi and the player have a clear central path and do not spawn inside furniture;
+- 2-heart attic access/exit still works;
+- desk / TV / ChaCha inspect points are reachable;
+- furniture cannot be picked up/moved in an undesirable way (if it can, harden selected decor as static map tiles next).
 
-Only after the room passes in-game acceptance should the project start the full 17:30 TV event or ChaCha upgrade mechanic.
+If visual adjustments are needed, change **layout / vanilla furniture choices / vanilla tile choices** inside this true-map system. Do not revert to the full-room custom PNG approach.
 
-Do not merge alpha.27 into `main` automatically. Keep `main` at alpha.26.5.3 until the user explicitly accepts a newer rollback baseline.
+Only after this room passes acceptance should the project start the full 17:30 TV event or ChaCha upgrade mechanic.
 
 ## Read these docs before changing alpha.27
 
