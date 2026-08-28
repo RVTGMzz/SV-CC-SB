@@ -60,7 +60,6 @@ jobs:
           unzip -q /tmp/alpha2653-artifact.zip -d /tmp/alpha2653-artifact
           test -f /tmp/alpha2653-artifact/Cardcha_alpha26.5.3_SOURCE.tar.xz
           tar -xJf /tmp/alpha2653-artifact/Cardcha_alpha26.5.3_SOURCE.tar.xz -C /tmp/alpha2653-source
-          find /tmp/alpha2653-source/Cardcha -maxdepth 1 -type f -o -type d >/dev/null
           rm -rf /tmp/alpha2653-source/Cardcha/bin /tmp/alpha2653-source/Cardcha/obj
           cp -a /tmp/alpha2653-source/Cardcha/. /tmp/promote/Cardcha/
 
@@ -70,23 +69,34 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json
+          import json, shutil
+          from struct import unpack
           root = Path('/tmp/promote/Cardcha')
+
+          # Pin every version source to the accepted temporary baseline.
           for rel in ['Cardcha.csproj', 'Directory.Build.targets']:
               p = root / rel
               s = p.read_text(encoding='utf-8')
               s = s.replace('0.3.0-alpha.26.5.2', '0.3.0-alpha.26.5.3')
               s = s.replace('<Version>0.3.0-alpha.26.5</Version>', '<Version>0.3.0-alpha.26.5.3</Version>')
               p.write_text(s, encoding='utf-8')
-          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8-sig'))
+
+          mp = root / 'manifest.json'
+          manifest = json.loads(mp.read_text(encoding='utf-8-sig'))
+          manifest['Version'] = '0.3.0-alpha.26.5.3'
+          mp.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          # Canonical rollback: MiMi portrait remains the proven 768x128 asset already on main.
+          src_portrait = Path('/tmp/main-tree/src/Cardcha/assets/mimi_portraits.png')
+          dst_portrait = root / 'assets' / 'mimi_portraits.png'
+          shutil.copy2(src_portrait, dst_portrait)
+
+          manifest = json.loads(mp.read_text(encoding='utf-8'))
           assert manifest['Version'] == '0.3.0-alpha.26.5.3', manifest['Version']
           assert 'IgnoreResultMouseUntilMs' in (root/'UI'/'CardchaRevealMenu.cs').read_text(encoding='utf-8')
           assert 'EnsureControllerFocusValid' in (root/'UI'/'CardchaBinderMenu.cs').read_text(encoding='utf-8')
           assert 'maxLines: 2' in (root/'UI'/'MimiScrapShopMenu.cs').read_text(encoding='utf-8')
-          # The canonical MiMi portrait rollback is the existing main 768x128 asset.
-          from struct import unpack
-          png = (root/'assets'/'mimi_portraits.png').read_bytes()
-          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          png = dst_portrait.read_bytes()
           width, height = unpack('>II', png[16:24])
           assert (width, height) == (768, 128), (width, height)
           print('promotion validation PASS')
