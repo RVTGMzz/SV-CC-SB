@@ -751,5 +751,20 @@
   "config.controller.mapping.tooltip": "Auto is recommended. Standard uses XInput physical positions. Nintendo Native is a compatibility override for drivers that report the printed Nintendo A/B/X/Y labels directly.",
   "config.controller.mapping.auto": "Auto (recommended)",
   "config.controller.mapping.standard": "Standard / XInput",
-  "config.controller.mapping.nintendonative": "Nintendo Native"
+  "config.controller.mapping.nintendonative": "Nintendo Native",
+  "mimi.social.introduction": "So we're officially acquainted now. Try not to make it sound too respectable.",
+  "mimi.social.mon": "I had three plans for today. ChaCha ate one of them. Don't ask how.",
+  "mimi.social.tue": "People keep calling this a job. I prefer 'profitable wandering'.",
+  "mimi.social.wed": "If I look busy, I'm probably avoiding something even busier.",
+  "mimi.social.thu": "You know, cardboard has remarkable emotional range. Mostly disappointment.",
+  "mimi.social.fri": "Friday already? Good. I was running out of convincing excuses.",
+  "mimi.social.sat": "No shop today. Even mysterious merchants need to disappear professionally.",
+  "mimi.social.sun": "Wizard says I should rest. I am resting very aggressively.",
+  "mimi.social.rain": "Rain is excellent for staying indoors and pretending that was the plan all along.",
+  "mimi.social.birthday": "You remembered Spring 17? ...I was absolutely going to remember yours too. Probably.$h",
+  "mimi.gift.love": "Oh... that's actually perfect. Don't look so pleased with yourself.$h",
+  "mimi.gift.like": "Useful, strange, or shiny. You are learning my highly scientific standards.$h",
+  "mimi.gift.neutral": "Thanks. I'll put it somewhere ChaCha can't immediately investigate.",
+  "mimi.gift.dislike": "Ah. A gift. Definitely a gift. I can confirm that much.$s",
+  "mimi.gift.hate": "I have questions. Most of them begin with 'why'.$a"
 }

@@ -1,9 +1,9 @@
 <Project>
   <PropertyGroup>
-    <Version>0.3.0-alpha.26.5.3</Version>
+    <Version>0.3.0-alpha.27.0.1</Version>
   </PropertyGroup>
 
-  <Target Name="CardchaAlpha2652Manifest" BeforeTargets="BeforeBuild">
-    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.26.5.3\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
+  <Target Name="CardchaAlpha2701Manifest" BeforeTargets="BeforeBuild">
+    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.27.0.1\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
   </Target>
 </Project>

@@ -831,5 +831,20 @@
   "config.controller.mapping.tooltip": "Khuyên dùng Tự động. Chuẩn/XInput đọc theo vị trí vật lý. Nintendo Native dùng cho driver báo đúng nhãn A/B/X/Y in trên tay Nintendo khiến nút bị đảo.",
   "config.controller.mapping.auto": "Tự động (khuyên dùng)",
   "config.controller.mapping.standard": "Chuẩn / XInput",
-  "config.controller.mapping.nintendonative": "Nintendo Native"
+  "config.controller.mapping.nintendonative": "Nintendo Native",
+  "mimi.social.introduction": "Vậy là giờ tụi mình chính thức quen nhau rồi. Đừng làm chuyện này nghe đứng đắn quá nha.",
+  "mimi.social.mon": "Hôm nay tui có ba kế hoạch. ChaCha ăn mất một cái rồi. Đừng hỏi bằng cách nào.",
+  "mimi.social.tue": "Mọi người cứ gọi đây là công việc. Tui thích gọi là 'đi lang thang có lợi nhuận' hơn.",
+  "mimi.social.wed": "Nếu thấy tui có vẻ bận, khả năng cao là tui đang né một chuyện còn bận hơn.",
+  "mimi.social.thu": "Bạn biết không, bìa cứng có đời sống cảm xúc phong phú lắm. Chủ yếu là thất vọng.",
+  "mimi.social.fri": "Thứ Sáu rồi hả? Tốt. Tui sắp hết lý do nghe cho có vẻ thuyết phục rồi.",
+  "mimi.social.sat": "Hôm nay nghỉ bán. Thương nhân bí ẩn cũng phải biến mất cho chuyên nghiệp chứ.",
+  "mimi.social.sun": "Pháp Sư bảo tui nên nghỉ ngơi. Tui đang nghỉ ngơi cực kỳ quyết liệt đây.",
+  "mimi.social.rain": "Mưa rất hợp để ở trong nhà rồi giả vờ như ngay từ đầu mình đã tính vậy.",
+  "mimi.social.birthday": "Bạn nhớ Xuân 17 luôn hả? ...Tui cũng chắc chắn sẽ nhớ sinh nhật bạn. Chắc vậy.$h",
+  "mimi.gift.love": "Ồ... cái này thật sự đúng ý tui. Đừng có nhìn đắc ý vậy chứ.$h",
+  "mimi.gift.like": "Hữu dụng, kỳ quặc hoặc lấp lánh. Bạn đang hiểu tiêu chuẩn cực kỳ khoa học của tui rồi đó.$h",
+  "mimi.gift.neutral": "Cảm ơn nha. Tui sẽ cất ở đâu đó ChaCha chưa kịp điều tra ngay.",
+  "mimi.gift.dislike": "À. Quà. Chắc chắn là quà. Ít nhất chuyện đó thì tui xác nhận được.$s",
+  "mimi.gift.hate": "Tui có vài câu hỏi. Hầu hết đều bắt đầu bằng 'tại sao'.$a"
 }
