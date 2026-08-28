@@ -1,0 +1,72 @@
+name: Cardcha alpha27.0.7.4 strict-TMX final artifact
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-074-finalize.yml' ]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Validate strict TMX source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json
+          import xml.etree.ElementTree as ET
+          from pathlib import Path
+          p = Path('src/Cardcha/assets/mimi_attic.tmx')
+          root = ET.parse(p).getroot()
+          assert (root.attrib['width'], root.attrib['height']) == ('22', '14')
+          assert root.find('./tileset/image').attrib['source'] == '.townInterior.png'
+          expected = 22 * 14
+          for layer in root.findall('./layer'):
+              body = layer.find('data').text or ''
+              tokens = [x.strip() for x in body.split(',')]
+              assert all(tokens), f"empty CSV token: {layer.attrib['name']}"
+              assert len(tokens) == expected, (layer.attrib['name'], len(tokens))
+              [int(x, 10) for x in tokens]
+              print(f"PASS {layer.attrib['name']}: {len(tokens)} integer tiles")
+          d = json.loads(Path('src/Cardcha/manifest.json').read_text())
+          assert d['Version'] == '0.3.0-alpha.27.0.7.4'
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.4_MiMiAttic_StrictTMXHotfix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Publish run pointer
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s\n' "$GITHUB_RUN_ID" > build_assets/LATEST_ALPHA27_074_RUN.txt
+          git add build_assets/LATEST_ALPHA27_074_RUN.txt
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'ci: record alpha27.0.7.4 artifact run' && git push origin cardcha-alpha27-mimi-real-npc)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-074-strict-tmx-final
+          path: artifact
+          if-no-files-found: error
