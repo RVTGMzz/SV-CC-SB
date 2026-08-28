@@ -1,0 +1,91 @@
+{
+  "schema": 1,
+  "chunk_chars": 12000,
+  "assets": {
+    "chacha_follow.png": {
+      "width": 128,
+      "height": 128,
+      "mode": "RGBA",
+      "raw_bytes": 65536,
+      "sha256_rgba": "b2f975ad72249cda5c5629e4476b7fe25da4a333d62ef2675444ea7ac8a038b4",
+      "source_png_sha256": "32dda8adb1705a62bc9da8b1b53aa19158dfbdc37b9caa30ffb5a403cab001c1",
+      "canonical_png_sha256": "2d24a6bc464aa4c83a311d830c6e24725d57163e30863e3f4f192b0b1d8729aa",
+      "canonical_png_bytes": 35446,
+      "encoding": "lzma+base85-rgba-v1",
+      "chunks": [
+        "chacha_follow.png.rgba.xz.b85.part001",
+        "chacha_follow.png.rgba.xz.b85.part002",
+        "chacha_follow.png.rgba.xz.b85.part003",
+        "chacha_follow.png.rgba.xz.b85.part004"
+      ]
+    },
+    "chacha_machine.png": {
+      "width": 192,
+      "height": 96,
+      "mode": "RGBA",
+      "raw_bytes": 73728,
+      "sha256_rgba": "12079224049ae520159c783b3e464ac204256f04092540981b4d4fe8ba9a32e1",
+      "source_png_sha256": "5e4c00db6f9cfbc0c55ddebfa18cea17201f7d97a7d0ab91dcf5cda0d8444ea0",
+      "canonical_png_sha256": "f362cd5088f1bc0637957fb6bf98b2ea34e8e34f4fad8cbf5203927498163f24",
+      "canonical_png_bytes": 31246,
+      "encoding": "lzma+base85-rgba-v1",
+      "chunks": [
+        "chacha_machine.png.rgba.xz.b85.part001",
+        "chacha_machine.png.rgba.xz.b85.part002",
+        "chacha_machine.png.rgba.xz.b85.part003"
+      ]
+    },
+    "mimi_walk.png": {
+      "width": 128,
+      "height": 192,
+      "mode": "RGBA",
+      "raw_bytes": 98304,
+      "sha256_rgba": "b3e2beebef6d9d4f9c830c9a70534eb96b1bf147581bc128c23808a7dd669a53",
+      "source_png_sha256": "db8e0984edbc94415dd15858f1fe2a5eaf01d22cb35706d7b626b55cf48fabe6",
+      "canonical_png_sha256": "9fe3e5deda291f70a48c76b549021e2d1d88658ad6ec9b3301b4f67f1154b3a9",
+      "canonical_png_bytes": 62873,
+      "encoding": "lzma+base85-rgba-v1",
+      "chunks": [
+        "mimi_walk.png.rgba.xz.b85.part001",
+        "mimi_walk.png.rgba.xz.b85.part002",
+        "mimi_walk.png.rgba.xz.b85.part003",
+        "mimi_walk.png.rgba.xz.b85.part004",
+        "mimi_walk.png.rgba.xz.b85.part005",
+        "mimi_walk.png.rgba.xz.b85.part006"
+      ]
+    },
+    "card_icons.png": {
+      "width": 320,
+      "height": 1024,
+      "mode": "RGBA",
+      "raw_bytes": 1310720,
+      "sha256_rgba": "b2a8c9f0a0f46ef8efb55c7d7bdacb9157934e287c33873f885056fc1e2e799b",
+      "source_png_sha256": "b2c6f188c316100da79ff29f30c877574449a9d7a4b996928ca70e017d160a10",
+      "canonical_png_sha256": "7603c442586e273e3e31ef52e46b41fdb2705e29572e6434725b4db2583f7d29",
+      "canonical_png_bytes": 252151,
+      "encoding": "lzma+base85-rgba-v1",
+      "chunks": [
+        "card_icons.png.rgba.xz.b85.part001",
+        "card_icons.png.rgba.xz.b85.part002",
+        "card_icons.png.rgba.xz.b85.part003",
+        "card_icons.png.rgba.xz.b85.part004",
+        "card_icons.png.rgba.xz.b85.part005",
+        "card_icons.png.rgba.xz.b85.part006",
+        "card_icons.png.rgba.xz.b85.part007",
+        "card_icons.png.rgba.xz.b85.part008",
+        "card_icons.png.rgba.xz.b85.part009",
+        "card_icons.png.rgba.xz.b85.part010",
+        "card_icons.png.rgba.xz.b85.part011",
+        "card_icons.png.rgba.xz.b85.part012",
+        "card_icons.png.rgba.xz.b85.part013",
+        "card_icons.png.rgba.xz.b85.part014",
+        "card_icons.png.rgba.xz.b85.part015",
+        "card_icons.png.rgba.xz.b85.part016",
+        "card_icons.png.rgba.xz.b85.part017",
+        "card_icons.png.rgba.xz.b85.part018",
+        "card_icons.png.rgba.xz.b85.part019",
+        "card_icons.png.rgba.xz.b85.part020"
+      ]
+    }
+  }
+}
