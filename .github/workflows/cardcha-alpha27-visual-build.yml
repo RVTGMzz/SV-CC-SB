@@ -5,6 +5,7 @@ on:
     branches: [ cardcha-alpha27-mimi-real-npc ]
     paths:
       - '.github/workflows/cardcha-alpha27-visual-build.yml'
+      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
   workflow_dispatch:
 
 permissions:
@@ -28,14 +29,12 @@ jobs:
 
           r = Path('src/Cardcha')
 
-          # Materialize the small original Cardcha attic prop atlas from a reviewable text source.
           encoded = Path('build_assets/mimi_attic_props.png.b64').read_text(encoding='utf-8').strip()
           png = base64.b64decode(encoded, validate=True)
           if not png.startswith(b'\x89PNG\r\n\x1a\n'):
               raise SystemExit('attic prop atlas is not a PNG')
           (r / 'assets' / 'mimi_attic_props.png').write_bytes(png)
 
-          # Wire the visual service into input as well as rendering.
           p = r / 'ModEntry.cs'
           s = p.read_text(encoding='utf-8')
           old_ctor = 'this.AtticVisual = new MimiAtticVisualService(this.Save);'
@@ -58,7 +57,6 @@ jobs:
           )
           p.write_text(s, encoding='utf-8')
 
-          # First inspect groundwork: desk, TV secret corner, ChaCha/upgrade corner.
           patches = {
               'default.json': {
                   'mimi.attic.inspect.desk': 'MiMi’s notes are all arrows, circles, and one sentence underlined three times: “Do NOT let ChaCha choose the calibration target.” A few Cardboard Scraps are being used as bookmarks.',
@@ -77,14 +75,11 @@ jobs:
               data.update(patch)
               q.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
-          # Keep all build/version surfaces synchronized.
           q = r / 'Cardcha.csproj'
-          t = q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4')
-          q.write_text(t, encoding='utf-8')
+          q.write_text(q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4'), encoding='utf-8')
 
           q = r / 'Directory.Build.targets'
-          t = q.read_text(encoding='utf-8')
-          t = t.replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4')
+          t = q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4')
           t = t.replace('CardchaAlpha2703Manifest', 'CardchaAlpha2704Manifest')
           q.write_text(t, encoding='utf-8')
 
