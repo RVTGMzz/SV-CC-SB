@@ -8,11 +8,13 @@
 
 ## Current alpha.27 status
 
-Latest compiled integration candidate before the next visual pass:
-- `v0.3.0-alpha.27.0.3 — MiMi Real NPC Integration TEST`
-- CI compile: PASS.
+Latest compiled visual candidate:
+- `v0.3.0-alpha.27.0.4 — MiMi Attic Visual Foundation TEST`
+- CI compile: **PASS**.
+- CI package: **PASS**.
+- Current source milestone commit: `950df2a364fadec8b81dbeae64bbe3ac87799f21` (before this handoff-only docs commit).
 
-Implemented foundation includes:
+Implemented alpha.27 foundation includes:
 - MiMi real friendship/social NPC after Wizard-house meetup;
 - Social tab + vanilla gifting;
 - birthday **Spring 17**;
@@ -24,45 +26,37 @@ Implemented foundation includes:
 - Wizard House work fallback during harsh weather;
 - staircase/access integration without wholesale WizardHouse replacement.
 
-## Canon MiMi assets
+## Alpha.27.0.4 — MiMi Attic Visual Foundation
 
-- `mimi_portraits.png` canonical size = **768x128**.
-- Do not silently restore the rejected 1152x192 or 1536x256 portrait experiments.
-- Latest user-approved TEST/package art remains canonical where GitHub binary art is still older.
+Implemented and CI-compiled. Awaiting in-game visual/interaction acceptance before further expansion.
 
-## Current milestone
-
-# `Alpha.27.0.4 — MiMi Attic Visual Foundation`
-
-Build this next. The user explicitly asked to **build, not re-plan**.
-
-Required attic layout is locked to five zones:
+Five locked zones are represented:
 1. entrance / stair landing;
 2. research desk;
 3. bed / personal corner;
 4. TV secret zone;
 5. ChaCha / upgrade corner.
 
-Visual tone:
-- warm;
-- eccentric;
-- lived-in;
-- slightly messy with intent;
-- clear Cardcha/Scrap/ChaCha identity;
-- still a home, not a workshop or second shop.
+Implementation notes:
+- keeps the safe vanilla `Maps/Shed` runtime base instead of replacing `WizardHouse`;
+- overlays a small original Cardcha attic prop atlas (`assets/mimi_attic_props.png`);
+- adds inspect groundwork for desk / TV / ChaCha;
+- adds EN/VI flavor text for all three inspect points;
+- keeps attic as MiMi's home, not the main shop;
+- includes an intentionally unused eligibility hook for the later **17:30 / 6-heart** TV routine;
+- does **not** implement the full TV event, full heart event, full ChaCha upgrade mechanic, or Community Center contribution mechanic yet.
 
-Technical rules:
-- keep `Cardcha_MiMiAttic` stable;
-- don't replace WizardHouse wholesale;
-- preserve 2-heart access;
-- add groundwork inspect interactions for desk / TV / ChaCha with EN/VI flavor text;
-- leave hooks for the later 17:30 private routine at ~6 hearts.
+## Canon MiMi assets
 
-Out of scope for alpha.27.0.4:
-- full heart events;
-- full 17:30 event;
-- full ChaCha/Card Dust upgrade mechanic;
-- full seasonal Community Center contribution mechanic.
+- `mimi_portraits.png` canonical size = **768x128**.
+- Do not silently restore the rejected 1152x192 or 1536x256 portrait experiments.
+- Alpha.27.0.4 CI package was checked and still contains the canonical 768x128 portrait.
+
+## Next action
+
+Use `v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST` for the next in-game acceptance pass when a test machine is available. Fix layout/readability/collision/interaction issues found there before starting the full 17:30 event or ChaCha upgrade mechanic.
+
+Do not merge alpha.27 into `main` automatically. Keep `main` at alpha.26.5.3 until the user explicitly accepts a newer rollback baseline.
 
 ## Read these docs before changing alpha.27
 
@@ -73,8 +67,8 @@ Out of scope for alpha.27.0.4:
 
 ## Build rule
 
-Produce a **real CI-compiled TEST ZIP** before claiming the milestone is complete. Keep alpha.27 work on `cardcha-alpha27-mimi-real-npc` until in-game acceptance; do not merge to `main` automatically.
+For each functional alpha.27 milestone, produce a **real CI-compiled TEST ZIP** before claiming completion.
 
 ## Controller regression note
 
-Alpha.26.5.3 is still the rollback baseline because the user has not yet had a controller available for the final regression pass. Do not let that block alpha.27 development, but preserve the rollback point.
+Alpha.26.5.3 remains the rollback baseline because the final controller regression pass is still outstanding. Do not let that block alpha.27 development, but preserve the rollback point.
