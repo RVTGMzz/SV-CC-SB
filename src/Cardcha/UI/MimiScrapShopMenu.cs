@@ -544,12 +544,14 @@ internal sealed class MimiScrapShopMenu : IClickableMenu
             b,
             Game1.smallFont,
             ModEntry.T("mimi.shop.quip.portable"),
-            new Rectangle(paper.X + 38, paper.Y + 64, paper.Width - 76, 88),
+            // Keep MiMi's middle quip inside a strict two-line band so long translations can
+            // never intrude into the first shop row.
+            new Rectangle(paper.X + 48, paper.Y + 66, paper.Width - 96, 62),
             Color.DarkSlateGray,
-            maxLines: 3,
-            minScale: 0.82f,
+            maxLines: 2,
+            minScale: 0.68f,
             centerX: true,
-            maxScale: 1.32f,
+            maxScale: 1.12f,
             centerY: true
         );
 

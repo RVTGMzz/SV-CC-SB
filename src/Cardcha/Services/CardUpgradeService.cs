@@ -88,58 +88,66 @@ internal sealed class CardUpgradeService
         {
             "iron_edge" => new CardLevelStats
             {
-                Primary = Pick(level, 0.04, 0.06, 0.08, 0.10, 0.12)
+                Primary = Pick(level, 0.04, 0.05, 0.06, 0.07, 0.08)
             },
 
             "thick_hide" => new CardLevelStats
             {
-                Primary = Pick(level, 1, 1, 2, 2, 3)
+                Primary = Pick(level, 1, 2, 3)
             },
 
             "keen_eye" => new CardLevelStats
             {
-                Primary = Pick(level, 0.02, 0.03, 0.04, 0.05, 0.06)
+                Primary = Pick(level, 0.02, 0.025, 0.03, 0.035, 0.04)
             },
 
             "swift_feet" => new CardLevelStats
             {
-                Primary = Pick(level, 1, 1, 1, 1, 2),
-                DurationMs = PickInt(level, 0, 1500, 3000, 4500, 6000)
+                Primary = Pick(level, 0.03, 0.04, 0.05, 0.06, 0.07),
+                DurationMs = 0
             },
 
             "blood_fang" => new CardLevelStats
             {
-                Primary = Pick(level, 0.020, 0.025, 0.030, 0.035, 0.040),
-                DurationMs = PickInt(level, 1000, 900, 800, 700, 600)
+                Primary = Pick(level, 0.020, 0.025, 0.030, 0.035),
+                DurationMs = 2000
             },
 
             "executioner" => new CardLevelStats
             {
-                Primary = Pick(level, 0.20, 0.25, 0.30, 0.35, 0.40),
-                Threshold = Pick(level, 0.20, 0.20, 0.25, 0.25, 0.30)
+                Primary = Pick(level, 0.15, 0.18, 0.21, 0.24),
+                Threshold = 0.20
             },
 
             "card_seeker" => new CardLevelStats
             {
-                Primary = Pick(level, 0.50, 0.60, 0.70, 0.85, 1.00)
+                Primary = Pick(level, 0.15, 0.18, 0.21, 0.24)
             },
 
             "chain_hunter" => new CardLevelStats
             {
-                Primary = Pick(level, 0.05, 0.06, 0.07, 0.08),
-                DurationMs = PickInt(level, 6000, 7000, 8000, 9000)
+                Primary = Pick(level, 0.04, 0.05, 0.06),
+                DurationMs = 5000
             },
 
             "last_stand" => new CardLevelStats
             {
-                Primary = Pick(level, 0.20, 0.25, 0.30, 0.35),
-                Secondary = Pick(level, 2, 2, 3, 3),
-                Threshold = 0.20
+                Primary = Pick(level, 0.12, 0.16, 0.20),
+                Secondary = Pick(level, 3, 4, 5),
+                Threshold = 0.25
             },
 
             "phoenix_heart" => new CardLevelStats
             {
-                DurationMs = PickInt(level, 5000, 7000, 9000)
+                DurationMs = PickInt(level, 1000, 1500, 2000)
+            },
+
+            "soul_eater" => new CardLevelStats
+            {
+                Primary = Pick(level, 0.08, 0.10, 0.12),
+                Secondary = Pick(level, 7, 5, 5),
+                DurationMs = PickInt(level, 5000, 6000, 7000),
+                Threshold = Pick(level, 0.08, 0.10, 0.12)
             },
 
             _ => new CardLevelStats
@@ -176,13 +184,13 @@ internal sealed class CardUpgradeService
             "swift_feet" => s.DurationMs <= 0
                 ? ModEntry.T(
                     "binder.level-effect.swift-feet-base",
-                    new { speed = (int)Math.Round(s.Primary) }
+                    new { speed = Percent(s.Primary) }
                 )
                 : ModEntry.T(
                     "binder.level-effect.swift-feet",
                     new
                     {
-                        speed = (int)Math.Round(s.Primary),
+                        speed = Percent(s.Primary),
                         duration = Seconds(s.DurationMs)
                     }
                 ),
@@ -232,6 +240,10 @@ internal sealed class CardUpgradeService
             "phoenix_heart" => ModEntry.T(
                 "binder.level-effect.phoenix-heart",
                 new { duration = Seconds(s.DurationMs) }
+            ),
+
+            "soul_eater" => ModEntry.T(
+                $"card.soul_eater.star.{Math.Clamp(level, 1, 3)}"
             ),
 
             _ => card.Description

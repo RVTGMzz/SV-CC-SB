@@ -2,7 +2,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 13;
+    public int SchemaVersion { get; set; } = 14;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -20,7 +20,11 @@ internal sealed class SaveData
     public int StandardSinceLegendary { get; set; }
     public int PremiumSinceEpic { get; set; }
     public int PremiumSinceLegendary { get; set; }
+    // alpha.26.5 collection insurance: 20 duplicate pulls -> next eligible pull is NEW.
+    public int DuplicatePullStreak { get; set; }
     public bool PhoenixHeartUsedToday { get; set; }
+    public bool LifelineUsedToday { get; set; }
+    public bool GuardianAngelUsedToday { get; set; }
 
     // v0.1.17-alpha.11.6 — virtual Scrap wallet. These no longer occupy backpack slots.
     public int CardboardScraps { get; set; }

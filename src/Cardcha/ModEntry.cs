@@ -62,7 +62,8 @@ internal sealed class ModEntry : Mod
             this.Cards,
             this.Resources,
             this.Progression.OnFirstCardboardScrapDropped,
-            () => this.Progression.HasFirstScrapTriggered
+            () => this.Progression.HasFirstScrapTriggered,
+            () => this.Combat.CurrentNoHitKillStreak
         );
         this.Deaths = new MonsterDeathService(this.Drops, this.Combat);
         this.EnemyObserver = new UniversalEnemyObserverService(this.Deaths);
@@ -166,7 +167,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.26.5 CORE COMPLETION HOTFIX with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -243,6 +244,7 @@ internal sealed class ModEntry : Mod
         this.Story.OnSaveLoaded();
         this.Mystery.OnSaveLoaded();
         this.NormalizeCardchaMachinePlacement();
+        this.NormalizePortableMachinePlacement();
 
         this.Monitor.Log(
             $"Save persistence audit: {this.Save.LastPersistenceMessage}",
@@ -301,12 +303,21 @@ internal sealed class ModEntry : Mod
 
     private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
     {
-        if (!Context.IsWorldReady || IsMainFarmHouse(e.Location))
+        if (!Context.IsWorldReady)
             return;
 
         foreach (var pair in e.Added.ToList())
         {
-            if (!MachineInteractionPatch.IsCardchaMachine(pair.Value))
+            if (ItemAssetService.IsPortableMachine(pair.Value))
+            {
+                e.Location.Objects.Remove(pair.Key);
+                this.ReturnPortableMachineToPlayer();
+                Game1.showGlobalMessage(ModEntry.T("portable.machine.recovered"));
+                this.Monitor.Log($"Recovered Portable Cardcha Machine placement at {e.Location.NameOrUniqueName}.", LogLevel.Info);
+                continue;
+            }
+
+            if (IsMainFarmHouse(e.Location) || !MachineInteractionPatch.IsCardchaMachine(pair.Value))
                 continue;
 
             // The stationary Cardcha machine is intentionally a home appliance, not a field
@@ -357,6 +368,34 @@ internal sealed class ModEntry : Mod
         }
     }
 
+    private void NormalizePortableMachinePlacement()
+    {
+        if (!Context.IsWorldReady) return;
+        int recovered = 0;
+        foreach (GameLocation location in Game1.locations.ToList())
+        {
+            foreach (var pair in location.Objects.Pairs.Where(pair => ItemAssetService.IsPortableMachine(pair.Value)).ToList())
+            {
+                location.Objects.Remove(pair.Key);
+                recovered++;
+                this.ReturnPortableMachineToPlayer();
+            }
+        }
+        if (recovered > 0)
+        {
+            Game1.showGlobalMessage(ModEntry.T("portable.machine.recovered"));
+            this.Monitor.Log($"Recovered {recovered} misplaced Portable Cardcha Machine(s).", LogLevel.Info);
+        }
+    }
+
+    private void ReturnPortableMachineToPlayer()
+    {
+        Item portable = ItemAssetService.CreatePortableMachineItem();
+        Item? leftover = Game1.player.addItemToInventory(portable);
+        if (leftover is not null && Game1.currentLocation is not null)
+            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
+    }
+
     private static bool IsMainFarmHouse(GameLocation location)
     {
         GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
@@ -385,6 +424,31 @@ internal sealed class ModEntry : Mod
         if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
             return;
 
+        Game1.activeClickableMenu = new CardchaMachineMenu(
+            this.Gacha,
+            this.Resources,
+            this.Save,
+            this.Cards,
+            this.Loadout,
+            this.Upgrades,
+            this.Config,
+            this.Renderer,
+            this.Controller,
+            this.Combat.SyncPassiveBuffs,
+            this.Story.OnPullResolved,
+            CardchaMachineMode.Stationary
+        );
+    }
+
+    private void OpenMachineFromBinder()
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        // This callback is invoked while the Binder is still the active menu, so the
+        // normal world-interaction guard in OpenMachineMenu() must not reject it.
+        // Replacing the active menu keeps the transition atomic and avoids briefly
+        // returning control to gameplay between the Binder and the machine.
         Game1.activeClickableMenu = new CardchaMachineMenu(
             this.Gacha,
             this.Resources,
@@ -449,6 +513,7 @@ internal sealed class ModEntry : Mod
             this.Renderer,
             this.Controller,
             () => Game1.exitActiveMenu(),
+            this.OpenMachineFromBinder,
             this.Combat.SyncPassiveBuffs,
             ModEntry.T("binder.back.close")
         );
@@ -481,6 +546,7 @@ internal sealed class ModEntry : Mod
                     previousMenu.snapToDefaultClickableComponent();
                 }
             },
+            this.OpenMachineFromBinder,
             this.Combat.SyncPassiveBuffs,
             backLabel,
             previousMenu
@@ -670,7 +736,7 @@ internal sealed class ModEntry : Mod
     private void CommandLootRates(string command, string[] args)
     {
         this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.3.0-alpha.25 =====\n" +
+            "===== CARDCHA LOOT RATES v0.3.0-alpha.26.4 =====\n" +
             "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
             "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
             "Raw Max HP is NOT used to classify or scale rewards.",
@@ -761,7 +827,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH",
+            "Cardcha! v0.3.0-alpha.26.5 CORE COMPLETION HOTFIX",
             LogLevel.Alert
         );
     }

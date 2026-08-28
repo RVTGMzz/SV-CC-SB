@@ -9,8 +9,8 @@ internal sealed class ModConfig
     public double PrototypeDropMultiplier { get; set; } = 1.0;
     public int StandardPullCost { get; set; } = 10;
     public int PremiumPullCost { get; set; } = 10;
-    public int StandardLegendaryPity { get; set; } = 60;
-    public int PremiumLegendaryPity { get; set; } = 20;
+    public int StandardLegendaryPity { get; set; } = 70;
+    public int PremiumLegendaryPity { get; set; } = 30;
 
     // v0.1.2 combat tuning. These are intentionally easy to tweak while testing.
     public int BloodFangCooldownMs { get; set; } = 1000;

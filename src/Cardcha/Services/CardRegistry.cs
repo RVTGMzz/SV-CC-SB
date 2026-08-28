@@ -5,6 +5,19 @@ namespace Cardcha.Services;
 
 internal sealed class CardRegistry
 {
+    // The public-facing Base Set remains an 80-card collection target.
+    // Legacy Mythic entries 77-80 are hidden from the Binder while their future replacements
+    // are being designed, so active progression ignores those legacy IDs without deleting save data.
+    public const int TargetBaseSetCount = 76;
+
+    private static readonly HashSet<string> LegacyMythicCardIds = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "endless_hunt",
+        "fate_weaver",
+        "immortal_echo",
+        "worldbreaker"
+    };
+
     private readonly IModHelper Helper;
     private Dictionary<string, CardDefinition> Cards = new(StringComparer.OrdinalIgnoreCase);
 
@@ -53,6 +66,16 @@ internal sealed class CardRegistry
 
     public CardDefinition? Get(string id)
         => this.Cards.TryGetValue(id, out CardDefinition? card) ? card : null;
+
+    public static int CountActiveOwned(IEnumerable<string>? ownedCardIds)
+    {
+        if (ownedCardIds is null)
+            return 0;
+
+        return ownedCardIds.Count(id =>
+            !string.IsNullOrWhiteSpace(id)
+            && !LegacyMythicCardIds.Contains(id));
+    }
 
     public IEnumerable<CardDefinition> ForRarity(CardRarity rarity)
         => this.Cards.Values.Where(p => p.Rarity == rarity);

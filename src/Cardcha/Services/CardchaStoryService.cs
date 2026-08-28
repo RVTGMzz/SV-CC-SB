@@ -170,6 +170,7 @@ internal sealed class CardchaStoryService
         {
             this.UpdateChaChaFollowerPosition();
             this.SyncChaChaFollowerActor();
+            this.WorldActors.UpdateChaChaEmotes(dialogueActive: this.DialogueOpen);
         }
         else if (this.Scene == SceneKind.None && !this.MeetupExitPending && !this.IntroDeparturePending)
         {
@@ -630,6 +631,13 @@ internal sealed class CardchaStoryService
             speakerKey = rawLine[..colon].Trim();
             if (colon + 1 < rawLine.Length)
                 text = rawLine[(colon + 1)..].Trim();
+        }
+
+        if (speakerKey.Equals("ChaCha", StringComparison.OrdinalIgnoreCase)
+            || rawLine.Contains("ChaCha:", StringComparison.OrdinalIgnoreCase))
+        {
+            // ChaCha mainly communicates through tiny sounds + expressions instead of full speech.
+            this.WorldActors.TriggerChaChaEmote(32);
         }
 
         NPC? speaker = this.ResolveDialogueSpeaker(speakerKey);

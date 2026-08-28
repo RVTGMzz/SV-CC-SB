@@ -1,3 +1,12 @@
+# CURRENT CANONICAL BASELINE — 2026-08-28
+
+- **Temporary accepted baseline:** `v0.3.0-alpha.26.5.3` pending another controller test pass.
+- `main/src/Cardcha` is now the source-code/data baseline. Do not reconstruct from alpha.25.
+- MiMi portrait canonical rollback: `assets/mimi_portraits.png` = **768x128**.
+- Current TEST art overrides that must not be silently reverted in packaged builds: `card_icons.png`, `chacha_follow.png`, `chacha_machine.png`, `chacha_portrait.png`, `mimi_walk.png`. These were user-approved after the older GitHub art baseline; treat the latest TEST/package assets as canonical art until their raw binary blobs are separately byte-synced to GitHub.
+- Controller status: alpha.26.5.3 includes safe reveal/focus/shop hotfixes, but the user has not yet re-tested with a controller after this build.
+- Next planned milestone after controller confirmation: **alpha.27 MiMi Real NPC** (friendship/gifting, Spring 17 birthday, Wizard attic, Community Center foundation).
+
 # NEXT SESSION — Cardcha v0.3.0-alpha.25 Gacha Interior Flash
 
 ## READ FIRST

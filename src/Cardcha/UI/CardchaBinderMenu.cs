@@ -11,7 +11,7 @@ using System.Text.RegularExpressions;
 namespace Cardcha.UI;
 
 /// <summary>
-/// Binder v0.3 alpha.23.
+/// Binder v0.3 alpha.26.
 /// Design goals: near-full-screen open book, icon-only Base-ID collection, rarity bookmarks,
 /// locked grayscale icons with real rarity borders, favorite shortcut, equipped overlay, and a readable
 /// detail page. This intentionally keeps combat/effect services separate from the UI refactor.
@@ -30,13 +30,15 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private const int BackId = 100;
     private const int ActiveBaseId = 200;
-    private const int BossSlotId = 206;
+    private const int CardchaBadgeId = 206;
     private const int SecretSlotId = 207;
+    private const int ChaChaResonanceUnlockMilestone = 20;
     private const int CardBaseId = 1000;
     private const int FilterBaseId = 2000;
     private const int FavoriteFilterId = 2010;
     private const int NormalScrapId = 2020;
     private const int ShinyScrapId = 2021;
+    private const int CardDustId = 2022;
     private const int PrevPageId = 2100;
     private const int NextPageId = 2101;
     private const int UnlockSlotId = 2102;
@@ -53,6 +55,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private readonly CardRenderer Renderer;
     private readonly ControllerProfileService Controller;
     private readonly Action OnCloseToMachine;
+    private readonly Action OpenMachineFromBinder;
     private readonly Action OnLoadoutChanged;
     private readonly string BackLabel;
     private readonly IClickableMenu? BackgroundMenu;
@@ -64,12 +67,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private readonly ClickableComponent BackButton;
     private readonly List<ClickableComponent> ActiveSlots = new();
-    private readonly ClickableComponent BossSlot;
+    private readonly ClickableComponent CardchaBadge;
     private readonly ClickableComponent SecretSlot;
     private readonly List<(BinderFilter Filter, ClickableComponent Button)> MainFilterTabs = new();
     private readonly ClickableComponent FavoriteFilterTab;
     private readonly ClickableComponent NormalScrapButton;
     private readonly ClickableComponent ShinyScrapButton;
+    private readonly ClickableComponent CardDustButton;
     private readonly ClickableComponent PrevPageButton;
     private readonly ClickableComponent NextPageButton;
     private readonly ClickableComponent UnlockSlotButton;
@@ -91,7 +95,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private double LastQuickToggleAtMs;
     private Texture2D? ScrapTexture;
     private bool ScrapTextureChecked;
-    private const double QuickToggleMinMs = 0d;
+    // A real double-activation must contain two distinct physical presses.
+    // 120ms filters duplicate gamepad events produced by some controller runtimes.
+    private const double QuickToggleMinMs = 220d;
     private const double QuickToggleWindowMs = 650d;
     private string Status = ModEntry.T("binder.status.pick");
     // alpha.23: hint bar follows the most recently used input family and controller profile.
@@ -104,7 +110,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Rare,
         Epic,
         Legendary,
-        Mythic,
         Favorite
     }
 
@@ -117,6 +122,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         CardRenderer renderer,
         ControllerProfileService controller,
         Action onCloseToMachine,
+        Action openMachineFromBinder,
         Action onLoadoutChanged,
         string? backLabel = null,
         IClickableMenu? backgroundMenu = null
@@ -135,6 +141,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.Renderer = renderer;
         this.Controller = controller;
         this.OnCloseToMachine = onCloseToMachine;
+        this.OpenMachineFromBinder = openMachineFromBinder;
         this.OnLoadoutChanged = onLoadoutChanged;
         this.BackLabel = backLabel ?? ModEntry.T("binder.back");
         this.BackgroundMenu = backgroundMenu;
@@ -152,45 +159,30 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             new Rectangle(this.LeftPage.X + 18, this.LeftPage.Y + 14, 52, 42),
             "back") { myID = BackId };
 
-        // v0.3 alpha.12: five normal skills + Boss stay together as one loadout group.
-        // ChaCha is deliberately separated to the right because that circle will later open
-        // ChaCha management instead of behaving like another combat-skill slot.
+        // alpha.26.2: Cardcha + ChaCha are navigation badges on the LEFT; the five combat
+        // skill slots are grouped on the RIGHT. They intentionally use different silhouettes
+        // so system navigation can never be mistaken for an equippable skill circle.
         int activeGap = 8;
-        int chachaGroupGap = 42;
-        int totalCircleCount = VisualActiveSlots + 2;
+        int systemGap = 12;
+        int groupGap = 34;
         int activeAvailableWidth = this.LeftPage.Width - 44;
-        int activeDiameter = Math.Clamp(
-            (activeAvailableWidth - activeGap * VisualActiveSlots - chachaGroupGap) / totalCircleCount,
-            54,
-            82
-        );
-        int activeRowWidth = activeDiameter * totalCircleCount
-            + activeGap * VisualActiveSlots
-            + chachaGroupGap;
-        int activeX = this.LeftPage.Center.X - activeRowWidth / 2;
+        int activeDiameter = Math.Clamp((activeAvailableWidth - activeGap * 4 - groupGap - 150) / VisualActiveSlots, 54, 82);
+        int badgeW = Math.Clamp(activeDiameter + 16, 70, 98);
+        int badgeH = activeDiameter;
+        int rowW = badgeW * 2 + systemGap + groupGap + activeDiameter * VisualActiveSlots + activeGap * (VisualActiveSlots - 1);
+        int activeX = this.LeftPage.Center.X - rowW / 2;
         int activeY = this.LeftPage.Y + 78;
 
+        // Cardcha is now a navigation badge, not a Mythic/Boss skill slot.
+        this.CardchaBadge = new ClickableComponent(new Rectangle(activeX, activeY, badgeW, badgeH), "cardcha-badge") { myID = CardchaBadgeId };
+        this.SecretSlot = new ClickableComponent(new Rectangle(this.CardchaBadge.bounds.Right + systemGap, activeY, badgeW, badgeH), "chacha-badge") { myID = SecretSlotId };
+
+        int skillX = this.SecretSlot.bounds.Right + groupGap;
         for (int i = 0; i < VisualActiveSlots; i++)
         {
-            Rectangle r = new(activeX + i * (activeDiameter + activeGap), activeY, activeDiameter, activeDiameter);
+            Rectangle r = new(skillX + i * (activeDiameter + activeGap), activeY, activeDiameter, activeDiameter);
             this.ActiveSlots.Add(new ClickableComponent(r, $"active-{i}") { myID = ActiveBaseId + i });
         }
-
-        Rectangle bossRect = new(
-            activeX + VisualActiveSlots * (activeDiameter + activeGap),
-            activeY,
-            activeDiameter,
-            activeDiameter
-        );
-        this.BossSlot = new ClickableComponent(bossRect, "boss-slot") { myID = BossSlotId };
-
-        Rectangle secretRect = new(
-            bossRect.Right + chachaGroupGap,
-            activeY,
-            activeDiameter,
-            activeDiameter
-        );
-        this.SecretSlot = new ClickableComponent(secretRect, "chacha-slot") { myID = SecretSlotId };
 
         int collectionTop = activeY + activeDiameter + 34;
         int paginationHeight = 48;
@@ -212,8 +204,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             BinderFilter.Common,
             BinderFilter.Rare,
             BinderFilter.Epic,
-            BinderFilter.Legendary,
-            BinderFilter.Mythic
+            BinderFilter.Legendary
         };
 
         for (int i = 0; i < mainFilters.Length; i++)
@@ -231,10 +222,10 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         // Resource counters live on the left rail, directly below rarity bookmarks and
         // above Favorites, matching the approved reference Binder.
-        int resourceGap = 8;
+        int resourceGap = 7;
         int resourceY = this.MainFilterTabs.Last().Button.bounds.Bottom + 12;
         int resourceAvailable = Math.Max(0, this.FavoriteFilterTab.bounds.Y - resourceY - 10);
-        int resourceSize = Math.Clamp((resourceAvailable - resourceGap) / 2, 36, 62);
+        int resourceSize = Math.Clamp((resourceAvailable - resourceGap * 2) / 3, 30, 56);
         int resourceX = tabX + (tabW - resourceSize) / 2;
         this.NormalScrapButton = new ClickableComponent(
             new Rectangle(resourceX, resourceY, resourceSize, resourceSize),
@@ -242,6 +233,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.ShinyScrapButton = new ClickableComponent(
             new Rectangle(resourceX, resourceY + resourceSize + resourceGap, resourceSize, resourceSize),
             "shiny-scrap") { myID = ShinyScrapId };
+        this.CardDustButton = new ClickableComponent(
+            new Rectangle(resourceX, resourceY + (resourceSize + resourceGap) * 2, resourceSize, resourceSize),
+            "card-dust") { myID = CardDustId };
 
         int pageY = this.LeftPage.Bottom - 48;
         this.PrevPageButton = new ClickableComponent(
@@ -286,6 +280,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     }
 
     private int UnlockedSlots => this.Upgrades.GetUnlockedSlotCount();
+    private int ActiveCollectionCount => CardRegistry.CountActiveOwned(this.Save.Data.OwnedCards);
+    private bool ChaChaResonanceUnlocked => this.ActiveCollectionCount >= ChaChaResonanceUnlockMilestone;
 
     private IReadOnlyList<CardDefinition> OrderedCards
         => this.Cards.All
@@ -295,7 +291,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private List<CardDefinition> FilteredCards()
     {
-        IEnumerable<CardDefinition> cards = this.OrderedCards;
+        // Legacy Mythic cards are retained in save/source data only for migration safety.
+        // They no longer belong to the Binder collection; Mythic gameplay moves to ChaCha Resonance.
+        IEnumerable<CardDefinition> cards = this.OrderedCards.Where(p => p.Rarity != CardRarity.Mythic);
 
         cards = this.CurrentFilter switch
         {
@@ -303,7 +301,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             BinderFilter.Rare => cards.Where(p => p.Rarity == CardRarity.Rare),
             BinderFilter.Epic => cards.Where(p => p.Rarity == CardRarity.Epic),
             BinderFilter.Legendary => cards.Where(p => p.Rarity == CardRarity.Legendary),
-            BinderFilter.Mythic => cards.Where(p => p.Rarity == CardRarity.Mythic),
             BinderFilter.Favorite => cards.Where(p =>
                 this.Save.Data.OwnedCards.Contains(p.Id)
                 && this.Save.Data.FavoriteCardIds.Contains(p.Id)),
@@ -359,7 +356,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private void PruneInvalidFavorites()
     {
         HashSet<string> validOwnedIds = this.Cards.All
-            .Where(p => this.Save.Data.OwnedCards.Contains(p.Id))
+            .Where(p => p.Rarity != CardRarity.Mythic && this.Save.Data.OwnedCards.Contains(p.Id))
             .Select(p => p.Id)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
@@ -371,33 +368,29 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void ConfigureNeighbors()
     {
-        this.BackButton.downNeighborID = ActiveBaseId;
-        this.BackButton.rightNeighborID = ActiveBaseId;
+        this.BackButton.downNeighborID = CardchaBadgeId;
+        this.BackButton.rightNeighborID = CardchaBadgeId;
+
+        this.CardchaBadge.leftNeighborID = FilterBaseId;
+        this.CardchaBadge.rightNeighborID = SecretSlotId;
+        this.CardchaBadge.upNeighborID = BackId;
+        this.CardchaBadge.downNeighborID = this.CardButtons.Count > 0 ? CardBaseId : PrevPageId;
+
+        this.SecretSlot.leftNeighborID = CardchaBadgeId;
+        this.SecretSlot.rightNeighborID = ActiveBaseId;
+        this.SecretSlot.upNeighborID = BackId;
+        this.SecretSlot.downNeighborID = this.CardButtons.Count > 0 ? CardBaseId : PrevPageId;
 
         for (int i = 0; i < this.ActiveSlots.Count; i++)
         {
             ClickableComponent slot = this.ActiveSlots[i];
-            slot.leftNeighborID = i == 0 ? FilterBaseId : ActiveBaseId + i - 1;
-            slot.rightNeighborID = i < this.ActiveSlots.Count - 1 ? ActiveBaseId + i + 1 : BossSlotId;
+            slot.leftNeighborID = i == 0 ? SecretSlotId : ActiveBaseId + i - 1;
+            slot.rightNeighborID = i < this.ActiveSlots.Count - 1 ? ActiveBaseId + i + 1 : FavoriteActionId;
             slot.upNeighborID = BackId;
             slot.downNeighborID = this.CardButtons.Count > 0
                 ? CardBaseId + Math.Min(i, this.CardButtons.Count - 1)
-                : PrevPageId;
+                : NextPageId;
         }
-
-        this.BossSlot.leftNeighborID = ActiveBaseId + VisualActiveSlots - 1;
-        this.BossSlot.rightNeighborID = SecretSlotId;
-        this.BossSlot.upNeighborID = BackId;
-        this.BossSlot.downNeighborID = this.CardButtons.Count > 0
-            ? CardBaseId + Math.Min(GridColumns - 1, this.CardButtons.Count - 1)
-            : NextPageId;
-
-        this.SecretSlot.leftNeighborID = BossSlotId;
-        this.SecretSlot.rightNeighborID = FavoriteActionId;
-        this.SecretSlot.upNeighborID = BackId;
-        this.SecretSlot.downNeighborID = this.CardButtons.Count > 0
-            ? CardBaseId + Math.Min(GridColumns - 1, this.CardButtons.Count - 1)
-            : NextPageId;
 
         for (int i = 0; i < this.MainFilterTabs.Count; i++)
         {
@@ -413,11 +406,14 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.NormalScrapButton.downNeighborID = ShinyScrapId;
         this.NormalScrapButton.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
         this.ShinyScrapButton.upNeighborID = NormalScrapId;
-        this.ShinyScrapButton.downNeighborID = FavoriteFilterId;
+        this.ShinyScrapButton.downNeighborID = CardDustId;
         this.ShinyScrapButton.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
+        this.CardDustButton.upNeighborID = ShinyScrapId;
+        this.CardDustButton.downNeighborID = FavoriteFilterId;
+        this.CardDustButton.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
 
         this.FavoriteFilterTab.rightNeighborID = this.CardButtons.Count > 0 ? CardBaseId : ActiveBaseId;
-        this.FavoriteFilterTab.upNeighborID = ShinyScrapId;
+        this.FavoriteFilterTab.upNeighborID = CardDustId;
         this.FavoriteFilterTab.downNeighborID = this.MainFilterTabs.First().Button.myID;
 
         for (int i = 0; i < this.CardButtons.Count; i++)
@@ -434,7 +430,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
                 : ActiveBaseId + Math.Min(col, VisualActiveSlots - 1);
             button.downNeighborID = i + GridColumns < this.CardButtons.Count
                 ? CardBaseId + i + GridColumns
-                : UpgradeActionId;
+                : (col < GridColumns / 2 ? PrevPageId : NextPageId);
         }
 
         this.PrevPageButton.leftNeighborID = FavoriteFilterId;
@@ -448,6 +444,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.NextPageButton.upNeighborID = this.CardButtons.Count > 0
             ? CardBaseId + this.CardButtons.Count - 1
             : SecretSlotId;
+        this.PrevPageButton.downNeighborID = FavoriteActionId;
+        this.NextPageButton.downNeighborID = EquipActionId;
 
         int actionReturnId = this.CardButtons.Count > 0 ? CardBaseId + this.CardButtons.Count - 1 : SecretSlotId;
         this.FavoriteActionButton.leftNeighborID = actionReturnId;
@@ -477,11 +475,12 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.allClickableComponents.Clear();
         this.allClickableComponents.Add(this.BackButton);
         this.allClickableComponents.AddRange(this.ActiveSlots);
-        this.allClickableComponents.Add(this.BossSlot);
+        this.allClickableComponents.Add(this.CardchaBadge);
         this.allClickableComponents.Add(this.SecretSlot);
         this.allClickableComponents.AddRange(this.MainFilterTabs.Select(p => p.Button));
         this.allClickableComponents.Add(this.NormalScrapButton);
         this.allClickableComponents.Add(this.ShinyScrapButton);
+        this.allClickableComponents.Add(this.CardDustButton);
         this.allClickableComponents.Add(this.FavoriteFilterTab);
         this.allClickableComponents.AddRange(this.CardButtons.Select(p => p.Button));
         this.allClickableComponents.Add(this.PrevPageButton);
@@ -494,13 +493,14 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     public override void snapToDefaultClickableComponent()
     {
-        this.currentlySnappedComponent = this.ActiveSlots.FirstOrDefault() ?? this.BackButton;
+        this.currentlySnappedComponent = this.CardchaBadge;
         this.snapCursorToCurrentSnappedComponent();
     }
 
     public override void receiveGamePadButton(Buttons b)
     {
         this.LastInputWasController = true;
+        this.EnsureControllerFocusValid();
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
 
@@ -546,12 +546,61 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (this.Controller.IsConfirm(b) && this.currentlySnappedComponent is not null)
         {
+            // Handle the two system badges directly instead of translating controller focus back
+            // into a synthetic mouse click. This avoids rare stale-focus failures after UI rebuilds.
+            if (this.currentlySnappedComponent.myID == CardchaBadgeId)
+            {
+                Game1.playSound("smallSelect");
+                this.OpenMachineFromBinder();
+                return;
+            }
+
+            if (this.currentlySnappedComponent.myID == SecretSlotId)
+            {
+                if (!this.ChaChaResonanceUnlocked)
+                {
+                    this.Status = ModEntry.T("binder.chacha-slot.locked", new { milestone = ChaChaResonanceUnlockMilestone });
+                    Game1.playSound("cancel");
+                }
+                else
+                {
+                    this.OpenChaChaResonance();
+                }
+                return;
+            }
+
             this.ActivateFocusedComponent(fromController: true);
             return;
         }
 
         base.receiveGamePadButton(b);
+        this.EnsureControllerFocusValid();
         this.SyncBrowsePreviewToFocusedCard();
+    }
+
+    private void EnsureControllerFocusValid()
+    {
+        if (this.currentlySnappedComponent is null)
+        {
+            this.currentlySnappedComponent = this.CardchaBadge;
+            if (Game1.options.SnappyMenus)
+                this.snapCursorToCurrentSnappedComponent();
+            return;
+        }
+
+        int id = this.currentlySnappedComponent.myID;
+        ClickableComponent? canonical = this.allClickableComponents.FirstOrDefault(component => component.myID == id);
+        if (canonical is not null)
+        {
+            this.currentlySnappedComponent = canonical;
+            return;
+        }
+
+        // A filter/page rebuild can invalidate an old card component reference. Fall back to a
+        // permanent system badge rather than leaving controller Confirm pointed at a dead object.
+        this.currentlySnappedComponent = this.CardchaBadge;
+        if (Game1.options.SnappyMenus)
+            this.snapCursorToCurrentSnappedComponent();
     }
 
     public override void receiveKeyPress(Keys key)
@@ -640,11 +689,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
-        if (id == NormalScrapId || id == ShinyScrapId)
+        if (id == NormalScrapId || id == ShinyScrapId || id == CardDustId)
         {
             this.Status = id == NormalScrapId
                 ? ModEntry.T("item.cardboard.desc")
-                : ModEntry.T("item.shiny.desc");
+                : id == ShinyScrapId
+                    ? ModEntry.T("item.shiny.desc")
+                    : ModEntry.T("item.dust.desc");
             Game1.playSound("smallSelect");
             return;
         }
@@ -706,6 +757,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
+        if (this.CardDustButton.bounds.Contains(x, y))
+        {
+            this.Status = ModEntry.T("item.dust.desc");
+            Game1.playSound("smallSelect");
+            return;
+        }
+
         foreach ((BinderFilter filter, ClickableComponent button) in this.MainFilterTabs)
         {
             if (!button.bounds.Contains(x, y))
@@ -758,11 +816,18 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
             if (i < this.Save.Data.EquippedCards.Count)
             {
-                this.Selected = this.Cards.Get(this.Save.Data.EquippedCards[i]);
-                this.Status = this.Selected is null
-                    ? ModEntry.T("binder.status.pick")
-                    : ModEntry.T("binder.status.selected", new { name = this.Selected.Name });
-                Game1.playSound("smallSelect");
+                CardDefinition? activeCard = this.Cards.Get(this.Save.Data.EquippedCards[i]);
+                if (activeCard is not null)
+                {
+                    // Active slots use the same 650ms quick-toggle gesture as collection cards.
+                    // First activation selects/locks the card; the second unequips it.
+                    this.HandleCollectionActivation(activeCard, fromController: this.LastInputWasController);
+                }
+                else
+                {
+                    this.Status = ModEntry.T("binder.status.pick");
+                    Game1.playSound("cancel");
+                }
             }
             else
             {
@@ -772,17 +837,23 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
-        if (this.BossSlot.bounds.Contains(x, y))
+        if (this.CardchaBadge.bounds.Contains(x, y))
         {
-            this.Status = ModEntry.T("binder.boss-slot.locked");
-            Game1.playSound("cancel");
+            Game1.playSound("smallSelect");
+            this.OpenMachineFromBinder();
             return;
         }
 
         if (this.SecretSlot.bounds.Contains(x, y))
         {
-            this.Status = ModEntry.T("binder.secret-slot.locked");
-            Game1.playSound("cancel");
+            if (!this.ChaChaResonanceUnlocked)
+            {
+                this.Status = ModEntry.T("binder.chacha-slot.locked", new { milestone = ChaChaResonanceUnlockMilestone });
+                Game1.playSound("cancel");
+                return;
+            }
+
+            this.OpenChaChaResonance();
             return;
         }
 
@@ -801,7 +872,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private void HandleCollectionActivation(CardDefinition card, bool fromController)
     {
         bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
-        double now = Game1.currentGameTime.TotalGameTime.TotalMilliseconds;
+        double now = Environment.TickCount64;
         double elapsed = now - this.LastQuickToggleAtMs;
         bool secondActivation = owned
             && string.Equals(this.LastQuickToggleCardId, card.Id, StringComparison.OrdinalIgnoreCase)
@@ -811,7 +882,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.LastQuickToggleCardId = card.Id;
         this.LastQuickToggleAtMs = now;
 
-        // Any explicit confirm (controller A or mouse click) creates/replaces the hard lock.
+        // alpha.26.4 controller contract: one Confirm/click ONLY previews + locks the card.
+        // Equip/unequip happens only on a second activation of the same card inside the quick-toggle window.
         // Free browsing never mutates this card; only DESELECT clears it.
         this.LockedCard = card;
         this.ControllerSelectionLocked = true;
@@ -969,6 +1041,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             this.RebuildCardButtons(resetPage: false);
     }
 
+    private bool IsStoredEquipped(string id)
+        => this.Save.Data.EquippedCards.Contains(id, StringComparer.OrdinalIgnoreCase);
+
     private void ToggleEquip()
     {
         if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
@@ -978,7 +1053,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
-        if (this.Loadout.IsEquipped(this.Selected.Id))
+        if (this.IsStoredEquipped(this.Selected.Id))
         {
             if (this.Loadout.Unequip(this.Selected.Id))
             {
@@ -1243,7 +1318,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         if (availableHeight < 20)
             return;
 
-        int barHeight = Math.Min(34, availableHeight);
+        int barHeight = Math.Min(42, availableHeight);
         int barWidth = Math.Min(this.OuterBook.Width - 80, 1120);
         Rectangle bar = new(this.OuterBook.Center.X - barWidth / 2, y, barWidth, barHeight);
 
@@ -1282,7 +1357,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         float gap = 18f;
         totalNatural += gap * (hints.Count - 1);
         float fitScale = totalNatural > bar.Width - 20
-            ? Math.Max(0.62f, (bar.Width - 20) / totalNatural)
+            ? Math.Max(0.76f, (bar.Width - 20) / totalNatural)
             : 1f;
 
         float x = bar.Center.X - totalNatural * fitScale / 2f;
@@ -1308,7 +1383,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Color tint = hint.Enabled ? Color.White : Color.White * 0.38f;
         Vector2 keyText = Game1.smallFont.MeasureString(hint.Key);
         float keyWidth = Math.Max(26f, keyText.X + 12f);
-        float keyHeight = 23f;
+        float keyHeight = 27f;
         Rectangle keyBox = new(
             (int)position.X,
             (int)(position.Y - keyHeight * scale / 2f),
@@ -1401,6 +1476,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         this.DrawResourceSlot(b, this.NormalScrapButton, shiny: false);
         this.DrawResourceSlot(b, this.ShinyScrapButton, shiny: true);
+        this.DrawDustSlot(b, this.CardDustButton);
 
         this.DrawBookmark(
             b,
@@ -1417,8 +1493,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         string progress = ModEntry.T("binder.discovered", new
         {
-            owned = this.Save.Data.OwnedCards.Count,
-            total = this.Cards.All.Count
+            owned = this.ActiveCollectionCount,
+            total = CardRegistry.TargetBaseSetCount
         });
         Rectangle title = new(this.LeftPage.X + 82, this.LeftPage.Y + 12, this.LeftPage.Width - 104, 42);
         DrawRoundedRect(b, title, new Color(38, 53, 68), 8);
@@ -1427,8 +1503,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         for (int i = 0; i < this.ActiveSlots.Count; i++)
             this.DrawActiveCircle(b, i, this.ActiveSlots[i]);
-        this.DrawBossCircle(b);
-        this.DrawSecretCircle(b);
+        this.DrawCardchaBadge(b);
+        this.DrawSecretBadge(b);
 
         Utility.drawTextWithShadow(b, ModEntry.T("binder.collection"), Game1.smallFont, new Vector2(this.CollectionArea.X, this.CollectionArea.Y - 29), CardchaUi.InkBrown);
         string filterCaption = this.CurrentFilter == BinderFilter.Favorite
@@ -1525,6 +1601,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         int level = this.Upgrades.GetLevel(this.Selected);
         int maxLevel = this.Upgrades.GetMaxLevel(this.Selected);
         Utility.drawTextWithShadow(b, $"Lv{level}   •   {new string('★', level)}{new string('☆', Math.Max(0, maxLevel - level))}", Game1.smallFont, new Vector2(nameArea.X, nameArea.Bottom + 31), CardchaUi.InkBrown);
+        if (this.IsLoadoutFullStatus())
+        {
+            Rectangle fullStatusArea = new(nameArea.X + nameArea.Width / 2, nameArea.Bottom + 24, nameArea.Width / 2, 28);
+            this.DrawRightAlignedSingleLine(b, this.Status, fullStatusArea, new Color(168, 66, 49));
+        }
 
         Rectangle current = new(this.RightPage.X + 30, icon.Bottom + 22, this.RightPage.Width - 60, 112);
         DrawRoundedRect(b, current, new Color(238, 220, 187), 10);
@@ -1569,7 +1650,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private void DrawCollectionCell(SpriteBatch b, CardDefinition card, ClickableComponent button)
     {
         bool owned = this.Save.Data.OwnedCards.Contains(card.Id);
-        bool equipped = this.Loadout.IsEquipped(card.Id);
+        bool equipped = this.IsStoredEquipped(card.Id);
         bool favorite = this.Save.Data.FavoriteCardIds.Contains(card.Id);
         bool selected = ReferenceEquals(this.Selected, card) || this.Selected?.Id.Equals(card.Id, StringComparison.OrdinalIgnoreCase) == true;
         bool locked = this.ControllerSelectionLocked
@@ -1660,30 +1741,106 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.Renderer.DrawIcon(b, icon, card);
     }
 
-    private void DrawBossCircle(SpriteBatch b)
+    private void DrawCardchaBadge(SpriteBatch b)
     {
-        bool focused = this.currentlySnappedComponent?.myID == BossSlotId;
-        Color mythic = CardchaUi.RarityColor(CardRarity.Mythic);
-        DrawCircle(b, this.BossSlot.bounds, focused ? Color.White : mythic);
-        Rectangle inner = Inflate(this.BossSlot.bounds, -4);
-        DrawCircle(b, inner, new Color(181, 176, 164));
-        DrawLockIcon(b, Inflate(inner, -8));
+        bool focused = this.currentlySnappedComponent?.myID == CardchaBadgeId;
+        Rectangle r = this.CardchaBadge.bounds;
+        Color edge = focused ? Color.White : CardchaUi.Gold;
+        Color fill = new(47, 67, 83);
+
+        // Ticket silhouette: visible side notches keep this system button distinct from skill circles.
+        CardchaUi.DrawRoundedPanel(b, r, fill, edge, thickness: focused ? 4 : 3, radius: 10);
+        int notch = Math.Max(10, r.Height / 5);
+        DrawCircle(b, new Rectangle(r.X - notch / 2, r.Center.Y - notch / 2, notch, notch), CardchaUi.ParchmentLight);
+        DrawCircle(b, new Rectangle(r.Right - notch / 2, r.Center.Y - notch / 2, notch, notch), CardchaUi.ParchmentLight);
+
+        try
+        {
+            if (ModEntry.StaticHelper is not null)
+            {
+                Texture2D machine = ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/machine.png");
+                int iconH = Math.Max(36, r.Height - 14);
+                int iconW = Math.Max(20, iconH / 2);
+                Rectangle icon = new(r.Center.X - iconW / 2, r.Center.Y - iconH / 2, iconW, iconH);
+                b.Draw(machine, icon, machine.Bounds, Color.White);
+            }
+        }
+        catch
+        {
+            CardchaUi.DrawScaledText(b, Game1.dialogueFont, "C", Inflate(r, -10), CardchaUi.Gold, centerX: true, centerY: true, padding: 2, maxScale: 0.92f);
+        }
     }
 
-    private void DrawSecretCircle(SpriteBatch b)
+    private void DrawSecretBadge(SpriteBatch b)
     {
         bool focused = this.currentlySnappedComponent?.myID == SecretSlotId;
-        Color chachaPink = new(238, 105, 181);
-        DrawCircle(b, this.SecretSlot.bounds, focused ? Color.White : chachaPink);
-        Rectangle inner = Inflate(this.SecretSlot.bounds, -4);
-        DrawCircle(b, inner, new Color(161, 137, 157));
-        DrawLockIcon(b, Inflate(inner, -8));
+        Rectangle r = this.SecretSlot.bounds;
+        bool unlocked = this.ChaChaResonanceUnlocked;
+        Color pink = new(238, 105, 181);
+        Color edge = focused ? Color.White : unlocked ? pink : new Color(126, 121, 118);
+        Color fill = unlocked ? new Color(90, 59, 91) : new Color(168, 164, 158);
+
+        // Step-hex silhouette: deliberately different from both the Cardcha ticket and skill circles.
+        DrawStepHexBadge(b, r, edge, fill, focused ? 4 : 3);
+
+        if (!unlocked)
+        {
+            DrawLockIcon(b, Inflate(r, -18));
+            return;
+        }
+
+        try
+        {
+            if (ModEntry.StaticHelper is not null)
+            {
+                Texture2D chaCha = ModEntry.StaticHelper.ModContent.Load<Texture2D>("assets/chacha_follow.png");
+                Rectangle source = new(0, 0, 32, 32);
+                int size = Math.Max(36, Math.Min(r.Width, r.Height) - 16);
+                Rectangle icon = new(r.Center.X - size / 2, r.Center.Y - size / 2, size, size);
+                b.Draw(chaCha, icon, source, Color.White);
+            }
+        }
+        catch
+        {
+            CardchaUi.DrawScaledText(b, Game1.dialogueFont, "C", Inflate(r, -10), pink, centerX: true, centerY: true, padding: 2, maxScale: 0.92f);
+        }
+    }
+
+    private static void DrawStepHexBadge(SpriteBatch b, Rectangle bounds, Color edge, Color fill, int thickness)
+    {
+        int step = Math.Max(7, bounds.Height / 7);
+        Rectangle outerMid = new(bounds.X, bounds.Y + step, bounds.Width, Math.Max(1, bounds.Height - step * 2));
+        Rectangle outerTop = new(bounds.X + step, bounds.Y, Math.Max(1, bounds.Width - step * 2), step + 2);
+        Rectangle outerBottom = new(bounds.X + step, bounds.Bottom - step - 2, Math.Max(1, bounds.Width - step * 2), step + 2);
+        b.Draw(Game1.staminaRect, outerMid, edge);
+        b.Draw(Game1.staminaRect, outerTop, edge);
+        b.Draw(Game1.staminaRect, outerBottom, edge);
+
+        Rectangle inner = Inflate(bounds, -thickness);
+        int innerStep = Math.Max(4, step - thickness);
+        Rectangle innerMid = new(inner.X, inner.Y + innerStep, inner.Width, Math.Max(1, inner.Height - innerStep * 2));
+        Rectangle innerTop = new(inner.X + innerStep, inner.Y, Math.Max(1, inner.Width - innerStep * 2), innerStep + 2);
+        Rectangle innerBottom = new(inner.X + innerStep, inner.Bottom - innerStep - 2, Math.Max(1, inner.Width - innerStep * 2), innerStep + 2);
+        b.Draw(Game1.staminaRect, innerMid, fill);
+        b.Draw(Game1.staminaRect, innerTop, fill);
+        b.Draw(Game1.staminaRect, innerBottom, fill);
+    }
+
+    private void OpenChaChaResonance()
+    {
+        Game1.playSound("smallSelect");
+        Game1.activeClickableMenu = new ChaChaResonanceMenu(
+            this.Cards,
+            this.Save,
+            this.Controller,
+            this
+        );
     }
 
     private void DrawActionButtons(SpriteBatch b, bool owned)
     {
         bool favorite = owned && this.Selected is not null && this.Save.Data.FavoriteCardIds.Contains(this.Selected.Id);
-        bool equipped = owned && this.Selected is not null && this.Loadout.IsEquipped(this.Selected.Id);
+        bool equipped = owned && this.Selected is not null && this.IsStoredEquipped(this.Selected.Id);
         bool maxed = !owned || this.Selected is null || this.Upgrades.IsMaxLevel(this.Selected);
         int have = this.Selected is null ? 0 : this.Upgrades.GetCopies(this.Selected);
         int need = this.Selected is null ? 0 : this.Upgrades.GetRequiredCopies(this.Selected);
@@ -1716,8 +1873,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         );
     }
 
+    private bool IsLoadoutFullStatus()
+        => this.Status == ModEntry.T("binder.status.full", new { slots = this.UnlockedSlots });
+
     private void DrawStatus(SpriteBatch b)
     {
+        if (this.IsLoadoutFullStatus())
+            return;
         Rectangle statusArea = new(
             this.RightPage.X + 28,
             this.FavoriteActionButton.bounds.Y - 38,
@@ -1725,6 +1887,19 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             32
         );
         CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, this.Status, statusArea, Color.DarkSlateGray, maxLines: 1, minScale: 0.75f, centerX: true, maxScale: 1.0f, centerY: true);
+    }
+
+    private void DrawRightAlignedSingleLine(SpriteBatch b, string text, Rectangle area, Color color)
+    {
+        if (string.IsNullOrWhiteSpace(text) || area.Width <= 2 || area.Height <= 2)
+            return;
+
+        Vector2 size = Game1.smallFont.MeasureString(text);
+        float scale = size.X <= 0 ? 1f : Math.Min(1f, (area.Width - 2) / size.X);
+        scale = Math.Max(0.48f, scale);
+        Vector2 pos = new(area.Right - size.X * scale, area.Center.Y - size.Y * scale / 2f);
+        b.DrawString(Game1.smallFont, text, pos + new Vector2(1f, 1f), Color.Black * 0.28f, 0f, Vector2.Zero, scale, SpriteEffects.None, 0.91f);
+        b.DrawString(Game1.smallFont, text, pos, color, 0f, Vector2.Zero, scale, SpriteEffects.None, 0.92f);
     }
 
     private string FilterLabel(BinderFilter filter)
@@ -1735,7 +1910,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             BinderFilter.Rare => ModEntry.T("rarity.rare"),
             BinderFilter.Epic => ModEntry.T("rarity.epic"),
             BinderFilter.Legendary => ModEntry.T("rarity.legendary"),
-            BinderFilter.Mythic => ModEntry.T("rarity.mythic"),
             BinderFilter.Favorite => ModEntry.T("binder.favorite"),
             _ => ModEntry.T("binder.filter.all")
         };
@@ -1747,7 +1921,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             BinderFilter.Rare => CardchaUi.RarityColor(CardRarity.Rare),
             BinderFilter.Epic => CardchaUi.RarityColor(CardRarity.Epic),
             BinderFilter.Legendary => CardchaUi.RarityColor(CardRarity.Legendary),
-            BinderFilter.Mythic => CardchaUi.RarityColor(CardRarity.Mythic),
             BinderFilter.Favorite => CardchaUi.Gold,
             _ => CardchaUi.Leather
         };
@@ -1825,6 +1998,25 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         );
     }
 
+    private void DrawDustSlot(SpriteBatch b, ClickableComponent button)
+    {
+        Point mouse = CardchaUi.GetUiMousePoint();
+        bool highlighted = button.bounds.Contains(mouse.X, mouse.Y)
+            || this.currentlySnappedComponent?.myID == button.myID;
+        Color edge = highlighted ? Color.White : new Color(176, 137, 224);
+
+        DrawRoundedRect(b, button.bounds, edge, 7);
+        DrawRoundedRect(b, Inflate(button.bounds, -3), new Color(54, 42, 67), 5);
+        DrawRoundedBorder(b, Inflate(button.bounds, -5), CardchaUi.Gold * 0.72f, 2, 4);
+
+        Rectangle iconArea = new(button.bounds.X + 6, button.bounds.Y + 3, button.bounds.Width - 12, Math.Max(22, button.bounds.Height - 23));
+        string glyph = "✦";
+        CardchaUi.DrawScaledText(b, Game1.dialogueFont, glyph, iconArea, new Color(222, 187, 255), centerX: true, centerY: true, padding: 0, maxScale: 1.25f);
+
+        Rectangle countArea = new(button.bounds.X + 1, button.bounds.Bottom - 24, button.bounds.Width - 2, 22);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, $"×{Math.Max(0, this.Save.Data.SuspiciousDust)}", countArea, Color.White, centerX: true, centerY: true, padding: 1, maxScale: 1.24f);
+    }
+
     private void DrawResourceTooltipIfNeeded(SpriteBatch b)
     {
         Point mouse = CardchaUi.GetUiMousePoint();
@@ -1842,13 +2034,19 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             target = this.ShinyScrapButton;
             shiny = true;
         }
+        else if (this.CardDustButton.bounds.Contains(mouse.X, mouse.Y)
+            || this.currentlySnappedComponent?.myID == CardDustId)
+        {
+            target = this.CardDustButton;
+        }
 
         if (target is null)
             return;
 
-        string name = ModEntry.T(shiny ? "item.shiny.name" : "item.cardboard.name");
-        string desc = ModEntry.T(shiny ? "item.shiny.desc" : "item.cardboard.desc");
-        int count = this.Resources.Count(shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId);
+        bool dust = target == this.CardDustButton;
+        string name = ModEntry.T(dust ? "item.dust.name" : shiny ? "item.shiny.name" : "item.cardboard.name");
+        string desc = ModEntry.T(dust ? "item.dust.desc" : shiny ? "item.shiny.desc" : "item.cardboard.desc");
+        int count = dust ? Math.Max(0, this.Save.Data.SuspiciousDust) : this.Resources.Count(shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId);
         int maxWidth = Math.Min(360, Math.Max(230, Game1.uiViewport.Width / 3));
         int pad = 12;
         string body = Game1.parseText($"{name}  ×{count}\n{desc}", Game1.smallFont, maxWidth - pad * 2);

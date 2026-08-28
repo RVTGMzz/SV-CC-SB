@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 13;
+    private const int CurrentSchemaVersion = 14;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -97,6 +97,8 @@ internal sealed class SaveService
         {
             this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
             this.Data.ShinyScraps = Math.Max(0, this.Data.ShinyScraps);
+        this.Data.SuspiciousDust = Math.Max(0, this.Data.SuspiciousDust);
+        this.Data.DuplicatePullStreak = Math.Max(0, this.Data.DuplicatePullStreak);
 
             if (this.Data.MimiMeetupCompleted && this.Data.MimiMerchantUnlockedDay < 0)
                 this.Data.MimiMerchantUnlockedDay = Math.Max(-1, Game1.Date.TotalDays - 1);
@@ -186,7 +188,11 @@ internal sealed class SaveService
     }
 
     public void ResetForNewDay()
-        => this.Data.PhoenixHeartUsedToday = false;
+    {
+        this.Data.PhoenixHeartUsedToday = false;
+        this.Data.LifelineUsedToday = false;
+        this.Data.GuardianAngelUsedToday = false;
+    }
 
     public string DescribePersistence()
         => $"{this.LastPersistenceMessage} Current={Short(this.CurrentFingerprint)}";
@@ -201,6 +207,8 @@ internal sealed class SaveService
         this.Data.LastStateFingerprint ??= "";
         this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
         this.Data.ShinyScraps = Math.Max(0, this.Data.ShinyScraps);
+        this.Data.SuspiciousDust = Math.Max(0, this.Data.SuspiciousDust);
+        this.Data.DuplicatePullStreak = Math.Max(0, this.Data.DuplicatePullStreak);
 
         this.Data.ActiveCardSlotCount = Math.Clamp(this.Data.ActiveCardSlotCount <= 0 ? 2 : this.Data.ActiveCardSlotCount, 2, 5);
 
@@ -273,6 +281,7 @@ internal sealed class SaveService
             data.StandardSinceLegendary,
             data.PremiumSinceEpic,
             data.PremiumSinceLegendary,
+            data.DuplicatePullStreak,
             data.PhoenixHeartUsedToday ? 1 : 0,
             data.CardboardScraps,
             data.ShinyScraps,

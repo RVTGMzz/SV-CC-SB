@@ -241,6 +241,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
                 this.Renderer,
                 this.Controller,
                 () => Reopen(BinderId),
+                () => Reopen(BinderId),
                 this.OnLoadoutChanged
             );
         }
@@ -700,8 +701,8 @@ internal sealed class CardchaMachineMenu : IClickableMenu
                 "machine.open-binder",
                 new
                 {
-                    owned = this.Save.Data.OwnedCards.Count,
-                    total = this.Cards.All.Count
+                    owned = CardRegistry.CountActiveOwned(this.Save.Data.OwnedCards),
+                    total = CardRegistry.TargetBaseSetCount
                 }
             ),
             CardchaUi.GoodGreen
@@ -774,15 +775,8 @@ internal sealed class CardchaMachineMenu : IClickableMenu
 
             if (this.Mode == CardchaMachineMode.Portable)
             {
-                Rectangle aura = new(
-                    (int)center.X - 56,
-                    (int)center.Y - 74,
-                    112,
-                    148
-                );
-                float auraAlpha = 0.10f + (float)(Math.Sin(t * 3.1) + 1.0) * 0.055f;
-                b.Draw(Game1.staminaRect, aura, new Color(106, 184, 255) * auraAlpha);
-                CardchaUi.DrawBorder(b, aura, CardchaUi.Gold * 0.42f, 2);
+                // Keep the handheld machine itself prominent, but don't surround it with the
+                // old tall rectangular aura/frame. The art should float cleanly on the UI.
                 scale *= 1.18f;
             }
 

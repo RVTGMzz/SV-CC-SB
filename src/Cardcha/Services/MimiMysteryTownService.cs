@@ -351,7 +351,10 @@ internal sealed class MimiMysteryTownService
             if (!IsHarshMerchantWeather())
                 this.UpdateNativeWander(officialMerchant: true);
             if (!this.Save.Data.ChaChaLoaned)
+            {
                 this.SyncChaChaWithMimi();
+                this.WorldActors.UpdateChaChaEmotes(dialogueActive: Game1.activeClickableMenu is DialogueBox);
+            }
             return;
         }
 
@@ -371,6 +374,7 @@ internal sealed class MimiMysteryTownService
             this.EnforceCurrentTimeState(allowAnimation: Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true);
             this.UpdateNativeWander();
             this.SyncChaChaWithMimi();
+            this.WorldActors.UpdateChaChaEmotes(dialogueActive: Game1.activeClickableMenu is DialogueBox);
         }
         // During broom flight, UpdateFlight owns BOTH MiMi and ChaCha so the normal follower
         // sync cannot overwrite altitude/drawOffset and create a flicker or size-jump illusion.

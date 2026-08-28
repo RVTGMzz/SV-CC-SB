@@ -239,6 +239,41 @@ internal sealed class CombatHudRenderer
             ));
         }
 
+        if (this.Loadout.IsEquipped("soul_eater"))
+        {
+            if (this.Combat.IsSoulEaterActive)
+            {
+                double seconds = this.Combat.CurrentSoulEaterSecondsRemaining;
+                entries.Add(new HudEntry(
+                    Key: "soul_eater",
+                    CardId: "soul_eater",
+                    Label: ModEntry.T("hud.soul-eater", new { damage = Math.Round(this.Combat.CurrentSoulEaterDamagePercent, 1) }),
+                    Value: $"{seconds:0.0}s",
+                    RemainingSeconds: seconds,
+                    TotalSeconds: Math.Max(0.1, this.Combat.CurrentSoulEaterSecondsRemaining),
+                    Timing: HudTiming.Duration,
+                    StackText: "",
+                    Kind: HudKind.Buff,
+                    Priority: 35
+                ));
+            }
+            else
+            {
+                entries.Add(new HudEntry(
+                    Key: "soul_eater_progress",
+                    CardId: "soul_eater",
+                    Label: ModEntry.T("card.soul_eater.name"),
+                    Value: $"{this.Combat.CurrentSoulEaterKills}/{this.Combat.CurrentSoulEaterKillTarget}",
+                    RemainingSeconds: null,
+                    TotalSeconds: null,
+                    Timing: HudTiming.None,
+                    StackText: $"{this.Combat.CurrentSoulEaterKills}/{this.Combat.CurrentSoulEaterKillTarget}",
+                    Kind: HudKind.Ready,
+                    Priority: 25
+                ));
+            }
+        }
+
         if (this.Loadout.IsEquipped("chain_hunter"))
         {
             int stacks = this.Combat.CurrentChainHunterStacks;

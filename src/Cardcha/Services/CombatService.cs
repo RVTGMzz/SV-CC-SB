@@ -22,11 +22,15 @@ internal sealed class CombatService
     private readonly SaveService Save;
     private readonly CardRegistry Cards;
     private readonly CardUpgradeService Upgrades;
+    private readonly CoreCardEffectsService Completion;
 
     private int ChainHunterStacks;
     private long ChainHunterExpiresAt;
     private long BloodFangReadyAt;
     private long SwiftFeetExpiresAt;
+    private int SoulEaterKills;
+    private long SoulEaterBuffExpiresAt;
+    private double SoulEaterDamageBonus;
 
     // v0.1.13 visual combat feedback. These are transient and never saved.
     private string HudToastText = "";
@@ -54,6 +58,7 @@ internal sealed class CombatService
         this.Save = save;
         this.Cards = cards;
         this.Upgrades = upgrades;
+        this.Completion = new CoreCardEffectsService(loadout, save, cards, upgrades);
     }
 
     public int CurrentChainHunterStacks
@@ -112,6 +117,46 @@ internal sealed class CombatService
         }
     }
 
+    public int CurrentSoulEaterKills => Math.Max(0, this.SoulEaterKills);
+
+    public int CurrentNoHitKillStreak => this.Completion.CurrentNoHitKillStreak;
+
+    public int CurrentSoulEaterKillTarget
+    {
+        get
+        {
+            CardLevelStats stats = this.GetStats("soul_eater");
+            return Math.Max(1, (int)Math.Round(stats.Secondary));
+        }
+    }
+
+    public bool IsSoulEaterActive
+    {
+        get
+        {
+            this.ExpireSoulEaterIfNeeded();
+            return this.SoulEaterDamageBonus > 0 && Environment.TickCount64 < this.SoulEaterBuffExpiresAt;
+        }
+    }
+
+    public double CurrentSoulEaterSecondsRemaining
+    {
+        get
+        {
+            this.ExpireSoulEaterIfNeeded();
+            return this.SoulEaterDamageBonus <= 0 ? 0 : Math.Max(0, (this.SoulEaterBuffExpiresAt - Environment.TickCount64) / 1000d);
+        }
+    }
+
+    public double CurrentSoulEaterDamagePercent
+    {
+        get
+        {
+            this.ExpireSoulEaterIfNeeded();
+            return Math.Max(0, this.SoulEaterDamageBonus * 100d);
+        }
+    }
+
     public string CurrentHudToast
     {
         get
@@ -148,6 +193,10 @@ internal sealed class CombatService
         this.DamageHookCalls++;
         this.LastDamageBefore = damage;
 
+        // Completion cards may need the raw Stardew hit before Cardcha multipliers.
+        // Steady Grip also stabilizes ordinary (non-crit-like) hit variance here.
+        damage = this.Completion.PrepareOutgoingDamage(damage);
+
         double bonus = 0;
 
         if (this.Loadout.IsEquipped("iron_edge"))
@@ -163,6 +212,11 @@ internal sealed class CombatService
 
         if (this.Loadout.IsEquipped("chain_hunter"))
             bonus += this.CurrentChainHunterStacks * this.GetStats("chain_hunter").Primary;
+
+        if (this.Loadout.IsEquipped("soul_eater") && this.IsSoulEaterActive)
+            bonus += this.SoulEaterDamageBonus;
+
+        bonus += this.Completion.GetOutgoingDamageBonus(monster, who!);
 
         CardLevelStats lastStand = this.GetStats("last_stand");
         if (this.Loadout.IsEquipped("last_stand")
@@ -185,6 +239,19 @@ internal sealed class CombatService
         return modified;
     }
 
+    public void ModifyMonsterTrajectory(ref int xTrajectory, ref int yTrajectory, bool isBomb, Farmer? who)
+    {
+        if (!this.Config.EnableCombatCards || !IsLocalPlayer(who) || isBomb)
+            return;
+
+        double multiplier = this.Completion.GetPendingCrushingImpactKnockbackMultiplier();
+        if (multiplier <= 1d)
+            return;
+
+        xTrajectory = (int)Math.Round(xTrajectory * multiplier);
+        yTrajectory = (int)Math.Round(yTrajectory * multiplier);
+    }
+
     public float ModifyCriticalChance(float critChance, bool isBomb, Farmer? who)
     {
         if (!this.Config.EnableCombatCards || !IsLocalPlayer(who) || isBomb)
@@ -196,6 +263,7 @@ internal sealed class CombatService
         if (this.Loadout.IsEquipped("keen_eye"))
             critChance += (float)this.GetStats("keen_eye").Primary;
 
+        critChance = this.Completion.ModifyCritChance(critChance, who!);
         float modified = Math.Max(0f, critChance);
         this.LastCritAfter = modified;
         if (Math.Abs(this.LastCritAfter - this.LastCritBefore) > 0.0001f)
@@ -205,7 +273,21 @@ internal sealed class CombatService
     }
 
     public void OnMonsterKilled(Monster monster, Farmer? who)
-        => this.OnEnemyKilled(who);
+    {
+        if (who?.IsLocalPlayer == true)
+            this.Completion.OnMonsterKilled(monster, who);
+        this.OnEnemyKilled(who);
+    }
+
+    public void AfterMonsterTakesDamage(Monster monster, Farmer? who, int healthBefore)
+        => this.Completion.AfterMonsterTakesDamage(monster, who, healthBefore);
+
+    public int ModifyFarmerDamage(int damage, Farmer farmer, Monster? attacker)
+    {
+        if (!this.Config.EnableCombatCards || !IsLocalPlayer(farmer) || damage <= 0)
+            return damage;
+        return this.Completion.ModifyIncomingDamage(damage, farmer, attacker);
+    }
 
     public void OnEnemyKilled(Farmer? who)
     {
@@ -230,6 +312,37 @@ internal sealed class CombatService
                 ModEntry.StaticMonitor?.Log($"Blood Fang healed {heal} HP.", LogLevel.Trace);
         }
 
+        if (this.Loadout.IsEquipped("soul_eater"))
+        {
+            CardLevelStats soul = this.GetStats("soul_eater");
+            int target = Math.Max(1, (int)Math.Round(soul.Secondary));
+            this.SoulEaterKills++;
+            if (this.SoulEaterKills >= target)
+            {
+                int heal = Math.Max(1, (int)Math.Ceiling(player.maxHealth * Math.Max(0, soul.Threshold)));
+                if (player.health > 0)
+                    player.health = Math.Min(player.maxHealth, player.health + heal);
+
+                this.SoulEaterKills = 0;
+                this.SoulEaterDamageBonus = Math.Max(0, soul.Primary);
+                this.SoulEaterBuffExpiresAt = now + Math.Max(500, soul.DurationMs);
+                Game1.playSound("yoba");
+                this.PushHudToast(
+                    "soul_eater",
+                    ModEntry.T("hud.toast.soul-eater", new
+                    {
+                        heal,
+                        damage = Math.Round(this.SoulEaterDamageBonus * 100d, 1)
+                    }),
+                    2200
+                );
+            }
+        }
+        else
+        {
+            this.ClearSoulEater();
+        }
+
         if (this.Loadout.IsEquipped("chain_hunter"))
         {
             CardLevelStats chain = this.GetStats("chain_hunter");
@@ -246,10 +359,12 @@ internal sealed class CombatService
         }
     }
 
-    public void AfterFarmerTakesDamage(Farmer farmer)
+    public void AfterFarmerTakesDamage(Farmer farmer, int healthBefore)
     {
         if (!this.Config.EnableCombatCards || !IsLocalPlayer(farmer))
             return;
+
+        this.Completion.AfterFarmerTakesDamage(farmer, healthBefore);
 
         if (farmer.health > 0 || !this.Loadout.IsEquipped("phoenix_heart") || this.Save.Data.PhoenixHeartUsedToday)
             return;
@@ -290,6 +405,8 @@ internal sealed class CombatService
             this.SwiftFeetExpiresAt = 0;
             this.BloodFangReadyAt = 0;
             this.ClearChain();
+            this.ClearSoulEater();
+            this.Completion.ResetRuntime();
             this.HudToastText = "";
             this.HudToastCardId = "";
             this.HudToastExpiresAt = 0;
@@ -317,7 +434,7 @@ internal sealed class CombatService
             && (hasLivingMonster || (swift.DurationMs > 0 && now < this.SwiftFeetExpiresAt));
 
         if (swiftActive)
-            ApplyHiddenBuff(player, SwiftFeetBuffId, defense: 0, speed: Math.Max(0, (int)Math.Round(swift.Primary)));
+            ApplyHiddenBuff(player, SwiftFeetBuffId, defense: 0, speed: Math.Max(0, swift.Primary));
         else
             TryRemoveBuff(player, SwiftFeetBuffId);
 
@@ -337,10 +454,17 @@ internal sealed class CombatService
             TryRemoveBuff(player, LastStandBuffId);
         }
 
+        this.Completion.Sync(player, hasLivingMonster);
+
         if (!this.Loadout.IsEquipped("chain_hunter"))
             this.ClearChain();
         else
             this.ExpireChainIfNeeded();
+
+        if (!this.Loadout.IsEquipped("soul_eater"))
+            this.ClearSoulEater();
+        else
+            this.ExpireSoulEaterIfNeeded();
     }
 
     public string BuildVerificationReport()
@@ -362,6 +486,7 @@ internal sealed class CombatService
             $"Crit: {crit}\n" +
             $"Kills observed: {this.KillHookCalls} | Blood Fang heals: {this.BloodFangProcs} | Chain Hunter procs: {this.ChainHunterProcs}\n" +
             $"Chain Hunter now: {this.CurrentChainHunterStacks}/{this.Config.ChainHunterMaxStacks} ({this.CurrentChainSecondsRemaining:0.0}s)\n" +
+            $"Soul Eater: {this.CurrentSoulEaterKills}/{this.CurrentSoulEaterKillTarget}, buff={(this.IsSoulEaterActive ? $"+{this.CurrentSoulEaterDamagePercent:0.#}% ({this.CurrentSoulEaterSecondsRemaining:0.0}s)" : "off")}\n" +
             $"Phoenix Heart procs this session: {this.PhoenixHeartProcs} | used today: {this.Save.Data.PhoenixHeartUsedToday}\n" +
             $"Passive buffs: {passive}";
     }
@@ -384,7 +509,9 @@ internal sealed class CombatService
 
     public void ResetRuntime()
     {
+        this.Completion.ResetRuntime();
         this.ClearChain();
+        this.ClearSoulEater();
         this.BloodFangReadyAt = 0;
         this.SwiftFeetExpiresAt = 0;
         this.HudToastText = "";
@@ -404,13 +531,13 @@ internal sealed class CombatService
     private static bool IsLowHealth(Farmer farmer, double threshold)
         => farmer.maxHealth > 0 && farmer.health > 0 && farmer.health <= farmer.maxHealth * threshold;
 
-    private static void ApplyHiddenBuff(Farmer player, string id, int defense, int speed)
+    private static void ApplyHiddenBuff(Farmer player, string id, int defense, double speed)
     {
         BuffEffects effects = new();
         if (defense != 0)
             effects.Defense.Value = defense;
-        if (speed != 0)
-            effects.Speed.Value = speed;
+        if (Math.Abs(speed) > 0.0001)
+            effects.Speed.Value = (float)(speed * 10d);
 
         Buff buff = new(
             id: id,
@@ -444,6 +571,24 @@ internal sealed class CombatService
 
         if (Environment.TickCount64 >= this.ChainHunterExpiresAt)
             this.ClearChain();
+    }
+
+    private void ExpireSoulEaterIfNeeded()
+    {
+        if (this.SoulEaterDamageBonus <= 0)
+            return;
+        if (Environment.TickCount64 >= this.SoulEaterBuffExpiresAt)
+        {
+            this.SoulEaterDamageBonus = 0;
+            this.SoulEaterBuffExpiresAt = 0;
+        }
+    }
+
+    private void ClearSoulEater()
+    {
+        this.SoulEaterKills = 0;
+        this.SoulEaterDamageBonus = 0;
+        this.SoulEaterBuffExpiresAt = 0;
     }
 
     private void ClearChain()

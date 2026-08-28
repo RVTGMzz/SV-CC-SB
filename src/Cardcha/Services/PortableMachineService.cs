@@ -124,16 +124,16 @@ internal sealed class PortableMachineService
         if (!Context.IsWorldReady
             || Game1.player is null
             || Game1.activeClickableMenu is not null
-            || !e.Button.IsUseToolButton())
+            || (!e.Button.IsUseToolButton() && !e.Button.IsActionButton()))
         {
             return;
         }
 
-        StardewValley.Object? active = Game1.player.ActiveObject;
+        Item? active = Game1.player.CurrentItem;
         if (!ItemAssetService.IsPortableMachine(active))
             return;
 
-        // Consume the use-tool press before vanilla tries to place a normal Object on the map.
+        // Consume BOTH use-tool and action before vanilla/Cinderbox can route this BigCraftable into placement.
         this.Helper.Input.Suppress(e.Button);
 
         if (Game1.eventUp || Game1.CurrentEvent is not null)

@@ -24,8 +24,10 @@ internal sealed class DropService
     private readonly ResourceService Resources;
     private readonly Action OnFirstCardboardScrapDropped;
     private readonly Func<bool> HasFirstScrapTriggered;
+    private readonly Func<int> GetNoHitKillStreak;
 
     private int KillsSinceNormalScrap;
+    private int LuckyBreakFailStreak;
 
     public long EligibleDeaths { get; private set; }
     public long NormalDropEvents { get; private set; }
@@ -46,7 +48,8 @@ internal sealed class DropService
         CardRegistry cards,
         ResourceService resources,
         Action onFirstCardboardScrapDropped,
-        Func<bool> hasFirstScrapTriggered
+        Func<bool> hasFirstScrapTriggered,
+        Func<int> getNoHitKillStreak
     )
     {
         this.Config = config;
@@ -56,6 +59,7 @@ internal sealed class DropService
         this.Resources = resources;
         this.OnFirstCardboardScrapDropped = onFirstCardboardScrapDropped;
         this.HasFirstScrapTriggered = hasFirstScrapTriggered;
+        this.GetNoHitKillStreak = getNoHitKillStreak;
     }
 
     public void TryDrop(GameLocation location, Monster monster, Farmer? killer)
@@ -167,37 +171,136 @@ internal sealed class DropService
 
         Random rng = Game1.random;
 
-        if (forceNormal || rng.NextDouble() < normalChance)
+        bool normalDropped = forceNormal || rng.NextDouble() < normalChance;
+        if (normalDropped)
         {
-            this.AwardScrap(location, position, CardboardScrapId, normalAmount);
+            int awarded = normalAmount + this.RollEssenceFinderBonus(CardboardScrapId, rng);
+            this.AwardScrap(location, position, CardboardScrapId, awarded);
             this.NormalDropEvents++;
-            this.LastNormalAmount = normalAmount;
+            this.LastNormalAmount = awarded;
             this.KillsSinceNormalScrap = 0;
             this.OnFirstCardboardScrapDropped();
 
             if (this.Config.VerboseLogging)
             {
                 ModEntry.StaticMonitor?.Log(
-                    $"Cardboard Scrap: {normalAmount} from {this.LastEnemyName} " +
+                    $"Cardboard Scrap: {awarded} from {this.LastEnemyName} " +
                     $"(profile={scale}, rawMaxHP={hp}, chance={normalChance:P1}, forced={forceNormal}).",
                     LogLevel.Info
                 );
             }
         }
 
-        if (shinyChance > 0 && rng.NextDouble() < shinyChance)
+        bool shinyDropped = shinyChance > 0 && rng.NextDouble() < shinyChance;
+        if (shinyDropped)
         {
-            this.AwardScrap(location, position, ShinyScrapId, shinyAmount);
+            int awarded = shinyAmount + this.RollEssenceFinderBonus(ShinyScrapId, rng);
+            this.AwardScrap(location, position, ShinyScrapId, awarded);
             this.ShinyDropEvents++;
-            this.LastShinyAmount = shinyAmount;
+            this.LastShinyAmount = awarded;
 
             if (this.Config.VerboseLogging)
             {
                 ModEntry.StaticMonitor?.Log(
-                    $"Shiny Scrap: {shinyAmount} from {this.LastEnemyName} " +
+                    $"Shiny Scrap: {awarded} from {this.LastEnemyName} " +
                     $"(profile={scale}, rawMaxHP={hp}, chance={shinyChance:P2}).",
                     LogLevel.Info
                 );
+            }
+        }
+
+        // Smaller loot-oriented cards use independent bonus rolls so they don't distort
+        // the core Scrap or Shiny pity/drop profile. These are deliberately additive.
+        if (killer?.IsLocalPlayer == true)
+        {
+            if (this.Loadout.IsEquipped("scavenger")
+                && rng.NextDouble() < this.LevelPercent("scavenger", 0.03, 0.04, 0.05, 0.06, 0.07))
+            {
+                this.AwardScrap(location, position, CardboardScrapId, 1);
+                this.LastNormalAmount += 1;
+            }
+
+            if (this.Loadout.IsEquipped("treasure_eye")
+                && rng.NextDouble() < this.LevelPercent("treasure_eye", 0.04, 0.05, 0.06, 0.07))
+            {
+                this.AwardScrap(location, position, CardboardScrapId, 1);
+                this.LastNormalAmount += 1;
+            }
+
+            if (this.Loadout.IsEquipped("lucky_pocket")
+                && rng.NextDouble() < this.LevelPercent("lucky_pocket", 0.02, 0.03, 0.04, 0.05, 0.06))
+            {
+                // Low-value money reward by design; this card should feel useful without
+                // becoming a primary economy engine.
+                killer.Money = checked(killer.Money + 25);
+            }
+
+            if (scale == EnemyLootScale.BossLike)
+            {
+                if (this.Loadout.IsEquipped("collectors_instinct")
+                    && rng.NextDouble() < this.LevelPercent("collectors_instinct", 0.05, 0.07, 0.09, 0.11))
+                {
+                    this.AwardScrap(location, position, CardboardScrapId, 1);
+                    this.LastNormalAmount += 1;
+                }
+
+                if (this.Loadout.IsEquipped("treasure_hunter")
+                    && rng.NextDouble() < this.LevelPercent("treasure_hunter", 0.10, 0.13, 0.16))
+                {
+                    this.AwardScrap(location, position, CardboardScrapId, 1);
+                    this.LastNormalAmount += 1;
+                }
+
+                if (this.Loadout.IsEquipped("kings_ransom"))
+                {
+                    int level = this.Upgrades.GetLevel(this.Cards.Get("kings_ransom"));
+                    double upgradeChance = level switch { 2 => 0.20, >= 3 => 0.35, _ => 0d };
+                    if (upgradeChance > 0 && rng.NextDouble() < upgradeChance)
+                    {
+                        this.AwardScrap(location, position, ShinyScrapId, 1);
+                        this.LastShinyAmount += 1;
+                    }
+                    else
+                    {
+                        this.AwardScrap(location, position, CardboardScrapId, 1);
+                        this.LastNormalAmount += 1;
+                    }
+                }
+            }
+
+            // Fortune Chain: once the player reaches five consecutive no-hit kills, each
+            // following kill gets an independent bonus Cardboard Scrap roll until a hit
+            // breaks the streak. It deliberately doesn't inflate the Shiny economy.
+            if (this.Loadout.IsEquipped("fortune_chain")
+                && this.GetNoHitKillStreak() >= 5
+                && rng.NextDouble() < this.LevelPercent("fortune_chain", 0.05, 0.07, 0.09, 0.11))
+            {
+                this.AwardScrap(location, position, CardboardScrapId, 1);
+                this.LastNormalAmount += 1;
+            }
+
+            // Lucky Break: failing its small bonus-loot roll builds a transient fail streak.
+            // From the third failure onward the card's advertised bonus stays active until
+            // one extra Scrap succeeds, then the streak resets.
+            if (this.Loadout.IsEquipped("lucky_break"))
+            {
+                double luckyChance = this.LuckyBreakFailStreak >= 3
+                    ? this.LevelPercent("lucky_break", 0.08, 0.12, 0.16)
+                    : 0d;
+                if (luckyChance > 0 && rng.NextDouble() < luckyChance)
+                {
+                    this.AwardScrap(location, position, CardboardScrapId, 1);
+                    this.LastNormalAmount += 1;
+                    this.LuckyBreakFailStreak = 0;
+                }
+                else
+                {
+                    this.LuckyBreakFailStreak = Math.Min(999, this.LuckyBreakFailStreak + 1);
+                }
+            }
+            else
+            {
+                this.LuckyBreakFailStreak = 0;
             }
         }
     }
@@ -265,6 +368,32 @@ internal sealed class DropService
                 @"[^a-z0-9]+"
             )
             .Any(token => token.Equals(expected, StringComparison.Ordinal));
+    }
+
+    private int RollEssenceFinderBonus(string itemId, Random rng)
+    {
+        if (!this.Loadout.IsEquipped("essence_finder"))
+            return 0;
+
+        double chance = this.LevelPercent("essence_finder", 0.08, 0.10, 0.12, 0.14, 0.16);
+        if (chance <= 0 || rng.NextDouble() >= chance)
+            return 0;
+
+        // The approved design explicitly applies to BOTH normal and Shiny Scrap.
+        return itemId.Equals(CardboardScrapId, StringComparison.OrdinalIgnoreCase)
+            || itemId.Equals(ShinyScrapId, StringComparison.OrdinalIgnoreCase)
+            ? 1
+            : 0;
+    }
+
+    private double LevelPercent(string cardId, params double[] values)
+    {
+        CardDefinition? card = this.Cards.Get(cardId);
+        if (card is null || values.Length == 0)
+            return 0;
+
+        int level = Math.Clamp(this.Upgrades.GetLevel(card), 1, values.Length);
+        return values[level - 1];
     }
 
     public string Describe()

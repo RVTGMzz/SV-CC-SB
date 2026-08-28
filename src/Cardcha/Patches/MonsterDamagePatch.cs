@@ -36,14 +36,17 @@ internal static class MonsterDamagePatch
         );
     }
 
-    private static void Prefix(Monster __instance, ref int damage, bool isBomb, Farmer? who, out int __state)
+    private static void Prefix(Monster __instance, ref int damage, ref int xTrajectory, ref int yTrajectory, bool isBomb, Farmer? who, out int __state)
     {
         __state = __instance.Health;
 
         try
         {
             if (Combat is not null)
+            {
                 damage = Combat.ModifyMonsterDamage(__instance, damage, isBomb, who);
+                Combat.ModifyMonsterTrajectory(ref xTrajectory, ref yTrajectory, isBomb, who);
+            }
         }
         catch (Exception ex)
         {
@@ -55,6 +58,7 @@ internal static class MonsterDamagePatch
     {
         try
         {
+            Combat?.AfterMonsterTakesDamage(__instance, who, __state);
             if (__state > 0 && __instance.Health <= 0)
                 Deaths?.HandleDeath(__instance, who, __instance.currentLocation);
         }

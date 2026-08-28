@@ -34,11 +34,15 @@ internal sealed class WorldActorService
     // The approved alpha.22 broom sheet intentionally draws MiMi/??? about 10% smaller inside
     // the same 32x48 frame. Compensate at runtime so mounting the broom doesn't shrink her body.
     private const float MimiBroomNativeScale = MimiNativeScale * 1.10f;
-    private const float ChaChaNativeScale = 0.45f;
+    private const float ChaChaNativeScale = 0.5625f;
+
+    private static readonly int[] ChaChaEmotePool = { 32, 16, 20, 56, 60, 8, 40 };
 
     private readonly IMonitor Monitor;
     private NPC? ChaChaActor;
     private Texture2D? MimiPortraitTexture;
+    private long NextChaChaEmoteAtMs;
+    private int LastChaChaEmote = -1;
 
     public WorldActorService(IMonitor monitor)
     {
@@ -348,6 +352,8 @@ internal sealed class WorldActorService
         if (!Context.IsWorldReady)
         {
             this.ChaChaActor = null;
+            this.NextChaChaEmoteAtMs = 0;
+            this.LastChaChaEmote = -1;
             return;
         }
 
@@ -362,8 +368,57 @@ internal sealed class WorldActorService
         }
 
         this.ChaChaActor = null;
+        this.NextChaChaEmoteAtMs = 0;
+        this.LastChaChaEmote = -1;
     }
 
+    /// <summary>
+    /// Give ChaCha occasional Stardew overhead reactions so the companion feels expressive
+    /// even when ChaCha isn't speaking. Dialogue uses a shorter cooldown; normal wandering stays subtle.
+    /// </summary>
+    public void UpdateChaChaEmotes(bool dialogueActive = false)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        NPC? actor = this.FindChaChaActor();
+        if (actor is null
+            || actor.isInvisible.Value
+            || actor.currentLocation != Game1.currentLocation)
+        {
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        if (now < this.NextChaChaEmoteAtMs)
+            return;
+
+        int emote = ChaChaEmotePool[Game1.random.Next(ChaChaEmotePool.Length)];
+        if (ChaChaEmotePool.Length > 1 && emote == this.LastChaChaEmote)
+            emote = ChaChaEmotePool[(Array.IndexOf(ChaChaEmotePool, emote) + 1 + Game1.random.Next(ChaChaEmotePool.Length - 1)) % ChaChaEmotePool.Length];
+
+        // false/false = no extra sound and never advance an Event command.
+        actor.doEmote(emote, false, false);
+        this.LastChaChaEmote = emote;
+
+        int minDelay = dialogueActive ? 3300 : 7000;
+        int maxDelay = dialogueActive ? 6200 : 12500;
+        this.NextChaChaEmoteAtMs = now + Game1.random.Next(minDelay, maxDelay + 1);
+    }
+
+    public void TriggerChaChaEmote(int emote)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        NPC? actor = this.FindChaChaActor();
+        if (actor is null || actor.isInvisible.Value || actor.currentLocation != Game1.currentLocation)
+            return;
+
+        actor.doEmote(emote, false, false);
+        this.LastChaChaEmote = emote;
+        this.NextChaChaEmoteAtMs = Environment.TickCount64 + 3200;
+    }
 
     private Texture2D? LoadMimiPortraitTexture()
     {
@@ -423,5 +478,9 @@ internal sealed class WorldActorService
     }
 
     public void OnReturnedToTitle()
-        => this.ChaChaActor = null;
+    {
+        this.ChaChaActor = null;
+        this.NextChaChaEmoteAtMs = 0;
+        this.LastChaChaEmote = -1;
+    }
 }

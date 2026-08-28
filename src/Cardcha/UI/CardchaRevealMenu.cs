@@ -26,6 +26,9 @@ internal sealed class CardchaRevealMenu : IClickableMenu
     private double PhaseMs;
     private double ResultFlashMs;
     private int LastRevealedIndex = -1;
+    private int SelectedResultIndex = -1;
+    private int LastDetailResultIndex = -1;
+    private double IgnoreResultMouseUntilMs;
 
     public CardchaRevealMenu(IReadOnlyList<PullResult> results, CardRenderer renderer, ControllerProfileService controller, Action onDone)
         : base(
@@ -138,22 +141,39 @@ internal sealed class CardchaRevealMenu : IClickableMenu
         if (this.Phase != RevealPhase.Results)
             return;
 
-        if (this.Results.Count > 1)
-        {
-            for (int i = 0; i < this.ResultButtons.Count; i++)
-            {
-                if (this.ResultButtons[i].containsPoint(x, y))
-                {
-                    RevealResult(i);
-                    return;
-                }
-            }
+        // Some controller runtimes emit a synthetic mouse click for the same physical face-button press.
+        // Ignore that duplicate briefly after a controller closes the detail popup, otherwise it can
+        // immediately reopen the card we just closed.
+        if (Environment.TickCount64 < this.IgnoreResultMouseUntilMs)
+            return;
 
-            if (this.RevealAll.containsPoint(x, y))
+        // While the detail overlay is open, any click closes it first.
+        if (this.SelectedResultIndex >= 0)
+        {
+            int closedIndex = this.SelectedResultIndex;
+            this.LastDetailResultIndex = closedIndex;
+            this.SelectedResultIndex = -1;
+            if (closedIndex >= 0 && closedIndex < this.ResultButtons.Count)
+                this.currentlySnappedComponent = this.ResultButtons[closedIndex];
+            Game1.playSound("bigDeSelect");
+            return;
+        }
+
+        // Result cards are clickable for both single and ten-pulls.
+        // First activation reveals a facedown card; activating an already revealed card opens details.
+        for (int i = 0; i < this.ResultButtons.Count; i++)
+        {
+            if (this.ResultButtons[i].containsPoint(x, y))
             {
-                RevealEverything();
+                RevealResult(i);
                 return;
             }
+        }
+
+        if (this.Results.Count > 1 && this.RevealAll.containsPoint(x, y))
+        {
+            RevealEverything();
+            return;
         }
 
         if (this.Continue.containsPoint(x, y))
@@ -232,7 +252,19 @@ internal sealed class CardchaRevealMenu : IClickableMenu
             return;
         }
 
-        if (this.Results.Count > 1)
+        if (this.Results.Count == 1 && this.ResultButtons.Count == 1)
+        {
+            ClickableComponent result = this.ResultButtons[0];
+            result.leftNeighborID = -1;
+            result.rightNeighborID = -1;
+            result.upNeighborID = -1;
+            result.downNeighborID = this.Continue.myID;
+            this.Continue.upNeighborID = result.myID;
+            this.Continue.leftNeighborID = -1;
+            this.Continue.rightNeighborID = -1;
+            this.allClickableComponents.Add(result);
+        }
+        else if (this.Results.Count > 1)
         {
             for (int i = 0; i < this.ResultButtons.Count; i++)
             {
@@ -243,23 +275,22 @@ internal sealed class CardchaRevealMenu : IClickableMenu
                 c.leftNeighborID = col > 0 ? 300 + i - 1 : -1;
                 c.rightNeighborID = col < 4 && i + 1 < this.ResultButtons.Count
                     ? 300 + i + 1
-                    : 200;
-
+                    : this.Continue.myID;
                 c.upNeighborID = row > 0 ? 300 + i - 5 : -1;
 
                 if (i + 5 < this.ResultButtons.Count)
                     c.downNeighborID = 300 + i + 5;
                 else
-                    c.downNeighborID = col <= 2 ? 201 : 200;
+                    c.downNeighborID = col <= 2 ? this.RevealAll.myID : this.Continue.myID;
 
                 this.allClickableComponents.Add(c);
             }
 
             this.RevealAll.upNeighborID = 300 + Math.Min(7, this.ResultButtons.Count - 1);
-            this.RevealAll.rightNeighborID = 200;
+            this.RevealAll.rightNeighborID = this.Continue.myID;
 
             this.Continue.upNeighborID = 300 + Math.Min(9, this.ResultButtons.Count - 1);
-            this.Continue.leftNeighborID = 201;
+            this.Continue.leftNeighborID = this.RevealAll.myID;
 
             this.allClickableComponents.Add(this.RevealAll);
         }
@@ -278,16 +309,39 @@ internal sealed class CardchaRevealMenu : IClickableMenu
     {
         if (this.Phase != RevealPhase.Results)
             this.currentlySnappedComponent = this.Skip;
-        else if (this.Results.Count > 1)
-            this.currentlySnappedComponent = this.ResultButtons.FirstOrDefault() ?? this.Continue;
         else
-            this.currentlySnappedComponent = this.Continue;
+            // Both x1 and x10 should start on the card itself so controller users can inspect it
+            // with the same select button instead of accidentally landing on Continue.
+            this.currentlySnappedComponent = this.ResultButtons.FirstOrDefault() ?? this.Continue;
 
         this.snapCursorToCurrentSnappedComponent();
     }
 
     public override void receiveGamePadButton(Buttons b)
     {
+        // One-button controller contract: the same face/select button used to open a card closes
+        // its detail popup again. Accept any face button here because Steam Input/native drivers
+        // disagree on printed A/B/X/Y labels; directions/shoulders remain modal and do nothing.
+        if (this.Phase == RevealPhase.Results && this.SelectedResultIndex >= 0)
+        {
+            bool faceButton = b is Buttons.A or Buttons.B or Buttons.X or Buttons.Y;
+            if (faceButton || this.Controller.IsConfirm(b) || this.Controller.IsExit(b))
+            {
+                int closedIndex = this.SelectedResultIndex;
+                this.LastDetailResultIndex = closedIndex;
+                this.SelectedResultIndex = -1;
+                this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;
+                if (closedIndex >= 0 && closedIndex < this.ResultButtons.Count)
+                {
+                    this.currentlySnappedComponent = this.ResultButtons[closedIndex];
+                    if (Game1.options.SnappyMenus)
+                        this.snapCursorToCurrentSnappedComponent();
+                }
+                Game1.playSound("bigDeSelect");
+            }
+            return;
+        }
+
         if (this.Controller.IsExit(b))
         {
             // Reveal result is already persisted; exit returns to the machine callback safely.
@@ -296,8 +350,28 @@ internal sealed class CardchaRevealMenu : IClickableMenu
             return;
         }
 
+        // Some controller/runtime combinations don't enable Stardew's SnappyMenus flag even
+        // though gamepad input is active. Establish our own result focus so Confirm always works.
+        if (this.Phase == RevealPhase.Results && this.currentlySnappedComponent is null)
+        {
+            this.currentlySnappedComponent = this.ResultButtons.FirstOrDefault() ?? this.Continue;
+            if (Game1.options.SnappyMenus)
+                this.snapCursorToCurrentSnappedComponent();
+        }
+
         if (this.Controller.IsConfirm(b) && this.currentlySnappedComponent is not null)
         {
+            int resultIndex = this.currentlySnappedComponent.myID - 300;
+            if (resultIndex >= 0 && resultIndex < this.ResultButtons.Count)
+            {
+                // First Confirm reveals a facedown result; the next Confirm opens details.
+                this.RevealResult(resultIndex);
+                this.currentlySnappedComponent = this.ResultButtons[resultIndex];
+                if (Game1.options.SnappyMenus)
+                    this.snapCursorToCurrentSnappedComponent();
+                return;
+            }
+
             Point center = this.currentlySnappedComponent.bounds.Center;
             this.receiveLeftClick(center.X, center.Y);
             return;
@@ -527,11 +601,15 @@ internal sealed class CardchaRevealMenu : IClickableMenu
                     : ModEntry.T("reveal.duplicate");
 
                 this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
+                this.DrawPersistentHighRaritySparkle(b, rect, result.Card, 0);
             }
             else
             {
                 this.Renderer.DrawCardBack(b, rect);
             }
+
+            if (this.SelectedResultIndex == 0)
+                this.DrawResultInfoOverlay(b, result);
 
             return;
         }
@@ -554,34 +632,44 @@ internal sealed class CardchaRevealMenu : IClickableMenu
                 : ModEntry.T("reveal.duplicate");
 
             this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
+            this.DrawPersistentHighRaritySparkle(b, rect, result.Card, i);
         }
 
-        foreach (ClickableComponent c in this.allClickableComponents)
+        // While details are open, don't draw result focus/hints over the modal. In alpha.26.3
+        // the focus border could be rendered after the info panel and visibly cut through text.
+        if (this.SelectedResultIndex < 0)
         {
-            if (this.currentlySnappedComponent?.myID == c.myID)
-                CardchaUi.DrawFocus(b, c.bounds);
+            foreach (ClickableComponent c in this.allClickableComponents)
+            {
+                if (this.currentlySnappedComponent?.myID == c.myID)
+                    CardchaUi.DrawFocus(b, c.bounds);
+            }
+
+            int revealedCount = this.Revealed.Count(p => p);
+            string hint = revealedCount == this.Results.Count
+                ? ModEntry.T("reveal.all-opened")
+                : $"{ModEntry.T("reveal.tap-cards")} ({revealedCount}/{this.Results.Count})";
+
+            CardchaUi.DrawScaledText(
+                b,
+                Game1.smallFont,
+                hint,
+                new Rectangle(
+                    this.xPositionOnScreen + 180,
+                    this.yPositionOnScreen + 82,
+                    this.width - 320,
+                    38
+                ),
+                Color.DarkSlateGray,
+                centerX: true,
+                centerY: true,
+                padding: 2
+            );
         }
 
-        int revealedCount = this.Revealed.Count(p => p);
-        string hint = revealedCount == this.Results.Count
-            ? ModEntry.T("reveal.all-opened")
-            : $"{ModEntry.T("reveal.tap-cards")} ({revealedCount}/{this.Results.Count})";
-
-        CardchaUi.DrawScaledText(
-            b,
-            Game1.smallFont,
-            hint,
-            new Rectangle(
-                this.xPositionOnScreen + 180,
-                this.yPositionOnScreen + 82,
-                this.width - 320,
-                38
-            ),
-            Color.DarkSlateGray,
-            centerX: true,
-            centerY: true,
-            padding: 2
-        );
+        // Modal must be the final result-layer draw so card borders can never cover its text.
+        if (this.SelectedResultIndex >= 0 && this.SelectedResultIndex < this.Results.Count)
+            this.DrawResultInfoOverlay(b, this.Results[this.SelectedResultIndex]);
     }
 
     private void DrawResultAura(SpriteBatch b, Rectangle rect, int index)
@@ -631,6 +719,31 @@ internal sealed class CardchaRevealMenu : IClickableMenu
         }
     }
 
+    private void DrawPersistentHighRaritySparkle(SpriteBatch b, Rectangle rect, CardDefinition card, int index)
+    {
+        if (card.Rarity < CardRarity.Legendary)
+            return;
+        double t = Game1.currentGameTime.TotalGameTime.TotalSeconds;
+        float pulse = 0.45f + 0.35f * (float)Math.Sin(t * 3.2 + index);
+        this.DrawRevealSparkles(b, new Rectangle(rect.X - 5, rect.Y - 5, rect.Width + 10, rect.Height + 10), (float)(t % 1.0), pulse);
+    }
+
+    private void DrawResultInfoOverlay(SpriteBatch b, PullResult result)
+    {
+        Rectangle panel = new(this.xPositionOnScreen + 130, this.yPositionOnScreen + 145, this.width - 260, 285);
+        CardchaUi.DrawRoundedPanel(b, panel, new Color(38, 34, 49), CardchaUi.RarityColor(result.Card.Rarity), 4, 16);
+        Rectangle icon = new(panel.X + 28, panel.Y + 58, 142, 142);
+        this.Renderer.DrawIcon(b, icon, result.Card);
+        Rectangle name = new(panel.X + 190, panel.Y + 24, panel.Width - 220, 50);
+        CardchaUi.DrawScaledText(b, Game1.dialogueFont, result.Card.Name, name, new Color(255, 225, 160), false, true, 2, 1.0f);
+        Rectangle rarity = new(panel.X + 190, panel.Y + 74, panel.Width - 220, 32);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, result.Card.Rarity.ToString(), rarity, CardchaUi.RarityColor(result.Card.Rarity), false, true, 2, 1.05f);
+        Rectangle desc = new(panel.X + 190, panel.Y + 112, panel.Width - 220, 112);
+        CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, result.Card.Description, desc, Color.White * 0.92f, 4, 0.78f, false, 1.05f);
+        Rectangle close = new(panel.X + 20, panel.Bottom - 42, panel.Width - 40, 28);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("reveal.info.close"), close, Color.White * 0.70f, true, true, 2, 0.96f);
+    }
+
     private Rectangle GetResultRect(int index)
     {
         if (this.Results.Count == 1)
@@ -666,8 +779,17 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
     private void RevealResult(int index)
     {
-        if (index < 0 || index >= this.Results.Count || this.Revealed[index])
+        if (index < 0 || index >= this.Results.Count)
             return;
+
+        if (this.Revealed[index])
+        {
+            this.SelectedResultIndex = index;
+            this.LastDetailResultIndex = index;
+            this.currentlySnappedComponent = this.ResultButtons.Count > index ? this.ResultButtons[index] : this.currentlySnappedComponent;
+            Game1.playSound("smallSelect");
+            return;
+        }
 
         this.Revealed[index] = true;
         this.LastRevealedIndex = index;
