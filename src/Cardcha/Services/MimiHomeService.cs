@@ -1,0 +1,375 @@
+using Microsoft.Xna.Framework;
+using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
+
+namespace Cardcha.Services;
+
+/// <summary>
+/// Alpha.27 home/schedule layer for MiMi.
+/// The location ID is intentionally stable from the first TEST so a custom attic map can replace
+/// the temporary vanilla interior later without changing friendship/save references.
+/// </summary>
+internal sealed class MimiHomeService
+{
+    public const string AtticLocationName = "Cardcha_MiMiAttic";
+    private const string AtticMapPath = "Maps/Shed";
+    private const int AtticAccessHearts = 2;
+    private const int WorkStart = 1100;
+    private const int WorkEnd = 1700;
+    private const float StairUseDistance = 112f;
+
+    private readonly IModHelper Helper;
+    private readonly IMonitor Monitor;
+    private readonly SaveService Save;
+    private readonly WorldActorService WorldActors;
+    private readonly Func<bool> StoryOwnsMimiActor;
+
+    private Point? CachedWizardStairTile;
+    private Point? CachedAtticStairTile;
+    private bool LoggedAtticCreation;
+
+    public MimiHomeService(
+        IModHelper helper,
+        IMonitor monitor,
+        SaveService save,
+        WorldActorService worldActors,
+        Func<bool> storyOwnsMimiActor)
+    {
+        this.Helper = helper;
+        this.Monitor = monitor;
+        this.Save = save;
+        this.WorldActors = worldActors;
+        this.StoryOwnsMimiActor = storyOwnsMimiActor;
+    }
+
+    public void OnSaveLoaded()
+    {
+        this.CachedWizardStairTile = null;
+        this.CachedAtticStairTile = null;
+        this.EnsureAtticLocation();
+        this.EnforceSchedule();
+    }
+
+    public void OnDayStarted()
+    {
+        this.CachedWizardStairTile = null;
+        this.CachedAtticStairTile = null;
+        this.EnsureAtticLocation();
+        this.EnforceSchedule();
+    }
+
+    public void OnUpdateTicked(UpdateTickedEventArgs e)
+    {
+        if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)
+            return;
+
+        // Run after MimiMysteryTownService every tick. This makes the post-meetup home layer the
+        // final authority outside the legacy 11:00-17:00 merchant routine, without visible flicker.
+        this.EnsureAtticLocation();
+        this.EnforceSchedule();
+    }
+
+    public void OnReturnedToTitle()
+    {
+        this.CachedWizardStairTile = null;
+        this.CachedAtticStairTile = null;
+        this.LoggedAtticCreation = false;
+    }
+
+    public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (!Context.IsWorldReady
+            || !this.Save.Data.MimiMeetupCompleted
+            || !e.Button.IsActionButton()
+            || Game1.activeClickableMenu is not null
+            || Game1.dialogueUp
+            || Game1.eventUp)
+        {
+            return;
+        }
+
+        GameLocation? location = Game1.currentLocation;
+        if (location is null)
+            return;
+
+        if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
+        {
+            Point stair = this.ResolveWizardStairTile(location);
+            if (!PlayerIsNear(stair))
+                return;
+
+            this.Helper.Input.Suppress(e.Button);
+            int hearts = this.GetMimiHearts();
+            if (hearts < AtticAccessHearts)
+            {
+                Game1.drawObjectDialogue(this.T("mimi.attic.locked", new { hearts = AtticAccessHearts }));
+                return;
+            }
+
+            GameLocation? attic = this.EnsureAtticLocation();
+            if (attic is null)
+            {
+                Game1.drawObjectDialogue(this.T("mimi.attic.unavailable"));
+                return;
+            }
+
+            Point arrival = this.ResolveAtticStairTile(attic);
+            Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);
+            return;
+        }
+
+        if (location.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            Point stair = this.ResolveAtticStairTile(location);
+            if (!PlayerIsNear(stair))
+                return;
+
+            this.Helper.Input.Suppress(e.Button);
+            GameLocation? wizard = Game1.getLocationFromName("WizardHouse");
+            Point target = wizard is null ? new Point(4, 6) : this.ResolveWizardStairTile(wizard);
+            Game1.warpFarmer("WizardHouse", target.X, Math.Min(target.Y + 1, Math.Max(1, wizard?.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)), 2);
+        }
+    }
+
+    public string Describe()
+    {
+        if (!Context.IsWorldReady)
+            return "MiMiHome=<no save>";
+
+        GameLocation? attic = Game1.getLocationFromName(AtticLocationName);
+        Point wizardStair = this.ResolveWizardStairTile(Game1.getLocationFromName("WizardHouse"));
+        string route = this.IsRestoredCommunityCenterRoute() ? "CommunityCenter" : this.IsJojaRoute() ? "Joja/Town" : "Town";
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00";
+    }
+
+    private GameLocation? EnsureAtticLocation()
+    {
+        if (!Context.IsWorldReady)
+            return null;
+
+        GameLocation? existing = Game1.getLocationFromName(AtticLocationName);
+        if (existing is not null)
+            return existing;
+
+        try
+        {
+            GameLocation attic = new(AtticMapPath, AtticLocationName);
+            Game1.locations.Add(attic);
+            this.CachedAtticStairTile = null;
+            if (!this.LoggedAtticCreation)
+            {
+                this.LoggedAtticCreation = true;
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27 safe interior map foundation.", LogLevel.Info);
+            }
+            return attic;
+        }
+        catch (Exception ex)
+        {
+            this.Monitor.Log($"Couldn't create MiMi attic location: {ex}", LogLevel.Error);
+            return null;
+        }
+    }
+
+    private void EnforceSchedule()
+    {
+        if (!Context.IsWorldReady
+            || !this.Save.Data.MimiMeetupCompleted
+            || this.StoryOwnsMimiActor()
+            || Game1.eventUp)
+        {
+            return;
+        }
+
+        NPC? mimi = this.WorldActors.FindMimiActor() ?? this.WorldActors.EnsureMimiActor();
+        if (mimi is null)
+            return;
+
+        bool weekday = IsWeekday();
+        bool workHours = weekday && Game1.timeOfDay >= WorkStart && Game1.timeOfDay < WorkEnd;
+
+        // Before/after work and weekends, MiMi actually lives upstairs now instead of vanishing
+        // into the old hidden holding tile.
+        if (!workHours)
+        {
+            GameLocation? attic = this.EnsureAtticLocation();
+            if (attic is null)
+                return;
+
+            Point home = FindClearTileNear(attic, preferUpperHalf: true);
+            PlaceMimi(mimi, attic, home, 2);
+            return;
+        }
+
+        // Rain/harsh weather keeps the established Wizard-house merchant behavior. Once the
+        // Community Center is restored through the non-Joja route, clear weekdays move her work
+        // routine into the Community Center; otherwise the legacy Town merchant owns work hours.
+        if (IsHarshWeather())
+        {
+            if (this.IsRestoredCommunityCenterRoute())
+            {
+                GameLocation? wizard = Game1.getLocationFromName("WizardHouse");
+                if (wizard is not null)
+                {
+                    Point tile = FindClearTileNear(wizard, preferUpperHalf: false);
+                    PlaceMimi(mimi, wizard, tile, 2);
+                }
+            }
+            return;
+        }
+
+        if (!this.IsRestoredCommunityCenterRoute())
+            return;
+
+        GameLocation? center = Game1.getLocationFromName("CommunityCenter");
+        if (center is null)
+            return;
+
+        Point work = FindClearTileNear(center, preferUpperHalf: false);
+        PlaceMimi(mimi, center, work, 2);
+    }
+
+    private void PlaceMimi(NPC mimi, GameLocation target, Point tile, int facing)
+    {
+        Vector2 world = new(tile.X * 64f, tile.Y * 64f);
+        if (mimi.currentLocation == target && !mimi.isInvisible.Value)
+        {
+            this.WorldActors.ConfigureMimiActor(mimi, broom: false, visible: true);
+            mimi.displayName = "MiMi";
+            mimi.hideShadow.Value = false;
+            return;
+        }
+
+        this.WorldActors.MoveMimiActor(mimi, target, world, facing, broom: false, visible: true);
+        mimi.displayName = "MiMi";
+        mimi.hideShadow.Value = false;
+    }
+
+    private Point ResolveWizardStairTile(GameLocation? wizard)
+    {
+        if (wizard is null)
+            return new Point(4, 6);
+        if (this.CachedWizardStairTile is Point cached)
+            return cached;
+
+        this.CachedWizardStairTile = FindClearTileNear(wizard, preferUpperHalf: true);
+        return this.CachedWizardStairTile.Value;
+    }
+
+    private Point ResolveAtticStairTile(GameLocation attic)
+    {
+        if (this.CachedAtticStairTile is Point cached)
+            return cached;
+
+        int width = attic.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
+        int height = attic.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
+        int x = Math.Clamp(width / 2, 1, Math.Max(1, width - 2));
+        int startY = Math.Max(1, height - 3);
+        for (int y = startY; y >= 1; y--)
+        {
+            Point candidate = new(x, y);
+            if (IsTileClear(attic, candidate))
+            {
+                this.CachedAtticStairTile = candidate;
+                return candidate;
+            }
+        }
+
+        this.CachedAtticStairTile = new Point(x, startY);
+        return this.CachedAtticStairTile.Value;
+    }
+
+    private static Point FindClearTileNear(GameLocation location, bool preferUpperHalf)
+    {
+        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
+        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
+        int centerX = Math.Clamp(width / 2, 2, Math.Max(2, width - 3));
+        int centerY = preferUpperHalf
+            ? Math.Clamp(height / 3, 2, Math.Max(2, height - 3))
+            : Math.Clamp(height / 2, 2, Math.Max(2, height - 3));
+
+        for (int radius = 0; radius < Math.Max(width, height); radius++)
+        {
+            for (int y = Math.Max(1, centerY - radius); y <= Math.Min(height - 2, centerY + radius); y++)
+            {
+                for (int x = Math.Max(1, centerX - radius); x <= Math.Min(width - 2, centerX + radius); x++)
+                {
+                    if (Math.Abs(x - centerX) != radius && Math.Abs(y - centerY) != radius)
+                        continue;
+                    Point p = new(x, y);
+                    if (IsTileClear(location, p))
+                        return p;
+                }
+            }
+        }
+
+        return new Point(centerX, centerY);
+    }
+
+    private static bool IsTileClear(GameLocation location, Point tile)
+    {
+        try
+        {
+            Vector2 v = new(tile.X, tile.Y);
+            if (location.IsTileBlockedBy(v))
+                return false;
+            if (location.Objects.ContainsKey(v))
+                return false;
+            return true;
+        }
+        catch
+        {
+            return true;
+        }
+    }
+
+    private static bool PlayerIsNear(Point tile)
+    {
+        Vector2 marker = new(tile.X * 64f + 32f, tile.Y * 64f + 32f);
+        Vector2 player = Game1.player.Position + new Vector2(32f, 32f);
+        return Vector2.DistanceSquared(marker, player) <= StairUseDistance * StairUseDistance;
+    }
+
+    private int GetMimiHearts()
+    {
+        if (!Context.IsWorldReady
+            || !Game1.player.friendshipData.TryGetValue(MimiMysteryTownService.NpcId, out Friendship? friendship)
+            || friendship is null)
+        {
+            return 0;
+        }
+        return Math.Max(0, friendship.Points / 250);
+    }
+
+    private bool IsRestoredCommunityCenterRoute()
+    {
+        if (!Context.IsWorldReady || this.IsJojaRoute())
+            return false;
+        try
+        {
+            return Game1.MasterPlayer.hasCompletedCommunityCenter()
+                || Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
+        }
+        catch
+        {
+            return Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
+        }
+    }
+
+    private bool IsJojaRoute()
+        => Context.IsWorldReady && Game1.MasterPlayer.mailReceived.Contains("JojaMember");
+
+    private static bool IsWeekday()
+    {
+        int dayIndex = (Math.Max(1, Game1.dayOfMonth) - 1) % 7;
+        return dayIndex <= 4;
+    }
+
+    private static bool IsHarshWeather()
+        => Game1.isRaining || Game1.isSnowing || Game1.isLightning;
+
+    private string T(string key, object? tokens = null)
+        => tokens is null
+            ? this.Helper.Translation.Get(key).ToString()
+            : this.Helper.Translation.Get(key, tokens).ToString();
+}
