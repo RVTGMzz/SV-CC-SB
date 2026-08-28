@@ -1,0 +1,5 @@
+<Project>
+  <Target Name="CardchaAlpha2651RevealHotfix" BeforeTargets="CoreCompile" Condition="'$(MSBuildProjectName)' == 'Cardcha'">
+    <Exec Command="python3 &quot;$(MSBuildThisFileDirectory)build-input-alpha265/apply_reveal_2651.py&quot; &quot;$(MSBuildProjectDirectory)&quot;" />
+  </Target>
+</Project>
