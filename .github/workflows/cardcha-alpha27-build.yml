@@ -1,0 +1,126 @@
+name: Cardcha alpha27 MiMi social core build
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-build.yml'
+      - 'src/Cardcha/Services/MimiSocialService.cs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire MiMi social core
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('src/Cardcha')
+          p=r/'ModEntry.cs'; s=p.read_text(encoding='utf-8')
+          repls=[
+          ('    private MimiMysteryTownService Mystery = null!;\n    private WorldActorService WorldActors = null!;', '    private MimiMysteryTownService Mystery = null!;\n    private MimiSocialService Social = null!;\n    private WorldActorService WorldActors = null!;'),
+          ('        helper.Events.Content.AssetRequested += this.Mystery.OnAssetRequested;\n', '        helper.Events.Content.AssetRequested += this.Mystery.OnAssetRequested;\n        helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;\n'),
+          ('        helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;\n', '        helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.Social.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;\n'),
+          ('        this.Story.OnSaveLoaded();\n        this.Mystery.OnSaveLoaded();\n', '        this.Story.OnSaveLoaded();\n        this.Mystery.OnSaveLoaded();\n        this.Social.OnSaveLoaded();\n'),
+          ('        this.Story.OnDayStarted();\n        this.Mystery.OnDayStarted();\n', '        this.Story.OnDayStarted();\n        this.Mystery.OnDayStarted();\n        this.Social.OnDayStarted();\n'),
+          ('        this.Story.OnUpdateTicked(sender, e);\n        this.Mystery.OnUpdateTicked();\n', '        this.Story.OnUpdateTicked(sender, e);\n        this.Mystery.OnUpdateTicked();\n        this.Social.OnUpdateTicked(e);\n'),
+          ('        this.Story.OnReturnedToTitle();\n        this.Mystery.OnReturnedToTitle();\n', '        this.Story.OnReturnedToTitle();\n        this.Mystery.OnReturnedToTitle();\n        this.Social.OnReturnedToTitle();\n'),
+          ('            this.Mystery.Describe() + "\\n" +\n            this.PortableMachine.Describe(),', '            this.Mystery.Describe() + "\\n" +\n            this.Social.Describe() + "\\n" +\n            this.PortableMachine.Describe(),')]
+          for a,b in repls:
+              if a not in s: raise SystemExit('missing ModEntry anchor: '+a[:70])
+              s=s.replace(a,b,1)
+          anchor='''        this.Mystery = new MimiMysteryTownService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.OpenMimiShop,\n            this.WorldActors,\n            () => this.Story.OwnsMimiWorldActor\n        );\n'''
+          if anchor not in s: raise SystemExit('missing Mystery constructor anchor')
+          s=s.replace(anchor, anchor+'''        this.Social = new MimiSocialService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.WorldActors,\n            this.OpenMimiShop\n        );\n''',1)
+          s=s.replace('Cardcha! v0.3.0-alpha.26.5 CORE COMPLETION HOTFIX with','Cardcha! v0.3.0-alpha.27.0.1 MIMI REAL NPC SOCIAL CORE with')
+          s=s.replace('Cardcha! v0.3.0-alpha.26.5 CORE COMPLETION HOTFIX','Cardcha! v0.3.0-alpha.27.0.1 MIMI REAL NPC SOCIAL CORE')
+          p.write_text(s,encoding='utf-8')
+
+          for rel in ['Cardcha.csproj','Directory.Build.targets']:
+              q=r/rel; t=q.read_text(encoding='utf-8').replace('0.3.0-alpha.26.5.3','0.3.0-alpha.27.0.1').replace('CardchaAlpha2652Manifest','CardchaAlpha2701Manifest'); q.write_text(t,encoding='utf-8')
+          mp=r/'manifest.json'; m=json.loads(mp.read_text(encoding='utf-8-sig')); m['Version']='0.3.0-alpha.27.0.1'; mp.write_text(json.dumps(m,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          en={
+          'mimi.social.introduction':"So we're officially acquainted now. Try not to make it sound too respectable.",
+          'mimi.social.mon':"I had three plans for today. ChaCha ate one of them. Don't ask how.",
+          'mimi.social.tue':"People keep calling this a job. I prefer 'profitable wandering'.",
+          'mimi.social.wed':"If I look busy, I'm probably avoiding something even busier.",
+          'mimi.social.thu':"You know, cardboard has remarkable emotional range. Mostly disappointment.",
+          'mimi.social.fri':"Friday already? Good. I was running out of convincing excuses.",
+          'mimi.social.sat':"No shop today. Even mysterious merchants need to disappear professionally.",
+          'mimi.social.sun':"Wizard says I should rest. I am resting very aggressively.",
+          'mimi.social.rain':"Rain is excellent for staying indoors and pretending that was the plan all along.",
+          'mimi.social.birthday':"You remembered Spring 17? ...I was absolutely going to remember yours too. Probably.$h",
+          'mimi.gift.love':"Oh... that's actually perfect. Don't look so pleased with yourself.$h",
+          'mimi.gift.like':"Useful, strange, or shiny. You are learning my highly scientific standards.$h",
+          'mimi.gift.neutral':"Thanks. I'll put it somewhere ChaCha can't immediately investigate.",
+          'mimi.gift.dislike':"Ah. A gift. Definitely a gift. I can confirm that much.$s",
+          'mimi.gift.hate':"I have questions. Most of them begin with 'why'.$a"}
+          vi={
+          'mimi.social.introduction':"Vậy là giờ tụi mình chính thức quen nhau rồi. Đừng làm chuyện này nghe đứng đắn quá nha.",
+          'mimi.social.mon':"Hôm nay tui có ba kế hoạch. ChaCha ăn mất một cái rồi. Đừng hỏi bằng cách nào.",
+          'mimi.social.tue':"Mọi người cứ gọi đây là công việc. Tui thích gọi là 'đi lang thang có lợi nhuận' hơn.",
+          'mimi.social.wed':"Nếu thấy tui có vẻ bận, khả năng cao là tui đang né một chuyện còn bận hơn.",
+          'mimi.social.thu':"Bạn biết không, bìa cứng có đời sống cảm xúc phong phú lắm. Chủ yếu là thất vọng.",
+          'mimi.social.fri':"Thứ Sáu rồi hả? Tốt. Tui sắp hết lý do nghe cho có vẻ thuyết phục rồi.",
+          'mimi.social.sat':"Hôm nay nghỉ bán. Thương nhân bí ẩn cũng phải biến mất cho chuyên nghiệp chứ.",
+          'mimi.social.sun':"Pháp Sư bảo tui nên nghỉ ngơi. Tui đang nghỉ ngơi cực kỳ quyết liệt đây.",
+          'mimi.social.rain':"Mưa rất hợp để ở trong nhà rồi giả vờ như ngay từ đầu mình đã tính vậy.",
+          'mimi.social.birthday':"Bạn nhớ Xuân 17 luôn hả? ...Tui cũng chắc chắn sẽ nhớ sinh nhật bạn. Chắc vậy.$h",
+          'mimi.gift.love':"Ồ... cái này thật sự đúng ý tui. Đừng có nhìn đắc ý vậy chứ.$h",
+          'mimi.gift.like':"Hữu dụng, kỳ quặc hoặc lấp lánh. Bạn đang hiểu tiêu chuẩn cực kỳ khoa học của tui rồi đó.$h",
+          'mimi.gift.neutral':"Cảm ơn nha. Tui sẽ cất ở đâu đó ChaCha chưa kịp điều tra ngay.",
+          'mimi.gift.dislike':"À. Quà. Chắc chắn là quà. Ít nhất chuyện đó thì tui xác nhận được.$s",
+          'mimi.gift.hate':"Tui có vài câu hỏi. Hầu hết đều bắt đầu bằng 'tại sao'.$a"}
+          for rel,d in [('i18n/default.json',en),('i18n/vi.json',vi)]:
+              q=r/rel; j=json.loads(q.read_text(encoding='utf-8-sig')); j.update(d); q.write_text(json.dumps(j,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          print('alpha27 wiring complete')
+          PY
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package and snapshot
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/Cardcha.dll
+          PDB="$(find src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"; [ -z "$PDB" ] || cp "$PDB" stage/Cardcha/Cardcha.pdb
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.1_MiMiRealNPC_SocialCore_TEST.zip Cardcha)
+          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.1_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
+          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.1_MiMiRealNPC_SocialCore_TEST.zip > artifact/SHA256.txt
+
+      - name: Commit wired source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git commit -m 'alpha27: wire MiMi real NPC social core'
+          git push origin cardcha-alpha27-mimi-real-npc
+
+      - name: Upload TEST
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-social-core
+          path: artifact
+          if-no-files-found: error
