@@ -407,6 +407,8 @@ internal sealed class MimiMysteryTownService
 
         if (this.IsMerchantRoutineActive())
         {
+            if (this.Save.Data.MimiMeetupCompleted)
+                return;
             this.TryOpenMerchant(e);
             return;
         }

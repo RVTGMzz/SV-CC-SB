@@ -38,6 +38,7 @@ internal sealed class ModEntry : Mod
     private MimiMysteryTownService Mystery = null!;
     private MimiSocialService Social = null!;
     private MimiHomeService Home = null!;
+    private MimiAtticVisualService AtticVisual = null!;
     private WorldActorService WorldActors = null!;
     private PortableMachineService PortableMachine = null!;
 
@@ -121,6 +122,7 @@ internal sealed class ModEntry : Mod
             () => this.Story.OwnsMimiWorldActor,
             () => this.Mystery.OwnsMimiWorldActor
         );
+        this.AtticVisual = new MimiAtticVisualService(this.Save);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -135,6 +137,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
@@ -187,7 +190,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -857,7 +860,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION",
+            "Cardcha! v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST",
             LogLevel.Alert
         );
     }
