@@ -19,6 +19,7 @@ This file is the persistent working contract for Cardcha development. Read it be
 | Keep rollback points obvious | Record the active branch, latest accepted baseline, milestone commit, TEST ZIP name, and important checks in the session handoff. |
 | Do not hide uncertainty | If CI proves only compile/package validity but not runtime behavior, say so. Do not describe untested runtime behavior as confirmed. |
 | Keep scope explicit | State what the milestone does and does not include so a TEST build is not mistaken for a finished feature set. |
+| MiMi walk sheet is user-locked | Do not modify `src/Cardcha/assets/mimi_walk.png` unless the user explicitly asks. Social/friend-list mugshots must use the dedicated `mimi_social_mugshot.png` source; runtime stitching may append it outside the 128x192 animation area, but the animation pixels must remain identical. |
 
 ## TEST HANDOFF RULE
 

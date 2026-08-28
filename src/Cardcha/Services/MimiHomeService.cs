@@ -354,8 +354,19 @@ internal sealed class MimiHomeService
         if (this.CachedWizardStairTile is Point cached)
             return cached;
 
-        this.CachedWizardStairTile = FindClearTileNear(wizard, preferUpperHalf: true);
+        this.CachedWizardStairTile = ResolvePreferredWizardStairTile(wizard);
         return this.CachedWizardStairTile.Value;
+    }
+
+    internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
+    {
+        int width = wizard.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
+        int height = wizard.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
+        Point preferred = new(
+            Math.Clamp(width - 3, 2, Math.Max(2, width - 2)),
+            Math.Clamp((int)Math.Round(height * 0.28f), 2, Math.Max(2, height - 3))
+        );
+        return FindClearTileNear(wizard, preferred);
     }
 
     private Point ResolveAtticStairTile(GameLocation attic)
@@ -385,10 +396,21 @@ internal sealed class MimiHomeService
     {
         int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
         int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
-        int centerX = Math.Clamp(width / 2, 2, Math.Max(2, width - 3));
-        int centerY = preferUpperHalf
-            ? Math.Clamp(height / 3, 2, Math.Max(2, height - 3))
-            : Math.Clamp(height / 2, 2, Math.Max(2, height - 3));
+        Point preferred = new(
+            Math.Clamp(width / 2, 2, Math.Max(2, width - 3)),
+            preferUpperHalf
+                ? Math.Clamp(height / 3, 2, Math.Max(2, height - 3))
+                : Math.Clamp(height / 2, 2, Math.Max(2, height - 3))
+        );
+        return FindClearTileNear(location, preferred);
+    }
+
+    private static Point FindClearTileNear(GameLocation location, Point preferred)
+    {
+        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
+        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
+        int centerX = Math.Clamp(preferred.X, 1, Math.Max(1, width - 2));
+        int centerY = Math.Clamp(preferred.Y, 1, Math.Max(1, height - 2));
 
         for (int radius = 0; radius < Math.Max(width, height); radius++)
         {

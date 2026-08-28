@@ -20,7 +20,7 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
-    private const string DecorVersion = "alpha.27.0.7.6";
+    private const string DecorVersion = "alpha.27.0.7.7";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -69,7 +69,7 @@ internal sealed class MimiAtticVisualService
             return;
 
         if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
-            DrawStairMarker(e.SpriteBatch, FindClearTileNear(location, preferUpperHalf: true));
+            DrawStairMarker(e.SpriteBatch, MimiHomeService.ResolvePreferredWizardStairTile(location));
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -144,7 +144,7 @@ internal sealed class MimiAtticVisualService
         // Rugs first so Stardew naturally draws the furniture on top of them.
         TryAddFurniture(attic, "(F)1456", 3, 5);   // Patchwork Rug — research zone.
         TryAddFurniture(attic, "(F)1623", 2, 9);   // Green Cottage Rug — TV nook.
-        TryAddFurniture(attic, "(F)1461", 9, 8);   // Dark central rug — concept anchor / open circulation.
+        TryAddFurniture(attic, "(F)1461", 14, 4);  // Large dark rug under the bed.
 
         // Research desk — deliberately domestic, not a full workshop.
         TryAddFurniture(attic, "(F)1289", 2, 4);                 // Dark Bookcase.
@@ -158,8 +158,8 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 3, 8);                 // Budget TV.
-        TryAddFurniture(attic, "(F)432", 3, 10, rotation: 2);    // Green Couch faces the TV.
+        TryAddFurniture(attic, "(F)1466", 3, 7);                 // TV pushed toward the wall.
+        TryAddFurniture(attic, "(F)432", 2, 10, rotation: 2);    // Couch near the wall with usable viewing distance.
         TryAddFurniture(attic, "(F)724", 6, 9, heldId: "(F)1364");  // Coffee Table + bowl/snacks stand-in.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
@@ -169,7 +169,6 @@ internal sealed class MimiAtticVisualService
         // Wall details make the shell read like a real Stardew bedroom rather than an empty shed.
         TryAddFurniture(attic, "(F)1614", 10, 2);                // Basic Window.
         TryAddFurniture(attic, "(F)1541", 6, 2);                 // A Night On Eco-Hill.
-        TryAddFurniture(attic, "(F)1600", 17, 2);                // Skull Poster.
 
         attic.modData[DecorMarkerKey] = DecorVersion;
     }
@@ -205,8 +204,8 @@ internal sealed class MimiAtticVisualService
     {
         try
         {
-            Item staircase = ItemRegistry.Create("(BC)71");
-            Vector2 world = new(tile.X * 64f, tile.Y * 64f - 64f);
+            Item staircase = ItemRegistry.Create("(O)71"); // vanilla Staircase object
+            Vector2 world = new(tile.X * 64f, tile.Y * 64f);
             Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
             staircase.drawInMenu(batch, screen, 1f, 0.96f, 0.995f, StackDrawType.Hide);
         }
@@ -234,8 +233,8 @@ internal sealed class MimiAtticVisualService
             DeskRight: P(6, 5),
 
             // TV secret nook on the lower-left.
-            Television: P(3, 8),
-            TvChair: P(3, 10),
+            Television: P(3, 7),
+            TvChair: P(2, 10),
             TvTable: P(6, 9),
 
             // ChaCha / future upgrade corner on the lower-right.

@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="22" height="14" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAtticVersion" value="alpha.27.0.7.6.4" />
+  <property name="CardchaAtticVersion" value="alpha.27.0.7.7" />
   <property name="CardchaZoneLayout" value="landing|research|personal|tv-secret|chacha" />
-  <property name="CardchaVisualDirection" value="true-stardew-map|vanilla-townInterior|strict-csv-parser-safe|isolated-social-mugshot" />
+  <property name="CardchaVisualDirection" value="true-stardew-map|clean-closed-shell|bed-rug|spaced-tv-sofa|wizard-upper-right-stair|strict-csv" />
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088" />
@@ -40,7 +40,7 @@
 0,68,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,69,0,
 0,68,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,69,0,
 0,68,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,69,0,
-0,68,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,69,0,
+0,1,1,1,1,1,1,1,1,1,0,0,1,1,1,1,1,1,1,1,1,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>
@@ -58,7 +58,7 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,165,166,166,166,166,166,166,166,166,0,0,166,166,166,166,166,166,166,166,167,0,
+0,166,166,166,166,166,166,166,166,166,0,0,166,166,166,166,166,166,166,166,166,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0
 </data>
  </layer>

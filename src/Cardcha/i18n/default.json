@@ -52,7 +52,7 @@
   "binder.status.slot-empty": "Slot {{slot}} is empty. Pick a card below and equip it.",
   "binder.status.slot-equipped": "Equipped in slot {{slot}}. Double-click, press Y/X, right-click, or use UNEQUIP to remove it.",
   "binder.status.not-owned": "Not yet obtained. Keep pulling!",
-  "binder.status.selected": "Selected {{name}}.",
+  "binder.status.selected": "",
   "binder.status.already-equipped": "{{name}} is already equipped.",
   "binder.status.equipped": "Equipped {{name}}. Try not to become unbearable.",
   "binder.status.full": "All {{slots}} active slots are full. Unequip one first.",
@@ -801,5 +801,6 @@
   "resonance.complete": "Complete",
   "resonance.status.ready": "ChaCha is ready.",
   "resonance.hint.keyboard": "Click a tab or entry. Esc: return to Binder.",
-  "resonance.hint.controller": "{{confirm}}: inspect   {{exit}}: return"
+  "resonance.hint.controller": "{{confirm}}: inspect   {{exit}}: return",
+  "reveal.info.close": "Click anywhere to close"
 }

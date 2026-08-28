@@ -52,7 +52,7 @@
   "binder.status.slot-empty": "Ô {{slot}} đang trống. Chọn một lá bên dưới rồi trang bị.",
   "binder.status.slot-equipped": "Đang trang bị ở ô {{slot}}. Nhấp đúp, nhấn Y/X, chuột phải hoặc THÁO RA để gỡ.",
   "binder.status.not-owned": "Chưa sở hữu lá này. Quay tiếp đi!",
-  "binder.status.selected": "Đã chọn {{name}}.",
+  "binder.status.selected": "",
   "binder.status.already-equipped": "{{name}} đã được trang bị rồi.",
   "binder.status.equipped": "Đã trang bị {{name}}. Xin đừng trở nên quá bá.",
   "binder.status.full": "Cả {{slots}} ô đang dùng đều đầy. Hãy tháo một lá trước.",
@@ -881,5 +881,6 @@
   "resonance.complete": "Hoàn tất",
   "resonance.status.ready": "ChaCha đã sẵn sàng.",
   "resonance.hint.keyboard": "Nhấn tab hoặc mục để xem. Esc: quay lại Sổ.",
-  "resonance.hint.controller": "{{confirm}}: xem   {{exit}}: quay lại"
+  "resonance.hint.controller": "{{confirm}}: xem   {{exit}}: quay lại",
+  "reveal.info.close": "Nhấn để đóng"
 }
