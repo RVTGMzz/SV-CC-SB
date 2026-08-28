@@ -1,11 +1,10 @@
-name: Cardcha alpha27 staircase visual hardening
+name: Cardcha alpha27.0.4 MiMi attic visual foundation
 
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
     paths:
       - '.github/workflows/cardcha-alpha27-visual-build.yml'
-      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
   workflow_dispatch:
 
 permissions:
@@ -19,42 +18,73 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Wire staircase visual and social merchant ownership
+      - name: Build alpha27.0.4 attic visual foundation source
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json
-          r=Path('src/Cardcha')
-          p=r/'ModEntry.cs'; s=p.read_text(encoding='utf-8')
-          pairs=[
-          ('    private MimiHomeService Home = null!;\n    private WorldActorService WorldActors = null!;', '    private MimiHomeService Home = null!;\n    private MimiAtticVisualService AtticVisual = null!;\n    private WorldActorService WorldActors = null!;'),
-          ('        helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;\n', '        helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;\n        helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;\n')]
-          for a,b in pairs:
-              if a not in s: raise SystemExit('visual ModEntry anchor missing')
-              s=s.replace(a,b,1)
-          anchor='''        this.Home = new MimiHomeService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.WorldActors,\n            () => this.Story.OwnsMimiWorldActor,\n            () => this.Mystery.OwnsMimiWorldActor\n        );\n'''
-          if anchor not in s: raise SystemExit('Home constructor anchor missing')
-          s=s.replace(anchor,anchor+'''        this.AtticVisual = new MimiAtticVisualService(this.Save);\n''',1)
-          s=s.replace('0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION','0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST')
-          p.write_text(s,encoding='utf-8')
+          import base64, json
+          r = Path('src/Cardcha')
 
-          # SocialService is now the sole post-meetup action-button owner for MiMi. This prevents
-          # the legacy Mystery merchant handler from opening the shop after the same press was
-          # already used for vanilla talk/gifting.
-          q=r/'Services'/'MimiMysteryTownService.cs'; m=q.read_text(encoding='utf-8')
-          old='''        if (this.IsMerchantRoutineActive())\n        {\n            this.TryOpenMerchant(e);\n            return;\n        }\n'''
-          new='''        if (this.IsMerchantRoutineActive())\n        {\n            if (this.Save.Data.MimiMeetupCompleted)\n                return;\n            this.TryOpenMerchant(e);\n            return;\n        }\n'''
-          if old not in m: raise SystemExit('merchant button anchor missing')
-          q.write_text(m.replace(old,new,1),encoding='utf-8')
+          service_b64 = 'dXNpbmcgTWljcm9zb2Z0LlhuYS5GcmFtZXdvcms7CnVzaW5nIE1pY3Jvc29mdC5YbmEuRnJhbWV3b3JrLkdyYXBoaWNzOwp1c2luZyBTdGFyZGV3TW9kZGluZ0FQSTsKdXNpbmcgU3RhcmRld01vZGRpbmdBUEkuRXZlbnRzOwp1c2luZyBTdGFyZGV3VmFsbGV5OwoKbmFtZXNwYWNlIENhcmRjaGEuU2VydmljZXM7CgovLy8gPHN1bW1hcnk+Ci8vLyBBbHBoYS4yNy4wLjQgdmlzdWFsL2Vudmlyb25tZW50IGxheWVyIGZvciBNaU1pJ3MgYXR0aWMuCi8vLyBLZWVwcyB0aGUgc3RhYmxlIHJ1bnRpbWUgbG9jYXRpb24gYW5kIHNhZmUgdmFuaWxsYSBTaGVkIGJhc2UsIHRoZW4gb3ZlcmxheXMgYSBDYXJkY2hhLXNwZWNpZmljCi8vLyBsaXZlZC1pbiByb29tIGxheW91dCBwbHVzIGluc3BlY3RhYmxlIGxvcmUgcG9pbnRzIHdpdGhvdXQgdHVybmluZyB0aGUgYXR0aWMgaW50byBhIHNlY29uZCBzaG9wLgovLy8gPC9zdW1tYXJ5PgppbnRlcm5hbCBzZWFsZWQgY2xhc3MgTWltaUF0dGljVmlzdWFsU2VydmljZQp7CiAgICBwcml2YXRlIGNvbnN0IGludCBTcHJpdGVTaXplID0gMTY7CiAgICBwcml2YXRlIGNvbnN0IGZsb2F0IFdvcmxkU2NhbGUgPSA0ZjsKICAgIHByaXZhdGUgY29uc3QgaW50IFNlY3JldFR2SGVhcnRSZXF1aXJlbWVudCA9IDY7CiAgICBwcml2YXRlIGNvbnN0IGludCBTZWNyZXRUdlRpbWUgPSAxNzMwOwoKICAgIHByaXZhdGUgcmVhZG9ubHkgSU1vZEhlbHBlciBIZWxwZXI7CiAgICBwcml2YXRlIHJlYWRvbmx5IFNhdmVTZXJ2aWNlIFNhdmU7CiAgICBwcml2YXRlIFRleHR1cmUyRD8gUHJvcHNUZXh0dXJlOwoKICAgIHB1YmxpYyBNaW1pQXR0aWNWaXN1YWxTZXJ2aWNlKElNb2RIZWxwZXIgaGVscGVyLCBTYXZlU2VydmljZSBzYXZlKQogICAgewogICAgICAgIHRoaXMuSGVscGVyID0gaGVscGVyOwogICAgICAgIHRoaXMuU2F2ZSA9IHNhdmU7CiAgICB9CgogICAgcHVibGljIHZvaWQgT25SZW5kZXJlZFdvcmxkKG9iamVjdD8gc2VuZGVyLCBSZW5kZXJlZFdvcmxkRXZlbnRBcmdzIGUpCiAgICB7CiAgICAgICAgaWYgKCFDb250ZXh0LklzV29ybGRSZWFkeSB8fCAhdGhpcy5TYXZlLkRhdGEuTWltaU1lZXR1cENvbXBsZXRlZCkKICAgICAgICAgICAgcmV0dXJuOwoKICAgICAgICBHYW1lTG9jYXRpb24/IGxvY2F0aW9uID0gR2FtZTEuY3VycmVudExvY2F0aW9uOwogICAgICAgIGlmIChsb2NhdGlvbiBpcyBudWxsKQogICAgICAgICAgICByZXR1cm47CgogICAgICAgIGlmIChsb2NhdGlvbi5OYW1lT3JVbmlxdWVOYW1lLkVxdWFscygiV2l6YXJkSG91c2UiLCBTdHJpbmdDb21wYXJpc29uLk9yZGluYWxJZ25vcmVDYXNlKSkKICAgICAgICB7CiAgICAgICAgICAgIHRoaXMuRHJhd1N0YWlyTWFya2VyKGUuU3ByaXRlQmF0Y2gsIEZpbmRDbGVhclRpbGVOZWFyKGxvY2F0aW9uLCBwcmVmZXJVcHBlckhhbGY6IHRydWUpKTsKICAgICAgICAgICAgcmV0dXJuOwogICAgICAgIH0KCiAgICAgICAgaWYgKCFsb2NhdGlvbi5OYW1lT3JVbmlxdWVOYW1lLkVxdWFscyhNaW1pSG9tZVNlcnZpY2UuQXR0aWNMb2NhdGlvbk5hbWUsIFN0cmluZ0NvbXBhcmlzb24uT3JkaW5hbElnbm9yZUNhc2UpKQogICAgICAgICAgICByZXR1cm47CgogICAgICAgIEF0dGljTGF5b3V0IGxheW91dCA9IEdldExheW91dChsb2NhdGlvbik7CiAgICAgICAgdGhpcy5EcmF3QXR0aWNGb3VuZGF0aW9uKGUuU3ByaXRlQmF0Y2gsIGxheW91dCk7CiAgICAgICAgdGhpcy5EcmF3U3RhaXJNYXJrZXIoZS5TcHJpdGVCYXRjaCwgbGF5b3V0LkxhbmRpbmcpOwogICAgfQoKICAgIHB1YmxpYyB2b2lkIE9uQnV0dG9uUHJlc3NlZChvYmplY3Q/IHNlbmRlciwgQnV0dG9uUHJlc3NlZEV2ZW50QXJncyBlKQogICAgewogICAgICAgIGlmICghQ29udGV4dC5Jc1dvcmxkUmVhZHkKICAgICAgICAgICAgfHwgIXRoaXMuU2F2ZS5EYXRhLk1pbWlNZWV0dXBDb21wbGV0ZWQKICAgICAgICAgICAgfHwgIWUuQnV0dG9uLklzQWN0aW9uQnV0dG9uKCkKICAgICAgICAgICAgfHwgR2FtZTEuYWN0aXZlQ2xpY2thYmxlTWVudSBpcyBub3QgbnVsbAogICAgICAgICAgICB8fCBHYW1lMS5kaWFsb2d1ZVVwCiAgICAgICAgICAgIHx8IEdhbWUxLmV2ZW50VXAKICAgICAgICAgICAgfHwgR2FtZTEuY3VycmVudExvY2F0aW9uIGlzIG51bGwKICAgICAgICAgICAgfHwgIUdhbWUxLmN1cnJlbnRMb2NhdGlvbi5OYW1lT3JVbmlxdWVOYW1lLkVxdWFscyhNaW1pSG9tZVNlcnZpY2UuQXR0aWNMb2NhdGlvbk5hbWUsIFN0cmluZ0NvbXBhcmlzb24uT3JkaW5hbElnbm9yZUNhc2UpKQogICAgICAgICkKICAgICAgICB7CiAgICAgICAgICAgIHJldHVybjsKICAgICAgICB9CgogICAgICAgIEF0dGljTGF5b3V0IGxheW91dCA9IEdldExheW91dChHYW1lMS5jdXJyZW50TG9jYXRpb24pOwogICAgICAgIFBvaW50IGFjdGlvblRpbGUgPSBHZXREYWN0aW9uVGlsZSgpOwoKICAgICAgICBzdHJpbmc/IGtleSA9IG51bGw7CiAgICAgICAgaWYgKFRvdWNoZXMoYWN0aW9uVGlsZSwgbGF5b3V0LkRlc2tMZWZ0KSB8fCBUb3VjaGVzKGFjdGlvblRpbGUsIGxheW91dC5EZXNrUmlnaHQpIHx8IFRvdWNoZXMoYWN0aW9uVGlsZSwgbGF5b3V0Lk5vdGVzKSkKICAgICAgICAgICAga2V5ID0gIm1pbWkuYXR0aWMuaW5zcGVjdC5kZXNrIjsKICAgICAgICBlbHNlIGlmIChUb3VjaGVzKGFjdGlvblRpbGUsIGxheW91dC5UZWxldmlzaW9uKSB8fCBUb3VjaGVzKGFjdGlvblRpbGUsIGxheW91dC5UdkNoYWlyKSB8fCBUb3VjaGVzKGFjdGlvblRpbGUsIGxheW91dC5UdlRhYmxlKSkKICAgICAgICAgICAga2V5ID0gIm1pbWkuYXR0aWMuaW5zcGVjdC50diI7CiAgICAgICAgZWxzZSBpZiAoVG91Y2hlcyhhY3Rpb25UaWxlLCBsYXlvdXQuQ2hhQ2hhQ3VzaGlvbikgfHwgVG91Y2hlcyhhY3Rpb25UaWxlLCBsYXlvdXQuUHJvdG90eXBlKSkKICAgICAgICAgICAga2V5ID0gIm1pbWkuYXR0aWMuaW5zcGVjdC5jaGFjaGEiOwoKICAgICAgICBpZiAoa2V5IGlzIG51bGwpCiAgICAgICAgICAgIHJldHVybjsKCiAgICAgICAgdGhpcy5IZWxwZXIuSW5wdXQuU3VwcHJlc3MoZS5CdXR0b24pOwogICAgICAgIEdhbWUxLmRyYXdPYmplY3REaWFsb2d1ZSh0aGlzLkhlbHBlci5UcmFuc2xhdGlvbi5HZXQoa2V5KS5Ub1N0cmluZygpKTsKICAgIH0KCiAgICAvLy8gPHN1bW1hcnk+CiAgICAvLy8gSW50ZW50aW9uYWxseSB1bnVzZWQgYnkgYWxwaGEuMjcuMC40LiBUaGlzIGlzIHRoZSBzdGFibGUgZWxpZ2liaWxpdHkgaG9vayBmb3IgdGhlIGxhdGVyCiAgICAvLy8gcHJpdmF0ZSAxNzozMCBUViByb3V0aW5lOyB0aGUgZXZlbnQgaXRzZWxmIHJlbWFpbnMgb3V0IG9mIHNjb3BlIGZvciB0aGlzIG1pbGVzdG9uZS4KICAgIC8vLyA8L3N1bW1hcnk+CiAgICBwdWJsaWMgYm9vbCBJc1NlY3JldFR2Um91dGluZUVsaWdpYmxlKCkKICAgIHsKICAgICAgICBpZiAoIUNvbnRleHQuSXNXb3JsZFJlYWR5IHx8IEdhbWUxLnRpbWVPZkRheSA8IFNlY3JldFR2VGltZSkKICAgICAgICAgICAgcmV0dXJuIGZhbHNlOwoKICAgICAgICBpZiAoIUdhbWUxLnBsYXllci5mcmllbmRzaGlwRGF0YS5UcnlHZXRWYWx1ZShNaW1pTXlzdGVyeVRvd25TZXJ2aWNlLk5wY0lkLCBvdXQgRnJpZW5kc2hpcD8gZnJpZW5kc2hpcCkgfHwgZnJpZW5kc2hpcCBpcyBudWxsKQogICAgICAgICAgICByZXR1cm4gZmFsc2U7CgogICAgICAgIHJldHVybiBmcmllbmRzaGlwLlBvaW50cyA+PSBTZWNyZXRUdkhlYXJ0UmVxdWlyZW1lbnQgKiAyNTA7CiAgICB9CgogICAgcHJpdmF0ZSB2b2lkIERyYXdBdHRpY0ZvdW5kYXRpb24oU3ByaXRlQmF0Y2ggYmF0Y2gsIEF0dGljTGF5b3V0IGwpCiAgICB7CiAgICAgICAgVGV4dHVyZTJEIHRleHR1cmUgPSB0aGlzLlByb3BzVGV4dHVyZSA/Pz0gdGhpcy5IZWxwZXIuTW9kQ29udGVudC5Mb2FkPFRleHR1cmUyRD4oImFzc2V0cy9taW1pX2F0dGljX3Byb3BzLnBuZyIpOwoKICAgICAgICAvLyBFbnRyYW5jZSAvIHN0YWlyIGxhbmRpbmcuCiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDE1LCBsLkxhbmRpbmcsIC0wLjAyMGYpOwoKICAgICAgICAvLyBSZXNlYXJjaCBkZXNrOiBkZWxpYmVyYXRlbHkgYnVzeSwgYnV0IHN0aWxsIHJlYWRzIGFzIGEgcGVyc29uYWwgZGVzayBpbnN0ZWFkIG9mIGEgbGFiLgogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCAxMywgbC5Cb29rY2FzZSwgMGYpOwogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCAxMiwgbC5DbHV0dGVyLCAwZik7CiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDMsIGwuTm90ZXMsIDBmKTsKICAgICAgICBEcmF3VGlsZShiYXRjaCwgdGV4dHVyZSwgMSwgbC5EZXNrTGVmdCwgMGYpOwogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCAyLCBsLkRlc2tSaWdodCwgMGYpOwoKICAgICAgICAvLyBCZWQgLyBwZXJzb25hbCBjb3JuZXIuCiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDYsIGwuQmVkc2lkZSwgMGYpOwogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCA0LCBsLkJlZEhlYWQsIDBmKTsKICAgICAgICBEcmF3VGlsZShiYXRjaCwgdGV4dHVyZSwgNSwgbC5CZYBGb290LCAwZik7CgogICAgICAgIC8vIFRWIHNlY3JldCB6b25lLiBUaGUgZGl2aWRlciBtYWtlcyB0aGlzIGNvcm5lciBmZWVsIHR1Y2tlZCBhd2F5IGV2ZW4gb24gdGhlIGNvbXBhY3QgU2hlZCBtYXAuCiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDE0LCBsLlR2RGl2aWRlciwgMGYpOwogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCA3LCBsLlRlbGV2aXNpb24sIDBmKTsKICAgICAgICBEcmF3VGlsZShiYXRjaCwgdGV4dHVyZSwgOCwgbC5UdkNoYWlyLCAwZik7CiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDksIGwuVHZUYWJsZSwgMGYpOwoKICAgICAgICAvLyBDaGFDaGEgLyBmdXR1cmUgdXBncmFkZSBjb3JuZXIuCiAgICAgICAgRHJhd1RpbGUoYmF0Y2gsIHRleHR1cmUsIDAsIGwuQ2hhQ2hhUnVnLCAtMC4wMjBmKTsKICAgICAgICBEcmF3VGlsZShiYXRjaCwgdGV4dHVyZSwgMTAsIGwuQ2hhQ2hhQ3VzaGlvbiwgMGYpOwogICAgICAgIERyYXdUaWxlKGJhdGNoLCB0ZXh0dXJlLCAxMSwgbC5Qcm90b3R5cGUsIDBmKTsKICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyB2b2lkIERyYXdTdGFpck1hcmtlcihTcHJpdGVCYXRjaCBiYXRjaCwgUG9pbnQgdGlsZSkKICAgIHsKICAgICAgICB0cnkKICAgICAgICB7CiAgICAgICAgICAgIEl0ZW0gc3RhaXJjYXNlID0gSXRlbVJlZ2lzdHJ5LkNyZWF0ZSgiKEJDKTcxIik7CiAgICAgICAgICAgIFZlY3RvcjIgd29ybGQgPSBuZXcodGlsZS5YICogNjRmLCB0aWxlLlkgKiA2NGYgLSA2NGYpOwogICAgICAgICAgICBWZWN0b3IyIHNjcmVlbiA9IEdhbWUxLkdsb2JhbFRvTG9jYWwoR2FtZTEudmlld3BvcnQsIHdvcmxkKTsKICAgICAgICAgICAgc3RhaXJjYXNlLmRyYXdJbk1lbnUoYmF0Y2gsIHNjcmVlbiwgMWYsIDAuOTZmLCAwLjk5NWYsIFN0YWNrRHJhd1R5cGUuSGlkZSk7CiAgICAgICAgfQogICAgICAgIGNhdGNoCiAgICAgICAgewogICAgICAgICAgICAvLyBBY2Nlc3MgcmVtYWlucyBmdW5jdGlvbmFsIGlmIGFub3RoZXIgbW9kIHJlcGxhY2VzL3JlbW92ZXMgdGhlIHZhbmlsbGEgZGVjb3JhdGl2ZSBpY29uLgogICAgICAgIH0KICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyB2b2lkIERyYXdUaWxlKFNwcml0ZUJhdGNoIGJhdGNoLCBUZXh0dXJlMkQgdGV4dHVyZSwgaW50IGZyYW1lLCBQb2ludCB0aWxlLCBmbG9hdCBkZXB0aEJpYXMpCiAgICB7CiAgICAgICAgUmVjdGFuZ2xlIHNvdXJjZSA9IG5ldyhmcmFtZSAqIFNwcml0ZVNpemUsIDAsIFNwcml0ZVNpemUsIFNwcml0ZVNpemUpOwogICAgICAgIFZlY3RvcjIgd29ybGQgPSBuZXcodGlsZS5YICogNjRmLCB0aWxlLlkgKiA2NGYpOwogICAgICAgIFZlY3RvcjIgc2NyZWVuID0gR2FtZTEuR2xvYmFsVG9Mb2NhbChHYW1lMS52aWV3cG9ydCwgd29ybGQpOwogICAgICAgIGZsb2F0IGRlcHRoID0gTWF0aC5DbGFtcCgoKHRpbGUuWSArIDEpICogNjRmKSAvIDEwMDAwZiArIGRlcHRoQmlhcywgMC4wMDFmLCAwLjk5OWYpOwogICAgICAgIGJhdGNoLkRyYXcodGV4dHVyZSwgc2NyZWVuLCBzb3VyY2UsIENvbG9yLldoaXRlLCAwZiwgVmVjdG9yMi5aZXJvLCBXb3JsZFNjYWxlLCBTcHJpdGVFZmZlY3RzLk5vbmUsIGRlcHRoKTsKICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyBBdHRpY0xheW91dCBHZXRMYXlvdXQoR2FtZUxvY2F0aW9uIGxvY2F0aW9uKQogICAgewogICAgICAgIGludCB3aWR0aCA9IGxvY2F0aW9uLk1hcD8uTGF5ZXJzLkZpcnN0T3JEZWZhdWx0KCk/LkxheWVyV2lkdGggPz8gMTI7CiAgICAgICAgaW50IGhlaWdodCA9IGxvY2F0aW9uLk1hcD8uTGF5ZXJzLkZpcnN0T3JEZWZhdWx0KCk/LkxheWVySGVpZ2h0ID8/IDEwOwogICAgICAgIGludCBtYXhYID0gTWF0aC5NYXgoMSwgd2lkdGggLSAyKTsKICAgICAgICBpbnQgbWF4WSA9IE1hdGguTWF4KDEsIGhlaWdodCAtIDIpOwoKICAgICAgICBQb2ludCBQKGludCB4LCBpbnQgeSkgPT4gbmV3KE1hdGguQ2xhbXAoeCwgMSwgbWF4WCksIE1hdGguQ2xhbXAoeSwgMSwgbWF4WSkpOwoKICAgICAgICBpbnQgbGVmdFggPSBNYXRoLkNsYW1wKDIsIDEsIG1heFgpOwogICAgICAgIGludCBkZXNrWSA9IE1hdGguQ2xhbXAoMywgMSwgbWF4WSk7CiAgICAgICAgaW50IHJpZ2h0WCA9IE1hdGguQ2xhbXAod2lkdGggLSAzLCAxLCBtYXhYKTsKICAgICAgICBpbnQgdHZYID0gTWF0aC5DbGFtcCh3aWR0aCAtIDQsIDEsIG1heFgpOwogICAgICAgIGludCB0dlkgPSAxOwogICAgICAgIGludCBjaGFjaGFZID0gTWF0aC5DbGFtcChoZWlnaHQgLSA0LCAxLCBtYXhZKTsKCiAgICAgICAgcmV0dXJuIG5ldyBBdHRpY0xheW91dCgKICAgICAgICAgICAgTGFuZGluZzogUCh3aWR0aCAvIDIsIGhlaWdodCAtIDMpLAogICAgICAgICAgICBCb29rY2FzZTogUCgxLCAyKSwKICAgICAgICAgICAgQ2x1dHRlcjogUCgxLCA0KSwKICAgICAgICAgICAgTm90ZXM6IFAobGVmdFgsIGRlc2tZIC0gMSksCiAgICAgICAgICAgIERlc2tMZWZ0OiBQKGxlZnRYLCBkZXNrWSksCiAgICAgICAgICAgIERlc2tSaWdodDogUChsZWZ0WCArIDEsIGRlc2tZKSwKICAgICAgICAgICAgQmVkc2lkZTogUChyaWdodFggLSAxLCAzKSwKICAgICAgICAgICAgQmVkSGVhZDogUChyaWdodFgsIDMpLAogICAgICAgICAgICBCZWRGb290OiBQKHJpZ2h0WCwgNCksCiAgICAgICAgICAgIFR2RGl2aWRlcjogUCh0dlggLSAxLCB0dlkpLAogICAgICAgICAgICBUZWxldmlzaW9uOiBQKHR2WCwgdHZZKSwKICAgICAgICAgICAgVHZDaGFpcjogUCh0dlgsIHR2WSArIDEpLAogICAgICAgICAgICBUdlRhYmxlOiBQKHR2WCArIDEsIHR2WSArIDEpLAogICAgICAgICAgICBDaGFDaGFSdWc6IFAobGVmdFgsIGNoYWNoYVkpLAogICAgICAgICAgICBDaGFDaGFDdXNoaW9uOiBQKGxlZnRYLCBjaGFjaGFZKSwKICAgICAgICAgICAgUHJvdG90eXBlOiBQKGxlZnRYICsgMSwgY2hhY2hhWSkKICAgICAgICApOwogICAgfQoKICAgIHByaXZhdGUgc3RhdGljIFBvaW50IEdldEFjdGlvblRpbGUoKQogICAgewogICAgICAgIFBvaW50IHAgPSBHYW1lMS5wbGF5ZXIuVGlsZVBvaW50OwogICAgICAgIHJldHVybiBHYW1lMS5wbGF5ZXIuRmFjaW5nRGlyZWN0aW9uIHN3aXRjaAogICAgICAgIHsKICAgICAgICAgICAgMCA9PiBuZXcgUG9pbnQocC5YLCBwLlkgLSAxKSwKICAgICAgICAgICAgMSA9PiBuZXcgUG9pbnQocC5YICsgMSwgcC5ZKSwKICAgICAgICAgICAgMiA9PiBuZXcgUG9pbnQocC5YLCBwLlkgKyAxKSwKICAgICAgICAgICAgMyA9PiBuZXcgUG9pbnQocC5YIC0gMSwgcC5ZKSwKICAgICAgICAgICAgXyA9PiBwCiAgICAgICAgfTsKICAgIH0KCiAgICBwcml2YXRlIHN0YXRpYyBib29sIFRvdWNoZXMoUG9pbnQgYWN0aW9uVGlsZSwgUG9pbnQgcHJvcFRpbGUpCiAgICAgICAgPT4gTWF0aC5BYnMoYWN0aW9uVGlsZS5YIC0gcHJvcFRpbGUuWCkgPD0gMSAmJiBNYXRoLkFicyhhY3Rpb25UaWxlLlkgLSBwcm9wVGlsZS5ZKSA8PSAxOwoKICAgIHByaXZhdGUgc3RhdGljIFBvaW50IEZpbmRDbGVhclRpbGVOZWFyKEdhbWVMb2NhdGlvbiBsb2NhdGlvbiwgYm9vbCBwcmVmZXJVcHBlckhhbGYpCiAgICB7CiAgICAgICAgaW50IHdpZHRoID0gbG9jYXRpb24uTWFwPy5MYXllcnMuRmlyc3RPckRlZmF1bHQoKT8uTGF5ZXJXaWR0aCA/PyAxMjsKICAgICAgICBpbnQgaGVpZ2h0ID0gbG9jYXRpb24uTWFwPy5MYXllcnMuRmlyc3RPckRlZmF1bHQoKT8uTGF5ZXJIZWlnaHQgPz8gMTA7CiAgICAgICAgaW50IGNlbnRlclggPSBNYXRoLkNsYW1wKHdpZHRoIC8gMiwgMiwgTWF0aC5NYXgoMiwgd2lkdGggLSAzKSk7CiAgICAgICAgaW50IGNlbnRlclkgPSBwcmVmZXJVcHBlckhhbGYKICAgICAgICAgICAgPyBNYXRoLkNsYW1wKGhlaWdodCAvIDMsIDIsIE1hdGguTWF4KDIsIGhlaWdodCAtIDMpKQogICAgICAgICAgICA6IE1hdGguQ2xhbXAoaGVpZ2h0IC8gMiwgMiwgTWF0aC5NYXgoMiwgaGVpZ2h0IC0gMykpOwoKICAgICAgICBmb3IgKGludCByYWRpdXMgPSAwOyByYWRpdXMgPCBNYXRoLk1heCh3aWR0aCwgaGVpZ2h0KTsgcmFkaXVzKyspCiAgICAgICAgewogICAgICAgICAgICBmb3IgKGludCB5ID0gTWF0aC5NYXgoMSwgY2VudGVyWSAtIHJhZGl1cyk7IHkgPD0gTWF0aC5NaW4oaGVpZ2h0IC0gMiwgY2VudGVyWSArIHJhZGl1cyk7IHkrKykKICAgICAgICAgICAgewogICAgICAgICAgICAgICAgZm9yIChpbnQgeCA9IE1hdGguTWF4KDEsIGNlbnRlclggLSByYWRpdXMpOyB4IDw9IE1hdGguTWluKHdpZHRoIC0gMiwgY2VudGVyWCArIHJhZGl1cyk7IHgrKykKICAgICAgICAgICAgICAgIHsKICAgICAgICAgICAgICAgICAgICBpZiAoTWF0aC5BYnMoeCAtIGNlbnRlclgpICE9IHJhZGl1cyAmJiBNYXRoLkFicyh5IC0gY2VudGVyWSkgIT0gcmFkaXVzKQogICAgICAgICAgICAgICAgICAgICAgICBjb250aW51ZTsKCiAgICAgICAgICAgICAgICAgICAgUG9pbnQgcCA9IG5ldyh4LCB5KTsKICAgICAgICAgICAgICAgICAgICB0cnkKICAgICAgICAgICAgICAgICAgICB7CiAgICAgICAgICAgICAgICAgICAgICAgIFZlY3RvcjIgdiA9IG5ldyhwLlgsIHAuWSk7CiAgICAgICAgICAgICAgICAgICAgICAgIGlmICghbG9jYXRpb24uSXNUaWxlQmxvY2tlZEJ5KHYpICYmICFsb2NhdGlvbi5PYmplY3RzLkNvbnRhaW5zS2V5KHYpKQogICAgICAgICAgICAgICAgICAgICAgICAgICAgcmV0dXJuIHA7CiAgICAgICAgICAgICAgICAgICAgfQogICAgICAgICAgICAgICAgICAgIGNhdGNoCiAgICAgICAgICAgICAgICAgICAgewogICAgICAgICAgICAgICAgICAgICAgICByZXR1cm4gcDsKICAgICAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgICAgICB9CiAgICAgICAgICAgIH0KICAgICAgICB9CgogICAgICAgIHJldHVybiBuZXcgUG9pbnQoY2VudGVyWCwgY2VudGVyWSk7CiAgICB9CgogICAgcHJpdmF0ZSByZWFkb25seSByZWNvcmQgc3RydWN0IEF0dGljTGF5b3V0KAogICAgICAgIFBvaW50IExhbmRpbmcsCiAgICAgICAgUG9pbnQgQm9va2Nhc2UsCiAgICAgICAgUG9pbnQgQ2x1dHRlciwKICAgICAgICBQb2ludCBOb3RlcywKICAgICAgICBQb2ludCBEZXNrTGVmdCwKICAgICAgICBQb2ludCBEZXNrUmlnaHQsCiAgICAgICAgUG9pbnQgQmVkc2lkZSwKICAgICAgICBQb2ludCBCZWQSGVhZCwKICAgICAgICBQb2ludCBCZWRGb290LAogICAgICAgIFBvaW50IFR2RGl2aWRlciwKICAgICAgICBQb2ludCBUZWxldmlzaW9uLAogICAgICAgIFBvaW50IFR2Q2hhaXIsCiAgICAgICAgUG9pbnQgVHZUYWJsZSwKICAgICAgICBQb2ludCBDaGFDaGFSdWcsCiAgICAgICAgUG9pbnQgQ2hhQ2hhQ3VzaGlvbiwKICAgICAgICBQb2ludCBQcm90b3R5cGUKICAgICk7Cn0K'
+          service = base64.b64decode(service_b64).decode('utf-8')
+          (r/'Services'/'MimiAtticVisualService.cs').write_text(service, encoding='utf-8')
 
-          for rel in ['Cardcha.csproj','Directory.Build.targets']:
-              x=r/rel; t=x.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.2','0.3.0-alpha.27.0.3').replace('CardchaAlpha2702Manifest','CardchaAlpha2703Manifest'); x.write_text(t,encoding='utf-8')
-          mf=r/'manifest.json'; j=json.loads(mf.read_text(encoding='utf-8-sig')); j['Version']='0.3.0-alpha.27.0.3'; mf.write_text(json.dumps(j,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
-          assert 'MimiAtticVisualService AtticVisual' in s
-          assert 'this.AtticVisual.OnRenderedWorld' in s
-          print('alpha27 visual/social ownership wiring complete')
+          # Canon pixel-art prop atlas for the five locked attic zones.
+          prop_png_b64 = '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'
+          (r/'assets'/'mimi_attic_props.png').write_bytes(base64.b64decode(prop_png_b64))
+
+          # Wire helper/i18n access + attic inspect action handling.
+          p = r/'ModEntry.cs'
+          s = p.read_text(encoding='utf-8')
+          s = s.replace('this.AtticVisual = new MimiAtticVisualService(this.Save);',
+                        'this.AtticVisual = new MimiAtticVisualService(helper, this.Save);')
+          button_anchor = '        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;\n'
+          if 'this.AtticVisual.OnButtonPressed' not in s:
+              if button_anchor not in s:
+                  raise SystemExit('attic visual button anchor missing')
+              s = s.replace(button_anchor, button_anchor + '        helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;\n', 1)
+          s = s.replace('v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST',
+                        'v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST')
+          p.write_text(s, encoding='utf-8')
+
+          # EN/VI inspect groundwork. No shop/menu is added here.
+          texts = {
+              'default.json': {
+                  'mimi.attic.inspect.desk': 'MiMi’s notes are all arrows, circles, and one sentence underlined three times: “Do NOT let ChaCha choose the calibration target.” A few Cardboard Scraps are being used as bookmarks.',
+                  'mimi.attic.inspect.tv': 'The remote is still warm. Beside it: snacks, a romance-drama schedule, and a page of suspiciously detailed character pairings. MiMi has hobbies. Classified ones.',
+                  'mimi.attic.inspect.chacha': 'This cushion is suspiciously over-engineered. Tiny brackets, a Card Dust jar, and three adjustment knobs suggest ChaCha’s comfort has a research budget.'
+              },
+              'vi.json': {
+                  'mimi.attic.inspect.desk': 'Ghi chú của MiMi toàn mũi tên, vòng tròn và một câu bị gạch dưới ba lần: “ĐỪNG để ChaCha chọn mục tiêu hiệu chuẩn.” Vài mảnh Cardboard Scrap đang bị dùng làm dấu trang.',
+                  'mimi.attic.inspect.tv': 'Cái remote vẫn còn ấm. Bên cạnh là đồ ăn vặt, lịch chiếu phim tình cảm và một trang ghép cặp nhân vật chi tiết đến mức đáng ngờ. MiMi có sở thích riêng. Loại mật.',
+                  'mimi.attic.inspect.chacha': 'Cái đệm này được chế tạo quá mức cần thiết một cách đáng ngờ. Giá đỡ tí hon, một lọ Card Dust và ba núm chỉnh cho thấy độ thoải mái của ChaCha có hẳn ngân sách nghiên cứu.'
+              }
+          }
+          for name, patch in texts.items():
+              q = r/'i18n'/name
+              data = json.loads(q.read_text(encoding='utf-8-sig'))
+              data.update(patch)
+              q.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          # Version all build surfaces together.
+          q = r/'Cardcha.csproj'
+          q.write_text(q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4'), encoding='utf-8')
+
+          q = r/'Directory.Build.targets'
+          t = q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4').replace('CardchaAlpha2703Manifest', 'CardchaAlpha2704Manifest')
+          q.write_text(t, encoding='utf-8')
+
+          q = r/'manifest.json'
+          manifest = json.loads(q.read_text(encoding='utf-8-sig'))
+          manifest['Version'] = '0.3.0-alpha.27.0.4'
+          q.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          assert (r/'assets'/'mimi_attic_props.png').stat().st_size > 500
+          assert 'IsSecretTvRoutineEligible' in (r/'Services'/'MimiAtticVisualService.cs').read_text(encoding='utf-8')
+          assert 'this.AtticVisual.OnButtonPressed' in s
+          print('alpha27.0.4 attic visual foundation source prepared')
           PY
 
       - name: Add SMAPI build environment
@@ -63,7 +93,7 @@ jobs:
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Package
+      - name: Package TEST
         shell: bash
         run: |
           set -euo pipefail
@@ -73,23 +103,23 @@ jobs:
           PDB="$(find src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"; [ -z "$PDB" ] || cp "$PDB" stage/Cardcha/Cardcha.pdb
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.3_MiMiRealNPC_Integration_TEST.zip Cardcha)
-          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.3_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
-          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.3_MiMiRealNPC_Integration_TEST.zip > artifact/SHA256.txt
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST.zip Cardcha)
+          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.4_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
+          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST.zip > artifact/SHA256.txt
 
-      - name: Commit source
+      - name: Commit compiled source milestone
         shell: bash
         run: |
           set -euo pipefail
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git commit -m 'alpha27: add visible attic stairs and harden social merchant flow'
+          git commit -m 'alpha27.0.4: build MiMi attic visual foundation'
           git push origin cardcha-alpha27-mimi-real-npc
 
       - name: Upload TEST
         uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-integration
+          name: cardcha-alpha27-attic-visual-foundation
           path: artifact
           if-no-files-found: error
