@@ -1,0 +1,318 @@
+name: Cardcha alpha27.0.7.5 MiMi polish pass
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-075-polish.yml' ]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install portrait build dependency
+        run: python3 -m pip install --quiet pillow
+
+      - name: Apply alpha27.0.7.5 polish source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, re
+
+          r = Path('src/Cardcha')
+          version = '0.3.0-alpha.27.0.7.5'
+
+          # ------------------------------------------------------------
+          # 1. ChaCha Resonance translations: fill every key currently
+          #    referenced by the menu, then validate the source against
+          #    BOTH EN and VI so `(no translation:...)` cannot ship again.
+          # ------------------------------------------------------------
+          en_updates = {
+              'resonance.back': 'Back',
+              'resonance.title': 'ChaCha Resonance',
+              'resonance.chacha': 'ChaCha',
+              'resonance.tab.echoes': 'Mythic Echoes',
+              'resonance.tab.abilities': 'Abilities',
+              'resonance.tab.support': 'Support',
+              'resonance.current-echo': 'Current Echo',
+              'resonance.current-echo.none': 'None yet',
+              'resonance.card-dust': 'Card Dust: {{amount}}',
+              'resonance.echo.milestone': '{{milestone}} Cards',
+              'resonance.echo.unknown': 'Unknown Echo',
+              'resonance.echo.awaiting': 'Milestone reached — awaiting resonance',
+              'resonance.echo.locked': 'Locked',
+              'resonance.echo.status.awaiting': '{{milestone}}-card Echo slot reached. Its awakening is not implemented yet.',
+              'resonance.echo.status.locked': 'Discover {{milestone}} cards to reach this Echo slot.',
+              'resonance.ability.dungeon': '{{milestone}}-Card Resonance',
+              'resonance.ability.undiscovered': 'Ability undiscovered',
+              'resonance.ability.future': 'Reserved for a future Resonance Ability.',
+              'resonance.ability.status.future': 'The {{milestone}}-card ability slot is reserved for a future update.',
+              'resonance.support.collection.title': 'Collection Resonance',
+              'resonance.support.collection.body': '{{current}}/{{total}} cards discovered. Next support milestone: {{next}}.',
+              'resonance.support.trigger.title': 'ChaCha Support',
+              'resonance.support.trigger.body': 'Current support proc rates: {{hit}}% on hit, {{hurt}}% when hurt.',
+              'resonance.support.recovery.title': 'Recovery Support',
+              'resonance.support.recovery.body': 'Recovery strength: {{recovery}}%. Next collection step: {{next}}.',
+              'resonance.support.status.foundation': 'Support progression is active; Echo transformations and Resonance Abilities are still future systems.',
+              'resonance.complete': 'Complete',
+              'resonance.status.ready': 'ChaCha is ready.',
+              'resonance.hint.keyboard': 'Click a tab or entry. Esc: return to Binder.',
+              'resonance.hint.controller': '{{confirm}}: inspect   {{exit}}: return',
+          }
+          vi_updates = {
+              'resonance.back': 'Quay lại',
+              'resonance.title': 'Cộng Hưởng ChaCha',
+              'resonance.chacha': 'ChaCha',
+              'resonance.tab.echoes': 'Mythic Echo',
+              'resonance.tab.abilities': 'Kỹ năng',
+              'resonance.tab.support': 'Hỗ trợ',
+              'resonance.current-echo': 'Echo hiện tại',
+              'resonance.current-echo.none': 'Chưa có',
+              'resonance.card-dust': 'Card Dust: {{amount}}',
+              'resonance.echo.milestone': '{{milestone}} Thẻ',
+              'resonance.echo.unknown': 'Echo chưa xác định',
+              'resonance.echo.awaiting': 'Đã đạt mốc — đang chờ cộng hưởng',
+              'resonance.echo.locked': 'Chưa mở',
+              'resonance.echo.status.awaiting': 'Đã đạt ô Echo mốc {{milestone}} thẻ. Phần thức tỉnh sẽ được mở ở bản sau.',
+              'resonance.echo.status.locked': 'Khám phá {{milestone}} thẻ để chạm tới ô Echo này.',
+              'resonance.ability.dungeon': 'Cộng hưởng {{milestone}} Thẻ',
+              'resonance.ability.undiscovered': 'Kỹ năng chưa khám phá',
+              'resonance.ability.future': 'Ô dành cho Resonance Ability trong tương lai.',
+              'resonance.ability.status.future': 'Ô kỹ năng mốc {{milestone}} thẻ được dành cho bản cập nhật sau.',
+              'resonance.support.collection.title': 'Cộng hưởng bộ sưu tập',
+              'resonance.support.collection.body': 'Đã khám phá {{current}}/{{total}} thẻ. Mốc hỗ trợ tiếp theo: {{next}}.',
+              'resonance.support.trigger.title': 'Hỗ trợ của ChaCha',
+              'resonance.support.trigger.body': 'Tỷ lệ hỗ trợ hiện tại: {{hit}}% khi đánh trúng, {{hurt}}% khi bị thương.',
+              'resonance.support.recovery.title': 'Hỗ trợ hồi phục',
+              'resonance.support.recovery.body': 'Sức hồi phục: {{recovery}}%. Mốc bộ sưu tập tiếp theo: {{next}}.',
+              'resonance.support.status.foundation': 'Tiến trình Hỗ trợ đã hoạt động; biến hình Echo và Resonance Ability vẫn là hệ thống của bản sau.',
+              'resonance.complete': 'Hoàn tất',
+              'resonance.status.ready': 'ChaCha đã sẵn sàng.',
+              'resonance.hint.keyboard': 'Nhấn tab hoặc mục để xem. Esc: quay lại Sổ.',
+              'resonance.hint.controller': '{{confirm}}: xem   {{exit}}: quay lại',
+          }
+          for filename, updates in [('default.json', en_updates), ('vi.json', vi_updates)]:
+              p = r / 'i18n' / filename
+              data = json.loads(p.read_text(encoding='utf-8-sig'))
+              data.update(updates)
+              p.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
+
+          menu_text = (r / 'UI/ChaChaResonanceMenu.cs').read_text()
+          keys = sorted(set(re.findall(r'ModEntry\.T\("(resonance\.[^"]+)"', menu_text)))
+          for filename in ('default.json', 'vi.json'):
+              data = json.loads((r / 'i18n' / filename).read_text())
+              missing = [k for k in keys if k not in data]
+              assert not missing, f'{filename} missing resonance keys: {missing}'
+          print(f'Resonance translation guard PASS: {len(keys)} keys in EN + VI')
+
+          # ------------------------------------------------------------
+          # 2. MiMi portrait canon.
+          #    mimi_portraits.png (6 x 128px) is the ONLY authored source.
+          #    Derive a vanilla 6 x 64px runtime strip deterministically.
+          # ------------------------------------------------------------
+          master_path = r / 'assets/mimi_portraits.png'
+          master = Image.open(master_path).convert('RGBA')
+          assert master.size == (768, 128), master.size
+          runtime = Image.new('RGBA', (384, 64), (0, 0, 0, 0))
+          for i in range(6):
+              frame = master.crop((i * 128, 0, i * 128 + 128, 128))
+              # Nearest-neighbour preserves the approved pixel clusters exactly instead of
+              # introducing the soft/blurred look seen in the old social portrait sheet.
+              frame = frame.resize((64, 64), Image.Resampling.NEAREST)
+              runtime.paste(frame, (i * 64, 0))
+          runtime_path = r / 'assets/mimi_portraits_runtime64.png'
+          runtime.save(runtime_path, optimize=False)
+          Image.open(runtime_path).load()
+
+          # Both native social dialogue and WorldActor portrait assignment now use the
+          # generated strip derived from the canonical master, never mimi_npc_portraits.png.
+          for rel in ['Services/MimiMysteryTownService.cs', 'Services/WorldActorService.cs']:
+              p = r / rel
+              s = p.read_text()
+              s = s.replace('assets/mimi_npc_portraits.png', 'assets/mimi_portraits_runtime64.png')
+              p.write_text(s)
+
+          # Friend-list mugshot was cropping x=0..15 from a 32px-wide custom sprite, i.e. only
+          # MiMi's left hair/bow. Center the 16x15 crop on her actual face like a vanilla mugshot.
+          p = r / 'Services/MimiMysteryTownService.cs'
+          s = p.read_text().replace(
+              'SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);',
+              'SetRectangleProperty(mimi, "MugShotSourceRect", 8, 1, 16, 15);'
+          )
+          p.write_text(s)
+          assert 'MugShotSourceRect", 8, 1, 16, 15' in s
+
+          # Story dialogue already builds its 64px frames from mimi_portraits.png. Lock that
+          # path so a future change cannot silently route story portraits elsewhere.
+          story = (r / 'Services/CardchaStoryService.cs').read_text()
+          assert 'private const string MimiPortraitsPath = "assets/mimi_portraits.png";' in story
+          assert 'CreateRuntimePortraitSheet(this.MasterPortraitSheet)' in story
+
+          # ------------------------------------------------------------
+          # 3. Attic: automatic real exit, no walking into black void.
+          # ------------------------------------------------------------
+          p = r / 'Services/MimiHomeService.cs'
+          s = p.read_text()
+          if 'private long AtticAutoExitBlockedUntilMs;' not in s:
+              s = s.replace(
+                  '    private bool LoggedAtticFailure;\n',
+                  '    private bool LoggedAtticFailure;\n    private long AtticAutoExitBlockedUntilMs;\n',
+                  1
+              )
+
+          old_update = '''    public void OnUpdateTicked(UpdateTickedEventArgs e)\n    {\n        if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)\n            return;\n\n        // Run after MimiMysteryTownService every tick. This makes the post-meetup home layer the\n        // final authority outside the legacy 11:00-17:00 merchant routine, without visible flicker.\n        this.EnsureAtticLocation();\n        this.EnforceSchedule();\n    }\n'''
+          new_update = '''    public void OnUpdateTicked(UpdateTickedEventArgs e)\n    {\n        if (!Context.IsWorldReady)\n            return;\n\n        // The bottom-center landing is a real exit now. This runs even for the runtime-only\n        // test bypass, but a short arrival grace period prevents immediately bouncing back out.\n        this.TryAutoExitAttic();\n\n        if (!this.Save.Data.MimiMeetupCompleted)\n            return;\n\n        // Run after MimiMysteryTownService every tick. This makes the post-meetup home layer the\n        // final authority outside the legacy 11:00-17:00 merchant routine, without visible flicker.\n        this.EnsureAtticLocation();\n        this.EnforceSchedule();\n    }\n'''
+          if new_update not in s:
+              assert old_update in s
+              s = s.replace(old_update, new_update, 1)
+
+          # Add arrival grace to both normal and debug attic entry.
+          s = s.replace(
+              'Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);\n            return;',
+              'this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;\n            Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);\n            return;',
+              1
+          )
+          debug_anchor = 'Point arrival = this.ResolveAtticStairTile(attic);\n        Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);'
+          if debug_anchor in s:
+              s = s.replace(
+                  debug_anchor,
+                  'Point arrival = this.ResolveAtticStairTile(attic);\n        this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;\n        Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);',
+                  1
+              )
+
+          method_anchor = '    public string Describe()\n'
+          if 'private void TryAutoExitAttic()' not in s:
+              auto_method = '''    private void TryAutoExitAttic()\n    {\n        GameLocation? location = Game1.currentLocation;\n        if (location is null\n            || !location.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase)\n            || Environment.TickCount64 < this.AtticAutoExitBlockedUntilMs)\n        {\n            return;\n        }\n\n        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 22;\n        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;\n        int tileX = (int)(Game1.player.Position.X / 64f);\n        int tileY = (int)(Game1.player.Position.Y / 64f);\n        int center = width / 2;\n\n        // Only the two-tile bottom-center landing is an exit. Trigger on the final map row\n        // before the farmer can visually wander into the black exterior void.\n        if (tileY < height - 1 || tileX < center - 1 || tileX > center)\n            return;\n\n        GameLocation? wizard = Game1.getLocationFromName("WizardHouse");\n        if (wizard is null)\n            return;\n\n        Point target = this.ResolveWizardStairTile(wizard);\n        int targetY = Math.Min(\n            target.Y + 1,\n            Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)\n        );\n        this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;\n        Game1.warpFarmer("WizardHouse", target.X, targetY, 2);\n    }\n\n'''
+              assert method_anchor in s
+              s = s.replace(method_anchor, auto_method + method_anchor, 1)
+          p.write_text(s)
+          assert 'private void TryAutoExitAttic()' in s
+          assert 'this.TryAutoExitAttic();' in s
+
+          # ------------------------------------------------------------
+          # 4. Attic furniture pass.
+          #    Remove old Cardcha decor before re-layout; eliminate the purple office chairs
+          #    which can flicker/overlap; add a stronger central anchor closer to the concept.
+          # ------------------------------------------------------------
+          p = r / 'Services/MimiAtticVisualService.cs'
+          s = p.read_text()
+          s = s.replace('private const string DecorVersion = "alpha.27.0.7.4";', 'private const string DecorVersion = "alpha.27.0.7.5";')
+
+          old_marker = '''        if (attic.modData.TryGetValue(DecorMarkerKey, out string? version)\n            && string.Equals(version, DecorVersion, StringComparison.Ordinal))\n        {\n            return;\n        }\n\n        // Rugs first so Stardew naturally draws the furniture on top of them.\n'''
+          new_marker = '''        if (attic.modData.TryGetValue(DecorMarkerKey, out string? version)\n            && string.Equals(version, DecorVersion, StringComparison.Ordinal))\n        {\n            return;\n        }\n\n        // A decor-version change must replace our old runtime furniture instead of stacking a\n        // second copy on the same tiles. Stacked furniture was the source of the visible chair\n        // flicker in the 0.7.4 acceptance screenshot.\n        foreach (Furniture old in attic.furniture\n                     .Where(f => f.modData.ContainsKey(DecorMarkerKey))\n                     .ToList())\n        {\n            attic.furniture.Remove(old);\n        }\n\n        // Rugs first so Stardew naturally draws the furniture on top of them.\n'''
+          if new_marker not in s:
+              assert old_marker in s
+              s = s.replace(old_marker, new_marker, 1)
+
+          # Remove both known flickering purple office-chair placements.
+          s = s.replace('        TryAddFurniture(attic, "(F)27", 5, 7);                   // Purple Office Chair.\n', '')
+          s = s.replace('        TryAddFurniture(attic, "(F)27", 17, 10);                 // Purple Office Chair.\n', '')
+
+          # Move ChaCha rug to the middle as a concept-like central anchor, keep ChaCha corner open.
+          s = s.replace(
+              '        TryAddFurniture(attic, "(F)1461", 15, 8);  // Dark Rug — ChaCha / upgrade corner.\n',
+              '        TryAddFurniture(attic, "(F)1461", 9, 8);   // Dark central rug — concept anchor / open circulation.\n'
+          )
+          # Slightly tighten the right corner so it reads as one zone rather than scattered props.
+          s = s.replace('TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368")', 'TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368")')
+          p.write_text(s)
+          assert 'DecorVersion = "alpha.27.0.7.5"' in s
+          assert 'Where(f => f.modData.ContainsKey(DecorMarkerKey))' in s
+          assert '"(F)27"' not in s
+
+          # ------------------------------------------------------------
+          # 5. Version bump while preserving strict-TMX + anti-lag + controller regression fixes.
+          # ------------------------------------------------------------
+          p = r / 'ModEntry.cs'
+          s = p.read_text().replace(
+              'v0.3.0-alpha.27.0.7.4 MIMI ATTIC STRICT-TMX HOTFIX TEST',
+              'v0.3.0-alpha.27.0.7.5 MIMI POLISH PASS TEST'
+          )
+          p.write_text(s)
+
+          p = r / 'Cardcha.csproj'
+          p.write_text(p.read_text().replace('0.3.0-alpha.27.0.7.4', version))
+          p = r / 'Directory.Build.targets'
+          s = p.read_text().replace('0.3.0-alpha.27.0.7.4', version).replace('CardchaAlpha27074Manifest', 'CardchaAlpha27075Manifest')
+          p.write_text(s)
+          p = r / 'manifest.json'
+          d = json.loads(p.read_text(encoding='utf-8-sig'))
+          d['Version'] = version
+          p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+
+          # Existing safety/regression guards must survive.
+          home = (r / 'Services/MimiHomeService.cs').read_text()
+          reveal = (r / 'UI/CardchaRevealMenu.cs').read_text()
+          attic = (r / 'assets/mimi_attic.tmx').read_text()
+          assert 'Further retries are suppressed until the next save/day reload' in home
+          assert reveal.count('this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;') >= 2
+          assert 'source=".townInterior.png"' in attic
+          print('alpha27.0.7.5 source polish PASS')
+          PY
+
+      - name: Strict TMX + portrait + translation validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import xml.etree.ElementTree as ET, json, re
+          r=Path('src/Cardcha')
+          root=ET.parse(r/'assets/mimi_attic.tmx').getroot()
+          expected=int(root.attrib['width'])*int(root.attrib['height'])
+          for layer in root.findall('./layer'):
+              tokens=[x.strip() for x in ((layer.find('data').text or '').split(','))]
+              assert all(tokens), f'empty CSV token in {layer.attrib["name"]}'
+              assert len(tokens)==expected, (layer.attrib['name'], len(tokens), expected)
+              [int(x,10) for x in tokens]
+          assert Image.open(r/'assets/mimi_portraits.png').size == (768,128)
+          runtime=Image.open(r/'assets/mimi_portraits_runtime64.png'); runtime.load(); assert runtime.size==(384,64)
+          source=(r/'UI/ChaChaResonanceMenu.cs').read_text()
+          keys=set(re.findall(r'ModEntry\.T\("(resonance\.[^"]+)"', source))
+          for f in ['default.json','vi.json']:
+              d=json.loads((r/'i18n'/f).read_text())
+              assert not (keys-set(d)), (f, sorted(keys-set(d)))
+          print('strict TMX / canonical portrait / translation validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package 0.7.5 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          grep -q '0.3.0-alpha.27.0.7.5' stage/Cardcha/manifest.json
+          test -f stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.5_MiMiPolishPass_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Commit polished milestone source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.5: polish MiMi social portraits attic exit and resonance UI' && git push origin cardcha-alpha27-mimi-real-npc)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-075-mimi-polish
+          path: artifact
+          if-no-files-found: error
