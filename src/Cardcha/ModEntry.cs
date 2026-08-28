@@ -193,7 +193,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.7.2 ASSET RESTORE + REVEAL CONTROLLER FIX TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -881,7 +881,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS",
+            "Cardcha! v0.3.0-alpha.27.0.7.2 ASSET RESTORE + REVEAL CONTROLLER FIX TEST",
             LogLevel.Alert
         );
     }

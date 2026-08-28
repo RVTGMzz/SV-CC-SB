@@ -366,6 +366,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
             {
                 // First Confirm reveals a facedown result; the next Confirm opens details.
                 this.RevealResult(resultIndex);
+                this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;
                 this.currentlySnappedComponent = this.ResultButtons[resultIndex];
                 if (Game1.options.SnappyMenus)
                     this.snapCursorToCurrentSnappedComponent();
