@@ -18,7 +18,7 @@ buildings = grid()
 front = grid()
 
 # Standalone room shell: one tile of black void around a 20-tile-wide interior.
-# These are vanilla Maps/townInterior GIDs, adapted from vanilla-style spouse/interior maps.
+# These are vanilla townInterior GIDs, adapted from vanilla-style spouse/interior maps.
 for x in range(1, 21):
     back[1][x] = 171
     back[2][x] = 171
@@ -74,12 +74,12 @@ front[12][20] = 167
 xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="{WIDTH}" height="{HEIGHT}" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAtticVersion" value="alpha.27.0.7"/>
+  <property name="CardchaAtticVersion" value="alpha.27.0.7.3"/>
   <property name="CardchaZoneLayout" value="landing|research|personal|tv-secret|chacha"/>
   <property name="CardchaVisualDirection" value="true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime"/>
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
-  <image source="Maps/townInterior" width="512" height="1088"/>
+  <image source=".townInterior.png" width="512" height="1088"/>
  </tileset>
  <layer id="1" name="Back" width="{WIDTH}" height="{HEIGHT}">
   <data encoding="csv">
@@ -107,4 +107,4 @@ old = OUT.parent / 'mimi_attic_tiles.png'
 if old.exists():
     old.unlink()
 
-print(f'wrote {OUT} ({WIDTH}x{HEIGHT}) using vanilla Maps/townInterior; removed full-room PNG if present')
+print(f'wrote {OUT} ({WIDTH}x{HEIGHT}) using vanilla townInterior via SMAPI dot-prefixed fallback; removed full-room PNG if present')
