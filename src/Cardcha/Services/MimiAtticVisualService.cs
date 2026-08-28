@@ -8,7 +8,7 @@ using StardewValley.Objects;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.27.0.7 true-Stardew visual layer for MiMi's attic.
+/// Alpha.27.0.7.1 true-Stardew visual layer with test access for MiMi's attic.
 /// The TMX now provides a tile-based vanilla townInterior shell; this service adds real vanilla
 /// Furniture instances for the five locked room zones, keeps inspect points, and preserves the
 /// future 17:30 / 6-heart TV eligibility hook.
@@ -24,11 +24,18 @@ internal sealed class MimiAtticVisualService
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
+    private bool TestAccessActive;
 
     public MimiAtticVisualService(IModHelper helper, SaveService save)
     {
         this.Helper = helper;
         this.Save = save;
+    }
+
+    /// <summary>Enable or disable runtime-only attic testing without touching save progression.</summary>
+    public void SetTestAccess(bool enabled)
+    {
+        this.TestAccessActive = enabled;
     }
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
@@ -44,31 +51,31 @@ internal sealed class MimiAtticVisualService
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
     {
-        if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)
+        if (!Context.IsWorldReady)
             return;
 
         GameLocation? location = Game1.currentLocation;
         if (location is null)
             return;
 
-        if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
+        if (location.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase))
         {
-            DrawStairMarker(e.SpriteBatch, FindClearTileNear(location, preferUpperHalf: true));
+            if (this.Save.Data.MimiMeetupCompleted || this.TestAccessActive)
+                EnsureVanillaFurniture(location);
             return;
         }
 
-        if (!location.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase))
+        if (!this.Save.Data.MimiMeetupCompleted)
             return;
 
-        // 0.7 intentionally does not draw a fake staircase/room overlay inside the attic.
-        // The TMX doorway is the room exit, and the furniture below is rendered by Stardew itself.
-        EnsureVanillaFurniture(location);
+        if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
+            DrawStairMarker(e.SpriteBatch, FindClearTileNear(location, preferUpperHalf: true));
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
     {
         if (!Context.IsWorldReady
-            || !this.Save.Data.MimiMeetupCompleted
+            || (!this.Save.Data.MimiMeetupCompleted && !this.TestAccessActive)
             || !e.Button.IsActionButton()
             || Game1.activeClickableMenu is not null
             || Game1.dialogueUp
@@ -98,7 +105,7 @@ internal sealed class MimiAtticVisualService
     }
 
     /// <summary>
-    /// Still only an eligibility hook in alpha.27.0.7. The actual private TV routine remains
+    /// Still only an eligibility hook in alpha.27.0.7.1. The actual private TV routine remains
     /// intentionally out of scope until the true Stardew attic passes in-game layout acceptance.
     /// </summary>
     public bool IsSecretTvRoutineEligible()

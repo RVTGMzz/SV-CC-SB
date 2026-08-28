@@ -135,6 +135,41 @@ internal sealed class MimiHomeService
         }
     }
 
+    /// <summary>
+    /// TEST-only attic access. This never changes friendship, meetup flags, or save progression.
+    /// Run the command again from inside the attic to return to WizardHouse.
+    /// </summary>
+    public string DebugToggleAtticAccess()
+    {
+        if (!Context.IsWorldReady)
+            return "Attic TEST bypass unavailable: load a save first.";
+
+        GameLocation? current = Game1.currentLocation;
+        if (current is not null
+            && current.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            GameLocation? wizard = Game1.getLocationFromName("WizardHouse");
+            if (wizard is null)
+                return "Attic TEST bypass couldn't find WizardHouse.";
+
+            Point target = this.ResolveWizardStairTile(wizard);
+            int targetY = Math.Min(
+                target.Y + 1,
+                Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)
+            );
+            Game1.warpFarmer("WizardHouse", target.X, targetY, 2);
+            return "Attic TEST bypass: returned to WizardHouse. Normal progression was not changed.";
+        }
+
+        GameLocation? attic = this.EnsureAtticLocation();
+        if (attic is null)
+            return "Attic TEST bypass couldn't create Cardcha_MiMiAttic.";
+
+        Point arrival = this.ResolveAtticStairTile(attic);
+        Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);
+        return "Attic TEST bypass: warped to Cardcha_MiMiAttic. Run cardcha_test_attic again to leave. Normal progression was not changed.";
+    }
+
     public string Describe()
     {
         if (!Context.IsWorldReady)
@@ -163,7 +198,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7 true Stardew tile/furniture map.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.1 true Stardew map with runtime-only TEST access.", LogLevel.Info);
             }
             return attic;
         }

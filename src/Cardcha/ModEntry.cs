@@ -176,6 +176,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_book_status", "Show Cardcha Book tab layout/controller diagnostics.", this.CommandBookStatus);
         helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
         helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
+        helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -192,7 +193,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.7 MIMI ATTIC TRUE STARDEW MAP TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -859,10 +860,28 @@ internal sealed class ModEntry : Mod
         );
     }
 
+    private void CommandTestAttic(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save before using cardcha_test_attic.", LogLevel.Warn);
+            return;
+        }
+
+        bool leaving = Game1.currentLocation?.NameOrUniqueName.Equals(
+            MimiHomeService.AtticLocationName,
+            StringComparison.OrdinalIgnoreCase
+        ) == true;
+
+        this.AtticVisual.SetTestAccess(!leaving);
+        string result = this.Home.DebugToggleAtticAccess();
+        this.Monitor.Log(result, LogLevel.Alert);
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.7 MIMI ATTIC TRUE STARDEW MAP TEST",
+            "Cardcha! v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS",
             LogLevel.Alert
         );
     }
