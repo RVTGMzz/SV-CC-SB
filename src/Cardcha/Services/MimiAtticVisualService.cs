@@ -191,7 +191,7 @@ internal sealed class MimiAtticVisualService
 
     private static Point GetActionTile()
     {
-        Point p = Game1.player.TilePoint;
+        Point p = new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
         return Game1.player.FacingDirection switch
         {
             0 => new Point(p.X, p.Y - 1),
