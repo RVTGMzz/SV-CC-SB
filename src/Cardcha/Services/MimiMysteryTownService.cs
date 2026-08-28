@@ -180,7 +180,7 @@ internal sealed class MimiMysteryTownService
                 // Native world renderer uses the official 32x48 MiMi walk master directly.
                 // The NPC actor scale preserves the approved in-game size.
                 SetPointProperty(mimi, "Size", 32, 48);
-                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);
+                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {

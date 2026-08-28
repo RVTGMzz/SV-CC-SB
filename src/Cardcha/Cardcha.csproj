@@ -7,7 +7,7 @@
     <EnableHarmony>true</EnableHarmony>
     <AssemblyName>Cardcha</AssemblyName>
     <RootNamespace>Cardcha</RootNamespace>
-    <Version>0.3.0-alpha.27.0.7.6</Version>
+    <Version>0.3.0-alpha.27.0.7.6.4</Version>
   </PropertyGroup>
 
   <ItemGroup>
