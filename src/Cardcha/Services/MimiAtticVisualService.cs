@@ -20,7 +20,7 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
-    private const string DecorVersion = "alpha.27.0.7.4";
+    private const string DecorVersion = "alpha.27.0.7.5";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -131,15 +131,24 @@ internal sealed class MimiAtticVisualService
             return;
         }
 
+        // A decor-version change must replace our old runtime furniture instead of stacking a
+        // second copy on the same tiles. Stacked furniture was the source of the visible chair
+        // flicker in the 0.7.4 acceptance screenshot.
+        foreach (Furniture old in attic.furniture
+                     .Where(f => f.modData.ContainsKey(DecorMarkerKey))
+                     .ToList())
+        {
+            attic.furniture.Remove(old);
+        }
+
         // Rugs first so Stardew naturally draws the furniture on top of them.
         TryAddFurniture(attic, "(F)1456", 3, 5);   // Patchwork Rug — research zone.
         TryAddFurniture(attic, "(F)1623", 2, 9);   // Green Cottage Rug — TV nook.
-        TryAddFurniture(attic, "(F)1461", 15, 8);  // Dark Rug — ChaCha / upgrade corner.
+        TryAddFurniture(attic, "(F)1461", 9, 8);   // Dark central rug — concept anchor / open circulation.
 
         // Research desk — deliberately domestic, not a full workshop.
         TryAddFurniture(attic, "(F)1289", 2, 4);                 // Dark Bookcase.
         TryAddFurniture(attic, "(F)1120", 4, 5, heldId: "(F)1368"); // Oak Table + Small Crystal.
-        TryAddFurniture(attic, "(F)27", 5, 7);                   // Purple Office Chair.
         TryAddFurniture(attic, "(F)1443", 8, 5);                 // Country Lamp.
         TryAddFurniture(attic, "(F)1362", 9, 5);                 // Small Plant.
 
@@ -155,7 +164,6 @@ internal sealed class MimiAtticVisualService
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
         TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368"); // Modern Table + crystal prototype.
-        TryAddFurniture(attic, "(F)27", 17, 10);                 // Purple Office Chair.
         TryAddFurniture(attic, "(F)1390", 19, 9);                // House Plant.
 
         // Wall details make the shell read like a real Stardew bedroom rather than an empty shed.

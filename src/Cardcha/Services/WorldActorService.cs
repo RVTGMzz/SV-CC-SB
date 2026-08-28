@@ -24,7 +24,7 @@ internal sealed class WorldActorService
 
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
     private const string MimiPortraitAsset = "Portraits/Ronvotri.Cardcha_MiMi";
-    private const string MimiPortraitSheetPath = "assets/mimi_npc_portraits.png";
+    private const string MimiPortraitSheetPath = "assets/mimi_portraits_runtime64.png";
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
     private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
 

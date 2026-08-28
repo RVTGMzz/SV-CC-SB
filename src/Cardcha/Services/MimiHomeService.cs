@@ -31,6 +31,7 @@ internal sealed class MimiHomeService
     private bool LoggedAtticCreation;
     private bool AtticCreationFailed;
     private bool LoggedAtticFailure;
+    private long AtticAutoExitBlockedUntilMs;
 
     public MimiHomeService(
         IModHelper helper,
@@ -70,7 +71,14 @@ internal sealed class MimiHomeService
 
     public void OnUpdateTicked(UpdateTickedEventArgs e)
     {
-        if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)
+        if (!Context.IsWorldReady)
+            return;
+
+        // The bottom-center landing is a real exit now. This runs even for the runtime-only
+        // test bypass, but a short arrival grace period prevents immediately bouncing back out.
+        this.TryAutoExitAttic();
+
+        if (!this.Save.Data.MimiMeetupCompleted)
             return;
 
         // Run after MimiMysteryTownService every tick. This makes the post-meetup home layer the
@@ -126,6 +134,7 @@ internal sealed class MimiHomeService
             }
 
             Point arrival = this.ResolveAtticStairTile(attic);
+            this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;
             Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);
             return;
         }
@@ -174,8 +183,43 @@ internal sealed class MimiHomeService
             return "Attic TEST bypass couldn't create Cardcha_MiMiAttic.";
 
         Point arrival = this.ResolveAtticStairTile(attic);
+        this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;
         Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);
         return "Attic TEST bypass: warped to Cardcha_MiMiAttic. Run cardcha_test_attic again to leave. Normal progression was not changed.";
+    }
+
+    private void TryAutoExitAttic()
+    {
+        GameLocation? location = Game1.currentLocation;
+        if (location is null
+            || !location.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase)
+            || Environment.TickCount64 < this.AtticAutoExitBlockedUntilMs)
+        {
+            return;
+        }
+
+        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 22;
+        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
+        int tileX = (int)(Game1.player.Position.X / 64f);
+        int tileY = (int)(Game1.player.Position.Y / 64f);
+        int center = width / 2;
+
+        // Only the two-tile bottom-center landing is an exit. Trigger on the final map row
+        // before the farmer can visually wander into the black exterior void.
+        if (tileY < height - 1 || tileX < center - 1 || tileX > center)
+            return;
+
+        GameLocation? wizard = Game1.getLocationFromName("WizardHouse");
+        if (wizard is null)
+            return;
+
+        Point target = this.ResolveWizardStairTile(wizard);
+        int targetY = Math.Min(
+            target.Y + 1,
+            Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)
+        );
+        this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;
+        Game1.warpFarmer("WizardHouse", target.X, targetY, 2);
     }
 
     public string Describe()

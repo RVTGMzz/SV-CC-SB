@@ -34,7 +34,7 @@ internal sealed class MimiMysteryTownService
     private const string DialogueAsset = "Characters/Dialogue/Ronvotri.Cardcha_MiMi";
 
     // Engine-compatible 64x64 portrait fallback only. Runtime dialogue portraits are generated in memory from MimiPortraitsPath.
-    private const string MimiNativePortraitsPath = "assets/mimi_npc_portraits.png";
+    private const string MimiNativePortraitsPath = "assets/mimi_portraits_runtime64.png";
     private const string MimiPortraitsPath = "assets/mimi_portraits.png";
     private const string MimiWalkSheetPath = "assets/mimi_walk.png";
     private const string MimiSchedulePath = "assets/mimi_schedule.json";
@@ -180,7 +180,7 @@ internal sealed class MimiMysteryTownService
                 // Native world renderer uses the official 32x48 MiMi walk master directly.
                 // The NPC actor scale preserves the approved in-game size.
                 SetPointProperty(mimi, "Size", 32, 48);
-                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);
+                SetRectangleProperty(mimi, "MugShotSourceRect", 8, 1, 16, 15);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {
