@@ -3,13 +3,15 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Objects;
 
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.27.0.6 vanilla-style custom interior layer for MiMi's attic.
-/// The room now loads from a dedicated TMX + PNG asset while this service keeps the stable
-/// inspect points, staircase marker, and the future 17:30 / 6-heart TV eligibility hook.
+/// Alpha.27.0.7 true-Stardew visual layer for MiMi's attic.
+/// The TMX now provides a tile-based vanilla townInterior shell; this service adds real vanilla
+/// Furniture instances for the five locked room zones, keeps inspect points, and preserves the
+/// future 17:30 / 6-heart TV eligibility hook.
 /// </summary>
 internal sealed class MimiAtticVisualService
 {
@@ -17,6 +19,8 @@ internal sealed class MimiAtticVisualService
 
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
+    private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
+    private const string DecorVersion = "alpha.27.0.7";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -56,7 +60,9 @@ internal sealed class MimiAtticVisualService
         if (!location.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase))
             return;
 
-        DrawStairMarker(e.SpriteBatch, GetLayout(location).Landing);
+        // 0.7 intentionally does not draw a fake staircase/room overlay inside the attic.
+        // The TMX doorway is the room exit, and the furniture below is rendered by Stardew itself.
+        EnsureVanillaFurniture(location);
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -92,8 +98,8 @@ internal sealed class MimiAtticVisualService
     }
 
     /// <summary>
-    /// Still only an eligibility hook in alpha.27.0.6. The actual private TV routine remains
-    /// intentionally out of scope until the custom attic passes in-game layout acceptance.
+    /// Still only an eligibility hook in alpha.27.0.7. The actual private TV routine remains
+    /// intentionally out of scope until the true Stardew attic passes in-game layout acceptance.
     /// </summary>
     public bool IsSecretTvRoutineEligible()
     {
@@ -104,6 +110,80 @@ internal sealed class MimiAtticVisualService
             return false;
 
         return friendship.Points >= SecretTvHeartRequirement * 250;
+    }
+
+    /// <summary>
+    /// Populate the room with actual Stardew furniture rather than a room-sized custom PNG.
+    /// This keeps vanilla sprite proportions, shadows, draw ordering, and furniture collision.
+    /// </summary>
+    private static void EnsureVanillaFurniture(GameLocation attic)
+    {
+        if (attic.modData.TryGetValue(DecorMarkerKey, out string? version)
+            && string.Equals(version, DecorVersion, StringComparison.Ordinal))
+        {
+            return;
+        }
+
+        // Rugs first so Stardew naturally draws the furniture on top of them.
+        TryAddFurniture(attic, "(F)1456", 3, 5);   // Patchwork Rug — research zone.
+        TryAddFurniture(attic, "(F)1623", 2, 9);   // Green Cottage Rug — TV nook.
+        TryAddFurniture(attic, "(F)1461", 15, 8);  // Dark Rug — ChaCha / upgrade corner.
+
+        // Research desk — deliberately domestic, not a full workshop.
+        TryAddFurniture(attic, "(F)1289", 2, 4);                 // Dark Bookcase.
+        TryAddFurniture(attic, "(F)1120", 4, 5, heldId: "(F)1368"); // Oak Table + Small Crystal.
+        TryAddFurniture(attic, "(F)27", 5, 7);                   // Purple Office Chair.
+        TryAddFurniture(attic, "(F)1443", 8, 5);                 // Country Lamp.
+        TryAddFurniture(attic, "(F)1362", 9, 5);                 // Small Plant.
+
+        // Personal / bed corner.
+        TryAddFurniture(attic, "(F)2058", 15, 4);                // Starry Double Bed.
+        TryAddFurniture(attic, "(F)704", 19, 4);                 // Oak Dresser.
+        TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
+
+        // TV secret nook — cozy, clearly separate from the research side.
+        TryAddFurniture(attic, "(F)1466", 3, 8);                 // Budget TV.
+        TryAddFurniture(attic, "(F)432", 3, 10);                 // Green Couch.
+        TryAddFurniture(attic, "(F)724", 6, 9, heldId: "(F)1364");  // Coffee Table + bowl/snacks stand-in.
+
+        // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
+        TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368"); // Modern Table + crystal prototype.
+        TryAddFurniture(attic, "(F)27", 17, 10);                 // Purple Office Chair.
+        TryAddFurniture(attic, "(F)1390", 19, 9);                // House Plant.
+
+        // Wall details make the shell read like a real Stardew bedroom rather than an empty shed.
+        TryAddFurniture(attic, "(F)1614", 10, 2);                // Basic Window.
+        TryAddFurniture(attic, "(F)1541", 6, 2);                 // A Night On Eco-Hill.
+        TryAddFurniture(attic, "(F)1600", 17, 2);                // Skull Poster.
+
+        attic.modData[DecorMarkerKey] = DecorVersion;
+    }
+
+    private static void TryAddFurniture(
+        GameLocation attic,
+        string itemId,
+        int x,
+        int y,
+        int rotation = 0,
+        string? heldId = null)
+    {
+        try
+        {
+            Furniture item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
+            item.modData[DecorMarkerKey] = DecorVersion;
+
+            if (heldId is not null)
+            {
+                Furniture held = ItemRegistry.Create<Furniture>(heldId);
+                item.SetHeldObject(held);
+            }
+
+            attic.furniture.Add(item);
+        }
+        catch
+        {
+            // A missing/changed vanilla furniture entry should never make the whole attic unloadable.
+        }
     }
 
     private static void DrawStairMarker(SpriteBatch batch, Point tile)
@@ -133,19 +213,19 @@ internal sealed class MimiAtticVisualService
         return new AtticLayout(
             Landing: P(width / 2, height - 3),
 
-            // Research desk / notes on the left half.
-            Notes: P(3, 8),
-            DeskLeft: P(2, 9),
-            DeskRight: P(5, 9),
+            // Research desk / notes on the upper-left.
+            Notes: P(3, 4),
+            DeskLeft: P(4, 5),
+            DeskRight: P(6, 5),
 
-            // TV secret corner on the upper-right.
-            Television: P(width - 4, 5),
-            TvChair: P(width - 6, 8),
-            TvTable: P(width - 3, 8),
+            // TV secret nook on the lower-left.
+            Television: P(3, 8),
+            TvChair: P(3, 10),
+            TvTable: P(6, 9),
 
             // ChaCha / future upgrade corner on the lower-right.
-            ChaChaCushion: P(width - 6, height - 3),
-            Prototype: P(width - 3, height - 3)
+            ChaChaCushion: P(17, 10),
+            Prototype: P(16, 9)
         );
     }
 
