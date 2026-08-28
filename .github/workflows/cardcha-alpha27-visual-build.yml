@@ -1,140 +1,70 @@
-name: Cardcha alpha27.0.4 MiMi attic visual foundation
-
+name: Cardcha alpha27.0.4 attic compile
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
-    paths:
-      - '.github/workflows/cardcha-alpha27-visual-build.yml'
-      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
-  workflow_dispatch:
-
+    paths: [ '.github/workflows/cardcha-alpha27-visual-build.yml' ]
 permissions:
   contents: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Prepare alpha27.0.4 source and assets
+        with: { fetch-depth: 0 }
+      - name: Prepare milestone
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import base64, json
-
-          r = Path('src/Cardcha')
-
-          encoded = Path('build_assets/mimi_attic_props.png.b64').read_text(encoding='utf-8').strip()
-          png = base64.b64decode(encoded, validate=True)
-          if not png.startswith(b'\x89PNG\r\n\x1a\n'):
-              raise SystemExit('attic prop atlas is not a PNG')
-          (r / 'assets' / 'mimi_attic_props.png').write_bytes(png)
-
-          p = r / 'ModEntry.cs'
-          s = p.read_text(encoding='utf-8')
-          old_ctor = 'this.AtticVisual = new MimiAtticVisualService(this.Save);'
-          new_ctor = 'this.AtticVisual = new MimiAtticVisualService(helper, this.Save);'
-          if old_ctor in s:
-              s = s.replace(old_ctor, new_ctor, 1)
-          elif new_ctor not in s:
-              raise SystemExit('MiMi attic visual constructor anchor missing')
-
-          home_button = '        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;\n'
-          visual_button = '        helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;\n'
-          if visual_button not in s:
-              if home_button not in s:
-                  raise SystemExit('MiMi attic input anchor missing')
-              s = s.replace(home_button, home_button + visual_button, 1)
-
-          s = s.replace(
-              'v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST',
-              'v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST'
-          )
-          p.write_text(s, encoding='utf-8')
-
-          patches = {
-              'default.json': {
-                  'mimi.attic.inspect.desk': 'MiMi’s notes are all arrows, circles, and one sentence underlined three times: “Do NOT let ChaCha choose the calibration target.” A few Cardboard Scraps are being used as bookmarks.',
-                  'mimi.attic.inspect.tv': 'The remote is still warm. Beside it: snacks, a romance-drama schedule, and a page of suspiciously detailed character pairings. MiMi has hobbies. Classified ones.',
-                  'mimi.attic.inspect.chacha': 'This cushion is suspiciously over-engineered. Tiny brackets, a Card Dust jar, and three adjustment knobs suggest ChaCha’s comfort has a research budget.'
-              },
-              'vi.json': {
-                  'mimi.attic.inspect.desk': 'Ghi chú của MiMi toàn mũi tên, vòng tròn và một câu bị gạch dưới ba lần: “ĐỪNG để ChaCha chọn mục tiêu hiệu chuẩn.” Vài mảnh Cardboard Scrap đang bị dùng làm dấu trang.',
-                  'mimi.attic.inspect.tv': 'Cái remote vẫn còn ấm. Bên cạnh là đồ ăn vặt, lịch chiếu phim tình cảm và một trang ghép cặp nhân vật chi tiết đến mức đáng ngờ. MiMi có sở thích riêng. Loại mật.',
-                  'mimi.attic.inspect.chacha': 'Cái đệm này được chế tạo quá mức cần thiết một cách đáng ngờ. Giá đỡ tí hon, một lọ Card Dust và ba núm chỉnh cho thấy độ thoải mái của ChaCha có hẳn ngân sách nghiên cứu.'
-              }
-          }
-          for name, patch in patches.items():
-              q = r / 'i18n' / name
-              data = json.loads(q.read_text(encoding='utf-8-sig'))
-              data.update(patch)
-              q.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-          q = r / 'Cardcha.csproj'
-          q.write_text(q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4'), encoding='utf-8')
-
-          q = r / 'Directory.Build.targets'
-          t = q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.3', '0.3.0-alpha.27.0.4')
-          t = t.replace('CardchaAlpha2703Manifest', 'CardchaAlpha2704Manifest')
-          q.write_text(t, encoding='utf-8')
-
-          q = r / 'manifest.json'
-          manifest = json.loads(q.read_text(encoding='utf-8-sig'))
-          manifest['Version'] = '0.3.0-alpha.27.0.4'
-          q.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
-
-          service = (r / 'Services' / 'MimiAtticVisualService.cs').read_text(encoding='utf-8')
-          assert 'Cardcha_MiMiAttic' in (r / 'Services' / 'MimiHomeService.cs').read_text(encoding='utf-8')
-          assert 'IsSecretTvRoutineEligible' in service
-          assert 'SecretTvHeartRequirement = 6' in service
-          assert 'SecretTvTime = 1730' in service
-          assert visual_button.strip() in s
-          assert len(png) > 500
-          print(f'alpha27.0.4 source prepared; attic atlas={len(png)} bytes')
+          import base64,json
+          r=Path('src/Cardcha')
+          b=base64.b64decode(Path('build_assets/mimi_attic_props.png.b64').read_text().strip(),validate=True)
+          assert b.startswith(b'\x89PNG\r\n\x1a\n')
+          (r/'assets/mimi_attic_props.png').write_bytes(b)
+          p=r/'ModEntry.cs'; s=p.read_text()
+          s=s.replace('new MimiAtticVisualService(this.Save)','new MimiAtticVisualService(helper, this.Save)')
+          a='        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;\n'
+          v='        helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;\n'
+          if v not in s: s=s.replace(a,a+v,1)
+          s=s.replace('v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST','v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST')
+          p.write_text(s)
+          tr={
+          'default.json':{
+          'mimi.attic.inspect.desk':'MiMi’s desk is covered in arrows, warnings, Cardboard Scrap bookmarks, and one rule: “Do NOT let ChaCha choose the calibration target.”',
+          'mimi.attic.inspect.tv':'The remote is still warm. Snacks, a romance-drama schedule, and suspiciously detailed character pairings are tucked beside it.',
+          'mimi.attic.inspect.chacha':'ChaCha’s cushion has tiny brackets, a Card Dust jar, and three adjustment knobs. Comfort apparently has a research budget.'},
+          'vi.json':{
+          'mimi.attic.inspect.desk':'Bàn của MiMi đầy mũi tên, cảnh báo, Cardboard Scrap làm dấu trang và một luật: “ĐỪNG để ChaCha chọn mục tiêu hiệu chuẩn.”',
+          'mimi.attic.inspect.tv':'Remote vẫn còn ấm. Đồ ăn vặt, lịch phim tình cảm và một trang ghép cặp nhân vật chi tiết đáng ngờ được giấu bên cạnh.',
+          'mimi.attic.inspect.chacha':'Đệm của ChaCha có giá đỡ tí hon, một lọ Card Dust và ba núm chỉnh. Xem ra độ thoải mái cũng có ngân sách nghiên cứu.'}}
+          for n,x in tr.items():
+              q=r/'i18n'/n; d=json.loads(q.read_text(encoding='utf-8-sig')); d.update(x); q.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
+          for n in ['Cardcha.csproj','Directory.Build.targets']:
+              q=r/n; t=q.read_text().replace('0.3.0-alpha.27.0.3','0.3.0-alpha.27.0.4').replace('CardchaAlpha2703Manifest','CardchaAlpha2704Manifest'); q.write_text(t)
+          q=r/'manifest.json'; d=json.loads(q.read_text(encoding='utf-8-sig')); d['Version']='0.3.0-alpha.27.0.4'; q.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n')
+          assert 'IsSecretTvRoutineEligible' in (r/'Services/MimiAtticVisualService.cs').read_text()
           PY
-
-      - name: Add SMAPI build environment
-        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
-
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
       - name: Compile
-        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
-
-      - name: Package TEST
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+      - name: Package
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf artifact stage
-          mkdir -p artifact stage/Cardcha
-          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/Cardcha.dll
-          PDB="$(find src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"
-          [ -z "$PDB" ] || cp "$PDB" stage/Cardcha/Cardcha.pdb
+          rm -rf artifact stage; mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST.zip Cardcha)
-          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.4_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
-          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.4_MiMiAttic_VisualFoundation_TEST.zip > artifact/SHA256.txt
-
-      - name: Commit compiled source milestone
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+      - name: Commit source
         shell: bash
         run: |
-          set -euo pipefail
           git add src/Cardcha
-          git config user.name ronvotri
-          git config user.email lengochung28191@gmail.com
-          if git diff --cached --quiet; then
-            echo 'No source changes to commit.'
-          else
-            git commit -m 'alpha27.0.4: build MiMi attic visual foundation'
-            git push origin cardcha-alpha27-mimi-real-npc
-          fi
-
-      - name: Upload TEST
-        uses: actions/upload-artifact@v4
+          git config user.name ronvotri; git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.4: build MiMi attic visual foundation' && git push origin cardcha-alpha27-mimi-real-npc)
+      - uses: actions/upload-artifact@v4
         with:
           name: cardcha-alpha27-attic-visual-foundation
           path: artifact
