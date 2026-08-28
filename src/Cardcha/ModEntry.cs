@@ -122,7 +122,7 @@ internal sealed class ModEntry : Mod
             () => this.Story.OwnsMimiWorldActor,
             () => this.Mystery.OwnsMimiWorldActor
         );
-        this.AtticVisual = new MimiAtticVisualService(this.Save);
+        this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -144,6 +144,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.Social.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
@@ -190,7 +191,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -860,7 +861,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST",
+            "Cardcha! v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST",
             LogLevel.Alert
         );
     }

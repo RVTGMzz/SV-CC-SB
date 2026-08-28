@@ -768,5 +768,8 @@
   "mimi.gift.dislike": "Ah. A gift. Definitely a gift. I can confirm that much.$s",
   "mimi.gift.hate": "I have questions. Most of them begin with 'why'.$a",
   "mimi.attic.locked": "MiMi's attic is upstairs. She has somehow made it clear that you need {{hearts}} hearts before 'accidentally' wandering in.",
-  "mimi.attic.unavailable": "The attic stairs seem to be arguing with reality right now. Try again after re-entering the Wizard's house."
+  "mimi.attic.unavailable": "The attic stairs seem to be arguing with reality right now. Try again after re-entering the Wizard's house.",
+  "mimi.attic.inspect.desk": "MiMi’s notes are all arrows, circles, and one sentence underlined three times: “Do NOT let ChaCha choose the calibration target.” A few Cardboard Scraps are being used as bookmarks.",
+  "mimi.attic.inspect.tv": "The remote is still warm. Beside it: snacks, a romance-drama schedule, and a page of suspiciously detailed character pairings. MiMi has hobbies. Classified ones.",
+  "mimi.attic.inspect.chacha": "This cushion is suspiciously over-engineered. Tiny brackets, a Card Dust jar, and three adjustment knobs suggest ChaCha’s comfort has a research budget."
 }
