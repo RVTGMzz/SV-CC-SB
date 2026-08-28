@@ -46,6 +46,21 @@ jobs:
           tar -xJf /tmp/alpha2653-overlay.tar.xz -C /tmp/alpha2653-overlay
           cp -a /tmp/alpha2653-overlay/Cardcha/. build-src/Cardcha/
 
+      - name: Pin alpha26.5.3 build version
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PYV'
+          from pathlib import Path
+          root = Path('build-src/Cardcha')
+          for rel in ['Cardcha.csproj', 'Directory.Build.targets']:
+              p = root / rel
+              s = p.read_text(encoding='utf-8')
+              s = s.replace('0.3.0-alpha.26.5.2', '0.3.0-alpha.26.5.3')
+              s = s.replace('<Version>0.3.0-alpha.26.5</Version>', '<Version>0.3.0-alpha.26.5.3</Version>')
+              p.write_text(s, encoding='utf-8')
+          PYV
+
       - name: Validate alpha26.5.3 contracts
         shell: bash
         run: |
@@ -55,6 +70,8 @@ jobs:
           root = Path('build-src/Cardcha')
           checks = {
             root/'manifest.json': ['0.3.0-alpha.26.5.3'],
+            root/'Cardcha.csproj': ['<Version>0.3.0-alpha.26.5.3</Version>'],
+            root/'Directory.Build.targets': ['0.3.0-alpha.26.5.3'],
             root/'UI'/'CardchaRevealMenu.cs': ['IgnoreResultMouseUntilMs', 'faceButton = b is Buttons.A or Buttons.B or Buttons.X or Buttons.Y'],
             root/'UI'/'CardchaBinderMenu.cs': ['EnsureControllerFocusValid', 'Handle the two system badges directly'],
             root/'UI'/'MimiScrapShopMenu.cs': ['maxLines: 2', 'strict two-line band'],
@@ -77,6 +94,7 @@ jobs:
           set -euo pipefail
           dotnet build build-src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
           test -n "$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)"
+          grep -q '0.3.0-alpha.26.5.3' build-src/Cardcha/manifest.json
 
       - name: Stage artifact
         shell: bash
