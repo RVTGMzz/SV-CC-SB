@@ -1,4 +1,4 @@
-name: Cardcha alpha27.0.5 attic custom interior
+name: Cardcha alpha27.0.6 attic vanilla-style rework
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
@@ -12,13 +12,13 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Prepare alpha27.0.5 custom attic
+      - name: Prepare alpha27.0.6 vanilla-style attic
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json, struct, xml.etree.ElementTree as ET
+          import hashlib, json, struct, xml.etree.ElementTree as ET
 
           r = Path('src/Cardcha')
           png = r / 'assets/mimi_attic_tiles.png'
@@ -28,45 +28,47 @@ jobs:
           assert raw.startswith(b'\x89PNG\r\n\x1a\n'), 'attic tiles is not PNG'
           width, height = struct.unpack('>II', raw[16:24])
           assert (width, height) == (352, 224), (width, height)
+          assert hashlib.sha256(raw).hexdigest() == '708c596825962b59a353887605640bbe5e3edda00d3e36b2917e5d77d3ab64f1'
 
           root = ET.parse(tmx).getroot()
           assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
           assert [x.attrib.get('name') for x in root.findall('layer')] == ['Back', 'Buildings', 'Front']
+          props = {p.attrib.get('name'): p.attrib.get('value') for p in root.find('properties').findall('property')}
+          assert props.get('CardchaAtticVersion') == 'alpha.27.0.6'
+          assert props.get('CardchaVisualDirection') == 'vanilla-style-shell|dark-border|doorway|lived-in'
 
           p = r / 'Services/MimiHomeService.cs'
           s = p.read_text()
-          s = s.replace('private const string AtticMapPath = "Maps/Shed";', 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";')
-          s = s.replace('using the alpha.27 safe interior map foundation.', 'using the alpha.27.0.5 custom interior map.')
+          s = s.replace('using the alpha.27.0.5 custom interior map.', 'using the alpha.27.0.6 vanilla-style custom interior map.')
           p.write_text(s)
           assert 'private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";' in s
 
+          p = r / 'Services/MimiAtticVisualService.cs'
+          s = p.read_text()
+          s = s.replace('Alpha.27.0.5 custom interior layer', 'Alpha.27.0.6 vanilla-style custom interior layer')
+          s = s.replace('Still only an eligibility hook in alpha.27.0.5.', 'Still only an eligibility hook in alpha.27.0.6.')
+          p.write_text(s)
+          assert 'AtticMapAssetName = "Maps/Cardcha_MiMiAttic"' in s
+          assert 'LoadFromModFile<xTile.Map>' in s
+          assert 'IsSecretTvRoutineEligible' in s
+
           p = r / 'ModEntry.cs'
           s = p.read_text()
-          anchor = '        helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;\n'
-          hook = '        helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;\n'
-          if hook not in s:
-              s = s.replace(anchor, anchor + hook, 1)
-          s = s.replace('v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST', 'v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST')
+          s = s.replace('v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST', 'v0.3.0-alpha.27.0.6 MIMI ATTIC VANILLA STYLE REWORK TEST')
           p.write_text(s)
-          assert hook in s
 
           p = r / 'Cardcha.csproj'
-          s = p.read_text().replace('0.3.0-alpha.27.0.4', '0.3.0-alpha.27.0.5')
+          s = p.read_text().replace('0.3.0-alpha.27.0.5', '0.3.0-alpha.27.0.6')
           p.write_text(s)
 
           p = r / 'Directory.Build.targets'
-          s = p.read_text().replace('0.3.0-alpha.27.0.4', '0.3.0-alpha.27.0.5').replace('CardchaAlpha2704Manifest', 'CardchaAlpha2705Manifest')
+          s = p.read_text().replace('0.3.0-alpha.27.0.5', '0.3.0-alpha.27.0.6').replace('CardchaAlpha2705Manifest', 'CardchaAlpha2706Manifest')
           p.write_text(s)
 
           p = r / 'manifest.json'
           d = json.loads(p.read_text(encoding='utf-8-sig'))
-          d['Version'] = '0.3.0-alpha.27.0.5'
+          d['Version'] = '0.3.0-alpha.27.0.6'
           p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
-
-          visual = (r / 'Services/MimiAtticVisualService.cs').read_text()
-          assert 'AtticMapAssetName = "Maps/Cardcha_MiMiAttic"' in visual
-          assert 'LoadFromModFile<xTile.Map>' in visual
-          assert 'IsSecretTvRoutineEligible' in visual
           PY
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
@@ -85,7 +87,7 @@ jobs:
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -f stage/Cardcha/assets/mimi_attic.tmx
           test -f stage/Cardcha/assets/mimi_attic_tiles.png
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.5_MiMiAttic_CustomInterior_TEST.zip Cardcha)
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.6_MiMiAttic_VanillaStyleRework_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - name: Commit compiled milestone source
@@ -95,10 +97,10 @@ jobs:
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.5: build MiMi attic custom interior' && git push origin cardcha-alpha27-mimi-real-npc)
+          git diff --cached --quiet || (git commit -m 'alpha27.0.6: rework MiMi attic toward vanilla indoor style' && git push origin cardcha-alpha27-mimi-real-npc)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-attic-custom-interior
+          name: cardcha-alpha27-attic-vanilla-style-rework
           path: artifact
           if-no-files-found: error
