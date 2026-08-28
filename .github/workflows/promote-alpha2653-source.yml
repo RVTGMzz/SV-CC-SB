@@ -1,0 +1,119 @@
+name: Promote alpha26.5.3 source to main
+
+on:
+  push:
+    branches: [ ci/cardcha-alpha26-5-build ]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  promote:
+    if: github.ref == 'refs/heads/ci/cardcha-alpha26-5-build'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout staging branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare full main source baseline
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          rm -rf /tmp/main-tree /tmp/promote
+          mkdir -p /tmp/main-tree /tmp/promote
+          git archive origin/main src/Cardcha PROJECT_HANDOFF.md NEXT_SESSION_START_HERE.md | tar -x -C /tmp/main-tree
+          cp -a /tmp/main-tree/src/Cardcha /tmp/promote/Cardcha
+
+      - name: Apply alpha26.5 data/source overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat build-input-alpha265/overlay.part.00.b64 \
+              build-input-alpha265/overlay.part.01.b64 \
+              build-input-alpha265/overlay.part.02.b64 \
+              build-input-alpha265/overlay.part.03.b64 \
+              build-input-alpha265/overlay.part.04.b64 > /tmp/alpha265-overlay.b64
+          test "$(wc -c < /tmp/alpha265-overlay.b64)" -eq 73228
+          base64 --decode /tmp/alpha265-overlay.b64 > /tmp/alpha265-overlay.tar.xz
+          xz -t /tmp/alpha265-overlay.tar.xz
+          mkdir -p /tmp/alpha265-overlay
+          tar -xJf /tmp/alpha265-overlay.tar.xz -C /tmp/alpha265-overlay
+          cp -a /tmp/alpha265-overlay/Cardcha/. /tmp/promote/Cardcha/
+
+      - name: Overlay exact alpha26.5.3 compiled source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -L \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ronvotri/Cardcha-Shardbound/actions/artifacts/9671014629/zip \
+            -o /tmp/alpha2653-artifact.zip
+          mkdir -p /tmp/alpha2653-artifact /tmp/alpha2653-source
+          unzip -q /tmp/alpha2653-artifact.zip -d /tmp/alpha2653-artifact
+          test -f /tmp/alpha2653-artifact/Cardcha_alpha26.5.3_SOURCE.tar.xz
+          tar -xJf /tmp/alpha2653-artifact/Cardcha_alpha26.5.3_SOURCE.tar.xz -C /tmp/alpha2653-source
+          find /tmp/alpha2653-source/Cardcha -maxdepth 1 -type f -o -type d >/dev/null
+          rm -rf /tmp/alpha2653-source/Cardcha/bin /tmp/alpha2653-source/Cardcha/obj
+          cp -a /tmp/alpha2653-source/Cardcha/. /tmp/promote/Cardcha/
+
+      - name: Pin canonical version and validate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('/tmp/promote/Cardcha')
+          for rel in ['Cardcha.csproj', 'Directory.Build.targets']:
+              p = root / rel
+              s = p.read_text(encoding='utf-8')
+              s = s.replace('0.3.0-alpha.26.5.2', '0.3.0-alpha.26.5.3')
+              s = s.replace('<Version>0.3.0-alpha.26.5</Version>', '<Version>0.3.0-alpha.26.5.3</Version>')
+              p.write_text(s, encoding='utf-8')
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8-sig'))
+          assert manifest['Version'] == '0.3.0-alpha.26.5.3', manifest['Version']
+          assert 'IgnoreResultMouseUntilMs' in (root/'UI'/'CardchaRevealMenu.cs').read_text(encoding='utf-8')
+          assert 'EnsureControllerFocusValid' in (root/'UI'/'CardchaBinderMenu.cs').read_text(encoding='utf-8')
+          assert 'maxLines: 2' in (root/'UI'/'MimiScrapShopMenu.cs').read_text(encoding='utf-8')
+          # The canonical MiMi portrait rollback is the existing main 768x128 asset.
+          from struct import unpack
+          png = (root/'assets'/'mimi_portraits.png').read_bytes()
+          assert png[:8] == b'\x89PNG\r\n\x1a\n'
+          width, height = unpack('>II', png[16:24])
+          assert (width, height) == (768, 128), (width, height)
+          print('promotion validation PASS')
+          PY
+
+      - name: Promote clean source and handoff to main
+        shell: bash
+        run: |
+          set -euo pipefail
+          git checkout main
+          git reset --hard origin/main
+          rm -rf src/Cardcha
+          mkdir -p src
+          cp -a /tmp/promote/Cardcha src/Cardcha
+          rm -rf src/Cardcha/bin src/Cardcha/obj
+          python3 - <<'PY'
+          from pathlib import Path
+          stamp = '''# CURRENT CANONICAL BASELINE — 2026-08-28\n\n- **Temporary accepted baseline:** `v0.3.0-alpha.26.5.3` pending another controller test pass.\n- `main/src/Cardcha` is now the source-code/data baseline. Do not reconstruct from alpha.25.\n- MiMi portrait canonical rollback: `assets/mimi_portraits.png` = **768x128**.\n- Current TEST art overrides that must not be silently reverted in packaged builds: `card_icons.png`, `chacha_follow.png`, `chacha_machine.png`, `chacha_portrait.png`, `mimi_walk.png`. These were user-approved after the older GitHub art baseline; treat the latest TEST/package assets as canonical art until their raw binary blobs are separately byte-synced to GitHub.\n- Controller status: alpha.26.5.3 includes safe reveal/focus/shop hotfixes, but the user has not yet re-tested with a controller after this build.\n- Next planned milestone after controller confirmation: **alpha.27 MiMi Real NPC** (friendship/gifting, Spring 17 birthday, Wizard attic, Community Center foundation).\n\n'''
+          for name in ['PROJECT_HANDOFF.md','NEXT_SESSION_START_HERE.md']:
+              p=Path(name)
+              old=p.read_text(encoding='utf-8') if p.exists() else ''
+              marker='# CURRENT CANONICAL BASELINE — 2026-08-28'
+              if marker not in old:
+                  p.write_text(stamp + old, encoding='utf-8')
+          PY
+          git add src/Cardcha PROJECT_HANDOFF.md NEXT_SESSION_START_HERE.md
+          git config user.name 'ronvotri'
+          git config user.email 'lengochung28191@gmail.com'
+          git commit -m 'source: promote alpha26.5.3 baseline to main'
+          git push origin main
