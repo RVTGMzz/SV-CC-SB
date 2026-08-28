@@ -1,0 +1,171 @@
+name: Cardcha alpha27.0.7.6.4 social mugshot + TMX hotfix
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-0764-social-tmx-hotfix.yml' ]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Apply 0.7.6.4 source hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+          from PIL import Image
+
+          r = Path('src/Cardcha')
+          old_version = '0.3.0-alpha.27.0.7.6'
+          new_version = '0.3.0-alpha.27.0.7.6.4'
+
+          # --- MiMi Social mugshot isolation ---
+          # Stardew 1.6 requires SocialTab MugShotSourceRect to point into the NPC sprite texture.
+          # Keep the actual 128x192 animation sheet pixel-identical and append a dedicated 16x24
+          # mugshot strip BELOW all animation frames. This makes Social UI independent without
+          # modifying any world-animation frame.
+          walk_path = r / 'assets/mimi_walk.png'
+          walk = Image.open(walk_path).convert('RGBA')
+          assert walk.size == (128, 192)
+
+          # Crisp 16x24 face/shoulder crop from the approved frame; no resampling = no blur.
+          mugshot = walk.crop((8, 0, 24, 24))
+          assert mugshot.size == (16, 24)
+          mugshot.save(r / 'assets/mimi_social_mugshot.png', optimize=True)
+
+          runtime = Image.new('RGBA', (128, 216), (0, 0, 0, 0))
+          runtime.alpha_composite(walk, (0, 0))
+          runtime.alpha_composite(mugshot, (0, 192))
+          runtime.save(r / 'assets/mimi_walk_runtime.png', optimize=True)
+
+          # Hard guard: not one animation pixel is allowed to change.
+          check = Image.open(r / 'assets/mimi_walk_runtime.png').convert('RGBA')
+          assert check.size == (128, 216)
+          assert check.crop((0, 0, 128, 192)).tobytes() == walk.tobytes()
+          assert check.crop((0, 192, 16, 216)).tobytes() == mugshot.tobytes()
+
+          p = r / 'Services/MimiMysteryTownService.cs'
+          s = p.read_text()
+          s = s.replace('SetRectangleProperty(mimi, "MugShotSourceRect", 0, 0, 16, 15);',
+                        'SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);')
+          # If a prior source still has the pre-0.7.6 crop, normalize it too.
+          s = s.replace('SetRectangleProperty(mimi, "MugShotSourceRect", 8, 1, 16, 15);',
+                        'SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);')
+          p.write_text(s)
+
+          # --- TMX parser hotfix ---
+          # TMXTile simply splits CSV on commas. A row must end with a comma separator EXCEPT
+          # the final row. 0.7.6 accidentally joined rows only with newlines, creating tokens
+          # like "69\n0" and UInt32.Parse() crashed at load time.
+          tmx = r / 'assets/mimi_attic.tmx'
+          root = ET.parse(tmx).getroot()
+          width, height = int(root.attrib['width']), int(root.attrib['height'])
+          expected = width * height
+          for layer in root.findall('./layer'):
+              data = layer.find('data')
+              raw = data.text or ''
+              # Accept any previous whitespace/trailing-comma formatting and recover integers.
+              import re
+              nums = [int(x) for x in re.findall(r'\d+', raw)]
+              assert len(nums) == expected, (layer.attrib.get('name'), len(nums), expected)
+              rows = [nums[y*width:(y+1)*width] for y in range(height)]
+              # Comma+newline BETWEEN rows, never a trailing comma after the final number.
+              data.text = '\n' + ',\n'.join(','.join(str(v) for v in row) for row in rows) + '\n'
+
+          props = {x.attrib.get('name'): x for x in root.findall('./properties/property')}
+          if 'CardchaAtticVersion' in props:
+              props['CardchaAtticVersion'].set('value', 'alpha.27.0.7.6.4')
+          if 'CardchaVisualDirection' in props:
+              props['CardchaVisualDirection'].set('value', 'true-stardew-map|vanilla-townInterior|strict-csv-parser-safe|isolated-social-mugshot')
+          ET.indent(root, space=' ')
+          ET.ElementTree(root).write(tmx, encoding='UTF-8', xml_declaration=True)
+
+          # --- Version bump ---
+          for path in [r/'Cardcha.csproj', r/'Directory.Build.targets']:
+              txt = path.read_text().replace(old_version, new_version)
+              path.write_text(txt)
+          manifest_path = r / 'manifest.json'
+          d = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
+          d['Version'] = new_version
+          manifest_path.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
+          p = r / 'ModEntry.cs'
+          s = p.read_text().replace('v0.3.0-alpha.27.0.7.6 UI SOCIAL + ATTIC SHELL POLISH TEST',
+                                    'v0.3.0-alpha.27.0.7.6.4 SOCIAL MUGSHOT + TMX HOTFIX TEST')
+          p.write_text(s)
+          PY
+
+      - name: Validate isolated animation + strict TMX
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, re, xml.etree.ElementTree as ET
+          r=Path('src/Cardcha')
+          assert json.loads((r/'manifest.json').read_text())['Version']=='0.3.0-alpha.27.0.7.6.4'
+          walk=Image.open(r/'assets/mimi_walk.png').convert('RGBA')
+          runtime=Image.open(r/'assets/mimi_walk_runtime.png').convert('RGBA')
+          mug=Image.open(r/'assets/mimi_social_mugshot.png').convert('RGBA')
+          assert walk.size==(128,192) and runtime.size==(128,216) and mug.size==(16,24)
+          assert runtime.crop((0,0,128,192)).tobytes()==walk.tobytes()
+          assert runtime.crop((0,192,16,216)).tobytes()==mug.tobytes()
+          social=(r/'Services/MimiMysteryTownService.cs').read_text()
+          assert 'MugShotSourceRect", 0, 192, 16, 24' in social
+
+          root=ET.parse(r/'assets/mimi_attic.tmx').getroot()
+          w,h=int(root.attrib['width']),int(root.attrib['height']); expected=w*h
+          for layer in root.findall('./layer'):
+              raw=layer.find('data').text or ''
+              # Emulate TMXTile's comma split: every token must parse as uint.
+              tokens=[x.strip() for x in raw.split(',')]
+              assert len(tokens)==expected, (layer.attrib['name'],len(tokens),expected)
+              assert all(tokens), layer.attrib['name']
+              vals=[int(x) for x in tokens]
+              assert all(v>=0 for v in vals)
+          print('0.7.6.4 isolated social mugshot + TMX parser validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test -f stage/Cardcha/assets/mimi_social_mugshot.png
+          test -f stage/Cardcha/assets/mimi_walk_runtime.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.6.4_SocialMugshot_TMXHotfix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Commit milestone source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.6.4: isolate MiMi social mugshot and fix TMX CSV' && git push origin cardcha-alpha27-mimi-real-npc)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0764-social-mugshot-tmx-hotfix
+          path: artifact
+          if-no-files-found: error
