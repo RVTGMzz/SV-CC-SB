@@ -1,4 +1,4 @@
-name: Cardcha alpha27.0.7.1 attic test access
+name: Cardcha alpha27.0.7.2 asset regression and reveal controller fix
 on:
   push:
     branches: [ cardcha-alpha27-mimi-real-npc ]
@@ -12,119 +12,60 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      - name: Prepare alpha27.0.7.1 attic test access
+      - name: Prepare alpha27.0.7.2 controller fix
         shell: bash
         run: |
           set -euo pipefail
           python3 build_assets/make_mimi_attic_true_stardew_map.py
           python3 - <<'PY'
           from pathlib import Path
-          import json, xml.etree.ElementTree as ET
+          import json
 
           r = Path('src/Cardcha')
-          tmx = r / 'assets/mimi_attic.tmx'
-          old_png = r / 'assets/mimi_attic_tiles.png'
-          assert tmx.exists(), 'true Stardew attic TMX missing'
-          assert not old_png.exists(), 'room-sized PNG must stay removed'
 
-          root = ET.parse(tmx).getroot()
-          assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
-          assert [x.attrib.get('name') for x in root.findall('layer')] == ['Back', 'Buildings', 'Front']
-          props = {p.attrib.get('name'): p.attrib.get('value') for p in root.find('properties').findall('property')}
-          assert props.get('CardchaAtticVersion') == 'alpha.27.0.7'
-          assert props.get('CardchaVisualDirection') == 'true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime'
-          image = root.find('tileset/image')
-          assert image is not None and image.attrib.get('source') == 'Maps/townInterior'
+          # Keep the 0.7.1 attic test bypass and true-Stardew map intact.
+          home = (r / 'Services/MimiHomeService.cs').read_text()
+          visual = (r / 'Services/MimiAtticVisualService.cs').read_text()
+          entry = (r / 'ModEntry.cs').read_text()
+          assert 'DebugToggleAtticAccess' in home
+          assert 'TestAccessActive' in visual
+          assert 'cardcha_test_attic' in entry
 
-          # Runtime-only test bypass. Normal gameplay gating remains untouched.
-          p = r / 'Services/MimiHomeService.cs'
+          # Controller regression: some runtimes synthesize a mouse click after a gamepad
+          # confirm. Mouse activation works, but that duplicate click immediately closes the
+          # detail overlay the controller just opened. Suppress the duplicate after activating
+          # a result, using the same guard already used when closing detail with a controller.
+          p = r / 'UI/CardchaRevealMenu.cs'
           s = p.read_text()
-          if 'DebugToggleAtticAccess' not in s:
-              anchor = '    public string Describe()\n    {\n'
-              method = '''    /// <summary>\n    /// TEST-only attic access. This never changes friendship, meetup flags, or save progression.\n    /// Run the command again from inside the attic to return to WizardHouse.\n    /// </summary>\n    public string DebugToggleAtticAccess()\n    {\n        if (!Context.IsWorldReady)\n            return "Attic TEST bypass unavailable: load a save first.";\n\n        GameLocation? current = Game1.currentLocation;\n        if (current is not null\n            && current.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase))\n        {\n            GameLocation? wizard = Game1.getLocationFromName("WizardHouse");\n            if (wizard is null)\n                return "Attic TEST bypass couldn't find WizardHouse.";\n\n            Point target = this.ResolveWizardStairTile(wizard);\n            int targetY = Math.Min(\n                target.Y + 1,\n                Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)\n            );\n            Game1.warpFarmer("WizardHouse", target.X, targetY, 2);\n            return "Attic TEST bypass: returned to WizardHouse. Normal progression was not changed.";\n        }\n\n        GameLocation? attic = this.EnsureAtticLocation();\n        if (attic is null)\n            return "Attic TEST bypass couldn't create Cardcha_MiMiAttic.";\n\n        Point arrival = this.ResolveAtticStairTile(attic);\n        Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);\n        return "Attic TEST bypass: warped to Cardcha_MiMiAttic. Run cardcha_test_attic again to leave. Normal progression was not changed.";\n    }\n\n'''
-              assert anchor in s, 'Describe anchor missing in MimiHomeService'
-              s = s.replace(anchor, method + anchor, 1)
-          s = s.replace(
-              "using the alpha.27.0.7 true Stardew tile/furniture map.",
-              "using the alpha.27.0.7.1 true Stardew map with runtime-only TEST access."
-          )
+          old = '''                this.RevealResult(resultIndex);\n                this.currentlySnappedComponent = this.ResultButtons[resultIndex];\n'''
+          new = '''                this.RevealResult(resultIndex);\n                this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;\n                this.currentlySnappedComponent = this.ResultButtons[resultIndex];\n'''
+          if new not in s:
+              assert old in s, 'RevealResult controller anchor changed unexpectedly'
+              s = s.replace(old, new, 1)
           p.write_text(s)
-          assert 'public string DebugToggleAtticAccess()' in s
-          assert 'this.EnsureAtticLocation()' in s
-          assert 'Normal progression was not changed.' in s
+          assert 'this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;' in s
+          assert s.count('this.IgnoreResultMouseUntilMs = Environment.TickCount64 + 220d;') >= 2
 
-          p = r / 'Services/MimiAtticVisualService.cs'
-          s = p.read_text()
-          if 'TestAccessActive' not in s:
-              field_anchor = '    private readonly SaveService Save;\n'
-              field = '    private bool TestAccessActive;\n'
-              assert field_anchor in s, 'Save field anchor missing'
-              s = s.replace(field_anchor, field_anchor + field, 1)
-
-              method_anchor = '    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)\n'
-              method = '''    /// <summary>Enable or disable runtime-only attic testing without touching save progression.</summary>\n    public void SetTestAccess(bool enabled)\n    {\n        this.TestAccessActive = enabled;\n    }\n\n'''
-              assert method_anchor in s, 'asset request anchor missing'
-              s = s.replace(method_anchor, method + method_anchor, 1)
-
-              s = s.replace(
-                  '        if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)\n            return;\n\n        GameLocation? location = Game1.currentLocation;',
-                  '        if (!Context.IsWorldReady)\n            return;\n\n        GameLocation? location = Game1.currentLocation;',
-                  1
-              )
-
-              old_block = '''        if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))\n        {\n            DrawStairMarker(e.SpriteBatch, FindClearTileNear(location, preferUpperHalf: true));\n            return;\n        }\n\n        if (!location.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase))\n            return;\n\n        // 0.7 intentionally does not draw a fake staircase/room overlay inside the attic.\n        // The TMX doorway is the room exit, and the furniture below is rendered by Stardew itself.\n        EnsureVanillaFurniture(location);\n'''
-              new_block = '''        if (location.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase))\n        {\n            if (this.Save.Data.MimiMeetupCompleted || this.TestAccessActive)\n                EnsureVanillaFurniture(location);\n            return;\n        }\n\n        if (!this.Save.Data.MimiMeetupCompleted)\n            return;\n\n        if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))\n            DrawStairMarker(e.SpriteBatch, FindClearTileNear(location, preferUpperHalf: true));\n'''
-              assert old_block in s, 'render block changed unexpectedly'
-              s = s.replace(old_block, new_block, 1)
-
-              s = s.replace(
-                  '            || !this.Save.Data.MimiMeetupCompleted\n            || !e.Button.IsActionButton()',
-                  '            || (!this.Save.Data.MimiMeetupCompleted && !this.TestAccessActive)\n            || !e.Button.IsActionButton()',
-                  1
-              )
-
-          s = s.replace('Alpha.27.0.7 true-Stardew visual layer', 'Alpha.27.0.7.1 true-Stardew visual layer with test access')
-          s = s.replace('Still only an eligibility hook in alpha.27.0.7.', 'Still only an eligibility hook in alpha.27.0.7.1.')
-          p.write_text(s)
-          assert 'private bool TestAccessActive;' in s
-          assert 'public void SetTestAccess(bool enabled)' in s
-          assert 'this.Save.Data.MimiMeetupCompleted || this.TestAccessActive' in s
-          assert '(!this.Save.Data.MimiMeetupCompleted && !this.TestAccessActive)' in s
-          assert 'EnsureVanillaFurniture' in s
-
+          # Version/log bump only; canonical user-supplied PNGs are injected into the final
+          # TEST artifact after CI compile and verified byte-for-byte before handoff.
           p = r / 'ModEntry.cs'
-          s = p.read_text()
-          if 'cardcha_test_attic' not in s:
-              registration = '        helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);\n'
-              addition = '        helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);\n'
-              assert registration in s, 'console registration anchor missing'
-              s = s.replace(registration, registration + addition, 1)
-
-              method_anchor = '    private void CommandVersion(string command, string[] args)\n'
-              method = '''    private void CommandTestAttic(string command, string[] args)\n    {\n        if (!Context.IsWorldReady)\n        {\n            this.Monitor.Log("Load a save before using cardcha_test_attic.", LogLevel.Warn);\n            return;\n        }\n\n        bool leaving = Game1.currentLocation?.NameOrUniqueName.Equals(\n            MimiHomeService.AtticLocationName,\n            StringComparison.OrdinalIgnoreCase\n        ) == true;\n\n        this.AtticVisual.SetTestAccess(!leaving);\n        string result = this.Home.DebugToggleAtticAccess();\n        this.Monitor.Log(result, LogLevel.Alert);\n    }\n\n'''
-              assert method_anchor in s, 'CommandVersion anchor missing'
-              s = s.replace(method_anchor, method + method_anchor, 1)
-
-          s = s.replace(
-              'v0.3.0-alpha.27.0.7 MIMI ATTIC TRUE STARDEW MAP TEST',
-              'v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS'
+          s = p.read_text().replace(
+              'v0.3.0-alpha.27.0.7.1 MIMI ATTIC TEST ACCESS',
+              'v0.3.0-alpha.27.0.7.2 ASSET RESTORE + REVEAL CONTROLLER FIX TEST'
           )
           p.write_text(s)
-          assert 'cardcha_test_attic' in s
-          assert 'this.AtticVisual.SetTestAccess(!leaving);' in s
-          assert 'this.Home.DebugToggleAtticAccess();' in s
 
           p = r / 'Cardcha.csproj'
-          s = p.read_text().replace('0.3.0-alpha.27.0.7', '0.3.0-alpha.27.0.7.1')
+          s = p.read_text().replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.2')
           p.write_text(s)
 
           p = r / 'Directory.Build.targets'
-          s = p.read_text().replace('0.3.0-alpha.27.0.7', '0.3.0-alpha.27.0.7.1').replace('CardchaAlpha2707Manifest', 'CardchaAlpha27071Manifest')
+          s = p.read_text().replace('0.3.0-alpha.27.0.7.1', '0.3.0-alpha.27.0.7.2').replace('CardchaAlpha27071Manifest', 'CardchaAlpha27072Manifest')
           p.write_text(s)
 
           p = r / 'manifest.json'
           d = json.loads(p.read_text(encoding='utf-8-sig'))
-          d['Version'] = '0.3.0-alpha.27.0.7.1'
+          d['Version'] = '0.3.0-alpha.27.0.7.2'
           p.write_text(json.dumps(d, ensure_ascii=False, indent=2) + '\n')
           PY
 
@@ -133,7 +74,7 @@ jobs:
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Package TEST
+      - name: Package controller-fixed TEST base
         shell: bash
         run: |
           set -euo pipefail
@@ -145,7 +86,7 @@ jobs:
           test -f stage/Cardcha/assets/mimi_attic.tmx
           test ! -f stage/Cardcha/assets/mimi_attic_tiles.png
           grep -q 'Maps/townInterior' stage/Cardcha/assets/mimi_attic.tmx
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.1_MiMiAttic_TestAccess_TEST.zip Cardcha)
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.2_ControllerFixed_BASE.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - name: Commit compiled milestone source
@@ -155,10 +96,10 @@ jobs:
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.7.1: add runtime-only MiMi attic test access' && git push origin cardcha-alpha27-mimi-real-npc)
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.2: fix reveal controller duplicate click' && git push origin cardcha-alpha27-mimi-real-npc)
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha27-attic-test-access
+          name: cardcha-alpha27-controller-fixed-base
           path: artifact
           if-no-files-found: error
