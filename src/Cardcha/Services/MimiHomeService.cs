@@ -163,7 +163,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.5 custom interior map.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.6 vanilla-style custom interior map.", LogLevel.Info);
             }
             return attic;
         }

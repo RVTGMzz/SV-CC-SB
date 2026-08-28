@@ -7,7 +7,7 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.27.0.5 custom interior layer for MiMi's attic.
+/// Alpha.27.0.6 vanilla-style custom interior layer for MiMi's attic.
 /// The room now loads from a dedicated TMX + PNG asset while this service keeps the stable
 /// inspect points, staircase marker, and the future 17:30 / 6-heart TV eligibility hook.
 /// </summary>
@@ -92,7 +92,7 @@ internal sealed class MimiAtticVisualService
     }
 
     /// <summary>
-    /// Still only an eligibility hook in alpha.27.0.5. The actual private TV routine remains
+    /// Still only an eligibility hook in alpha.27.0.6. The actual private TV routine remains
     /// intentionally out of scope until the custom attic passes in-game layout acceptance.
     /// </summary>
     public bool IsSecretTvRoutineEligible()
