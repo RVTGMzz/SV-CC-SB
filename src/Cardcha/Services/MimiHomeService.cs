@@ -24,6 +24,7 @@ internal sealed class MimiHomeService
     private readonly SaveService Save;
     private readonly WorldActorService WorldActors;
     private readonly Func<bool> StoryOwnsMimiActor;
+    private readonly Func<bool> MysteryOwnsMimiActor;
 
     private Point? CachedWizardStairTile;
     private Point? CachedAtticStairTile;
@@ -34,13 +35,15 @@ internal sealed class MimiHomeService
         IMonitor monitor,
         SaveService save,
         WorldActorService worldActors,
-        Func<bool> storyOwnsMimiActor)
+        Func<bool> storyOwnsMimiActor,
+        Func<bool> mysteryOwnsMimiActor)
     {
         this.Helper = helper;
         this.Monitor = monitor;
         this.Save = save;
         this.WorldActors = worldActors;
         this.StoryOwnsMimiActor = storyOwnsMimiActor;
+        this.MysteryOwnsMimiActor = mysteryOwnsMimiActor;
     }
 
     public void OnSaveLoaded()
@@ -176,6 +179,7 @@ internal sealed class MimiHomeService
         if (!Context.IsWorldReady
             || !this.Save.Data.MimiMeetupCompleted
             || this.StoryOwnsMimiActor()
+            || this.MysteryOwnsMimiActor()
             || Game1.eventUp)
         {
             return;

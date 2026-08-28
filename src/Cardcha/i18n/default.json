@@ -766,5 +766,7 @@
   "mimi.gift.like": "Useful, strange, or shiny. You are learning my highly scientific standards.$h",
   "mimi.gift.neutral": "Thanks. I'll put it somewhere ChaCha can't immediately investigate.",
   "mimi.gift.dislike": "Ah. A gift. Definitely a gift. I can confirm that much.$s",
-  "mimi.gift.hate": "I have questions. Most of them begin with 'why'.$a"
+  "mimi.gift.hate": "I have questions. Most of them begin with 'why'.$a",
+  "mimi.attic.locked": "MiMi's attic is upstairs. She has somehow made it clear that you need {{hearts}} hearts before 'accidentally' wandering in.",
+  "mimi.attic.unavailable": "The attic stairs seem to be arguing with reality right now. Try again after re-entering the Wizard's house."
 }

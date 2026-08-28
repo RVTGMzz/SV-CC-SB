@@ -846,5 +846,7 @@
   "mimi.gift.like": "Hữu dụng, kỳ quặc hoặc lấp lánh. Bạn đang hiểu tiêu chuẩn cực kỳ khoa học của tui rồi đó.$h",
   "mimi.gift.neutral": "Cảm ơn nha. Tui sẽ cất ở đâu đó ChaCha chưa kịp điều tra ngay.",
   "mimi.gift.dislike": "À. Quà. Chắc chắn là quà. Ít nhất chuyện đó thì tui xác nhận được.$s",
-  "mimi.gift.hate": "Tui có vài câu hỏi. Hầu hết đều bắt đầu bằng 'tại sao'.$a"
+  "mimi.gift.hate": "Tui có vài câu hỏi. Hầu hết đều bắt đầu bằng 'tại sao'.$a",
+  "mimi.attic.locked": "Gác mái của MiMi ở trên đó. Bằng cách nào đó cô ấy đã nói rất rõ rằng phải đủ {{hearts}} tim rồi mới được 'vô tình' đi lạc lên.",
+  "mimi.attic.unavailable": "Cầu thang gác mái hình như đang cãi nhau với thực tại. Thử ra vào lại nhà Pháp Sư nhé."
 }

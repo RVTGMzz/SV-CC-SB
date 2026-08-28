@@ -37,6 +37,7 @@ internal sealed class ModEntry : Mod
     private CardchaStoryService Story = null!;
     private MimiMysteryTownService Mystery = null!;
     private MimiSocialService Social = null!;
+    private MimiHomeService Home = null!;
     private WorldActorService WorldActors = null!;
     private PortableMachineService PortableMachine = null!;
 
@@ -112,6 +113,14 @@ internal sealed class ModEntry : Mod
             this.WorldActors,
             this.OpenMimiShop
         );
+        this.Home = new MimiHomeService(
+            helper,
+            this.Monitor,
+            this.Save,
+            this.WorldActors,
+            () => this.Story.OwnsMimiWorldActor,
+            () => this.Mystery.OwnsMimiWorldActor
+        );
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -131,6 +140,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Social.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
@@ -177,7 +187,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.1 MIMI REAL NPC SOCIAL CORE with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -254,6 +264,7 @@ internal sealed class ModEntry : Mod
         this.Story.OnSaveLoaded();
         this.Mystery.OnSaveLoaded();
         this.Social.OnSaveLoaded();
+        this.Home.OnSaveLoaded();
         this.NormalizeCardchaMachinePlacement();
         this.NormalizePortableMachinePlacement();
 
@@ -281,6 +292,7 @@ internal sealed class ModEntry : Mod
         this.Story.OnDayStarted();
         this.Mystery.OnDayStarted();
         this.Social.OnDayStarted();
+        this.Home.OnDayStarted();
         this.Save.Save();
     }
 
@@ -291,6 +303,7 @@ internal sealed class ModEntry : Mod
 
         this.Story.OnUpdateTicked(sender, e);
         this.Mystery.OnUpdateTicked();
+        this.Home.OnUpdateTicked(e);
         this.Social.OnUpdateTicked(e);
 
         // Universal compatibility observer intentionally runs every tick so a custom
@@ -312,6 +325,7 @@ internal sealed class ModEntry : Mod
         this.Story.OnReturnedToTitle();
         this.Mystery.OnReturnedToTitle();
         this.Social.OnReturnedToTitle();
+        this.Home.OnReturnedToTitle();
         this.Save.Clear();
     }
 
@@ -735,6 +749,7 @@ internal sealed class ModEntry : Mod
             this.Story.Describe() + "\n" +
             this.Mystery.Describe() + "\n" +
             this.Social.Describe() + "\n" +
+            this.Home.Describe() + "\n" +
             this.PortableMachine.Describe(),
             LogLevel.Alert
         );
@@ -842,7 +857,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.1 MIMI REAL NPC SOCIAL CORE",
+            "Cardcha! v0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION",
             LogLevel.Alert
         );
     }

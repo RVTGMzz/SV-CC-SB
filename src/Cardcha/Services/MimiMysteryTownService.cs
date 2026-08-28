@@ -465,6 +465,8 @@ internal sealed class MimiMysteryTownService
         // in GameLocation.characters; Stardew now owns their depth sorting.
     }
 
+    public bool OwnsMimiWorldActor => this.Flight != FlightState.None;
+
     public string Describe()
     {
         NPC? native = FindNativeNpc();
@@ -498,6 +500,9 @@ internal sealed class MimiMysteryTownService
     private bool IsMerchantRoutineActive()
     {
         if (!Context.IsWorldReady || !this.Save.Data.MimiMeetupCompleted)
+            return false;
+
+        if (IsRestoredCommunityCenterRoute())
             return false;
 
         int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;
@@ -534,7 +539,7 @@ internal sealed class MimiMysteryTownService
 
         if (Game1.timeOfDay < MerchantStartTime || Game1.timeOfDay >= MerchantEndTime)
         {
-            this.HideNativeOffMap();
+            // alpha.27: HomeService keeps MiMi in her attic outside work hours.
             return;
         }
 
@@ -656,6 +661,21 @@ internal sealed class MimiMysteryTownService
 
         if (Context.IsWorldReady && this.IsMerchantRoutineActive())
             this.OpenMimiShop();
+    }
+
+    private static bool IsRestoredCommunityCenterRoute()
+    {
+        if (!Context.IsWorldReady || Game1.MasterPlayer.mailReceived.Contains("JojaMember"))
+            return false;
+        try
+        {
+            return Game1.MasterPlayer.hasCompletedCommunityCenter()
+                || Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
+        }
+        catch
+        {
+            return Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
+        }
     }
 
     private static bool IsMerchantWeekday()
@@ -1082,6 +1102,11 @@ internal sealed class MimiMysteryTownService
         // StoryService explicitly owns MiMi while an intro/meetup/departure presentation is live.
         // This avoids a race where MysteryService would otherwise move the same native NPC off-map.
         if (this.StoryOwnsMimiActor())
+            return;
+
+        // After the Wizard meetup, MiMi is a persistent social NPC. The alpha.27 home layer
+        // owns her during weekends, off-hours, and the restored Community Center route.
+        if (this.Save.Data.MimiMeetupCompleted)
             return;
 
         this.HideNativeOffMap();
