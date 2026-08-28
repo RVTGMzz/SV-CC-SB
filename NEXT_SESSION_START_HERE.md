@@ -1,97 +1,80 @@
-# CURRENT CANONICAL BASELINE — 2026-08-28
+# NEXT SESSION — Cardcha Alpha.27
 
-- **Temporary accepted baseline:** `v0.3.0-alpha.26.5.3` pending another controller test pass.
-- `main/src/Cardcha` is now the source-code/data baseline. Do not reconstruct from alpha.25.
-- MiMi portrait canonical rollback: `assets/mimi_portraits.png` = **768x128**.
-- Current TEST art overrides that must not be silently reverted in packaged builds: `card_icons.png`, `chacha_follow.png`, `chacha_machine.png`, `chacha_portrait.png`, `mimi_walk.png`. These were user-approved after the older GitHub art baseline; treat the latest TEST/package assets as canonical art until their raw binary blobs are separately byte-synced to GitHub.
-- Controller status: alpha.26.5.3 includes safe reveal/focus/shop hotfixes, but the user has not yet re-tested with a controller after this build.
-- Next planned milestone after controller confirmation: **alpha.27 MiMi Real NPC** (friendship/gifting, Spring 17 birthday, Wizard attic, Community Center foundation).
+## Current branches
 
-# NEXT SESSION — Cardcha v0.3.0-alpha.25 Gacha Interior Flash
+- `main` = temporary rollback baseline `v0.3.0-alpha.26.5.3`.
+- Active development branch = `cardcha-alpha27-mimi-real-npc`.
+- Do **not** rebuild alpha.27 from old alpha.25/26 snapshots; continue from the active branch source.
 
-## READ FIRST
-Before editing code, read:
-1. `PROJECT_HANDOFF.md`
-2. `KNOWN_ISSUES.md`
-3. `BUILD.md`
+## Current alpha.27 status
+
+Latest compiled integration candidate before the next visual pass:
+- `v0.3.0-alpha.27.0.3 — MiMi Real NPC Integration TEST`
+- CI compile: PASS.
+
+Implemented foundation includes:
+- MiMi real friendship/social NPC after Wizard-house meetup;
+- Social tab + vanilla gifting;
+- birthday **Spring 17**;
+- controller-friendly one-button priority: held gift -> gifting, first empty-hand talk -> dialogue, later empty-hand action -> shop;
+- stable attic location ID `Cardcha_MiMiAttic`;
+- attic access at **2 hearts**;
+- schedule foundation: 11:00–17:00 Monday–Friday work, attic outside work/weekends;
+- Community Center workplace foundation for restored non-Joja route;
+- Wizard House work fallback during harsh weather;
+- staircase/access integration without wholesale WizardHouse replacement.
+
+## Canon MiMi assets
+
+- `mimi_portraits.png` canonical size = **768x128**.
+- Do not silently restore the rejected 1152x192 or 1536x256 portrait experiments.
+- Latest user-approved TEST/package art remains canonical where GitHub binary art is still older.
+
+## Current milestone
+
+# `Alpha.27.0.4 — MiMi Attic Visual Foundation`
+
+Build this next. The user explicitly asked to **build, not re-plan**.
+
+Required attic layout is locked to five zones:
+1. entrance / stair landing;
+2. research desk;
+3. bed / personal corner;
+4. TV secret zone;
+5. ChaCha / upgrade corner.
+
+Visual tone:
+- warm;
+- eccentric;
+- lived-in;
+- slightly messy with intent;
+- clear Cardcha/Scrap/ChaCha identity;
+- still a home, not a workshop or second shop.
+
+Technical rules:
+- keep `Cardcha_MiMiAttic` stable;
+- don't replace WizardHouse wholesale;
+- preserve 2-heart access;
+- add groundwork inspect interactions for desk / TV / ChaCha with EN/VI flavor text;
+- leave hooks for the later 17:30 private routine at ~6 hearts.
+
+Out of scope for alpha.27.0.4:
+- full heart events;
+- full 17:30 event;
+- full ChaCha/Card Dust upgrade mechanic;
+- full seasonal Community Center contribution mechanic.
+
+## Read these docs before changing alpha.27
+
+1. `docs/alpha27/MIMI_ATTIC_DESIGN_BIBLE.md`
+2. `docs/alpha27/MIMI_CHARACTER_GIFTS_SCHEDULE.md`
+3. `PROJECT_HANDOFF.md`
 4. `docs/STORY_GAMEPLAY_BIBLE.md`
 
-## Source status
-The alpha.25 source is synchronized and verified on GitHub.
+## Build rule
 
-Canonical repository baseline:
-- default branch: `main`
-- alpha.25 source anchor commit: `a083e0a0cb1eb94852964a6f732a73fd7f506b04`
-- promotion merge to `main`: `ef7b34bbd9aebdd53c2aae3c6ead60606a1c8d33`
-- exact `src/Cardcha` tree: `89cff25d67700762ed94399a5905bdf1a52e736f`
+Produce a **real CI-compiled TEST ZIP** before claiming the milestone is complete. Keep alpha.27 work on `cardcha-alpha27-mimi-real-npc` until in-game acceptance; do not merge to `main` automatically.
 
-The tree above matches all 69 files in `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip` byte-for-byte. Use checked-in GitHub `src/Cardcha` on `main` as the baseline source of truth. The `binder-v0.3-alpha1` branch is the v0.3 development branch and is kept reconciled with this baseline before new work begins.
+## Controller regression note
 
-## Current candidate
-- Version: `0.3.0-alpha.25`
-- Build label: `Cardcha! v0.3.0-alpha.25 GACHA INTERIOR FLASH`
-- User status: accepted as the current working baseline after in-game testing; not declared a final public stable release.
-
-## alpha.24 compatibility fix retained
-alpha.23 exposed `IGenericModConfigMenuApi` as non-public, which caused SMAPI/Cinderbox to reject API mapping. The interface is now `public` and this fix is retained in alpha.25.
-
-Do not fold unrelated button/remapping work from other conversations into this fix unless a new regression is explicitly reported.
-
-## Controller architecture
-- Cardcha menus use `ControllerProfileService`; raw A/B/X/Y behavior should not be duplicated through Binder/Machine/Pull/Reveal/MiMi Shop.
-- Semantic physical actions are South=Confirm, East=Favorite, West=Deselect, North=Exit.
-- Controller Layout options: Auto, Xbox, Nintendo, PlayStation, Generic.
-- Runtime Mapping options: Auto, Standard, NintendoNative.
-- Auto may fall back to Xbox/Standard when Steam Input or a virtual runtime hides controller identity.
-- Optional GMCM/config overrides exist.
-- `cardcha_controller_status` reports the resolved profile/labels.
-
-## Binder protected behavior
-- quick double activation window is 650ms with no artificial minimum delay;
-- double click / double Confirm on an owned card toggles equip and can unequip an already equipped card;
-- free focus movement previews cards without replacing the locked-card action context;
-- only explicit Deselect releases the locked card.
-
-## Gacha UI — alpha.25 contract
-- Reveal/result cards use rounded corners.
-- Result cards show localized Name + large Icon + NEW/DUPLICATE only; no rarity line.
-- Reveal/result aura includes sparkle bursts.
-- No old small rectangular aura around the machine.
-- During ritual resonance, the rarity/white flash is a near-full-panel **interior filter**.
-- The filter is inset 8px so it does not overdraw the frame.
-- The outer gold frame/border must remain visually stable instead of pulsing with the filter.
-- Stationary and Portable rituals share this `DrawFlash()` behavior.
-
-## EN / VI localization
-- All 80 card names and descriptions are present in `default.json` and `vi.json`.
-- All 304 per-star rule rows are localized in both languages and preferred by the Binder over legacy `cards.json` StarRules.
-- damage variance wording is clarified as random damage fluctuation / `độ dao động ngẫu nhiên của sát thương`.
-- avoid mixed-language fragments in Vietnamese UI unless they are proper names.
-
-## Story / gameplay design bible
-`docs/STORY_GAMEPLAY_BIBLE.md` is the source of truth for agreed future story/progression. It records MiMi full-NPC direction, relationship-aware behavior, Community Center role, the 20/40/60/80 boss arc, MiMi as intended final boss, airship travel, and ChaCha expression/form/passive progression, while keeping undecided items in TBD sections.
-
-## Regression checks for the next change
-1. Verify `manifest.json`, `Cardcha.csproj`, startup log, and `cardcha_version` all stay on the intended version.
-2. Start with GMCM installed: there must be no Cardcha `non-public interface` API-mapping error.
-3. Verify controller semantics have not changed accidentally.
-4. Verify Binder free-preview / locked-card / double-unequip behavior.
-5. Pull 1 and pull 10: rounded result cards, large icon, Name + MỚI/TRÙNG only.
-6. During ritual resonance, the interior flashes while the outer gold border stays visually stable.
-7. Check both Stationary and Portable rituals.
-8. Spot-check EN/VI card details and MiMi/ChaCha story/shop/world actors.
-
-## Artifacts
-- `Cardcha_v0.3.0-alpha.25_GachaInteriorFlash_WindowsBuilder_FULL.zip`
-- `Cardcha_v0.3.0-alpha.25_SOURCE_SNAPSHOT.zip`
-- expected built test package: `_READY_TO_TEST/Cardcha_v0.3.0-alpha.25_GachaInteriorFlash_TEST.zip`
-
-## Validation status
-- GitHub source sync: **VERIFIED**
-- exact source tree comparison against alpha.25 snapshot: **VERIFIED**
-- alpha.25 static validation prepared before handoff: **41/41 PASS**
-- user in-game visual acceptance: **CURRENT WORKING BASELINE**
-- do not infer exhaustive platform/regression coverage from that acceptance.
-
-## Next development rule
-Start future work from `main` or from a fresh development branch created from the current `main`. If continuing `binder-v0.3-alpha1`, first make sure it is at least at the current `main` baseline. Do not resurrect the older alpha.23 branch state.
+Alpha.26.5.3 is still the rollback baseline because the user has not yet had a controller available for the final regression pass. Do not let that block alpha.27 development, but preserve the rollback point.
