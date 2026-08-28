@@ -1,0 +1,97 @@
+name: Cardcha alpha26.5.3 CI
+
+on:
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    steps:
+      - name: Fetch code
+        uses: actions/checkout@v4
+
+      - name: Recover exact alpha26.5.2 compiler source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          curl -L \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/ronvotri/Cardcha-Shardbound/actions/artifacts/9670667016/zip \
+            -o /tmp/alpha2652-artifact.zip
+          mkdir -p /tmp/alpha2652-artifact build-src
+          unzip -q /tmp/alpha2652-artifact.zip -d /tmp/alpha2652-artifact
+          test -f /tmp/alpha2652-artifact/Cardcha_alpha26.5_SOURCE.tar.xz
+          tar -xJf /tmp/alpha2652-artifact/Cardcha_alpha26.5_SOURCE.tar.xz -C build-src
+          test -f build-src/Cardcha/Cardcha.csproj
+
+      - name: Apply alpha26.5.3 safe UI hotfix overlay
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat build-input-alpha2653/overlay.part.00.b64 \
+              build-input-alpha2653/overlay.part.01.b64 > /tmp/alpha2653-overlay.b64
+          test "$(wc -c < /tmp/alpha2653-overlay.b64)" -eq 35228
+          base64 --decode /tmp/alpha2653-overlay.b64 > /tmp/alpha2653-overlay.tar.xz
+          test "$(sha256sum /tmp/alpha2653-overlay.tar.xz | awk '{print $1}')" = "599f5400ea25dd73e3df2a310c5a29604af7ff929b3269cb3571e4c365507f02"
+          xz -t /tmp/alpha2653-overlay.tar.xz
+          mkdir -p /tmp/alpha2653-overlay
+          tar -xJf /tmp/alpha2653-overlay.tar.xz -C /tmp/alpha2653-overlay
+          cp -a /tmp/alpha2653-overlay/Cardcha/. build-src/Cardcha/
+
+      - name: Validate alpha26.5.3 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          root = Path('build-src/Cardcha')
+          checks = {
+            root/'manifest.json': ['0.3.0-alpha.26.5.3'],
+            root/'UI'/'CardchaRevealMenu.cs': ['IgnoreResultMouseUntilMs', 'faceButton = b is Buttons.A or Buttons.B or Buttons.X or Buttons.Y'],
+            root/'UI'/'CardchaBinderMenu.cs': ['EnsureControllerFocusValid', 'Handle the two system badges directly'],
+            root/'UI'/'MimiScrapShopMenu.cs': ['maxLines: 2', 'strict two-line band'],
+            root/'Patches'/'RevealControllerOneButtonRuntimePatch.cs': ['retired. The one-button reveal behavior now lives directly'],
+          }
+          for file, needles in checks.items():
+              text = file.read_text(encoding='utf-8')
+              for needle in needles:
+                  assert needle in text, f'{needle!r} missing from {file}'
+          assert 'ModuleInitializer' not in (root/'Patches'/'RevealControllerOneButtonRuntimePatch.cs').read_text(encoding='utf-8')
+          print('alpha26.5.3 safe UI contracts PASS')
+          PY
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Build Cardcha DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build build-src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
+          test -n "$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)"
+
+      - name: Stage artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact
+          cp "$(find build-src/Cardcha/bin -name Cardcha.dll -print -quit)" artifact/Cardcha.dll
+          PDB="$(find build-src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"
+          if [ -n "$PDB" ]; then cp "$PDB" artifact/Cardcha.pdb; fi
+          cp build-src/Cardcha/manifest.json artifact/manifest.json
+          tar -cJf artifact/Cardcha_alpha26.5.3_SOURCE.tar.xz -C build-src Cardcha
+
+      - name: Upload alpha26.5.3 compiler output
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha26.5.3-compiler-output
+          path: artifact
+          if-no-files-found: error
