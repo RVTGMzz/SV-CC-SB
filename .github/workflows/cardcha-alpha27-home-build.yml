@@ -1,0 +1,136 @@
+name: Cardcha alpha27 attic and Community Center build
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-home-build.yml'
+      - 'src/Cardcha/Services/MimiHomeService.cs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire attic and schedule layer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('src/Cardcha')
+
+          # Give the home layer a transition guard so MiMi's approved broom departure can finish.
+          hp=r/'Services'/'MimiHomeService.cs'; h=hp.read_text(encoding='utf-8')
+          h=h.replace('    private readonly Func<bool> StoryOwnsMimiActor;\n', '    private readonly Func<bool> StoryOwnsMimiActor;\n    private readonly Func<bool> MysteryOwnsMimiActor;\n',1)
+          h=h.replace('        WorldActorService worldActors,\n        Func<bool> storyOwnsMimiActor)\n', '        WorldActorService worldActors,\n        Func<bool> storyOwnsMimiActor,\n        Func<bool> mysteryOwnsMimiActor)\n',1)
+          h=h.replace('        this.StoryOwnsMimiActor = storyOwnsMimiActor;\n', '        this.StoryOwnsMimiActor = storyOwnsMimiActor;\n        this.MysteryOwnsMimiActor = mysteryOwnsMimiActor;\n',1)
+          h=h.replace('            || this.StoryOwnsMimiActor()\n            || Game1.eventUp)', '            || this.StoryOwnsMimiActor()\n            || this.MysteryOwnsMimiActor()\n            || Game1.eventUp)',1)
+          hp.write_text(h,encoding='utf-8')
+
+          # Let post-meetup HomeService own MiMi whenever the old merchant routine is inactive.
+          mp=r/'Services'/'MimiMysteryTownService.cs'; m=mp.read_text(encoding='utf-8')
+          old='''        int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;\n        bool unlockedNow = unlockedDay < 0 || Game1.Date.TotalDays >= unlockedDay;\n        return unlockedNow && IsMerchantWeekday();\n'''
+          new='''        if (IsRestoredCommunityCenterRoute())\n            return false;\n\n        int unlockedDay = this.Save.Data.MimiMerchantUnlockedDay;\n        bool unlockedNow = unlockedDay < 0 || Game1.Date.TotalDays >= unlockedDay;\n        return unlockedNow && IsMerchantWeekday();\n'''
+          if old not in m: raise SystemExit('merchant active anchor missing')
+          m=m.replace(old,new,1)
+          old='''        if (Game1.timeOfDay < MerchantStartTime || Game1.timeOfDay >= MerchantEndTime)\n        {\n            this.HideNativeOffMap();\n            return;\n        }\n'''
+          new='''        if (Game1.timeOfDay < MerchantStartTime || Game1.timeOfDay >= MerchantEndTime)\n        {\n            // alpha.27: HomeService keeps MiMi in her attic outside work hours.\n            return;\n        }\n'''
+          if old not in m: raise SystemExit('merchant outside-hours anchor missing')
+          m=m.replace(old,new,1)
+          old='''        if (this.StoryOwnsMimiActor())\n            return;\n\n        this.HideNativeOffMap();\n'''
+          new='''        if (this.StoryOwnsMimiActor())\n            return;\n\n        // After the Wizard meetup, MiMi is a persistent social NPC. The alpha.27 home layer\n        // owns her during weekends, off-hours, and the restored Community Center route.\n        if (this.Save.Data.MimiMeetupCompleted)\n            return;\n\n        this.HideNativeOffMap();\n'''
+          if old not in m: raise SystemExit('story visibility anchor missing')
+          m=m.replace(old,new,1)
+          describe='''    public string Describe()\n    {\n'''
+          if describe not in m: raise SystemExit('describe anchor missing')
+          m=m.replace(describe,'''    public bool OwnsMimiWorldActor => this.Flight != FlightState.None;\n\n    public string Describe()\n    {\n''',1)
+          weekday='''    private static bool IsMerchantWeekday()\n    {\n'''
+          helper='''    private static bool IsRestoredCommunityCenterRoute()\n    {\n        if (!Context.IsWorldReady || Game1.MasterPlayer.mailReceived.Contains("JojaMember"))\n            return false;\n        try\n        {\n            return Game1.MasterPlayer.hasCompletedCommunityCenter()\n                || Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");\n        }\n        catch\n        {\n            return Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");\n        }\n    }\n\n'''
+          if weekday not in m: raise SystemExit('weekday helper anchor missing')
+          m=m.replace(weekday,helper+weekday,1)
+          mp.write_text(m,encoding='utf-8')
+
+          # Wire HomeService after the existing SocialService.
+          p=r/'ModEntry.cs'; s=p.read_text(encoding='utf-8')
+          pairs=[
+          ('    private MimiSocialService Social = null!;\n    private WorldActorService WorldActors = null!;', '    private MimiSocialService Social = null!;\n    private MimiHomeService Home = null!;\n    private WorldActorService WorldActors = null!;'),
+          ('        helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;', '        helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;\n        helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;'),
+          ('        this.Social.OnSaveLoaded();\n        this.NormalizeCardchaMachinePlacement();', '        this.Social.OnSaveLoaded();\n        this.Home.OnSaveLoaded();\n        this.NormalizeCardchaMachinePlacement();'),
+          ('        this.Social.OnDayStarted();\n        this.Save.Save();', '        this.Social.OnDayStarted();\n        this.Home.OnDayStarted();\n        this.Save.Save();'),
+          ('        this.Mystery.OnUpdateTicked();\n        this.Social.OnUpdateTicked(e);', '        this.Mystery.OnUpdateTicked();\n        this.Home.OnUpdateTicked(e);\n        this.Social.OnUpdateTicked(e);'),
+          ('        this.Social.OnReturnedToTitle();\n        this.Save.Clear();', '        this.Social.OnReturnedToTitle();\n        this.Home.OnReturnedToTitle();\n        this.Save.Clear();'),
+          ('            this.Social.Describe() + "\\n" +\n            this.PortableMachine.Describe(),', '            this.Social.Describe() + "\\n" +\n            this.Home.Describe() + "\\n" +\n            this.PortableMachine.Describe(),')]
+          for a,b in pairs:
+              if a not in s: raise SystemExit('ModEntry home anchor missing: '+a[:70])
+              s=s.replace(a,b,1)
+          anchor='''        this.Social = new MimiSocialService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.WorldActors,\n            this.OpenMimiShop\n        );\n'''
+          if anchor not in s: raise SystemExit('Social constructor anchor missing')
+          s=s.replace(anchor,anchor+'''        this.Home = new MimiHomeService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.WorldActors,\n            () => this.Story.OwnsMimiWorldActor,\n            () => this.Mystery.OwnsMimiWorldActor\n        );\n''',1)
+          s=s.replace('0.3.0-alpha.27.0.1 MIMI REAL NPC SOCIAL CORE','0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION')
+          p.write_text(s,encoding='utf-8')
+
+          # Version + translations.
+          for rel in ['Cardcha.csproj','Directory.Build.targets']:
+              q=r/rel; t=q.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.1','0.3.0-alpha.27.0.2').replace('CardchaAlpha2701Manifest','CardchaAlpha2702Manifest'); q.write_text(t,encoding='utf-8')
+          manifest=r/'manifest.json'; j=json.loads(manifest.read_text(encoding='utf-8-sig')); j['Version']='0.3.0-alpha.27.0.2'; manifest.write_text(json.dumps(j,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          trans={
+            'i18n/default.json':{
+              'mimi.attic.locked':"MiMi's attic is upstairs. She has somehow made it clear that you need {{hearts}} hearts before 'accidentally' wandering in.",
+              'mimi.attic.unavailable':"The attic stairs seem to be arguing with reality right now. Try again after re-entering the Wizard's house."},
+            'i18n/vi.json':{
+              'mimi.attic.locked':"Gác mái của MiMi ở trên đó. Bằng cách nào đó cô ấy đã nói rất rõ rằng phải đủ {{hearts}} tim rồi mới được 'vô tình' đi lạc lên.",
+              'mimi.attic.unavailable':"Cầu thang gác mái hình như đang cãi nhau với thực tại. Thử ra vào lại nhà Pháp Sư nhé."}}
+          for rel,add in trans.items():
+              q=r/rel; d=json.loads(q.read_text(encoding='utf-8-sig')); d.update(add); q.write_text(json.dumps(d,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+
+          assert 'MimiHomeService Home' in s
+          assert 'OwnsMimiWorldActor' in m
+          assert 'Cardcha_MiMiAttic' in h
+          print('alpha27 attic/CC wiring complete')
+          PY
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/Cardcha.dll
+          PDB="$(find src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"; [ -z "$PDB" ] || cp "$PDB" stage/Cardcha/Cardcha.pdb
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.2_MiMiAttic_CCFoundation_TEST.zip Cardcha)
+          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.2_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
+          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.2_MiMiAttic_CCFoundation_TEST.zip > artifact/SHA256.txt
+
+      - name: Commit source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git commit -m 'alpha27: wire MiMi attic and Community Center foundation'
+          git push origin cardcha-alpha27-mimi-real-npc
+
+      - name: Upload TEST
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-attic-cc
+          path: artifact
+          if-no-files-found: error
