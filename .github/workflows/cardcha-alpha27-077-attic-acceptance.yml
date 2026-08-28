@@ -1,0 +1,124 @@
+name: Cardcha alpha27.0.7.7 MiMi attic acceptance polish
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-077-attic-acceptance.yml' ]
+permissions:
+  contents: write
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Apply alpha27.0.7.7 acceptance polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import base64, zlib
+          payload = base64.b64decode(Path('build_assets/milestone_077/apply_077.py.z.b64').read_text().strip())
+          Path('/tmp/apply_077.py').write_bytes(zlib.decompress(payload))
+          PY
+          export WALK_XOR_B64="$(tr -d '\n\r ' < build_assets/milestone_077/walk_xor_lzma.b64)"
+          export MUG15_B64="$(tr -d '\n\r ' < build_assets/milestone_077/mugshot_1_5x.png.b64)"
+          export CHACHA128_B64="$(python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import base64, io
+          raw=base64.b64decode(Path('build_assets/milestone_077/chacha_portrait_64.png.b64').read_text().strip())
+          im=Image.open(io.BytesIO(raw)).convert('RGBA').resize((128,128), Image.Resampling.NEAREST)
+          out=io.BytesIO(); im.save(out, format='PNG', optimize=True)
+          print(base64.b64encode(out.getvalue()).decode())
+          PY
+          )"
+          python3 /tmp/apply_077.py
+
+      - name: Validate source assets and strict TMX
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json, xml.etree.ElementTree as ET
+          r=Path('src/Cardcha')
+          assert json.loads((r/'manifest.json').read_text())['Version']=='0.3.0-alpha.27.0.7.7'
+          walk=Image.open(r/'assets/mimi_walk.png').convert('RGBA')
+          runtime=Image.open(r/'assets/mimi_walk_runtime.png').convert('RGBA')
+          mug=Image.open(r/'assets/mimi_social_mugshot.png').convert('RGBA')
+          ch=Image.open(r/'assets/chacha_portrait.png').convert('RGBA')
+          assert walk.size==(128,192)
+          assert runtime.size==(128,216)
+          assert mug.size==(16,24)
+          assert ch.size==(128,128)
+          assert hashlib.sha256(walk.tobytes()).hexdigest()=='b3e2beebef6d9d4f9c830c9a70534eb96b1bf147581bc128c23808a7dd669a53'
+          assert runtime.crop((0,0,128,192)).tobytes()==walk.tobytes()
+          assert runtime.crop((0,192,16,216)).tobytes()==mug.tobytes()
+          home=(r/'Services/MimiHomeService.cs').read_text()
+          visual=(r/'Services/MimiAtticVisualService.cs').read_text()
+          assert 'ResolvePreferredWizardStairTile' in home
+          assert 'ItemRegistry.Create("(O)71")' in visual
+          assert '"(F)1466", 3, 7' in visual
+          assert '"(F)432", 2, 10' in visual
+          assert '"(F)1461", 14, 4' in visual
+          assert '"(F)1600"' not in visual
+          assert 'MugShotSourceRect", 0, 192, 16, 24' in (r/'Services/MimiMysteryTownService.cs').read_text()
+          root=ET.parse(r/'assets/mimi_attic.tmx').getroot()
+          w,h=int(root.attrib['width']),int(root.attrib['height'])
+          for layer in root.findall('./layer'):
+              tokens=[x.strip() for x in (layer.find('data').text or '').split(',')]
+              assert len(tokens)==w*h, (layer.attrib['name'],len(tokens),w*h)
+              assert all(tokens), layer.attrib['name']
+              assert all(int(x)>=0 for x in tokens)
+          for lang in ['default.json','vi.json']:
+              d=json.loads((r/'i18n'/lang).read_text())
+              assert d.get('reveal.info.close')
+              assert d.get('binder.status.pick')==''
+              assert d.get('binder.status.preview')==''
+              assert d.get('binder.status.selected')==''
+          rules=Path('docs/PROJECT_WORKING_RULES.md').read_text()
+          assert 'MiMi walk sheet is user-locked' in rules
+          print('alpha27.0.7.7 static acceptance validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test -f stage/Cardcha/assets/mimi_social_mugshot.png
+          test -f stage/Cardcha/assets/mimi_walk_runtime.png
+          test -f stage/Cardcha/assets/chacha_portrait.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7_MiMiAttic_AcceptancePolish_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Commit milestone source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha docs/PROJECT_WORKING_RULES.md
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'alpha27.0.7.7: polish MiMi attic, stair, and social assets' && git push origin cardcha-alpha27-mimi-real-npc)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-077-attic-acceptance-polish
+          path: artifact
+          if-no-files-found: error
