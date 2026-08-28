@@ -16,19 +16,21 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 -m pip install --quiet pillow
+          python3 build_assets/make_mimi_attic_vanilla_style.py
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, json, struct, xml.etree.ElementTree as ET
+          from PIL import Image
+          import json, xml.etree.ElementTree as ET
 
           r = Path('src/Cardcha')
           png = r / 'assets/mimi_attic_tiles.png'
           tmx = r / 'assets/mimi_attic.tmx'
           assert png.exists() and tmx.exists(), 'custom attic assets missing'
-          raw = png.read_bytes()
-          assert raw.startswith(b'\x89PNG\r\n\x1a\n'), 'attic tiles is not PNG'
-          width, height = struct.unpack('>II', raw[16:24])
-          assert (width, height) == (352, 224), (width, height)
-          print('attic tiles sha256:', hashlib.sha256(raw).hexdigest())
+          with Image.open(png) as image:
+              image.load()
+              assert image.size == (352, 224), image.size
+              assert image.mode == 'RGBA', image.mode
 
           root = ET.parse(tmx).getroot()
           assert root.attrib.get('width') == '22' and root.attrib.get('height') == '14'
@@ -97,7 +99,7 @@ jobs:
           git add src/Cardcha
           git config user.name ronvotri
           git config user.email lengochung28191@gmail.com
-          git diff --cached --quiet || (git commit -m 'alpha27.0.6: rework MiMi attic toward vanilla indoor style' && git push origin cardcha-alpha27-mimi-real-npc)
+          git diff --cached --quiet || (git commit -m 'alpha27.0.6: generate validated MiMi attic vanilla-style asset' && git push origin cardcha-alpha27-mimi-real-npc)
 
       - uses: actions/upload-artifact@v4
         with:
