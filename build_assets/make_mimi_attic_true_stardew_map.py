@@ -10,7 +10,8 @@ def grid():
 
 
 def csv(layer):
-    return '\n'.join(','.join(str(v) for v in row) + ',' for row in layer)
+    """Emit strict TMX CSV: commas separate values, never leave an empty trailing token."""
+    return ',\n'.join(','.join(str(v) for v in row) for row in layer)
 
 
 back = grid()
@@ -74,9 +75,9 @@ front[12][20] = 167
 xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="{WIDTH}" height="{HEIGHT}" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAtticVersion" value="alpha.27.0.7.3"/>
+  <property name="CardchaAtticVersion" value="alpha.27.0.7.4"/>
   <property name="CardchaZoneLayout" value="landing|research|personal|tv-secret|chacha"/>
-  <property name="CardchaVisualDirection" value="true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime"/>
+  <property name="CardchaVisualDirection" value="true-stardew-map|vanilla-townInterior|vanilla-furniture-runtime|strict-csv"/>
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088"/>
@@ -107,4 +108,4 @@ old = OUT.parent / 'mimi_attic_tiles.png'
 if old.exists():
     old.unlink()
 
-print(f'wrote {OUT} ({WIDTH}x{HEIGHT}) using vanilla townInterior via SMAPI dot-prefixed fallback; removed full-room PNG if present')
+print(f'wrote {OUT} ({WIDTH}x{HEIGHT}) with strict TMX CSV and vanilla townInterior fallback')
