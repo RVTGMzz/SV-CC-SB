@@ -103,7 +103,7 @@ internal sealed class CardchaMachineMenu : IClickableMenu
         ) { myID = PremiumTenId };
 
         this.Binder = new ClickableComponent(
-            new Rectangle(this.xPositionOnScreen + this.width / 2 - 150, this.yPositionOnScreen + this.height - 105, 300, 64),
+            new Rectangle(this.xPositionOnScreen + this.width / 2 - 205, this.yPositionOnScreen + this.height - 72, 410, 56),
             "binder"
         ) { myID = BinderId };
 
@@ -661,37 +661,24 @@ internal sealed class CardchaMachineMenu : IClickableMenu
             new Color(59, 48, 50)
         );
 
+        // 0.7.6: unframed machine-status caption below pity meters.
         Rectangle statusPanel = new(
-            this.xPositionOnScreen + 52,
-            this.yPositionOnScreen + this.height - 172,
-            this.width - 104,
-            62
-        );
-        b.Draw(
-            Game1.staminaRect,
-            statusPanel,
-            new Color(244, 222, 183) * 0.86f
-        );
-        CardchaUi.DrawBorder(
-            b,
-            statusPanel,
-            CardchaUi.PaperShadow,
-            2
+            this.xPositionOnScreen + 70,
+            this.yPositionOnScreen + this.height - 118,
+            this.width - 140,
+            34
         );
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
             this.Status,
-            new Rectangle(
-                statusPanel.X + 8,
-                statusPanel.Y + 6,
-                statusPanel.Width - 16,
-                statusPanel.Height - 12
-            ),
-            Color.DarkSlateGray,
+            statusPanel,
+            new Color(248, 226, 188),
             maxLines: 2,
-            minScale: 0.78f,
-            maxScale: 1.20f
+            minScale: 0.76f,
+            centerX: true,
+            maxScale: 1.12f,
+            centerY: true
         );
 
         CardchaUi.DrawButton(

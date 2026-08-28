@@ -1587,6 +1587,12 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         CardchaUi.DrawAutoFitWrappedText(b, Game1.dialogueFont, name, Inflate(nameArea, -6), new Color(255, 205, 88), maxLines: 2, minScale: 0.50f, centerX: true, maxScale: 0.95f, centerY: true);
         Utility.drawTextWithShadow(b, $"#{baseId:00}", Game1.smallFont, new Vector2(nameArea.X, nameArea.Bottom + 2), Color.DarkSlateGray);
         Utility.drawTextWithShadow(b, CardchaUi.RarityText(this.Selected.Rarity), Game1.smallFont, new Vector2(nameArea.X + 70, nameArea.Bottom + 2), CardchaUi.RarityColor(this.Selected.Rarity));
+        if (owned)
+        {
+            Rectangle viewingArea = new(nameArea.X + nameArea.Width / 2, nameArea.Bottom, nameArea.Width / 2, 27);
+            string viewing = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });
+            this.DrawRightAlignedSingleLine(b, viewing, viewingArea, Color.DarkSlateGray);
+        }
 
         if (!owned)
         {
@@ -1880,6 +1886,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         if (this.IsLoadoutFullStatus())
             return;
+        if (this.Selected is not null)
+        {
+            string preview = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });
+            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });
+            if (this.Status == preview || this.Status == selected)
+                return;
+        }
         Rectangle statusArea = new(
             this.RightPage.X + 28,
             this.FavoriteActionButton.bounds.Y - 38,

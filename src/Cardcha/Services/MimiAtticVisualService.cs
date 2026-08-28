@@ -20,7 +20,7 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
-    private const string DecorVersion = "alpha.27.0.7.5";
+    private const string DecorVersion = "alpha.27.0.7.6";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -159,7 +159,7 @@ internal sealed class MimiAtticVisualService
 
         // TV secret nook — cozy, clearly separate from the research side.
         TryAddFurniture(attic, "(F)1466", 3, 8);                 // Budget TV.
-        TryAddFurniture(attic, "(F)432", 3, 10);                 // Green Couch.
+        TryAddFurniture(attic, "(F)432", 3, 10, rotation: 2);    // Green Couch faces the TV.
         TryAddFurniture(attic, "(F)724", 6, 9, heldId: "(F)1364");  // Coffee Table + bowl/snacks stand-in.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
