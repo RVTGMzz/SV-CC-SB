@@ -128,6 +128,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Mystery.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
@@ -191,7 +192,7 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -861,7 +862,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.4 MIMI ATTIC VISUAL FOUNDATION TEST",
+            "Cardcha! v0.3.0-alpha.27.0.5 MIMI ATTIC CUSTOM INTERIOR TEST",
             LogLevel.Alert
         );
     }

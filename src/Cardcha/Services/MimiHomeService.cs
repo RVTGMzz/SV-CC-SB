@@ -13,7 +13,7 @@ namespace Cardcha.Services;
 internal sealed class MimiHomeService
 {
     public const string AtticLocationName = "Cardcha_MiMiAttic";
-    private const string AtticMapPath = "Maps/Shed";
+    private const string AtticMapPath = "Maps/Cardcha_MiMiAttic";
     private const int AtticAccessHearts = 2;
     private const int WorkStart = 1100;
     private const int WorkEnd = 1700;
@@ -163,7 +163,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27 safe interior map foundation.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.5 custom interior map.", LogLevel.Info);
             }
             return attic;
         }
