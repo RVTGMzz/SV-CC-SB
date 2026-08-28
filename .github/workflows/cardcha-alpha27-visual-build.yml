@@ -1,0 +1,95 @@
+name: Cardcha alpha27 staircase visual hardening
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-visual-build.yml'
+      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Wire staircase visual and social merchant ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('src/Cardcha')
+          p=r/'ModEntry.cs'; s=p.read_text(encoding='utf-8')
+          pairs=[
+          ('    private MimiHomeService Home = null!;\n    private WorldActorService WorldActors = null!;', '    private MimiHomeService Home = null!;\n    private MimiAtticVisualService AtticVisual = null!;\n    private WorldActorService WorldActors = null!;'),
+          ('        helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;\n', '        helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;\n        helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;\n')]
+          for a,b in pairs:
+              if a not in s: raise SystemExit('visual ModEntry anchor missing')
+              s=s.replace(a,b,1)
+          anchor='''        this.Home = new MimiHomeService(\n            helper,\n            this.Monitor,\n            this.Save,\n            this.WorldActors,\n            () => this.Story.OwnsMimiWorldActor,\n            () => this.Mystery.OwnsMimiWorldActor\n        );\n'''
+          if anchor not in s: raise SystemExit('Home constructor anchor missing')
+          s=s.replace(anchor,anchor+'''        this.AtticVisual = new MimiAtticVisualService(this.Save);\n''',1)
+          s=s.replace('0.3.0-alpha.27.0.2 MIMI ATTIC + CC FOUNDATION','0.3.0-alpha.27.0.3 MIMI REAL NPC INTEGRATION TEST')
+          p.write_text(s,encoding='utf-8')
+
+          # SocialService is now the sole post-meetup action-button owner for MiMi. This prevents
+          # the legacy Mystery merchant handler from opening the shop after the same press was
+          # already used for vanilla talk/gifting.
+          q=r/'Services'/'MimiMysteryTownService.cs'; m=q.read_text(encoding='utf-8')
+          old='''        if (this.IsMerchantRoutineActive())\n        {\n            this.TryOpenMerchant(e);\n            return;\n        }\n'''
+          new='''        if (this.IsMerchantRoutineActive())\n        {\n            if (this.Save.Data.MimiMeetupCompleted)\n                return;\n            this.TryOpenMerchant(e);\n            return;\n        }\n'''
+          if old not in m: raise SystemExit('merchant button anchor missing')
+          q.write_text(m.replace(old,new,1),encoding='utf-8')
+
+          for rel in ['Cardcha.csproj','Directory.Build.targets']:
+              x=r/rel; t=x.read_text(encoding='utf-8').replace('0.3.0-alpha.27.0.2','0.3.0-alpha.27.0.3').replace('CardchaAlpha2702Manifest','CardchaAlpha2703Manifest'); x.write_text(t,encoding='utf-8')
+          mf=r/'manifest.json'; j=json.loads(mf.read_text(encoding='utf-8-sig')); j['Version']='0.3.0-alpha.27.0.3'; mf.write_text(json.dumps(j,ensure_ascii=False,indent=2)+'\n',encoding='utf-8')
+          assert 'MimiAtticVisualService AtticVisual' in s
+          assert 'this.AtticVisual.OnRenderedWorld' in s
+          print('alpha27 visual/social ownership wiring complete')
+          PY
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj --configuration Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/Cardcha.dll
+          PDB="$(find src/Cardcha/bin -name Cardcha.pdb -print -quit || true)"; [ -z "$PDB" ] || cp "$PDB" stage/Cardcha/Cardcha.pdb
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.3_MiMiRealNPC_Integration_TEST.zip Cardcha)
+          tar -cJf artifact/Cardcha_v0.3.0-alpha.27.0.3_SOURCE.tar.xz --exclude='src/Cardcha/bin' --exclude='src/Cardcha/obj' src/Cardcha
+          sha256sum artifact/Cardcha_v0.3.0-alpha.27.0.3_MiMiRealNPC_Integration_TEST.zip > artifact/SHA256.txt
+
+      - name: Commit source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git commit -m 'alpha27: add visible attic stairs and harden social merchant flow'
+          git push origin cardcha-alpha27-mimi-real-npc
+
+      - name: Upload TEST
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-integration
+          path: artifact
+          if-no-files-found: error
