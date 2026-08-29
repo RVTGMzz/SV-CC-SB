@@ -99,7 +99,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     // 120ms filters duplicate gamepad events produced by some controller runtimes.
     private const double QuickToggleMinMs = 220d;
     private const double QuickToggleWindowMs = 650d;
-    private string Status = ModEntry.T("binder.status.pick");
+    private string Status = string.Empty;
     // alpha.23: hint bar follows the most recently used input family and controller profile.
     private bool LastInputWasController;
 
@@ -825,7 +825,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
                 }
                 else
                 {
-                    this.Status = ModEntry.T("binder.status.pick");
+                    this.Status = string.Empty;
                     Game1.playSound("cancel");
                 }
             }
@@ -948,7 +948,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.PreviewCard = card;
         this.Selected = card;
         this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
-            ? ModEntry.T("binder.status.pick")
+            ? string.Empty
             : ModEntry.T("binder.status.not-owned");
     }
 
@@ -984,7 +984,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.LastQuickToggleAtMs = 0;
         this.Status = filter == BinderFilter.Favorite
             ? ModEntry.T("binder.favorite.filter")
-            : ModEntry.T("binder.status.pick");
+            : string.Empty;
         Game1.playSound("smallSelect");
         this.RebuildCardButtons(resetPage: true);
 

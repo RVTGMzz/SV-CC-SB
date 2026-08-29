@@ -33,9 +33,9 @@ internal sealed class WorldActorService
     // Native NPC draw multiplies Character.Scale by 4. These values reproduce the previous
     // approved visual sizes: MiMi 32x48 @ 2.3x, ChaCha 32x32 @ 1.8x.
     private const float MimiNativeScale = 0.575f;
-    // The approved alpha.22 broom sheet intentionally draws MiMi/??? about 10% smaller inside
-    // the same 32x48 frame. Compensate at runtime so mounting the broom doesn't shrink her body.
-    private const float MimiBroomNativeScale = MimiNativeScale * 1.10f;
+    // 0.7.7.4 broom art is already widened horizontally by ~30% inside native 48x48 frames.
+    // Keep runtime scale equal to normal MiMi so only width changes; do not inflate her height too.
+    private const float MimiBroomNativeScale = MimiNativeScale;
     private const float ChaChaNativeScale = 0.5625f;
 
     private static readonly int[] ChaChaEmotePool = { 32, 16, 20, 56, 60, 8, 40 };

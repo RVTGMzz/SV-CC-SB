@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="22" height="14" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAtticVersion" value="alpha.27.0.7.7" />
+  <property name="CardchaAtticVersion" value="alpha.27.0.7.7.4" />
   <property name="CardchaZoneLayout" value="landing|research|personal|tv-secret|chacha" />
   <property name="CardchaVisualDirection" value="true-stardew-map|clean-closed-shell|bed-rug|spaced-tv-sofa|wizard-upper-right-stair|strict-csv" />
  </properties>

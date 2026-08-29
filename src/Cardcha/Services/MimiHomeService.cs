@@ -148,7 +148,8 @@ internal sealed class MimiHomeService
             this.Helper.Input.Suppress(e.Button);
             GameLocation? wizard = Game1.getLocationFromName("WizardHouse");
             Point target = wizard is null ? new Point(4, 6) : this.ResolveWizardStairTile(wizard);
-            Game1.warpFarmer("WizardHouse", target.X, Math.Min(target.Y + 1, Math.Max(1, wizard?.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)), 2);
+            Point landing = wizard is null ? new Point(target.X, target.Y + 1) : ResolveWizardLandingTile(wizard, target);
+            Game1.warpFarmer("WizardHouse", landing.X, landing.Y, 2);
         }
     }
 
@@ -170,11 +171,8 @@ internal sealed class MimiHomeService
                 return "Attic TEST bypass couldn't find WizardHouse.";
 
             Point target = this.ResolveWizardStairTile(wizard);
-            int targetY = Math.Min(
-                target.Y + 1,
-                Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)
-            );
-            Game1.warpFarmer("WizardHouse", target.X, targetY, 2);
+            Point landing = ResolveWizardLandingTile(wizard, target);
+            Game1.warpFarmer("WizardHouse", landing.X, landing.Y, 2);
             return "Attic TEST bypass: returned to WizardHouse. Normal progression was not changed.";
         }
 
@@ -214,12 +212,9 @@ internal sealed class MimiHomeService
             return;
 
         Point target = this.ResolveWizardStairTile(wizard);
-        int targetY = Math.Min(
-            target.Y + 1,
-            Math.Max(1, wizard.Map?.Layers.FirstOrDefault()?.LayerHeight - 2 ?? target.Y + 1)
-        );
+        Point landing = ResolveWizardLandingTile(wizard, target);
         this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;
-        Game1.warpFarmer("WizardHouse", target.X, targetY, 2);
+        Game1.warpFarmer("WizardHouse", landing.X, landing.Y, 2);
     }
 
     public string Describe()
@@ -253,7 +248,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.4 strict-TMX map hotfix with guarded runtime access.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.7.4 stair-safe attic build.", LogLevel.Info);
             }
             return attic;
         }
@@ -367,6 +362,28 @@ internal sealed class MimiHomeService
             Math.Clamp((int)Math.Round(height * 0.28f), 2, Math.Max(2, height - 3))
         );
         return FindClearTileNear(wizard, preferred);
+    }
+
+    private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
+    {
+        Point[] candidates =
+        {
+            new(stair.X, stair.Y + 1),
+            new(stair.X, stair.Y + 2),
+            new(stair.X - 1, stair.Y + 1),
+            new(stair.X + 1, stair.Y + 1),
+            new(stair.X - 1, stair.Y + 2),
+            new(stair.X + 1, stair.Y + 2),
+            new(stair.X, stair.Y + 3)
+        };
+
+        foreach (Point candidate in candidates)
+        {
+            if (IsTileClear(wizard, candidate))
+                return candidate;
+        }
+
+        return FindClearTileNear(wizard, new Point(stair.X, stair.Y + 2));
     }
 
     private Point ResolveAtticStairTile(GameLocation attic)

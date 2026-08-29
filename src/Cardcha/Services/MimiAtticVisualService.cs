@@ -20,7 +20,8 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
-    private const string DecorVersion = "alpha.27.0.7.7";
+    private const string StairSpritePath = "assets/mimi_attic_stairs.png";
+    private const string DecorVersion = "alpha.27.0.7.7.4";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -69,7 +70,11 @@ internal sealed class MimiAtticVisualService
             return;
 
         if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
-            DrawStairMarker(e.SpriteBatch, MimiHomeService.ResolvePreferredWizardStairTile(location));
+        {
+            Point stair = MimiHomeService.ResolvePreferredWizardStairTile(location);
+            PrepareWizardStairArea(location, stair);
+            this.DrawStairMarker(e.SpriteBatch, stair);
+        }
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -159,7 +164,7 @@ internal sealed class MimiAtticVisualService
 
         // TV secret nook — cozy, clearly separate from the research side.
         TryAddFurniture(attic, "(F)1466", 3, 7);                 // TV pushed toward the wall.
-        TryAddFurniture(attic, "(F)432", 2, 10, rotation: 2);    // Couch near the wall with usable viewing distance.
+        TryAddFurniture(attic, "(F)432", 2, 11, rotation: 2);    // Couch tight to the bottom wall, centered beneath the TV.
         TryAddFurniture(attic, "(F)724", 6, 9, heldId: "(F)1364");  // Coffee Table + bowl/snacks stand-in.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
@@ -200,18 +205,39 @@ internal sealed class MimiAtticVisualService
         }
     }
 
-    private static void DrawStairMarker(SpriteBatch batch, Point tile)
+    private static void PrepareWizardStairArea(GameLocation location, Point tile)
+    {
+        // The old marker sat beside decorative plant/wall tiles and could visually/collision-wise
+        // pinch the player into the wall. Reserve a clean 2x3 opening for the real stair graphic.
+        foreach (string layerName in new[] { "Buildings", "Front" })
+        {
+            var layer = location.Map?.GetLayer(layerName);
+            if (layer is null)
+                continue;
+
+            for (int x = tile.X - 1; x <= tile.X; x++)
+            {
+                for (int y = tile.Y - 2; y <= tile.Y; y++)
+                {
+                    if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
+                        layer.Tiles[x, y] = null;
+                }
+            }
+        }
+    }
+
+    private void DrawStairMarker(SpriteBatch batch, Point tile)
     {
         try
         {
-            Item staircase = ItemRegistry.Create("(O)71"); // vanilla Staircase object
-            Vector2 world = new(tile.X * 64f, tile.Y * 64f);
+            Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
+            Vector2 world = new(tile.X * 64f - 32f, (tile.Y - 2) * 64f);
             Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-            staircase.drawInMenu(batch, screen, 1f, 0.96f, 0.995f, StackDrawType.Hide);
+            batch.Draw(staircase, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.995f);
         }
         catch
         {
-            // Access remains functional if another mod replaces/removes the vanilla decorative icon.
+            // The actual warp still works if the visual asset can't be loaded.
         }
     }
 
