@@ -22,7 +22,7 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.7.8";
+    private const string DecorVersion = "alpha.27.0.7.7.9";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -164,7 +164,7 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 4, 7, offsetX: -0.25f); // Quarter-tile nudge: visual center matches rug + couch.
+        TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: 16); // Real +16px draw/collision shift: centered with rug + couch.
         TryAddFurniture(attic, "(F)432", 3, 11, rotation: 2);    // Couch shifted right to visually center beneath the TV.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
@@ -185,13 +185,18 @@ internal sealed class MimiAtticVisualService
         int y,
         int rotation = 0,
         string? heldId = null,
-        float offsetX = 0f)
+        int pixelOffsetX = 0)
     {
         try
         {
             Furniture item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
-            if (Math.Abs(offsetX) > 0.001f)
-                item.TileLocation = new Vector2(x + offsetX, y);
+            if (pixelOffsetX != 0)
+            {
+                Rectangle box = item.boundingBox.Value;
+                box.X += pixelOffsetX;
+                item.boundingBox.Value = box;
+                item.updateDrawPosition();
+            }
             item.modData[DecorMarkerKey] = DecorVersion;
 
             if (heldId is not null)

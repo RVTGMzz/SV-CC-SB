@@ -427,7 +427,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             button.leftNeighborID = col > 0 ? CardBaseId + i - 1 : FavoriteFilterId;
             button.rightNeighborID = col < GridColumns - 1 && i + 1 < this.CardButtons.Count
                 ? CardBaseId + i + 1
-                : EquipActionId;
+                : FavoriteActionId;
             button.upNeighborID = row > 0
                 ? CardBaseId + i - GridColumns
                 : ActiveBaseId + Math.Min(col, VisualActiveSlots - 1);
@@ -957,6 +957,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         CardDefinition card = this.CardButtons[index].Card;
         this.PreviewCard = card;
         this.Selected = card;
+        this.FavoriteActionButton.leftNeighborID = focusedId;
         this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
             ? string.Empty
             : ModEntry.T("binder.status.not-owned");
@@ -1024,12 +1025,17 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Game1.playSound("shwip");
     }
 
+    private CardDefinition? GetFavoriteTargetCard()
+        => this.ControllerSelectionLocked && this.LockedCard is not null
+            ? this.LockedCard
+            : this.PreviewCard ?? this.Selected;
+
     private void ActivateFavoriteAction()
     {
         // The action always targets the card currently rendered on the right page. Do not
         // rebind Selected here from an older controller lock: the button label and the action
         // now read the same card state, so ☆ can never report "removed" on first activation.
-        CardDefinition? card = this.Selected;
+        CardDefinition? card = this.GetFavoriteTargetCard();
         if (card is null || !this.Save.Data.OwnedCards.Contains(card.Id))
         {
             this.ShowFavoriteToast(ModEntry.T("binder.favorite.locked"));
@@ -1060,6 +1066,45 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.Status = string.Empty;
         this.FavoriteToast = text;
         this.FavoriteToastExpiresAtMs = Environment.TickCount64 + FavoriteToastDurationMs;
+    }
+
+    private void DrawFavoriteToast(SpriteBatch b)
+    {
+        if (string.IsNullOrWhiteSpace(this.FavoriteToast))
+            return;
+
+        long now = Environment.TickCount64;
+        if (now >= this.FavoriteToastExpiresAtMs)
+        {
+            this.FavoriteToast = string.Empty;
+            this.FavoriteToastExpiresAtMs = 0;
+            return;
+        }
+
+        const long fadeMs = 350L;
+        long remaining = this.FavoriteToastExpiresAtMs - now;
+        float alpha = remaining >= fadeMs ? 1f : Math.Clamp(remaining / (float)fadeMs, 0f, 1f);
+        int width = Math.Min(this.RightPage.Width - 96, 520);
+        Rectangle toast = new(
+            this.RightPage.Center.X - width / 2,
+            this.FavoriteActionButton.bounds.Y - 62,
+            width,
+            46
+        );
+        DrawRoundedRect(b, toast, new Color(38, 53, 68) * (0.96f * alpha), 9);
+        DrawRoundedBorder(b, toast, CardchaUi.Gold * alpha, 2, 9);
+        CardchaUi.DrawAutoFitWrappedText(
+            b,
+            Game1.smallFont,
+            this.FavoriteToast,
+            Inflate(toast, -8),
+            Color.White * alpha,
+            maxLines: 1,
+            minScale: 0.72f,
+            centerX: true,
+            maxScale: 1.0f,
+            centerY: true
+        );
     }
 
     private bool IsStoredEquipped(string id)
@@ -1326,6 +1371,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.DrawTabs(b);
         this.DrawLeftPage(b);
         this.DrawRightPage(b);
+        this.DrawFavoriteToast(b);
         this.DrawResourceTooltipIfNeeded(b);
         this.DrawControlHintBar(b);
 
@@ -1860,7 +1906,10 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawActionButtons(SpriteBatch b, bool owned)
     {
-        bool favorite = owned && this.Selected is not null && this.Save.Data.FavoriteCardIds.Contains(this.Selected.Id);
+        CardDefinition? favoriteTarget = this.GetFavoriteTargetCard();
+        bool favorite = favoriteTarget is not null
+            && this.Save.Data.OwnedCards.Contains(favoriteTarget.Id)
+            && this.Save.Data.FavoriteCardIds.Contains(favoriteTarget.Id);
         bool equipped = owned && this.Selected is not null && this.IsStoredEquipped(this.Selected.Id);
         bool maxed = !owned || this.Selected is null || this.Upgrades.IsMaxLevel(this.Selected);
         int have = this.Selected is null ? 0 : this.Upgrades.GetCopies(this.Selected);
