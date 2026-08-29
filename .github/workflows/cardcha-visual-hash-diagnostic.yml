@@ -1,0 +1,24 @@
+name: Cardcha visual hash diagnostic
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-visual-hash-diagnostic.yml' ]
+jobs:
+  hashes:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: python3 -m pip install --quiet pillow
+      - name: Print protected visual hashes
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib
+          root=Path('src/Cardcha/assets')
+          for name in ['chacha_follow.png','chacha_machine.png','card_icons.png','chacha_portrait.png','mimi_walk.png','mimi_social_mugshot.png']:
+              p=root/name
+              with Image.open(p) as im:
+                  rgba=im.convert('RGBA')
+                  print('VISUAL_HASH',name,rgba.size,hashlib.sha256(rgba.tobytes()).hexdigest(),hashlib.sha256(p.read_bytes()).hexdigest())
+          PY
