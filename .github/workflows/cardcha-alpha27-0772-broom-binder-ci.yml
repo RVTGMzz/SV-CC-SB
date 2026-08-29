@@ -1,0 +1,131 @@
+name: Cardcha alpha27.0.7.7.2 broom and Binder validation
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-0772-broom-binder-ci.yml' ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Apply source candidate in CI workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib
+
+          root = Path('src/Cardcha')
+          binder_path = root / 'UI/CardchaBinderMenu.cs'
+          actor_path = root / 'Services/WorldActorService.cs'
+          broom_path = root / 'assets/mimi_broom.png'
+          walk_path = root / 'assets/mimi_walk.png'
+          manifest_path = root / 'manifest.json'
+
+          walk_before = hashlib.sha256(walk_path.read_bytes()).hexdigest()
+
+          binder = binder_path.read_text()
+          old = '''        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? ModEntry.T("binder.status.preview", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");'''
+          new = '''        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? ModEntry.T("binder.status.pick")\n            : ModEntry.T("binder.status.not-owned");'''
+          assert binder.count(old) == 1, 'Unexpected Binder preview status assignment shape'
+          binder = binder.replace(old, new, 1)
+
+          old = '''        if (owned)\n        {\n            Rectangle viewingArea = new(nameArea.X + nameArea.Width / 2, nameArea.Bottom, nameArea.Width / 2, 27);\n            string viewing = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            this.DrawRightAlignedSingleLine(b, viewing, viewingArea, Color.DarkSlateGray);\n        }\n'''
+          assert binder.count(old) == 1, 'Unexpected Binder right-page preview draw shape'
+          binder = binder.replace(old, '', 1)
+
+          old = '''        if (this.Selected is not null)\n        {\n            string preview = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });\n            if (this.Status == preview || this.Status == selected)\n                return;\n        }'''
+          new = '''        if (this.Selected is not null)\n        {\n            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });\n            if (this.Status == selected)\n                return;\n        }'''
+          assert binder.count(old) == 1, 'Unexpected Binder preview guard shape'
+          binder = binder.replace(old, new, 1)
+          assert 'binder.status.preview' not in binder
+          binder_path.write_text(binder)
+
+          actor = actor_path.read_text()
+          old = '''        if (actor.Sprite is null\n            || actor.Sprite.SpriteWidth != 32\n            || actor.Sprite.SpriteHeight != 48\n            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))\n        {\n            actor.Sprite = new AnimatedSprite(asset, 0, 32, 48);\n        }'''
+          new = '''        int spriteWidth = broom ? 48 : 32;\n        const int spriteHeight = 48;\n        if (actor.Sprite is null\n            || actor.Sprite.SpriteWidth != spriteWidth\n            || actor.Sprite.SpriteHeight != spriteHeight\n            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))\n        {\n            actor.Sprite = new AnimatedSprite(asset, 0, spriteWidth, spriteHeight);\n        }'''
+          assert actor.count(old) == 1, 'Unexpected MiMi sprite configuration shape'
+          actor = actor.replace(old, new, 1)
+          actor_path.write_text(actor)
+
+          with Image.open(broom_path) as im:
+              im = im.convert('RGBA')
+              if im.size == (128, 192):
+                  out = Image.new('RGBA', (192, 192), (0, 0, 0, 0))
+                  for row in range(4):
+                      for col in range(4):
+                          frame = im.crop((col * 32, row * 48, (col + 1) * 32, (row + 1) * 48))
+                          frame = frame.resize((48, 48), Image.Resampling.NEAREST)
+                          out.paste(frame, (col * 48, row * 48))
+                  out.save(broom_path, format='PNG', optimize=True)
+              elif im.size != (192, 192):
+                  raise AssertionError(f'Unexpected mimi_broom.png size: {im.size}')
+
+          manifest = manifest_path.read_text()
+          assert '"Version": "0.3.0-alpha.27.0.7.7"' in manifest
+          manifest_path.write_text(manifest.replace(
+              '"Version": "0.3.0-alpha.27.0.7.7"',
+              '"Version": "0.3.0-alpha.27.0.7.7.2"',
+              1,
+          ))
+
+          assert hashlib.sha256(walk_path.read_bytes()).hexdigest() == walk_before, 'mimi_walk.png changed'
+          print('Candidate patch applied; mimi_walk.png preserved:', walk_before)
+          PY
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json
+          r = Path('src/Cardcha')
+          assert json.loads((r/'manifest.json').read_text())['Version'] == '0.3.0-alpha.27.0.7.7.2'
+          assert 'binder.status.preview' not in (r/'UI/CardchaBinderMenu.cs').read_text()
+          actor=(r/'Services/WorldActorService.cs').read_text()
+          assert 'int spriteWidth = broom ? 48 : 32;' in actor
+          assert 'new AnimatedSprite(asset, 0, spriteWidth, spriteHeight)' in actor
+          assert Image.open(r/'assets/mimi_broom.png').size == (192, 192)
+          assert Image.open(r/'assets/mimi_walk.png').size == (128, 192)
+          print('0.7.7.2 static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package candidate and canonicalization payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact/canonical-src stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          cp src/Cardcha/UI/CardchaBinderMenu.cs artifact/canonical-src/
+          cp src/Cardcha/Services/WorldActorService.cs artifact/canonical-src/
+          cp src/Cardcha/assets/mimi_broom.png artifact/canonical-src/
+          cp src/Cardcha/manifest.json artifact/canonical-src/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.2_BroomBinder_SourceAcceptance_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0772-broom-binder-source-acceptance
+          path: artifact
+          if-no-files-found: error
