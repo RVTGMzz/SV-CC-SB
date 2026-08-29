@@ -21,7 +21,8 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
-    private const string DecorVersion = "alpha.27.0.7.7.4";
+    private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
+    private const string DecorVersion = "alpha.27.0.7.7.5";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -63,6 +64,7 @@ internal sealed class MimiAtticVisualService
         {
             if (this.Save.Data.MimiMeetupCompleted || this.TestAccessActive)
                 EnsureVanillaFurniture(location);
+            this.DrawRoomFrame(e.SpriteBatch);
             return;
         }
 
@@ -97,7 +99,7 @@ internal sealed class MimiAtticVisualService
         string? key = null;
         if (Touches(actionTile, layout.DeskLeft) || Touches(actionTile, layout.DeskRight) || Touches(actionTile, layout.Notes))
             key = "mimi.attic.inspect.desk";
-        else if (Touches(actionTile, layout.Television) || Touches(actionTile, layout.TvChair) || Touches(actionTile, layout.TvTable))
+        else if (Touches(actionTile, layout.Television) || Touches(actionTile, layout.TvChair))
             key = "mimi.attic.inspect.tv";
         else if (Touches(actionTile, layout.ChaChaCushion) || Touches(actionTile, layout.Prototype))
             key = "mimi.attic.inspect.chacha";
@@ -163,9 +165,8 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 3, 7);                 // TV pushed toward the wall.
+        TryAddFurniture(attic, "(F)1466", 4, 7);                 // TV shifted right to center with the sofa/rug.
         TryAddFurniture(attic, "(F)432", 2, 11, rotation: 2);    // Couch tight to the bottom wall, centered beneath the TV.
-        TryAddFurniture(attic, "(F)724", 6, 9, heldId: "(F)1364");  // Coffee Table + bowl/snacks stand-in.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
         TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368"); // Modern Table + crystal prototype.
@@ -173,7 +174,7 @@ internal sealed class MimiAtticVisualService
 
         // Wall details make the shell read like a real Stardew bedroom rather than an empty shed.
         TryAddFurniture(attic, "(F)1614", 10, 2);                // Basic Window.
-        TryAddFurniture(attic, "(F)1541", 6, 2);                 // A Night On Eco-Hill.
+        TryAddFurniture(attic, "(F)1541", 6, 1);                 // A Night On Eco-Hill, hung higher on the wall.
 
         attic.modData[DecorMarkerKey] = DecorVersion;
     }
@@ -217,7 +218,7 @@ internal sealed class MimiAtticVisualService
 
             for (int x = tile.X - 1; x <= tile.X; x++)
             {
-                for (int y = tile.Y - 2; y <= tile.Y; y++)
+                for (int y = tile.Y - 3; y <= tile.Y; y++)
                 {
                     if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
                         layer.Tiles[x, y] = null;
@@ -231,13 +232,27 @@ internal sealed class MimiAtticVisualService
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
-            Vector2 world = new(tile.X * 64f - 32f, (tile.Y - 2) * 64f);
+            Vector2 world = new(tile.X * 64f, (tile.Y - 3) * 64f);
             Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
             batch.Draw(staircase, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.995f);
         }
         catch
         {
             // The actual warp still works if the visual asset can't be loaded.
+        }
+    }
+
+    private void DrawRoomFrame(SpriteBatch batch)
+    {
+        try
+        {
+            Texture2D frame = this.Helper.ModContent.Load<Texture2D>(RoomFrameSpritePath);
+            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, Vector2.Zero);
+            batch.Draw(frame, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.999f);
+        }
+        catch
+        {
+            // The room itself remains fully usable if the cosmetic frame can't be loaded.
         }
     }
 
@@ -261,7 +276,6 @@ internal sealed class MimiAtticVisualService
             // TV secret nook on the lower-left.
             Television: P(3, 7),
             TvChair: P(2, 10),
-            TvTable: P(6, 9),
 
             // ChaCha / future upgrade corner on the lower-right.
             ChaChaCushion: P(17, 10),
@@ -328,7 +342,6 @@ internal sealed class MimiAtticVisualService
         Point DeskRight,
         Point Television,
         Point TvChair,
-        Point TvTable,
         Point ChaChaCushion,
         Point Prototype
     );

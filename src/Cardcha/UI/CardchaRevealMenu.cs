@@ -738,7 +738,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
         Rectangle name = new(panel.X + 190, panel.Y + 24, panel.Width - 220, 50);
         CardchaUi.DrawScaledText(b, Game1.dialogueFont, result.Card.Name, name, new Color(255, 225, 160), false, true, 2, 1.0f);
         Rectangle rarity = new(panel.X + 190, panel.Y + 74, panel.Width - 220, 32);
-        CardchaUi.DrawScaledText(b, Game1.smallFont, result.Card.Rarity.ToString(), rarity, CardchaUi.RarityColor(result.Card.Rarity), false, true, 2, 1.05f);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, RarityLabel(result.Card.Rarity), rarity, CardchaUi.RarityColor(result.Card.Rarity), false, true, 2, 1.05f);
         Rectangle desc = new(panel.X + 190, panel.Y + 112, panel.Width - 220, 112);
         CardchaUi.DrawAutoFitWrappedText(b, Game1.smallFont, result.Card.Description, desc, Color.White * 0.92f, 4, 0.78f, false, 1.05f);
         Rectangle close = new(panel.X + 20, panel.Bottom - 42, panel.Width - 40, 28);
@@ -799,6 +799,17 @@ internal sealed class CardchaRevealMenu : IClickableMenu
         CardRarity rarity = this.Results[index].Card.Rarity;
         Game1.playSound(rarity >= CardRarity.Epic ? "discoverMineral" : "smallSelect");
     }
+
+    private static string RarityLabel(CardRarity rarity)
+        => rarity switch
+        {
+            CardRarity.Common => ModEntry.T("rarity.common"),
+            CardRarity.Rare => ModEntry.T("rarity.rare"),
+            CardRarity.Epic => ModEntry.T("rarity.epic"),
+            CardRarity.Legendary => ModEntry.T("rarity.legendary"),
+            CardRarity.Mythic => ModEntry.T("rarity.mythic"),
+            _ => ModEntry.T("rarity.common")
+        };
 
     private void RevealEverything()
     {

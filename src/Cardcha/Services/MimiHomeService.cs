@@ -248,7 +248,7 @@ internal sealed class MimiHomeService
             if (!this.LoggedAtticCreation)
             {
                 this.LoggedAtticCreation = true;
-                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.7.4 stair-safe attic build.", LogLevel.Info);
+                this.Monitor.Log($"Created MiMi attic location '{AtticLocationName}' using the alpha.27.0.7.7.5 fixed-ladder framed attic build.", LogLevel.Info);
             }
             return attic;
         }
@@ -361,7 +361,10 @@ internal sealed class MimiHomeService
             Math.Clamp(width - 3, 2, Math.Max(2, width - 2)),
             Math.Clamp((int)Math.Round(height * 0.28f), 2, Math.Max(2, height - 3))
         );
-        return FindClearTileNear(wizard, preferred);
+        // Keep the entrance visually fixed. 0.7.7.4 re-ran collision search every render,
+        // so clearing the stair area could change the "nearest clear" result and make the ladder
+        // appear to move when the player approached it. The landing below is still resolved safely.
+        return preferred;
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)

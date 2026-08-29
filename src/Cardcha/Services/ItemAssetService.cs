@@ -91,7 +91,7 @@ internal sealed class ItemAssetService
                     SpriteIndex = 0,
                     Price = 0,
                     Fragility = 0,
-                    CanBePlacedIndoors = true,
+                    CanBePlacedIndoors = false,
                     CanBePlacedOutdoors = false,
                     IsLamp = false,
                     CustomFields = new Dictionary<string, string>

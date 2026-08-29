@@ -35,6 +35,18 @@ internal static class MachineInteractionPatch
         };
 
         harmony.Patch(target, prefix: prefix);
+
+        // The story Machine is a menu key / home appliance entitlement, not a placeable
+        // big-craftable. Returning false here also prevents Stardew from drawing the green
+        // placement ghost while the player is holding it.
+        MethodInfo? placeable = AccessTools.Method(typeof(SObject), nameof(SObject.isPlaceable), System.Type.EmptyTypes);
+        if (placeable is not null)
+        {
+            harmony.Patch(
+                placeable,
+                postfix: new HarmonyMethod(typeof(MachineInteractionPatch), nameof(IsPlaceablePostfix))
+            );
+        }
     }
 
     private static bool Prefix(
@@ -72,6 +84,12 @@ internal static class MachineInteractionPatch
 
             return true;
         }
+    }
+
+    private static void IsPlaceablePostfix(SObject __instance, ref bool __result)
+    {
+        if (__result && IsCardchaMachine(__instance))
+            __result = false;
     }
 
     public static bool IsCardchaMachine(SObject? obj)
