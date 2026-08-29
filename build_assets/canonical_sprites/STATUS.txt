@@ -1,0 +1,3 @@
+Guard mode: fail-closed, non-destructive.
+Source sync pending for four approved visuals: chacha_follow, chacha_machine, card_icons, chacha_portrait.
+MiMi walk and social mugshot already match approved hashes and must not be rewritten.
