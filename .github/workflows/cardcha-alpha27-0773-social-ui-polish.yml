@@ -5,11 +5,11 @@ on:
     branches: [ cardcha-alpha27-mimi-real-npc ]
     paths:
       - '.github/workflows/cardcha-alpha27-0773-social-ui-polish.yml'
+      - 'build_assets/apply_0773.py'
       - 'src/Cardcha/UI/CardchaBinderMenu.cs'
+      - 'src/Cardcha/UI/CardchaBookTabService.cs'
       - 'src/Cardcha/Services/WorldActorService.cs'
-      - 'src/Cardcha/Patches/BookNavigationPatch.cs'
       - 'src/Cardcha/Patches/MimiProfileMenuPatch.cs'
-      - 'src/Cardcha/Patches/CardchaInventoryTabVisibilityPatch.cs'
       - 'src/Cardcha/assets/mimi_broom.png'
       - 'src/Cardcha/assets/mimi_walk_runtime.png'
       - 'src/Cardcha/assets/mimi_social_mugshot.png'
@@ -31,277 +31,8 @@ jobs:
       - name: Install Pillow
         run: python3 -m pip install --quiet pillow
 
-      - name: Apply 0.7.7.3 candidate fixes
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - <<'PY'
-          from pathlib import Path
-          from PIL import Image
-          import hashlib, json
-
-          r = Path('src/Cardcha')
-          old_version = '0.3.0-alpha.27.0.7.7'
-          new_version = '0.3.0-alpha.27.0.7.7.3'
-          walk_path = r / 'assets/mimi_walk.png'
-          walk_before = hashlib.sha256(walk_path.read_bytes()).hexdigest()
-
-          # 1) Binder: remove all source requests for the empty preview translation.
-          p = r / 'UI/CardchaBinderMenu.cs'
-          s = p.read_text()
-          if 'binder.status.preview' in s:
-              old = '''        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? ModEntry.T("binder.status.preview", new { name = card.Name })\n            : ModEntry.T("binder.status.not-owned");'''
-              new = '''        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? ModEntry.T("binder.status.pick")\n            : ModEntry.T("binder.status.not-owned");'''
-              assert s.count(old) == 1, 'Unexpected Binder preview status assignment shape'
-              s = s.replace(old, new, 1)
-
-              old = '''        if (owned)\n        {\n            Rectangle viewingArea = new(nameArea.X + nameArea.Width / 2, nameArea.Bottom, nameArea.Width / 2, 27);\n            string viewing = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            this.DrawRightAlignedSingleLine(b, viewing, viewingArea, Color.DarkSlateGray);\n        }\n'''
-              assert s.count(old) == 1, 'Unexpected Binder right-page preview draw shape'
-              s = s.replace(old, '', 1)
-
-              old = '''        if (this.Selected is not null)\n        {\n            string preview = ModEntry.T("binder.status.preview", new { name = this.Selected.Name });\n            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });\n            if (this.Status == preview || this.Status == selected)\n                return;\n        }'''
-              new = '''        if (this.Selected is not null)\n        {\n            string selected = ModEntry.T("binder.status.selected", new { name = this.Selected.Name });\n            if (this.Status == selected)\n                return;\n        }'''
-              assert s.count(old) == 1, 'Unexpected Binder preview guard shape'
-              s = s.replace(old, new, 1)
-          assert 'binder.status.preview' not in s
-          p.write_text(s)
-
-          # 2) Broom: preserve the 0.7.7.2 native 48x48 frame fix.
-          p = r / 'Services/WorldActorService.cs'
-          s = p.read_text()
-          if 'int spriteWidth = broom ? 48 : 32;' not in s:
-              old = '''        if (actor.Sprite is null\n            || actor.Sprite.SpriteWidth != 32\n            || actor.Sprite.SpriteHeight != 48\n            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))\n        {\n            actor.Sprite = new AnimatedSprite(asset, 0, 32, 48);\n        }'''
-              new = '''        int spriteWidth = broom ? 48 : 32;\n        const int spriteHeight = 48;\n        if (actor.Sprite is null\n            || actor.Sprite.SpriteWidth != spriteWidth\n            || actor.Sprite.SpriteHeight != spriteHeight\n            || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))\n        {\n            actor.Sprite = new AnimatedSprite(asset, 0, spriteWidth, spriteHeight);\n        }'''
-              assert s.count(old) == 1, 'Unexpected MiMi sprite configuration shape'
-              s = s.replace(old, new, 1)
-
-          # Dedicated ProfileMenu sprite asset: only the gift-profile screen uses it.
-          if 'MimiProfileCharacterAsset' not in s:
-              s = s.replace(
-                  '    public const string MimiBroomCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Broom";\n',
-                  '    public const string MimiBroomCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Broom";\n'
-                  '    public const string MimiProfileCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Profile";\n',
-                  1,
-              )
-              s = s.replace(
-                  '    private const string MimiBroomSheetPath = "assets/mimi_broom.png";\n',
-                  '    private const string MimiBroomSheetPath = "assets/mimi_broom.png";\n'
-                  '    private const string MimiProfileSheetPath = "assets/mimi_profile.png";\n',
-                  1,
-              )
-              marker = '''    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)\n    {\n'''
-              insert = '''    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)\n    {\n        if (e.Name.IsEquivalentTo(MimiProfileCharacterAsset))\n        {\n            e.LoadFromModFile<Texture2D>(MimiProfileSheetPath, AssetLoadPriority.Medium);\n            return;\n        }\n\n'''
-              assert marker in s
-              s = s.replace(marker, insert, 1)
-          p.write_text(s)
-
-          # Restore broom proportions from the old 32x48-frame squeeze if needed.
-          broom_path = r / 'assets/mimi_broom.png'
-          with Image.open(broom_path) as im:
-              im = im.convert('RGBA')
-              if im.size == (128, 192):
-                  out = Image.new('RGBA', (192, 192), (0, 0, 0, 0))
-                  for row in range(4):
-                      for col in range(4):
-                          frame = im.crop((col*32, row*48, (col+1)*32, (row+1)*48))
-                          frame = frame.resize((48, 48), Image.Resampling.NEAREST)
-                          out.alpha_composite(frame, (col*48, row*48))
-                  out.save(broom_path, optimize=True)
-              elif im.size != (192, 192):
-                  raise AssertionError(f'Unexpected mimi_broom size {im.size}')
-
-          # 3) Friend-list mugshot: use a clean full front frame, not a narrow partial crop.
-          walk = Image.open(walk_path).convert('RGBA')
-          assert walk.size == (128, 192)
-          front = walk.crop((32, 0, 64, 48))
-          mug = front.resize((16, 24), Image.Resampling.NEAREST)
-          mug.save(r / 'assets/mimi_social_mugshot.png', optimize=True)
-
-          runtime = Image.new('RGBA', (128, 216), (0, 0, 0, 0))
-          runtime.alpha_composite(walk, (0, 0))
-          runtime.alpha_composite(mug, (0, 192))
-          runtime.save(r / 'assets/mimi_walk_runtime.png', optimize=True)
-
-          # 4) Gift ProfileMenu: each 32x48 frame keeps its logical size, but the visible
-          # MiMi art is scaled to ~4/7 and bottom-aligned. World sprite/dialogue portrait stay untouched.
-          profile = Image.new('RGBA', (128, 192), (0, 0, 0, 0))
-          target_w = round(32 * 4 / 7)
-          target_h = round(48 * 4 / 7)
-          for row in range(4):
-              for col in range(4):
-                  frame = walk.crop((col*32, row*48, (col+1)*32, (row+1)*48))
-                  frame = frame.resize((target_w, target_h), Image.Resampling.NEAREST)
-                  x = col*32 + (32-target_w)//2
-                  y = row*48 + (48-target_h)
-                  profile.alpha_composite(frame, (x, y))
-          profile.save(r / 'assets/mimi_profile.png', optimize=True)
-
-          # Patch ProfileMenu to substitute the dedicated smaller sprite only there.
-          profile_patch = r / 'Patches/MimiProfileMenuPatch.cs'
-          profile_patch.write_text(r'''using Cardcha.Services;
-using HarmonyLib;
-using StardewValley;
-using StardewValley.Menus;
-using System.Reflection;
-
-namespace Cardcha.Patches;
-
-internal static class MimiProfileMenuPatch
-{
-    private static readonly FieldInfo? AnimatedSpriteField = AccessTools.Field(typeof(ProfileMenu), "_animatedSprite");
-
-    public static void Apply(Harmony harmony)
-    {
-        MethodInfo? target = AccessTools.Method(
-            typeof(ProfileMenu),
-            "_SetCharacter",
-            new[] { typeof(SocialPage.SocialEntry) }
-        );
-
-        if (target is null || AnimatedSpriteField is null)
-        {
-            ModEntry.StaticMonitor?.Log("Could not install MiMi ProfileMenu sprite-size patch.", StardewModdingAPI.LogLevel.Warn);
-            return;
-        }
-
-        harmony.Patch(
-            target,
-            postfix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(Postfix))
-        );
-    }
-
-    private static void Postfix(ProfileMenu __instance, SocialPage.SocialEntry entry)
-    {
-        if (entry.Character is not NPC npc
-            || !string.Equals(npc.Name, WorldActorService.MimiNpcId, StringComparison.OrdinalIgnoreCase))
-        {
-            return;
-        }
-
-        try
-        {
-            AnimatedSprite sprite = new(WorldActorService.MimiProfileCharacterAsset, 0, 32, 48);
-            sprite.CurrentFrame = Math.Clamp(npc.Sprite?.CurrentFrame ?? 0, 0, 15);
-            AnimatedSpriteField?.SetValue(__instance, sprite);
-        }
-        catch (Exception ex)
-        {
-            ModEntry.StaticMonitor?.Log($"MiMi ProfileMenu sprite substitution failed safely: {ex.Message}", StardewModdingAPI.LogLevel.Trace);
-        }
-    }
-}
-''')
-
-          # Inventory-only Cardcha tab: no icon on skills/social/map/crafting/etc or chest menus.
-          visibility_patch = r / 'Patches/CardchaInventoryTabVisibilityPatch.cs'
-          visibility_patch.write_text(r'''using Cardcha.UI;
-using HarmonyLib;
-using StardewValley.Menus;
-using System.Reflection;
-
-namespace Cardcha.Patches;
-
-internal static class CardchaInventoryTabVisibilityPatch
-{
-    public static void Apply(Harmony harmony)
-    {
-        MethodInfo? target = AccessTools.Method(
-            typeof(CardchaBookTabService),
-            "IsSupported",
-            new[] { typeof(IClickableMenu) }
-        );
-
-        if (target is null)
-        {
-            ModEntry.StaticMonitor?.Log("Could not install inventory-only Cardcha tab visibility patch.", StardewModdingAPI.LogLevel.Warn);
-            return;
-        }
-
-        harmony.Patch(
-            target,
-            postfix: new HarmonyMethod(typeof(CardchaInventoryTabVisibilityPatch), nameof(Postfix))
-        );
-    }
-
-    private static void Postfix(IClickableMenu? menu, ref bool __result)
-    {
-        if (!__result)
-            return;
-
-        if (menu is not GameMenu gameMenu)
-        {
-            __result = false;
-            return;
-        }
-
-        __result = GetCurrentPage(gameMenu) is InventoryPage;
-    }
-
-    private static IClickableMenu? GetCurrentPage(GameMenu gameMenu)
-    {
-        const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
-        try
-        {
-            MethodInfo? method = gameMenu.GetType().GetMethod("GetCurrentPage", flags);
-            if (method?.Invoke(gameMenu, null) is IClickableMenu page)
-                return page;
-        }
-        catch
-        {
-        }
-
-        try
-        {
-            object? pagesValue = gameMenu.GetType().GetField("pages", flags)?.GetValue(gameMenu)
-                ?? gameMenu.GetType().GetProperty("pages", flags)?.GetValue(gameMenu);
-            object? currentValue = gameMenu.GetType().GetField("currentTab", flags)?.GetValue(gameMenu)
-                ?? gameMenu.GetType().GetProperty("currentTab", flags)?.GetValue(gameMenu);
-            int currentTab = currentValue is int value ? value : -1;
-            if (pagesValue is System.Collections.IList pages
-                && currentTab >= 0
-                && currentTab < pages.Count
-                && pages[currentTab] is IClickableMenu page)
-            {
-                return page;
-            }
-        }
-        catch
-        {
-        }
-
-        return null;
-    }
-}
-''')
-
-          # Existing BookNavigationPatch is already applied by ModEntry; use it as the bootstrap.
-          p = r / 'Patches/BookNavigationPatch.cs'
-          s = p.read_text()
-          if 'MimiProfileMenuPatch.Apply(harmony);' not in s:
-              marker = '''    }\n\n    private static bool Prefix('''
-              insert = '''        MimiProfileMenuPatch.Apply(harmony);\n        CardchaInventoryTabVisibilityPatch.Apply(harmony);\n    }\n\n    private static bool Prefix('''
-              assert marker in s
-              s = s.replace(marker, insert, 1)
-          p.write_text(s)
-
-          # Hard guards for social-strip wiring and canonical walk lock.
-          mystery = (r / 'Services/MimiMysteryTownService.cs').read_text()
-          assert 'MugShotSourceRect", 0, 192, 16, 24' in mystery
-          assert 'assets/mimi_walk_runtime.png' in mystery
-          assert hashlib.sha256(walk_path.read_bytes()).hexdigest() == walk_before, 'mimi_walk.png changed unexpectedly'
-
-          # Version all source/build metadata consistently.
-          for path in [r/'Cardcha.csproj', r/'Directory.Build.targets', r/'ModEntry.cs']:
-              txt = path.read_text()
-              txt = txt.replace(old_version, new_version)
-              path.write_text(txt)
-          manifest_path = r / 'manifest.json'
-          data = json.loads(manifest_path.read_text(encoding='utf-8-sig'))
-          data['Version'] = new_version
-          manifest_path.write_text(json.dumps(data, ensure_ascii=False, indent=2) + '\n')
-
-          print('0.7.7.3 candidate applied; mimi_walk SHA256 preserved:', walk_before)
-          PY
+      - name: Apply 0.7.7.3 candidate
+        run: python3 build_assets/apply_0773.py
 
       - name: Static validation
         shell: bash
@@ -311,27 +42,38 @@ internal static class CardchaInventoryTabVisibilityPatch
           from pathlib import Path
           from PIL import Image
           import hashlib, json
-          r=Path('src/Cardcha')
-          target='0.3.0-alpha.27.0.7.7.3'
-          assert json.loads((r/'manifest.json').read_text())['Version']==target
+
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.7.3'
+          walk_hash = '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
           assert target in (r/'Cardcha.csproj').read_text()
           assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
           assert 'binder.status.preview' not in (r/'UI/CardchaBinderMenu.cs').read_text()
-          actor=(r/'Services/WorldActorService.cs').read_text()
+          book = (r/'UI/CardchaBookTabService.cs').read_text()
+          assert 'return GetGraphOwner(gameMenu) is InventoryPage;' in book
+
+          actor = (r/'Services/WorldActorService.cs').read_text()
           assert 'int spriteWidth = broom ? 48 : 32;' in actor
           assert 'MimiProfileCharacterAsset' in actor
-          assert Image.open(r/'assets/mimi_broom.png').size==(192,192)
-          assert Image.open(r/'assets/mimi_walk.png').size==(128,192)
-          assert Image.open(r/'assets/mimi_walk_runtime.png').size==(128,216)
-          assert Image.open(r/'assets/mimi_social_mugshot.png').size==(16,24)
-          assert Image.open(r/'assets/mimi_profile.png').size==(128,192)
-          walk=Image.open(r/'assets/mimi_walk.png').convert('RGBA')
-          runtime=Image.open(r/'assets/mimi_walk_runtime.png').convert('RGBA')
-          mug=Image.open(r/'assets/mimi_social_mugshot.png').convert('RGBA')
-          assert runtime.crop((0,0,128,192)).tobytes()==walk.tobytes()
-          assert runtime.crop((0,192,16,216)).tobytes()==mug.tobytes()
-          assert 'MimiProfileMenuPatch.Apply(harmony);' in (r/'Patches/BookNavigationPatch.cs').read_text()
-          assert 'CardchaInventoryTabVisibilityPatch.Apply(harmony);' in (r/'Patches/BookNavigationPatch.cs').read_text()
+          assert 'MimiProfileSheetPath' in actor
+          assert 'MimiProfileMenuPatch.Apply(harmony);' in (r/'ModEntry.cs').read_text()
+
+          assert Image.open(r/'assets/mimi_broom.png').size == (192, 192)
+          assert Image.open(r/'assets/mimi_walk.png').size == (128, 192)
+          assert Image.open(r/'assets/mimi_walk_runtime.png').size == (128, 216)
+          assert Image.open(r/'assets/mimi_social_mugshot.png').size == (16, 24)
+          assert Image.open(r/'assets/mimi_profile.png').size == (128, 192)
+
+          walk = Image.open(r/'assets/mimi_walk.png').convert('RGBA')
+          runtime = Image.open(r/'assets/mimi_walk_runtime.png').convert('RGBA')
+          mug = Image.open(r/'assets/mimi_social_mugshot.png').convert('RGBA')
+          assert runtime.crop((0, 0, 128, 192)).tobytes() == walk.tobytes()
+          assert runtime.crop((0, 192, 16, 216)).tobytes() == mug.tobytes()
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == walk_hash
           print('0.7.7.3 static validation PASS')
           PY
 
@@ -340,25 +82,45 @@ internal static class CardchaInventoryTabVisibilityPatch
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
+      - name: Post-build version validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.7.3'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          print('post-build manifest version PASS:', target)
+          PY
+
       - name: Package TEST and canonical source payload
         shell: bash
         run: |
           set -euo pipefail
           rm -rf artifact stage
-          mkdir -p artifact/canonical-src/Patches artifact/canonical-src/UI artifact/canonical-src/Services artifact/canonical-src/assets stage/Cardcha
+          mkdir -p artifact/canonical-src/UI artifact/canonical-src/Services artifact/canonical-src/Patches artifact/canonical-src/assets stage/Cardcha
+
           cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
           cp src/Cardcha/UI/CardchaBinderMenu.cs artifact/canonical-src/UI/
+          cp src/Cardcha/UI/CardchaBookTabService.cs artifact/canonical-src/UI/
           cp src/Cardcha/Services/WorldActorService.cs artifact/canonical-src/Services/
-          cp src/Cardcha/Patches/BookNavigationPatch.cs artifact/canonical-src/Patches/
           cp src/Cardcha/Patches/MimiProfileMenuPatch.cs artifact/canonical-src/Patches/
-          cp src/Cardcha/Patches/CardchaInventoryTabVisibilityPatch.cs artifact/canonical-src/Patches/
           cp src/Cardcha/assets/mimi_broom.png artifact/canonical-src/assets/
           cp src/Cardcha/assets/mimi_walk_runtime.png artifact/canonical-src/assets/
           cp src/Cardcha/assets/mimi_social_mugshot.png artifact/canonical-src/assets/
           cp src/Cardcha/assets/mimi_profile.png artifact/canonical-src/assets/
           cp src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/manifest.json src/Cardcha/ModEntry.cs artifact/canonical-src/
+
+          test -s stage/Cardcha/Cardcha.dll
+          test -f stage/Cardcha/assets/mimi_attic.tmx
+          test -f stage/Cardcha/assets/mimi_walk.png
+          test -f stage/Cardcha/assets/mimi_profile.png
+
           (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.3_SocialInventoryUiPolish_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
