@@ -1,0 +1,56 @@
+name: Cardcha canonical data bootstrap
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-canonical-data-bootstrap.yml' ]
+permissions:
+  contents: write
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Generate canonical text chunks from approved branch assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import base64, hashlib, json, lzma
+          r=Path('.')
+          manifest=json.loads((r/'build_assets/canonical_sprites/manifest.json').read_text())
+          assert manifest['schema']==2
+          data_dir=r/'build_assets/canonical_sprites/data'
+          data_dir.mkdir(parents=True,exist_ok=True)
+          for p in data_dir.iterdir():
+              if p.is_file(): p.unlink()
+          chunk_chars=int(manifest['chunk_chars'])
+          for name,meta in manifest['assets'].items():
+              p=r/'src/Cardcha/assets'/name
+              with Image.open(p) as im:
+                  im.load(); rgba=im.convert('RGBA')
+                  assert rgba.size==(meta['width'],meta['height']), (name,rgba.size)
+                  raw=rgba.tobytes()
+              got=hashlib.sha256(raw).hexdigest()
+              assert got==meta['rgba_sha256'], (name,got,meta['rgba_sha256'])
+              encoded=base64.b85encode(lzma.compress(raw,preset=9)).decode('ascii')
+              pieces=[encoded[i:i+chunk_chars] for i in range(0,len(encoded),chunk_chars)]
+              assert len(pieces)==len(meta['chunks']), (name,len(pieces),len(meta['chunks']))
+              for filename,piece in zip(meta['chunks'],pieces):
+                  (data_dir/filename).write_text(piece,encoding='ascii')
+              print('ENCODED',name,len(pieces),'chunk(s)')
+          PY
+      - name: Verify completed guard store
+        run: python3 build_assets/restore_canonical_sprites.py
+      - name: Commit canonical data only
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add build_assets/canonical_sprites/data
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'infra: complete canonical visual RGBA payloads' && git push origin cardcha-alpha27-mimi-real-npc)
