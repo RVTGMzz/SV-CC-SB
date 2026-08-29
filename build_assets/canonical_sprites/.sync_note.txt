@@ -1,0 +1,1 @@
+Binary source synchronization is performed explicitly; no protected visual is auto-rewritten.
