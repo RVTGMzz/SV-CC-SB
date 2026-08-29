@@ -1,3 +1,4 @@
+# canonical-source validation trigger
 name: Cardcha alpha27.0.7.7.4 attic + broom final
 
 on:
