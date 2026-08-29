@@ -1,0 +1,87 @@
+name: Cardcha alpha27.0.7.7.5 canonical source check
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-alpha27-0775-canonical-check.yml' ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Verify canonical patch is idempotent
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_assets/apply_0775.py
+          git diff --exit-code -- src/Cardcha
+
+      - name: Validate 0.7.7.5 source and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.7.5'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+          reveal = (r/'UI/CardchaRevealMenu.cs').read_text()
+          assert 'RarityLabel(result.Card.Rarity)' in reveal and 'result.Card.Rarity.ToString()' not in reveal
+          binder = (r/'UI/CardchaBinderMenu.cs').read_text()
+          assert 'binder.status.pick' not in binder and 'binder.status.preview' not in binder
+          actor = (r/'Services/WorldActorService.cs').read_text()
+          assert 'MimiBroomNativeScale = MimiNativeScale * 1.10f' in actor
+          patch = (r/'Patches/MachineInteractionPatch.cs').read_text()
+          assert 'nameof(SObject.isPlaceable)' in patch and 'IsPlaceablePostfix' in patch
+          visual = (r/'Services/MimiAtticVisualService.cs').read_text()
+          assert '"(F)1466", 4, 7' in visual and '"(F)724"' not in visual and '"(F)1541", 6, 1' in visual
+          assert 'mimi_attic_room_frame.png' in visual and 'TvTable' not in visual
+          home = (r/'Services/MimiHomeService.cs').read_text()
+          assert 'return preferred;' in home and 'ResolveWizardLandingTile' in home
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert Image.open(r/'assets/mimi_social_mugshot.png').size == (16,24)
+          assert Image.open(r/'assets/mimi_walk_runtime.png').size == (128,216)
+          assert Image.open(r/'assets/mimi_attic_stairs.png').size == (16,64)
+          assert Image.open(r/'assets/mimi_attic_room_frame.png').size == (352,224)
+          print('canonical 0.7.7.5 validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile canonical source
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package canonical TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.5_VisualLocalizationPolish_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0775-canonical-test
+          path: artifact
+          if-no-files-found: error
