@@ -104,6 +104,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private string FavoriteToast = string.Empty;
     private long FavoriteToastExpiresAtMs;
     private const long FavoriteToastDurationMs = 3000L;
+    private long LastFavoriteControllerActivationAtMs;
+    private const long FavoriteControllerDebounceMs = 250L;
     // alpha.23: hint bar follows the most recently used input family and controller profile.
     private bool LastInputWasController;
 
@@ -507,11 +509,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.EnsureControllerFocusValid();
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
+        if (collectionFocused)
+            this.ControllerFavoriteTarget = this.CardButtons[focusedId - CardBaseId].Card;
 
         if (focusedId == FavoriteActionId
             && (this.Controller.IsConfirm(b) || this.Controller.IsFavorite(b)))
         {
-            this.ActivateFavoriteAction();
+            this.TryActivateFavoriteFromController();
             return;
         }
 
@@ -537,7 +541,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             if (this.ControllerSelectionLocked && this.LockedCard is not null)
             {
                 this.RestoreLockedSelectionForAction();
-                this.ActivateFavoriteAction();
+                this.TryActivateFavoriteFromController();
             }
             else
             {
@@ -1036,6 +1040,16 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         => this.LastInputWasController && this.ControllerFavoriteTarget is not null
             ? this.ControllerFavoriteTarget
             : this.PreviewCard ?? this.Selected ?? this.LockedCard;
+
+    private void TryActivateFavoriteFromController()
+    {
+        long now = Environment.TickCount64;
+        if (now - this.LastFavoriteControllerActivationAtMs < FavoriteControllerDebounceMs)
+            return;
+
+        this.LastFavoriteControllerActivationAtMs = now;
+        this.ActivateFavoriteAction();
+    }
 
     private void ActivateFavoriteAction()
     {

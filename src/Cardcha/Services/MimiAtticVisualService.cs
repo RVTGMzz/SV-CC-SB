@@ -22,7 +22,7 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.8.0";
+    private const string DecorVersion = "alpha.27.0.7.8.1";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -149,7 +149,7 @@ internal sealed class MimiAtticVisualService
         }
 
         // Rugs first so Stardew naturally draws the furniture on top of them.
-        TryAddFurniture(attic, "(F)1456", 15, 9);  // Patchwork Rug — moved beneath the lower prototype table.
+        TryAddFurniture(attic, "(F)1456", 16, 9);  // Patchwork Rug centered beneath the lower prototype table.
         TryAddFurniture(attic, "(F)1623", 3, 9);   // Green Cottage Rug aligned with the couch.
         TryAddFurniture(attic, "(F)1461", 14, 4);  // Large dark rug under the bed.
 
