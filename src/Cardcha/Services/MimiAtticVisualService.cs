@@ -22,11 +22,12 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.7.9";
+    private const string DecorVersion = "alpha.27.0.7.8.0";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
     private bool TestAccessActive;
+    private GameLocation? DecorAppliedLocation;
 
     public MimiAtticVisualService(IModHelper helper, SaveService save)
     {
@@ -130,13 +131,12 @@ internal sealed class MimiAtticVisualService
     /// Populate the room with actual Stardew furniture rather than a room-sized custom PNG.
     /// This keeps vanilla sprite proportions, shadows, draw ordering, and furniture collision.
     /// </summary>
-    private static void EnsureVanillaFurniture(GameLocation attic)
+    private void EnsureVanillaFurniture(GameLocation attic)
     {
-        if (attic.modData.TryGetValue(DecorMarkerKey, out string? version)
-            && string.Equals(version, DecorVersion, StringComparison.Ordinal))
-        {
+        if (ReferenceEquals(this.DecorAppliedLocation, attic))
             return;
-        }
+
+        this.DecorAppliedLocation = attic;
 
         // A decor-version change must replace our old runtime furniture instead of stacking a
         // second copy on the same tiles. Stacked furniture was the source of the visible chair
@@ -164,7 +164,7 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: 16); // Real +16px draw/collision shift: centered with rug + couch.
+        TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: -16); // Real -16px shift: measured visual center matches rug + couch.
         TryAddFurniture(attic, "(F)432", 3, 11, rotation: 2);    // Couch shifted right to visually center beneath the TV.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.

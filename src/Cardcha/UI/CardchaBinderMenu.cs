@@ -90,6 +90,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private CardDefinition? Selected;
     private CardDefinition? PreviewCard;
     private CardDefinition? LockedCard;
+    private CardDefinition? ControllerFavoriteTarget;
     private bool ControllerSelectionLocked;
     private string? LastQuickToggleCardId;
     private double LastQuickToggleAtMs;
@@ -899,6 +900,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.ControllerSelectionLocked = true;
         this.PreviewCard = card;
         this.Selected = card;
+        if (fromController)
+            this.ControllerFavoriteTarget = card;
 
         if (secondActivation)
         {
@@ -942,13 +945,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void SyncBrowsePreviewToFocusedCard()
     {
-        if (this.ControllerSelectionLocked && this.LockedCard is not null)
-        {
-            // Keep rendering and all action state pinned to the explicit lock.
-            this.Selected = this.LockedCard;
-            return;
-        }
-
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)
             return;
@@ -956,8 +952,19 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         int index = focusedId - CardBaseId;
         CardDefinition card = this.CardButtons[index].Card;
         this.PreviewCard = card;
-        this.Selected = card;
         this.FavoriteActionButton.leftNeighborID = focusedId;
+        if (this.LastInputWasController)
+            this.ControllerFavoriteTarget = card;
+
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+        {
+            // The detail page can stay locked, but Favorite follows the collection card the
+            // controller actually navigated from instead of an older locked selection.
+            this.Selected = this.LockedCard;
+            return;
+        }
+
+        this.Selected = card;
         this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
             ? string.Empty
             : ModEntry.T("binder.status.not-owned");
@@ -1026,9 +1033,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     }
 
     private CardDefinition? GetFavoriteTargetCard()
-        => this.ControllerSelectionLocked && this.LockedCard is not null
-            ? this.LockedCard
-            : this.PreviewCard ?? this.Selected;
+        => this.LastInputWasController && this.ControllerFavoriteTarget is not null
+            ? this.ControllerFavoriteTarget
+            : this.PreviewCard ?? this.Selected ?? this.LockedCard;
 
     private void ActivateFavoriteAction()
     {
@@ -1948,29 +1955,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawStatus(SpriteBatch b)
     {
-        if (!string.IsNullOrWhiteSpace(this.FavoriteToast))
-        {
-            if (Environment.TickCount64 < this.FavoriteToastExpiresAtMs)
-            {
-                Rectangle toastArea = new(
-                    this.RightPage.X + 64,
-                    this.FavoriteActionButton.bounds.Y - 46,
-                    this.RightPage.Width - 128,
-                    38
-                );
-                DrawRoundedRect(b, toastArea, new Color(58, 77, 81) * 0.96f, 8);
-                DrawRoundedBorder(b, toastArea, new Color(201, 165, 92), 2, 8);
-                CardchaUi.DrawAutoFitWrappedText(
-                    b, Game1.smallFont, this.FavoriteToast, Inflate(toastArea, -6), Color.White,
-                    maxLines: 1, minScale: 0.72f, centerX: true, maxScale: 0.96f, centerY: true
-                );
-                return;
-            }
-
-            this.FavoriteToast = string.Empty;
-            this.FavoriteToastExpiresAtMs = 0;
-        }
-
         if (this.IsLoadoutFullStatus())
             return;
         if (this.Selected is not null)
