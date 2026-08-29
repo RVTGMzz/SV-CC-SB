@@ -33,9 +33,6 @@ def patch_binder() -> None:
     path = ROOT / 'UI/CardchaBinderMenu.cs'
     text = path.read_text()
 
-    # Keep an explicit card target for controller action buttons. A locked card may intentionally
-    # remain selected while the player browses the collection, so Favorite must follow controller
-    # focus rather than an older LockedCard.
     anchor = '    private CardDefinition? LockedCard;\n'
     insertion = anchor + '    private CardDefinition? ControllerFavoriteTarget;\n'
     if 'private CardDefinition? ControllerFavoriteTarget;' not in text:
@@ -43,10 +40,8 @@ def patch_binder() -> None:
             raise AssertionError('Could not locate LockedCard field')
         text = text.replace(anchor, insertion, 1)
 
-    # Capture controller focus even when a selection lock is active. This removes the stale-target
-    # bug where a non-favorite focused card showed BỎ YÊU THÍCH because an older locked card was favorite.
-    old_sync = '''    private void SyncBrowsePreviewToFocusedCard()\n    {\n        if (this.ControllerSelectionLocked && this.LockedCard is not null)\n        {\n            // Keep rendering and all action state pinned to the explicit lock.\n            this.Selected = this.LockedCard;\n            return;\n        }\n\n        int focusedId = this.currentlySnappedComponent?.myID ?? -1;\n        if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)\n            return;\n\n        int index = focusedId - CardBaseId;\n        CardDefinition card = this.CardButtons[index].Card;\n        this.PreviewCard = card;\n        this.Selected = card;\n        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? string.Empty\n            : ModEntry.T("binder.status.not-owned");\n    }\n'''
-    new_sync = '''    private void SyncBrowsePreviewToFocusedCard()\n    {\n        int focusedId = this.currentlySnappedComponent?.myID ?? -1;\n        if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)\n            return;\n\n        int index = focusedId - CardBaseId;\n        CardDefinition card = this.CardButtons[index].Card;\n        this.PreviewCard = card;\n        if (this.LastInputWasController)\n            this.ControllerFavoriteTarget = card;\n\n        if (this.ControllerSelectionLocked && this.LockedCard is not null)\n        {\n            // Keep the detail page pinned to the explicit lock, but controller action buttons\n            // still remember the card the player is actually navigating from.\n            this.Selected = this.LockedCard;\n            return;\n        }\n\n        this.Selected = card;\n        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? string.Empty\n            : ModEntry.T("binder.status.not-owned");\n    }\n'''
+    old_sync = '''    private void SyncBrowsePreviewToFocusedCard()\n    {\n        if (this.ControllerSelectionLocked && this.LockedCard is not null)\n        {\n            // Keep rendering and all action state pinned to the explicit lock.\n            this.Selected = this.LockedCard;\n            return;\n        }\n\n        int focusedId = this.currentlySnappedComponent?.myID ?? -1;\n        if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)\n            return;\n\n        int index = focusedId - CardBaseId;\n        CardDefinition card = this.CardButtons[index].Card;\n        this.PreviewCard = card;\n        this.Selected = card;\n        this.FavoriteActionButton.leftNeighborID = focusedId;\n        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? string.Empty\n            : ModEntry.T("binder.status.not-owned");\n    }\n'''
+    new_sync = '''    private void SyncBrowsePreviewToFocusedCard()\n    {\n        int focusedId = this.currentlySnappedComponent?.myID ?? -1;\n        if (focusedId < CardBaseId || focusedId >= CardBaseId + this.CardButtons.Count)\n            return;\n\n        int index = focusedId - CardBaseId;\n        CardDefinition card = this.CardButtons[index].Card;\n        this.PreviewCard = card;\n        this.FavoriteActionButton.leftNeighborID = focusedId;\n        if (this.LastInputWasController)\n            this.ControllerFavoriteTarget = card;\n\n        if (this.ControllerSelectionLocked && this.LockedCard is not null)\n        {\n            // The detail page can stay locked, but Favorite follows the collection card the\n            // controller actually navigated from instead of an older locked selection.\n            this.Selected = this.LockedCard;\n            return;\n        }\n\n        this.Selected = card;\n        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)\n            ? string.Empty\n            : ModEntry.T("binder.status.not-owned");\n    }\n'''
     if new_sync not in text:
         if old_sync not in text:
             raise AssertionError('Could not locate SyncBrowsePreviewToFocusedCard')
@@ -59,7 +54,6 @@ def patch_binder() -> None:
             raise AssertionError('Could not locate GetFavoriteTargetCard')
         text = text.replace(old_target, new_target, 1)
 
-    # When controller explicitly activates a collection card, make it the action source immediately.
     anchor_activation = '''        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n'''
     replacement_activation = '''        this.LockedCard = card;\n        this.ControllerSelectionLocked = true;\n        this.PreviewCard = card;\n        this.Selected = card;\n        if (fromController)\n            this.ControllerFavoriteTarget = card;\n'''
     if replacement_activation not in text:
@@ -67,8 +61,6 @@ def patch_binder() -> None:
             raise AssertionError('Could not locate HandleCollectionActivation lock block')
         text = text.replace(anchor_activation, replacement_activation, 1)
 
-    # 0.7.7.9 accidentally rendered the same favorite toast twice: once through DrawFavoriteToast()
-    # and once inside DrawStatus(). Keep the dedicated popup only.
     old_double = '''        if (!string.IsNullOrWhiteSpace(this.FavoriteToast))\n        {\n            if (Environment.TickCount64 < this.FavoriteToastExpiresAtMs)\n            {\n                Rectangle toastArea = new(\n                    this.RightPage.X + 64,\n                    this.FavoriteActionButton.bounds.Y - 46,\n                    this.RightPage.Width - 128,\n                    38\n                );\n                DrawRoundedRect(b, toastArea, new Color(58, 77, 81) * 0.96f, 8);\n                DrawRoundedBorder(b, toastArea, new Color(201, 165, 92), 2, 8);\n                CardchaUi.DrawAutoFitWrappedText(\n                    b, Game1.smallFont, this.FavoriteToast, Inflate(toastArea, -6), Color.White,\n                    maxLines: 1, minScale: 0.72f, centerX: true, maxScale: 0.96f, centerY: true\n                );\n                return;\n            }\n\n            this.FavoriteToast = string.Empty;\n            this.FavoriteToastExpiresAtMs = 0;\n        }\n\n'''
     if old_double in text:
         text = text.replace(old_double, '', 1)
@@ -92,9 +84,6 @@ def patch_attic() -> None:
             raise AssertionError('Could not locate attic service fields')
         text = text.replace(field_anchor, field_replacement, 1)
 
-    # Rebuild Cardcha-owned furniture once per live location object every game session. The old
-    # persisted location marker could cause a newly installed build to reuse stale saved furniture
-    # geometry, which is why visible room changes appeared to do nothing in-game.
     old_sig = '    private static void EnsureVanillaFurniture(GameLocation attic)\n    {\n        if (attic.modData.TryGetValue(DecorMarkerKey, out string? version)\n            && string.Equals(version, DecorVersion, StringComparison.Ordinal))\n        {\n            return;\n        }\n\n'
     new_sig = '    private void EnsureVanillaFurniture(GameLocation attic)\n    {\n        if (ReferenceEquals(this.DecorAppliedLocation, attic))\n            return;\n\n        this.DecorAppliedLocation = attic;\n\n'
     if new_sig not in text:
@@ -102,7 +91,6 @@ def patch_attic() -> None:
             raise AssertionError('Could not locate EnsureVanillaFurniture version guard')
         text = text.replace(old_sig, new_sig, 1)
 
-    # Screenshot measurement: TV visual center is ~16px RIGHT of the sofa/rug center. Shift it left.
     text = text.replace('TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: 16); // Real +16px draw/collision shift: centered with rug + couch.',
                         'TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: -16); // Real -16px shift: measured visual center matches rug + couch.')
 
@@ -116,7 +104,7 @@ def validate() -> None:
     assert 'this.ControllerFavoriteTarget = card;' in binder
     assert 'this.LastInputWasController && this.ControllerFavoriteTarget is not null' in binder
     assert 'Rectangle toastArea = new(' not in binder
-    assert 'this.DrawFavoriteToast(b);' in binder
+    assert binder.count('this.DrawFavoriteToast(b);') == 1
     assert 'private GameLocation? DecorAppliedLocation;' in visual
     assert 'ReferenceEquals(this.DecorAppliedLocation, attic)' in visual
     assert 'private void EnsureVanillaFurniture(GameLocation attic)' in visual
