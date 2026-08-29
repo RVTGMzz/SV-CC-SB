@@ -1,0 +1,161 @@
+name: Cardcha alpha27.0.7.7.6 MiMi room polish
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-0776-mimi-room-polish.yml'
+      - 'build_assets/apply_0776.py'
+      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
+      - 'src/Cardcha/Services/MimiHomeService.cs'
+      - 'src/Cardcha/assets/mimi_social_mugshot.png'
+      - 'src/Cardcha/assets/mimi_walk_runtime.png'
+      - 'src/Cardcha/assets/mimi_attic.tmx'
+      - 'src/Cardcha/Cardcha.csproj'
+      - 'src/Cardcha/Directory.Build.targets'
+      - 'src/Cardcha/manifest.json'
+      - 'src/Cardcha/ModEntry.cs'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Apply 0.7.7.6 candidate
+        run: python3 build_assets/apply_0776.py
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.7.6'
+          locked_walk = '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          approved_broom = '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          approved_mug = '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
+          attic = (r/'Services/MimiAtticVisualService.cs').read_text()
+          for needle in [
+              '"(F)1456", 15, 9',
+              '"(F)1120", 4, 4, heldId: "(F)1362"',
+              '"(F)1443", 9, 4',
+              '"(F)432", 3, 11',
+              '"(F)1614", 10, 1',
+              'alpha.27.0.7.7.6',
+          ]:
+              assert needle in attic, needle
+          assert '"(F)1362", 9, 5' not in attic
+
+          home = (r/'Services/MimiHomeService.cs').read_text()
+          assert 'Math.Clamp(width - 2, 2, Math.Max(2, width - 2))' in home
+          assert 'Math.Round(height * 0.20f)' in home
+          assert 'ResolveWizardLandingTile' in home
+
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == locked_walk
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == approved_broom
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == approved_mug
+          assert Image.open(r/'assets/mimi_social_mugshot.png').size == (16, 24)
+          assert Image.open(r/'assets/mimi_walk_runtime.png').size == (128, 216)
+
+          walk = Image.open(r/'assets/mimi_walk.png').convert('RGBA')
+          runtime = Image.open(r/'assets/mimi_walk_runtime.png').convert('RGBA')
+          mug = Image.open(r/'assets/mimi_social_mugshot.png').convert('RGBA')
+          assert runtime.crop((0, 0, 128, 192)).tobytes() == walk.tobytes()
+          assert runtime.crop((0, 192, 16, 216)).tobytes() == mug.tobytes()
+          print('0.7.7.6 static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Post-build version validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.7.6'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          print('post-build manifest version PASS:', target)
+          PY
+
+      - name: Package TEST and canonical source payload
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact/canonical-src/Services artifact/canonical-src/assets stage/Cardcha
+
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
+          cp src/Cardcha/Services/MimiAtticVisualService.cs artifact/canonical-src/Services/
+          cp src/Cardcha/Services/MimiHomeService.cs artifact/canonical-src/Services/
+          cp src/Cardcha/assets/mimi_social_mugshot.png artifact/canonical-src/assets/
+          cp src/Cardcha/assets/mimi_walk_runtime.png artifact/canonical-src/assets/
+          cp src/Cardcha/assets/mimi_attic.tmx artifact/canonical-src/assets/
+          cp src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/manifest.json src/Cardcha/ModEntry.cs artifact/canonical-src/
+
+          test -s stage/Cardcha/Cardcha.dll
+          test -f stage/Cardcha/assets/mimi_walk.png
+          test -f stage/Cardcha/assets/mimi_broom.png
+          test -f stage/Cardcha/assets/mimi_social_mugshot.png
+          test -f stage/Cardcha/assets/mimi_attic.tmx
+
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.6_MiMiRoomPolish_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Canonicalize 0.7.7.6 source if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            src/Cardcha/Services/MimiAtticVisualService.cs \
+            src/Cardcha/Services/MimiHomeService.cs \
+            src/Cardcha/assets/mimi_social_mugshot.png \
+            src/Cardcha/assets/mimi_walk_runtime.png \
+            src/Cardcha/assets/mimi_attic.tmx \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/manifest.json \
+            src/Cardcha/ModEntry.cs
+
+          if git diff --cached --quiet; then
+            echo 'Canonical source already matches 0.7.7.6 candidate.'
+            exit 0
+          fi
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'alpha27.0.7.7.6: polish MiMi room layout and social mugshot'
+          git push origin HEAD:cardcha-alpha27-mimi-real-npc
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0776-mimi-room-polish
+          path: artifact
+          if-no-files-found: error
