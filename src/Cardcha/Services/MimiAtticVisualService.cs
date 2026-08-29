@@ -22,7 +22,7 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.7.6";
+    private const string DecorVersion = "alpha.27.0.7.7.7";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -150,7 +150,7 @@ internal sealed class MimiAtticVisualService
 
         // Rugs first so Stardew naturally draws the furniture on top of them.
         TryAddFurniture(attic, "(F)1456", 15, 9);  // Patchwork Rug — moved beneath the lower prototype table.
-        TryAddFurniture(attic, "(F)1623", 2, 9);   // Green Cottage Rug — TV nook.
+        TryAddFurniture(attic, "(F)1623", 3, 9);   // Green Cottage Rug aligned with the couch.
         TryAddFurniture(attic, "(F)1461", 14, 4);  // Large dark rug under the bed.
 
         // Research desk — deliberately domestic, not a full workshop.
@@ -164,7 +164,7 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 4, 7);                 // TV shifted right to center with the sofa/rug.
+        TryAddFurniture(attic, "(F)1466", 4, 7, offsetX: -0.5f); // TV half-tile left nudge: centered with rug + couch.
         TryAddFurniture(attic, "(F)432", 3, 11, rotation: 2);    // Couch shifted right to visually center beneath the TV.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
@@ -184,11 +184,14 @@ internal sealed class MimiAtticVisualService
         int x,
         int y,
         int rotation = 0,
-        string? heldId = null)
+        string? heldId = null,
+        float offsetX = 0f)
     {
         try
         {
             Furniture item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
+            if (Math.Abs(offsetX) > 0.001f)
+                item.TileLocation = new Vector2(x + offsetX, y);
             item.modData[DecorMarkerKey] = DecorVersion;
 
             if (heldId is not null)
@@ -215,13 +218,11 @@ internal sealed class MimiAtticVisualService
             if (layer is null)
                 continue;
 
-            for (int x = tile.X - 1; x <= tile.X; x++)
+            int x = tile.X;
+            for (int y = tile.Y - 3; y <= tile.Y; y++)
             {
-                for (int y = tile.Y - 3; y <= tile.Y; y++)
-                {
-                    if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
-                        layer.Tiles[x, y] = null;
-                }
+                if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
+                    layer.Tiles[x, y] = null;
             }
         }
     }

@@ -662,13 +662,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
-        if (id == FavoriteActionId)
-        {
-            this.RestoreLockedSelectionForAction();
-            this.ToggleFavorite();
-            return;
-        }
-
         if (id == EquipActionId)
         {
             this.RestoreLockedSelectionForAction();
@@ -700,6 +693,8 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
+        // Controller confirm intentionally shares the mouse-left-click handler for action buttons
+        // (including Favorite), so toggles behave identically across input methods.
         Rectangle r = focused.bounds;
         this.receiveLeftClick(r.Center.X, r.Center.Y, playSound: true);
     }
