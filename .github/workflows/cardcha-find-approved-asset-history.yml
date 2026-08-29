@@ -1,0 +1,50 @@
+name: Cardcha find approved asset history
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-find-approved-asset-history.yml' ]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Scan all branch tips and reachable commits for approved pixels
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --all --tags --force
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, io, subprocess
+          wanted={
+            'chacha_follow.png':'b2f975ad72249cda5c5629e4476b7fe25da4a333d62ef2675444ea7ac8a038b4',
+            'chacha_machine.png':'12079224049ae520159c783b3e464ac204256f04092540981b4d4fe8ba9a32e1',
+            'card_icons.png':'b2a8c9f0a0f46ef8efb55c7d7bdacb9157934e287c33873f885056fc1e2e799b',
+            'chacha_portrait.png':'088c8b0599d3deda2ba0c87066948c970bdccc38398611a290acb6d936a2133f',
+            'mimi_walk.png':'b3e2beebef6d9d4f9c830c9a70534eb96b1bf147581bc128c23808a7dd669a53',
+          }
+          refs=subprocess.check_output(['git','for-each-ref','--format=%(refname)','refs/remotes/origin','refs/tags'],text=True).splitlines()
+          for name,target in wanted.items():
+            path=f'src/Cardcha/assets/{name}'
+            found=[]
+            # scan unique blobs reachable from all refs, not every commit image repeatedly
+            revs=subprocess.check_output(['git','rev-list','--all','--objects','--',path],text=True).splitlines()
+            seen=set()
+            for line in revs:
+              sha,*rest=line.split(' ',1)
+              if not rest or rest[0]!=path or sha in seen: continue
+              seen.add(sha)
+              try: raw=subprocess.check_output(['git','cat-file','-p',sha])
+              except: continue
+              try:
+                with Image.open(io.BytesIO(raw)) as im:
+                  im.load(); rgba=im.convert('RGBA').tobytes()
+              except: continue
+              h=hashlib.sha256(rgba).hexdigest()
+              if h==target: found.append(sha)
+            print('MATCH',name,target,'BLOBS',','.join(found) if found else 'NONE')
+          PY
