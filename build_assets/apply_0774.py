@@ -54,6 +54,40 @@ def rebuild_social_mugshot() -> None:
     runtime.save(ROOT / "assets/mimi_walk_runtime.png", optimize=True)
 
 
+def normalize_broom_asset() -> None:
+    path = ROOT / "assets/mimi_broom.png"
+    source = Image.open(path).convert("RGBA")
+    if source.size == (192, 192):
+        # Already canonical/native. Do not widen again on the second CI pass.
+        return
+    if source.size != (128, 192):
+        raise AssertionError(f"Unexpected mimi_broom size {source.size}")
+
+    # User-approved replacement is a 4x4 sheet of 32x48 frames. Runtime broom frames are
+    # native 48x48, so first restore that geometry frame-by-frame without filtering.
+    native = Image.new("RGBA", (192, 192), (0, 0, 0, 0))
+    for row in range(4):
+        for col in range(4):
+            frame = source.crop((col * 32, row * 48, (col + 1) * 32, (row + 1) * 48))
+            frame = frame.resize((48, 48), Image.Resampling.NEAREST)
+
+            # The user wants MiMi/??? about 30% broader while mounted, but with unchanged height.
+            bbox = frame.getchannel("A").getbbox()
+            if bbox is not None:
+                x0, y0, x1, y1 = bbox
+                content = frame.crop(bbox)
+                wide_w = max(1, round(content.width * 1.30))
+                wide = content.resize((wide_w, content.height), Image.Resampling.NEAREST)
+                center_x = (x0 + x1) / 2
+                dst_x = round(center_x - wide_w / 2)
+                widened_frame = Image.new("RGBA", (48, 48), (0, 0, 0, 0))
+                widened_frame.alpha_composite(wide, (dst_x, y0))
+                frame = widened_frame
+
+            native.alpha_composite(frame, (col * 48, row * 48))
+    native.save(path, optimize=True)
+
+
 def patch_broom_runtime_scale() -> None:
     path = ROOT / "Services/WorldActorService.cs"
     text = path.read_text()
@@ -199,6 +233,7 @@ def patch_versions() -> None:
 walk_before = hashlib.sha256(WALK_PATH.read_bytes()).hexdigest()
 patch_binder_status()
 rebuild_social_mugshot()
+normalize_broom_asset()
 patch_broom_runtime_scale()
 create_stair_sprite()
 patch_attic_visuals()
