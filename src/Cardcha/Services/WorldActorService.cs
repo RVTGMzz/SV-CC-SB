@@ -18,11 +18,13 @@ internal sealed class WorldActorService
     public const string MimiNpcId = MimiMysteryTownService.NpcId;
     public const string MimiCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi";
     public const string MimiBroomCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Broom";
+    public const string MimiProfileCharacterAsset = "Characters/Ronvotri.Cardcha_MiMi_Profile";
     public const string ChaChaNpcId = "Ronvotri.Cardcha_ChaCha";
     public const string ChaChaCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha";
     public const string ChaChaMachineCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_Machine";
 
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
+    private const string MimiProfileSheetPath = "assets/mimi_profile.png";
     private const string MimiPortraitAsset = "Portraits/Ronvotri.Cardcha_MiMi";
     private const string MimiPortraitSheetPath = "assets/mimi_portraits_runtime64.png";
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
@@ -51,6 +53,12 @@ internal sealed class WorldActorService
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
+        if (e.Name.IsEquivalentTo(MimiProfileCharacterAsset))
+        {
+            e.LoadFromModFile<Texture2D>(MimiProfileSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+
         if (e.Name.IsEquivalentTo(MimiBroomCharacterAsset))
         {
             e.LoadFromModFile<Texture2D>(MimiBroomSheetPath, AssetLoadPriority.Medium);
@@ -183,12 +191,14 @@ internal sealed class WorldActorService
     public void ConfigureMimiActor(NPC actor, bool broom, bool visible)
     {
         string asset = broom ? MimiBroomCharacterAsset : MimiCharacterAsset;
+        int spriteWidth = broom ? 48 : 32;
+        const int spriteHeight = 48;
         if (actor.Sprite is null
-            || actor.Sprite.SpriteWidth != 32
-            || actor.Sprite.SpriteHeight != 48
+            || actor.Sprite.SpriteWidth != spriteWidth
+            || actor.Sprite.SpriteHeight != spriteHeight
             || !string.Equals(actor.Sprite.loadedTexture, asset, StringComparison.OrdinalIgnoreCase))
         {
-            actor.Sprite = new AnimatedSprite(asset, 0, 32, 48);
+            actor.Sprite = new AnimatedSprite(asset, 0, spriteWidth, spriteHeight);
         }
 
         actor.Scale = broom ? MimiBroomNativeScale : MimiNativeScale;

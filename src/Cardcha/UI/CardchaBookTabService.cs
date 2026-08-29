@@ -219,7 +219,12 @@ internal sealed class CardchaBookTabService
     }
 
     private static bool IsSupported(IClickableMenu? menu)
-        => menu is GameMenu or ItemGrabMenu;
+    {
+        if (menu is not GameMenu gameMenu)
+            return false;
+
+        return GetGraphOwner(gameMenu) is InventoryPage;
+    }
 
     private void ResetAttachmentState()
     {
