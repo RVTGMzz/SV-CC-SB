@@ -22,7 +22,7 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.7.5";
+    private const string DecorVersion = "alpha.27.0.7.7.6";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -149,15 +149,14 @@ internal sealed class MimiAtticVisualService
         }
 
         // Rugs first so Stardew naturally draws the furniture on top of them.
-        TryAddFurniture(attic, "(F)1456", 3, 5);   // Patchwork Rug — research zone.
+        TryAddFurniture(attic, "(F)1456", 15, 9);  // Patchwork Rug — moved beneath the lower prototype table.
         TryAddFurniture(attic, "(F)1623", 2, 9);   // Green Cottage Rug — TV nook.
         TryAddFurniture(attic, "(F)1461", 14, 4);  // Large dark rug under the bed.
 
         // Research desk — deliberately domestic, not a full workshop.
         TryAddFurniture(attic, "(F)1289", 2, 4);                 // Dark Bookcase.
-        TryAddFurniture(attic, "(F)1120", 4, 5, heldId: "(F)1368"); // Oak Table + Small Crystal.
-        TryAddFurniture(attic, "(F)1443", 8, 5);                 // Country Lamp.
-        TryAddFurniture(attic, "(F)1362", 9, 5);                 // Small Plant.
+        TryAddFurniture(attic, "(F)1120", 4, 4, heldId: "(F)1362"); // Oak Table against the wall + Small Plant.
+        TryAddFurniture(attic, "(F)1443", 9, 4);                 // Country Lamp tucked beside the raised window.
 
         // Personal / bed corner.
         TryAddFurniture(attic, "(F)2058", 15, 4);                // Starry Double Bed.
@@ -166,14 +165,14 @@ internal sealed class MimiAtticVisualService
 
         // TV secret nook — cozy, clearly separate from the research side.
         TryAddFurniture(attic, "(F)1466", 4, 7);                 // TV shifted right to center with the sofa/rug.
-        TryAddFurniture(attic, "(F)432", 2, 11, rotation: 2);    // Couch tight to the bottom wall, centered beneath the TV.
+        TryAddFurniture(attic, "(F)432", 3, 11, rotation: 2);    // Couch shifted right to visually center beneath the TV.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
         TryAddFurniture(attic, "(F)1132", 16, 9, heldId: "(F)1368"); // Modern Table + crystal prototype.
         TryAddFurniture(attic, "(F)1390", 19, 9);                // House Plant.
 
         // Wall details make the shell read like a real Stardew bedroom rather than an empty shed.
-        TryAddFurniture(attic, "(F)1614", 10, 2);                // Basic Window.
+        TryAddFurniture(attic, "(F)1614", 10, 1);                // Basic Window raised to mid-wall height.
         TryAddFurniture(attic, "(F)1541", 6, 1);                 // A Night On Eco-Hill, hung higher on the wall.
 
         attic.modData[DecorMarkerKey] = DecorVersion;
@@ -270,12 +269,12 @@ internal sealed class MimiAtticVisualService
 
             // Research desk / notes on the upper-left.
             Notes: P(3, 4),
-            DeskLeft: P(4, 5),
-            DeskRight: P(6, 5),
+            DeskLeft: P(4, 4),
+            DeskRight: P(6, 4),
 
             // TV secret nook on the lower-left.
-            Television: P(3, 7),
-            TvChair: P(2, 10),
+            Television: P(4, 7),
+            TvChair: P(3, 10),
 
             // ChaCha / future upgrade corner on the lower-right.
             ChaChaCushion: P(17, 10),

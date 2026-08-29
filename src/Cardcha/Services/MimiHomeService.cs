@@ -358,12 +358,12 @@ internal sealed class MimiHomeService
         int width = wizard.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
         int height = wizard.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
         Point preferred = new(
-            Math.Clamp(width - 3, 2, Math.Max(2, width - 2)),
-            Math.Clamp((int)Math.Round(height * 0.28f), 2, Math.Max(2, height - 3))
+            Math.Clamp(width - 2, 2, Math.Max(2, width - 2)),
+            Math.Clamp((int)Math.Round(height * 0.20f), 2, Math.Max(2, height - 3))
         );
-        // Keep the entrance visually fixed. 0.7.7.4 re-ran collision search every render,
-        // so clearing the stair area could change the "nearest clear" result and make the ladder
-        // appear to move when the player approached it. The landing below is still resolved safely.
+        // Keep the entrance visually fixed and one tile farther right / higher than 0.7.7.5,
+        // separating the ladder from the fireplace while preserving the safe landing resolver.
+        // Never re-run a nearest-clear search here, or the ladder can visually move as tiles change.
         return preferred;
     }
 
