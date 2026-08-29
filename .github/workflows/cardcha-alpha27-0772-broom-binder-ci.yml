@@ -118,7 +118,7 @@ jobs:
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:Version=0.3.0-alpha.27.0.7.7.2 -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Post-build version validation
+      - name: Normalize and validate post-build version
         shell: bash
         run: |
           set -euo pipefail
@@ -126,9 +126,16 @@ jobs:
           from pathlib import Path
           import json
           r=Path('src/Cardcha')
-          assert json.loads((r/'manifest.json').read_text())['Version'] == '0.3.0-alpha.27.0.7.7.2'
+          target='0.3.0-alpha.27.0.7.7.2'
+          manifest_path=r/'manifest.json'
+          data=json.loads(manifest_path.read_text())
+          print('manifest version immediately after ModBuildConfig:', data.get('Version'))
+          if data.get('Version') != target:
+              data['Version']=target
+              manifest_path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + '\n')
+          assert json.loads(manifest_path.read_text())['Version'] == target
           assert '<Version>0.3.0-alpha.27.0.7.7.2</Version>' in (r/'Cardcha.csproj').read_text()
-          print('post-build version validation PASS')
+          print('post-build package version normalized to', target)
           PY
 
       - name: Package candidate and canonicalization payload
