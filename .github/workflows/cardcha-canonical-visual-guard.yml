@@ -1,0 +1,39 @@
+name: Cardcha canonical visual guard
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - 'src/Cardcha/assets/chacha_follow.png'
+      - 'src/Cardcha/assets/chacha_machine.png'
+      - 'src/Cardcha/assets/card_icons.png'
+      - 'src/Cardcha/assets/chacha_portrait.png'
+      - 'src/Cardcha/assets/mimi_walk.png'
+      - 'src/Cardcha/assets/mimi_social_mugshot.png'
+      - 'build_assets/canonical_sprites/**'
+      - 'build_assets/restore_canonical_sprites.py'
+      - '.github/workflows/cardcha-canonical-visual-guard.yml'
+permissions:
+  contents: write
+jobs:
+  guard:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+      - name: Restore approved assets and enforce user locks
+        run: python3 build_assets/restore_canonical_sprites.py --restore
+      - name: Commit self-heal if restore-policy assets regressed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add src/Cardcha/assets/chacha_follow.png src/Cardcha/assets/chacha_machine.png src/Cardcha/assets/card_icons.png src/Cardcha/assets/chacha_portrait.png
+          if ! git diff --cached --quiet; then
+            git config user.name ronvotri
+            git config user.email lengochung28191@gmail.com
+            git commit -m 'ci: self-heal approved canonical visual assets'
+            git push origin cardcha-alpha27-mimi-real-npc
+          fi
+      - name: Verify after any self-heal
+        run: python3 build_assets/restore_canonical_sprites.py
