@@ -516,7 +516,10 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (focusedId == FavoriteActionId && this.Controller.IsConfirm(b))
         {
-            this.ActivateFavoriteAction();
+            // Do literally what a mouse-left click on the visible Favorite button does.
+            // receiveLeftClick temporarily switches LastInputWasController off, so the Favorite
+            // target resolves from the same PreviewCard/Selected state as a real mouse click.
+            this.ActivateFavoriteThroughMouseHandler();
             return;
         }
 
@@ -669,7 +672,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (id == FavoriteActionId)
         {
-            this.ActivateFavoriteAction();
+            this.ActivateFavoriteThroughMouseHandler();
             return;
         }
 
@@ -1023,16 +1026,14 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     }
 
     private CardDefinition? GetFavoriteTargetCard()
-    {
-        if (this.LastInputWasController && this.currentlySnappedComponent?.myID == FavoriteActionId)
-        {
-            int sourceId = this.FavoriteActionButton.leftNeighborID;
-            int sourceIndex = sourceId - CardBaseId;
-            if (sourceIndex >= 0 && sourceIndex < this.CardButtons.Count)
-                return this.CardButtons[sourceIndex].Card;
-        }
+        => this.PreviewCard ?? this.Selected ?? this.LockedCard;
 
-        return this.PreviewCard ?? this.Selected ?? this.LockedCard;
+    private void ActivateFavoriteThroughMouseHandler()
+    {
+        bool restoreControllerState = this.LastInputWasController;
+        Rectangle bounds = this.FavoriteActionButton.bounds;
+        this.receiveLeftClick(bounds.Center.X, bounds.Center.Y, playSound: true);
+        this.LastInputWasController = restoreControllerState;
     }
 
     private void ActivateFavoriteAction()

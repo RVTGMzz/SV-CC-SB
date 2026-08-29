@@ -22,7 +22,7 @@ internal sealed class MimiAtticVisualService
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.8.2";
+    private const string DecorVersion = "alpha.27.0.7.8.3";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -149,7 +149,7 @@ internal sealed class MimiAtticVisualService
         }
 
         // Rugs first so Stardew naturally draws the furniture on top of them.
-        TryAddFurniture(attic, "(F)1456", 16, 9, pixelOffsetX: -16);  // Small left nudge to center the rug under the prototype table.
+        TryAddFurniture(attic, "(F)1456", 16, 9, pixelOffsetX: -24);  // Another 8px left after in-game acceptance screenshot.
         TryAddFurniture(attic, "(F)1623", 3, 9);   // Green Cottage Rug aligned with the couch.
         TryAddFurniture(attic, "(F)1461", 14, 4);  // Large dark rug under the bed.
 
@@ -164,7 +164,7 @@ internal sealed class MimiAtticVisualService
         TryAddFurniture(attic, "(F)1399", 14, 5, heldId: "(F)1369"); // Modern End Table + lantern.
 
         // TV secret nook — cozy, clearly separate from the research side.
-        TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: -24); // Final small nudge left: TV visual center matches couch/rug.
+        TryAddFurniture(attic, "(F)1466", 4, 7, pixelOffsetX: -32); // Another 8px left after in-game acceptance screenshot.
         TryAddFurniture(attic, "(F)432", 3, 11, rotation: 2);    // Couch shifted right to visually center beneath the TV.
 
         // ChaCha / future-upgrade corner — a small tinkering area, not a machine shop.
