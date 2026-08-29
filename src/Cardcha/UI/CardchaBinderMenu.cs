@@ -90,6 +90,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private CardDefinition? Selected;
     private CardDefinition? PreviewCard;
     private CardDefinition? LockedCard;
+    private CardDefinition? ControllerActionTarget;
     private bool ControllerSelectionLocked;
     private string? LastQuickToggleCardId;
     private double LastQuickToggleAtMs;
@@ -507,21 +508,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
         if (collectionFocused)
-        {
-            // The Favorite button remembers the exact collection component that led into it.
-            // Both its label and action resolve from this same ID, so they cannot disagree.
-            this.FavoriteActionButton.leftNeighborID = focusedId;
-            this.PreviewCard = this.CardButtons[focusedId - CardBaseId].Card;
-        }
-
-        if (focusedId == FavoriteActionId && this.Controller.IsConfirm(b))
-        {
-            // Do literally what a mouse-left click on the visible Favorite button does.
-            // receiveLeftClick temporarily switches LastInputWasController off, so the Favorite
-            // target resolves from the same PreviewCard/Selected state as a real mouse click.
-            this.ActivateFavoriteThroughMouseHandler();
-            return;
-        }
+            this.CaptureControllerActionTarget(focusedId);
 
         // alpha.23: controller actions are semantic and profile-driven. Individual menus never
         // hard-code a brand-specific A/B/X/Y layout again.
@@ -584,6 +571,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         base.receiveGamePadButton(b);
         this.EnsureControllerFocusValid();
         this.SyncBrowsePreviewToFocusedCard();
+        int movedFocusId = this.currentlySnappedComponent?.myID ?? -1;
+        if (movedFocusId >= CardBaseId && movedFocusId < CardBaseId + this.CardButtons.Count)
+            this.CaptureControllerActionTarget(movedFocusId);
     }
 
     private void EnsureControllerFocusValid()
@@ -662,6 +652,15 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
 
         int id = focused.myID;
+        if (fromController && this.LastInputWasController && IsDetailActionId(id))
+        {
+            this.PrepareControllerActionTargetForMousePath();
+            Rectangle action = focused.bounds;
+            this.receiveLeftClick(action.Center.X, action.Center.Y, playSound: true);
+            this.LastInputWasController = true;
+            return;
+        }
+
         if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
         {
             int index = id - CardBaseId;
@@ -672,7 +671,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (id == FavoriteActionId)
         {
-            this.ActivateFavoriteThroughMouseHandler();
+            this.ActivateFavoriteAction();
             return;
         }
 
@@ -1025,15 +1024,45 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Game1.playSound("shwip");
     }
 
-    private CardDefinition? GetFavoriteTargetCard()
-        => this.PreviewCard ?? this.Selected ?? this.LockedCard;
+    private static bool IsDetailActionId(int id)
+        => id == FavoriteActionId || id == EquipActionId || id == UpgradeActionId || id == DeselectActionId;
 
-    private void ActivateFavoriteThroughMouseHandler()
+    private void CaptureControllerActionTarget(int focusedCardId)
     {
-        bool restoreControllerState = this.LastInputWasController;
-        Rectangle bounds = this.FavoriteActionButton.bounds;
-        this.receiveLeftClick(bounds.Center.X, bounds.Center.Y, playSound: true);
-        this.LastInputWasController = restoreControllerState;
+        int index = focusedCardId - CardBaseId;
+        if (index < 0 || index >= this.CardButtons.Count)
+            return;
+
+        CardDefinition card = this.CardButtons[index].Card;
+        this.ControllerActionTarget = card;
+        this.PreviewCard = card;
+        this.Selected = card;
+        this.FavoriteActionButton.leftNeighborID = focusedCardId;
+    }
+
+    private void PrepareControllerActionTargetForMousePath()
+    {
+        CardDefinition? target = this.ControllerActionTarget ?? this.PreviewCard ?? this.Selected ?? this.LockedCard;
+        if (target is null)
+            return;
+
+        this.ControllerActionTarget = target;
+        this.PreviewCard = target;
+        this.Selected = target;
+        this.LockedCard = target;
+        this.ControllerSelectionLocked = true;
+    }
+
+    private CardDefinition? GetFavoriteTargetCard()
+    {
+        if (this.LastInputWasController
+            && IsDetailActionId(this.currentlySnappedComponent?.myID ?? -1)
+            && this.ControllerActionTarget is not null)
+        {
+            return this.ControllerActionTarget;
+        }
+
+        return this.PreviewCard ?? this.Selected ?? this.LockedCard;
     }
 
     private void ActivateFavoriteAction()
@@ -1911,27 +1940,30 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawActionButtons(SpriteBatch b, bool owned)
     {
-        CardDefinition? favoriteTarget = this.GetFavoriteTargetCard();
-        bool favorite = favoriteTarget is not null
-            && this.Save.Data.OwnedCards.Contains(favoriteTarget.Id)
-            && this.Save.Data.FavoriteCardIds.Contains(favoriteTarget.Id);
-        bool equipped = owned && this.Selected is not null && this.IsStoredEquipped(this.Selected.Id);
-        bool maxed = !owned || this.Selected is null || this.Upgrades.IsMaxLevel(this.Selected);
-        int have = this.Selected is null ? 0 : this.Upgrades.GetCopies(this.Selected);
-        int need = this.Selected is null ? 0 : this.Upgrades.GetRequiredCopies(this.Selected);
+        CardDefinition? actionTarget = this.LastInputWasController
+            && IsDetailActionId(this.currentlySnappedComponent?.myID ?? -1)
+            && this.ControllerActionTarget is not null
+                ? this.ControllerActionTarget
+                : this.Selected;
+        bool actionOwned = actionTarget is not null && this.Save.Data.OwnedCards.Contains(actionTarget.Id);
+        bool favorite = actionOwned && this.Save.Data.FavoriteCardIds.Contains(actionTarget!.Id);
+        bool equipped = actionOwned && this.IsStoredEquipped(actionTarget!.Id);
+        bool maxed = !actionOwned || actionTarget is null || this.Upgrades.IsMaxLevel(actionTarget);
+        int have = actionTarget is null ? 0 : this.Upgrades.GetCopies(actionTarget);
+        int need = actionTarget is null ? 0 : this.Upgrades.GetRequiredCopies(actionTarget);
 
         this.DrawSmallButton(
             b,
             this.FavoriteActionButton,
             favorite ? "★ " + ModEntry.T("binder.favorite.remove") : "☆ " + ModEntry.T("binder.favorite.add"),
-            owned ? CardchaUi.Gold : new Color(130, 120, 112)
+            actionOwned ? CardchaUi.Gold : new Color(130, 120, 112)
         );
 
         this.DrawSmallButton(
             b,
             this.EquipActionButton,
             equipped ? ModEntry.T("binder.unequip") : ModEntry.T("binder.equip"),
-            owned ? (equipped ? CardchaUi.DangerRed : CardchaUi.GoodGreen) : new Color(130, 120, 112)
+            actionOwned ? (equipped ? CardchaUi.DangerRed : CardchaUi.GoodGreen) : new Color(130, 120, 112)
         );
 
         string upgrade = maxed
