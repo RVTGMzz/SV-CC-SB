@@ -116,7 +116,7 @@ jobs:
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
       - name: Compile
-        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:Version=0.3.0-alpha.27.0.7.7.2 -p:EnableModDeploy=false -p:EnableModZip=false
 
       - name: Post-build version validation
         shell: bash
