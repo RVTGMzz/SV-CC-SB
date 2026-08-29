@@ -1,0 +1,1 @@
+The guard intentionally fails when tracked source pixels do not match the approved alpha27.0.7.7 hashes. It does not self-heal or rewrite art. This avoids accidental replacement of user-authored assets such as MiMi's walk sheet. Source asset updates are explicit commits only.
