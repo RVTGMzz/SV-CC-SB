@@ -100,6 +100,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private const double QuickToggleMinMs = 220d;
     private const double QuickToggleWindowMs = 650d;
     private string Status = string.Empty;
+    private string FavoriteToast = string.Empty;
+    private long FavoriteToastExpiresAtMs;
+    private const long FavoriteToastDurationMs = 3000L;
     // alpha.23: hint bar follows the most recently used input family and controller profile.
     private bool LastInputWasController;
 
@@ -504,6 +507,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
 
+        if (focusedId == FavoriteActionId
+            && (this.Controller.IsConfirm(b) || this.Controller.IsFavorite(b)))
+        {
+            this.ActivateFavoriteAction();
+            return;
+        }
+
         // alpha.23: controller actions are semantic and profile-driven. Individual menus never
         // hard-code a brand-specific A/B/X/Y layout again.
         if (this.Controller.IsExit(b))
@@ -526,11 +536,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             if (this.ControllerSelectionLocked && this.LockedCard is not null)
             {
                 this.RestoreLockedSelectionForAction();
-                this.ToggleFavorite();
+                this.ActivateFavoriteAction();
             }
             else
             {
-                this.Status = ModEntry.T("binder.favorite.select-first");
+                this.ShowFavoriteToast(ModEntry.T("binder.favorite.select-first"));
                 Game1.playSound("cancel");
             }
             return;
@@ -618,11 +628,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             if (this.ControllerSelectionLocked && this.LockedCard is not null)
             {
                 this.RestoreLockedSelectionForAction();
-                this.ToggleFavorite();
+                this.ActivateFavoriteAction();
             }
             else
             {
-                this.Status = ModEntry.T("binder.favorite.select-first");
+                this.ShowFavoriteToast(ModEntry.T("binder.favorite.select-first"));
                 Game1.playSound("cancel");
             }
             return;
@@ -659,6 +669,12 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             int index = id - CardBaseId;
             CardDefinition card = this.CardButtons[index].Card;
             this.HandleCollectionActivation(card, fromController);
+            return;
+        }
+
+        if (id == FavoriteActionId)
+        {
+            this.ActivateFavoriteAction();
             return;
         }
 
@@ -713,8 +729,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         // A small padded hit target also makes UI-scale rounding at the page edge harmless.
         if (Inflate(this.FavoriteActionButton.bounds, 3).Contains(x, y))
         {
-            this.RestoreLockedSelectionForAction();
-            this.ToggleFavorite();
+            this.ActivateFavoriteAction();
             return;
         }
 
@@ -1009,31 +1024,42 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         Game1.playSound("shwip");
     }
 
-    private void ToggleFavorite()
+    private void ActivateFavoriteAction()
     {
-        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
+        // The action always targets the card currently rendered on the right page. Do not
+        // rebind Selected here from an older controller lock: the button label and the action
+        // now read the same card state, so ☆ can never report "removed" on first activation.
+        CardDefinition? card = this.Selected;
+        if (card is null || !this.Save.Data.OwnedCards.Contains(card.Id))
         {
-            this.Status = ModEntry.T("binder.favorite.locked");
+            this.ShowFavoriteToast(ModEntry.T("binder.favorite.locked"));
             Game1.playSound("cancel");
             return;
         }
 
-        if (this.Save.Data.FavoriteCardIds.Contains(this.Selected.Id))
-        {
-            this.Save.Data.FavoriteCardIds.Remove(this.Selected.Id);
-            this.Status = ModEntry.T("binder.favorite.removed", new { name = this.Selected.Name });
-        }
+        bool wasFavorite = this.Save.Data.FavoriteCardIds.Contains(card.Id);
+        if (wasFavorite)
+            this.Save.Data.FavoriteCardIds.Remove(card.Id);
         else
-        {
-            this.Save.Data.FavoriteCardIds.Add(this.Selected.Id);
-            this.Status = ModEntry.T("binder.favorite.added", new { name = this.Selected.Name });
-        }
+            this.Save.Data.FavoriteCardIds.Add(card.Id);
 
+        this.ShowFavoriteToast(
+            wasFavorite
+                ? ModEntry.T("binder.favorite.removed", new { name = card.Name })
+                : ModEntry.T("binder.favorite.added", new { name = card.Name })
+        );
         this.Save.Save();
         Game1.playSound("coin");
 
         if (this.CurrentFilter == BinderFilter.Favorite)
             this.RebuildCardButtons(resetPage: false);
+    }
+
+    private void ShowFavoriteToast(string text)
+    {
+        this.Status = string.Empty;
+        this.FavoriteToast = text;
+        this.FavoriteToastExpiresAtMs = Environment.TickCount64 + FavoriteToastDurationMs;
     }
 
     private bool IsStoredEquipped(string id)
@@ -1873,6 +1899,29 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawStatus(SpriteBatch b)
     {
+        if (!string.IsNullOrWhiteSpace(this.FavoriteToast))
+        {
+            if (Environment.TickCount64 < this.FavoriteToastExpiresAtMs)
+            {
+                Rectangle toastArea = new(
+                    this.RightPage.X + 64,
+                    this.FavoriteActionButton.bounds.Y - 46,
+                    this.RightPage.Width - 128,
+                    38
+                );
+                DrawRoundedRect(b, toastArea, new Color(58, 77, 81) * 0.96f, 8);
+                DrawRoundedBorder(b, toastArea, new Color(201, 165, 92), 2, 8);
+                CardchaUi.DrawAutoFitWrappedText(
+                    b, Game1.smallFont, this.FavoriteToast, Inflate(toastArea, -6), Color.White,
+                    maxLines: 1, minScale: 0.72f, centerX: true, maxScale: 0.96f, centerY: true
+                );
+                return;
+            }
+
+            this.FavoriteToast = string.Empty;
+            this.FavoriteToastExpiresAtMs = 0;
+        }
+
         if (this.IsLoadoutFullStatus())
             return;
         if (this.Selected is not null)
