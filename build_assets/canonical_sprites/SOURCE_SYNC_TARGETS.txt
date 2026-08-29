@@ -1,0 +1,9 @@
+Replace only these stale tracked source visuals with the approved 0.7.7 pixels:
+- src/Cardcha/assets/chacha_follow.png
+- src/Cardcha/assets/chacha_machine.png
+- src/Cardcha/assets/card_icons.png
+- src/Cardcha/assets/chacha_portrait.png
+
+DO NOT rewrite:
+- src/Cardcha/assets/mimi_walk.png
+- src/Cardcha/assets/mimi_social_mugshot.png
