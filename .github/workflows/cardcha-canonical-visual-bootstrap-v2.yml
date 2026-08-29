@@ -1,0 +1,231 @@
+name: Cardcha canonical visual guard v2 bootstrap
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths: [ '.github/workflows/cardcha-canonical-visual-bootstrap-v2.yml' ]
+permissions:
+  contents: write
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
+      - name: Install Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Generate text-safe canonical RGBA store
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import base64, hashlib, json, lzma, shutil
+
+          root = Path('.')
+          assets = root / 'src/Cardcha/assets'
+          canon = root / 'build_assets/canonical_sprites'
+          data_dir = canon / 'data'
+          data_dir.mkdir(parents=True, exist_ok=True)
+          for old in data_dir.iterdir():
+              if old.is_file(): old.unlink()
+
+          policies = {
+              'chacha_follow.png': 'restore',
+              'chacha_machine.png': 'restore',
+              'card_icons.png': 'restore',
+              'chacha_portrait.png': 'restore',
+              'mimi_walk.png': 'verify_only',
+              'mimi_social_mugshot.png': 'verify_only',
+          }
+          chunk_chars = 50000
+          manifest = {
+              'schema': 2,
+              'chunk_chars': chunk_chars,
+              'description': 'Text-safe canonical RGBA guard. restore assets may self-heal; verify_only assets are user-locked and CI must never rewrite them automatically.',
+              'assets': {},
+          }
+          for name, policy in policies.items():
+              p = assets / name
+              with Image.open(p) as image:
+                  image.load()
+                  rgba = image.convert('RGBA')
+                  raw = rgba.tobytes()
+                  size = rgba.size
+              encoded = base64.b85encode(lzma.compress(raw, preset=9)).decode('ascii')
+              chunks = []
+              for i in range(0, len(encoded), chunk_chars):
+                  chunk_name = f'{name}.rgba.xz.b85.part{i // chunk_chars + 1:03d}'
+                  (data_dir / chunk_name).write_text(encoded[i:i+chunk_chars], encoding='ascii')
+                  chunks.append(chunk_name)
+              manifest['assets'][name] = {
+                  'width': size[0],
+                  'height': size[1],
+                  'mode': 'RGBA',
+                  'rgba_sha256': hashlib.sha256(raw).hexdigest(),
+                  'approved_png_sha256': hashlib.sha256(p.read_bytes()).hexdigest(),
+                  'policy': policy,
+                  'encoding': 'lzma+base85-rgba-v1',
+                  'chunks': chunks,
+              }
+          (canon / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
+          print('Canonical store generated for:', ', '.join(policies))
+          PY
+
+      - name: Install v2 guard script
+        shell: bash
+        run: |
+          cat > build_assets/restore_canonical_sprites.py <<'PY'
+          #!/usr/bin/env python3
+          from __future__ import annotations
+          import argparse, base64, hashlib, io, json, lzma
+          from pathlib import Path
+
+          REPO_ROOT = Path(__file__).resolve().parents[1]
+          CANON_ROOT = REPO_ROOT / 'build_assets/canonical_sprites'
+          DATA_DIR = CANON_ROOT / 'data'
+          MANIFEST_PATH = CANON_ROOT / 'manifest.json'
+          DEFAULT_ASSET_DIR = REPO_ROOT / 'src/Cardcha/assets'
+
+          def sha256(data: bytes) -> str:
+              return hashlib.sha256(data).hexdigest()
+
+          def load_manifest() -> dict:
+              data = json.loads(MANIFEST_PATH.read_text(encoding='utf-8'))
+              if data.get('schema') != 2:
+                  raise SystemExit(f"Unsupported canonical sprite schema: {data.get('schema')}")
+              return data
+
+          def decode_canonical(name: str, meta: dict) -> bytes:
+              pieces = []
+              for chunk in meta.get('chunks', []):
+                  p = DATA_DIR / chunk
+                  if not p.is_file(): raise SystemExit(f'Canonical chunk missing for {name}: {p}')
+                  pieces.append(p.read_text(encoding='ascii').strip())
+              packed = base64.b85decode(''.join(pieces).encode('ascii'))
+              rgba = lzma.decompress(packed)
+              expected = int(meta['width']) * int(meta['height']) * 4
+              if len(rgba) != expected: raise SystemExit(f'Canonical RGBA length mismatch for {name}')
+              if sha256(rgba) != meta['rgba_sha256']: raise SystemExit(f'Canonical RGBA hash mismatch for {name}')
+              return rgba
+
+          def load_rgba(path: Path, size: tuple[int,int]) -> bytes:
+              from PIL import Image
+              if not path.is_file(): raise FileNotFoundError(path)
+              with Image.open(path) as image:
+                  image.load(); rgba = image.convert('RGBA')
+                  if rgba.size != size: raise ValueError(f'dimensions {rgba.size} != {size}')
+                  return rgba.tobytes()
+
+          def write_png(path: Path, rgba: bytes, size: tuple[int,int]) -> None:
+              from PIL import Image
+              image = Image.frombytes('RGBA', size, rgba)
+              out = io.BytesIO(); image.save(out, format='PNG', optimize=True)
+              path.parent.mkdir(parents=True, exist_ok=True); path.write_bytes(out.getvalue())
+
+          def process(asset_dir: Path, restore: bool) -> None:
+              for name, meta in load_manifest()['assets'].items():
+                  size = (int(meta['width']), int(meta['height']))
+                  canonical = decode_canonical(name, meta)
+                  path = asset_dir / name
+                  policy = meta.get('policy', 'restore')
+                  try:
+                      current = load_rgba(path, size)
+                  except (FileNotFoundError, ValueError) as exc:
+                      current = None; reason = str(exc)
+                  else:
+                      reason = f"RGBA {sha256(current)} != {meta['rgba_sha256']}"
+                  if current == canonical:
+                      print(f'VERIFIED {name} {size[0]}x{size[1]} policy={policy}')
+                      continue
+                  if policy == 'verify_only':
+                      raise SystemExit(f'USER-LOCKED asset mismatch: {name}: {reason}. Do not auto-rewrite it; update only after explicit user approval.')
+                  if not restore:
+                      raise SystemExit(f'Canonical asset mismatch: {name}: {reason}')
+                  write_png(path, canonical, size)
+                  if load_rgba(path, size) != canonical: raise SystemExit(f'Self-heal verification failed for {name}')
+                  print(f'RESTORED {name} {size[0]}x{size[1]} policy={policy}')
+              print('Canonical visual guard PASS')
+
+          if __name__ == '__main__':
+              parser = argparse.ArgumentParser()
+              parser.add_argument('--asset-dir', type=Path, default=DEFAULT_ASSET_DIR)
+              parser.add_argument('--restore', action='store_true')
+              args = parser.parse_args(); process(args.asset_dir, args.restore)
+          PY
+          chmod +x build_assets/restore_canonical_sprites.py
+
+      - name: Install permanent guard workflow
+        shell: bash
+        run: |
+          cat > .github/workflows/cardcha-canonical-visual-guard.yml <<'YML'
+          name: Cardcha canonical visual guard
+          on:
+            push:
+              branches: [ cardcha-alpha27-mimi-real-npc ]
+              paths:
+                - 'src/Cardcha/assets/chacha_follow.png'
+                - 'src/Cardcha/assets/chacha_machine.png'
+                - 'src/Cardcha/assets/card_icons.png'
+                - 'src/Cardcha/assets/chacha_portrait.png'
+                - 'src/Cardcha/assets/mimi_walk.png'
+                - 'src/Cardcha/assets/mimi_social_mugshot.png'
+                - 'build_assets/canonical_sprites/**'
+                - 'build_assets/restore_canonical_sprites.py'
+                - '.github/workflows/cardcha-canonical-visual-guard.yml'
+          permissions:
+            contents: write
+          jobs:
+            guard:
+              runs-on: ubuntu-latest
+              steps:
+                - uses: actions/checkout@v4
+                  with: { fetch-depth: 0 }
+                - name: Install Pillow
+                  run: python3 -m pip install --quiet pillow
+                - name: Restore approved assets and enforce user locks
+                  run: python3 build_assets/restore_canonical_sprites.py --restore
+                - name: Commit self-heal if restore-policy assets regressed
+                  shell: bash
+                  run: |
+                    set -euo pipefail
+                    git add src/Cardcha/assets/chacha_follow.png src/Cardcha/assets/chacha_machine.png src/Cardcha/assets/card_icons.png src/Cardcha/assets/chacha_portrait.png
+                    if ! git diff --cached --quiet; then
+                      git config user.name ronvotri
+                      git config user.email lengochung28191@gmail.com
+                      git commit -m 'ci: self-heal approved canonical visual assets'
+                      git push origin cardcha-alpha27-mimi-real-npc
+                    fi
+                - name: Verify after any self-heal
+                  run: python3 build_assets/restore_canonical_sprites.py
+          YML
+
+      - name: Validate canonical guard and self-heal behavior
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 build_assets/restore_canonical_sprites.py
+          rm -rf /tmp/cardcha_guard_test
+          mkdir -p /tmp/cardcha_guard_test
+          cp src/Cardcha/assets/chacha_follow.png src/Cardcha/assets/chacha_machine.png src/Cardcha/assets/card_icons.png src/Cardcha/assets/chacha_portrait.png src/Cardcha/assets/mimi_walk.png src/Cardcha/assets/mimi_social_mugshot.png /tmp/cardcha_guard_test/
+          python3 - <<'PY'
+          from PIL import Image
+          from pathlib import Path
+          p=Path('/tmp/cardcha_guard_test/chacha_follow.png')
+          im=Image.open(p).convert('RGBA')
+          px=im.load(); px[0,0]=(255,0,255,255)
+          im.save(p)
+          PY
+          python3 build_assets/restore_canonical_sprites.py --asset-dir /tmp/cardcha_guard_test --restore
+          python3 build_assets/restore_canonical_sprites.py --asset-dir /tmp/cardcha_guard_test
+
+      - name: Commit canonical guard v2
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add build_assets/canonical_sprites build_assets/restore_canonical_sprites.py .github/workflows/cardcha-canonical-visual-guard.yml
+          git config user.name ronvotri
+          git config user.email lengochung28191@gmail.com
+          git diff --cached --quiet || (git commit -m 'infra: lock approved Cardcha visuals with canonical RGBA guard v2' && git push origin cardcha-alpha27-mimi-real-npc)
