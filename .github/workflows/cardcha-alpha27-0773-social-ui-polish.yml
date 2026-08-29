@@ -20,7 +20,7 @@ on:
       - 'src/Cardcha/ModEntry.cs'
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build:
@@ -123,32 +123,6 @@ jobs:
 
           (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.3_SocialInventoryUiPolish_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
-
-      - name: Canonicalize 0.7.7.3 source if needed
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/Cardcha/UI/CardchaBinderMenu.cs \
-            src/Cardcha/UI/CardchaBookTabService.cs \
-            src/Cardcha/Services/WorldActorService.cs \
-            src/Cardcha/Patches/MimiProfileMenuPatch.cs \
-            src/Cardcha/assets/mimi_broom.png \
-            src/Cardcha/assets/mimi_walk_runtime.png \
-            src/Cardcha/assets/mimi_social_mugshot.png \
-            src/Cardcha/assets/mimi_profile.png \
-            src/Cardcha/Cardcha.csproj \
-            src/Cardcha/Directory.Build.targets \
-            src/Cardcha/manifest.json \
-            src/Cardcha/ModEntry.cs
-          if git diff --cached --quiet; then
-            echo "Canonical 0.7.7.3 source already committed."
-          else
-            git commit -m "alpha27.0.7.7.3: polish MiMi social UI and inventory-only Cardcha tab"
-            git push origin HEAD:cardcha-alpha27-mimi-real-npc
-          fi
 
       - uses: actions/upload-artifact@v4
         with:
