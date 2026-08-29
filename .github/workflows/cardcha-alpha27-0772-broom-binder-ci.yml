@@ -32,6 +32,7 @@ jobs:
           broom_path = root / 'assets/mimi_broom.png'
           walk_path = root / 'assets/mimi_walk.png'
           manifest_path = root / 'manifest.json'
+          csproj_path = root / 'Cardcha.csproj'
 
           walk_before = hashlib.sha256(walk_path.read_bytes()).hexdigest()
 
@@ -80,6 +81,14 @@ jobs:
               1,
           ))
 
+          csproj = csproj_path.read_text()
+          assert '<Version>0.3.0-alpha.27.0.7.7</Version>' in csproj
+          csproj_path.write_text(csproj.replace(
+              '<Version>0.3.0-alpha.27.0.7.7</Version>',
+              '<Version>0.3.0-alpha.27.0.7.7.2</Version>',
+              1,
+          ))
+
           assert hashlib.sha256(walk_path.read_bytes()).hexdigest() == walk_before, 'mimi_walk.png changed'
           print('Candidate patch applied; mimi_walk.png preserved:', walk_before)
           PY
@@ -94,6 +103,7 @@ jobs:
           import json
           r = Path('src/Cardcha')
           assert json.loads((r/'manifest.json').read_text())['Version'] == '0.3.0-alpha.27.0.7.7.2'
+          assert '<Version>0.3.0-alpha.27.0.7.7.2</Version>' in (r/'Cardcha.csproj').read_text()
           assert 'binder.status.preview' not in (r/'UI/CardchaBinderMenu.cs').read_text()
           actor=(r/'Services/WorldActorService.cs').read_text()
           assert 'int spriteWidth = broom ? 48 : 32;' in actor
@@ -108,6 +118,19 @@ jobs:
       - name: Compile
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
+      - name: Post-build version validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          r=Path('src/Cardcha')
+          assert json.loads((r/'manifest.json').read_text())['Version'] == '0.3.0-alpha.27.0.7.7.2'
+          assert '<Version>0.3.0-alpha.27.0.7.7.2</Version>' in (r/'Cardcha.csproj').read_text()
+          print('post-build version validation PASS')
+          PY
+
       - name: Package candidate and canonicalization payload
         shell: bash
         run: |
@@ -121,6 +144,7 @@ jobs:
           cp src/Cardcha/Services/WorldActorService.cs artifact/canonical-src/
           cp src/Cardcha/assets/mimi_broom.png artifact/canonical-src/
           cp src/Cardcha/manifest.json artifact/canonical-src/
+          cp src/Cardcha/Cardcha.csproj artifact/canonical-src/
           (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.7.2_BroomBinder_SourceAcceptance_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
