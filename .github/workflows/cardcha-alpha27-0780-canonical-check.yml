@@ -1,0 +1,80 @@
+name: Cardcha alpha27.0.7.8.0 canonical source check
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-0780-canonical-check.yml'
+      - 'src/Cardcha/UI/CardchaBinderMenu.cs'
+      - 'src/Cardcha/Services/MimiAtticVisualService.cs'
+      - 'src/Cardcha/assets/mimi_attic.tmx'
+      - 'src/Cardcha/Cardcha.csproj'
+      - 'src/Cardcha/Directory.Build.targets'
+      - 'src/Cardcha/manifest.json'
+      - 'src/Cardcha/ModEntry.cs'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate canonical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.8.0'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
+          binder = (r/'UI/CardchaBinderMenu.cs').read_text()
+          assert 'private CardDefinition? ControllerFavoriteTarget;' in binder
+          assert 'this.LastInputWasController && this.ControllerFavoriteTarget is not null' in binder
+          assert 'Rectangle toastArea = new(' not in binder
+          assert binder.count('this.DrawFavoriteToast(b);') == 1
+
+          visual = (r/'Services/MimiAtticVisualService.cs').read_text()
+          assert 'private GameLocation? DecorAppliedLocation;' in visual
+          assert 'ReferenceEquals(this.DecorAppliedLocation, attic)' in visual
+          assert 'private void EnsureVanillaFurniture(GameLocation attic)' in visual
+          assert 'pixelOffsetX: -16' in visual
+          assert 'alpha.27.0.7.8.0' in visual
+
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+          print('0.7.8.0 canonical validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile canonical source
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package canonical TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.8.0_FavoriteAtticRefresh_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0780-canonical-test
+          path: artifact
+          if-no-files-found: error
