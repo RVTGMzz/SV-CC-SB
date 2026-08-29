@@ -90,7 +90,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private CardDefinition? Selected;
     private CardDefinition? PreviewCard;
     private CardDefinition? LockedCard;
-    private CardDefinition? ControllerFavoriteTarget;
     private bool ControllerSelectionLocked;
     private string? LastQuickToggleCardId;
     private double LastQuickToggleAtMs;
@@ -104,8 +103,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private string FavoriteToast = string.Empty;
     private long FavoriteToastExpiresAtMs;
     private const long FavoriteToastDurationMs = 3000L;
-    private long LastFavoriteControllerActivationAtMs;
-    private const long FavoriteControllerDebounceMs = 250L;
     // alpha.23: hint bar follows the most recently used input family and controller profile.
     private bool LastInputWasController;
 
@@ -510,12 +507,16 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         int focusedId = this.currentlySnappedComponent?.myID ?? -1;
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
         if (collectionFocused)
-            this.ControllerFavoriteTarget = this.CardButtons[focusedId - CardBaseId].Card;
-
-        if (focusedId == FavoriteActionId
-            && (this.Controller.IsConfirm(b) || this.Controller.IsFavorite(b)))
         {
-            this.TryActivateFavoriteFromController();
+            // The Favorite button remembers the exact collection component that led into it.
+            // Both its label and action resolve from this same ID, so they cannot disagree.
+            this.FavoriteActionButton.leftNeighborID = focusedId;
+            this.PreviewCard = this.CardButtons[focusedId - CardBaseId].Card;
+        }
+
+        if (focusedId == FavoriteActionId && this.Controller.IsConfirm(b))
+        {
+            this.ActivateFavoriteAction();
             return;
         }
 
@@ -536,20 +537,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
         }
 
+        // Binder Favorite is intentionally activated only through the focused on-screen button.
         if (this.Controller.IsFavorite(b))
-        {
-            if (this.ControllerSelectionLocked && this.LockedCard is not null)
-            {
-                this.RestoreLockedSelectionForAction();
-                this.TryActivateFavoriteFromController();
-            }
-            else
-            {
-                this.ShowFavoriteToast(ModEntry.T("binder.favorite.select-first"));
-                Game1.playSound("cancel");
-            }
             return;
-        }
 
         if (collectionFocused && (b == Buttons.LeftShoulder || b == Buttons.RightShoulder))
         {
@@ -904,8 +894,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.ControllerSelectionLocked = true;
         this.PreviewCard = card;
         this.Selected = card;
-        if (fromController)
-            this.ControllerFavoriteTarget = card;
 
         if (secondActivation)
         {
@@ -957,8 +945,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         CardDefinition card = this.CardButtons[index].Card;
         this.PreviewCard = card;
         this.FavoriteActionButton.leftNeighborID = focusedId;
-        if (this.LastInputWasController)
-            this.ControllerFavoriteTarget = card;
 
         if (this.ControllerSelectionLocked && this.LockedCard is not null)
         {
@@ -1037,18 +1023,16 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     }
 
     private CardDefinition? GetFavoriteTargetCard()
-        => this.LastInputWasController && this.ControllerFavoriteTarget is not null
-            ? this.ControllerFavoriteTarget
-            : this.PreviewCard ?? this.Selected ?? this.LockedCard;
-
-    private void TryActivateFavoriteFromController()
     {
-        long now = Environment.TickCount64;
-        if (now - this.LastFavoriteControllerActivationAtMs < FavoriteControllerDebounceMs)
-            return;
+        if (this.LastInputWasController && this.currentlySnappedComponent?.myID == FavoriteActionId)
+        {
+            int sourceId = this.FavoriteActionButton.leftNeighborID;
+            int sourceIndex = sourceId - CardBaseId;
+            if (sourceIndex >= 0 && sourceIndex < this.CardButtons.Count)
+                return this.CardButtons[sourceIndex].Card;
+        }
 
-        this.LastFavoriteControllerActivationAtMs = now;
-        this.ActivateFavoriteAction();
+        return this.PreviewCard ?? this.Selected ?? this.LockedCard;
     }
 
     private void ActivateFavoriteAction()
@@ -1419,7 +1403,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             this.DrawControlHintItems(b, bar, new[]
             {
                 new ControlHint(this.Controller.GetLabel(ControllerAction.Confirm), ModEntry.T("binder.hint.select"), true),
-                new ControlHint(this.Controller.GetLabel(ControllerAction.Favorite), ModEntry.T("binder.hint.favorite"), hasLock),
                 new ControlHint(this.Controller.GetLabel(ControllerAction.Deselect), ModEntry.T("binder.hint.deselect"), hasLock),
                 new ControlHint(this.Controller.GetLabel(ControllerAction.Exit), ModEntry.T("binder.hint.close"), true)
             });
