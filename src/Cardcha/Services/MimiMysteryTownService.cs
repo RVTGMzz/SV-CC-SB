@@ -374,7 +374,9 @@ internal sealed class MimiMysteryTownService
             this.EnforceCurrentTimeState(allowAnimation: Game1.currentLocation?.NameOrUniqueName.Equals("Town", StringComparison.OrdinalIgnoreCase) == true);
             this.UpdateNativeWander();
             this.SyncChaChaWithMimi();
-            this.WorldActors.UpdateChaChaEmotes(dialogueActive: Game1.activeClickableMenu is DialogueBox);
+            // Mystery/??? phase: keep ChaCha visually quiet. Autonomous vanilla emotes can leave
+            // a tiny white emote bubble/frame hovering above this custom 32x32 actor on some runtimes.
+            // Merchant/story phases may still use ChaCha emotes after MiMi has been introduced.
         }
         // During broom flight, UpdateFlight owns BOTH MiMi and ChaCha so the normal follower
         // sync cannot overwrite altitude/drawOffset and create a flicker or size-jump illusion.
