@@ -1,4 +1,5 @@
 name: Cardcha alpha28.0.1.0 Airship foundation
+# canonical source recheck after workflow self-canonicalization
 
 on:
   push:
