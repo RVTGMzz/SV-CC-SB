@@ -1,6 +1,17 @@
 {
-  "button.recruit": "R  Invite to squad",
-  "button.manage": "R  Squad options",
-  "error.bridge": "The Stardew Squad is loaded, but the dialogue recruit bridge could not connect.",
+  "button.recruit": "R — Invite to squad",
+  "member.question": "What do you want {{name}} to do?",
+  "member.command": "Give command",
+  "member.manage": "Squad options",
+  "member.tasks.on": "Auto tasks: ON",
+  "member.tasks.off": "Auto tasks: OFF",
+  "member.talk": "Talk",
+  "member.cancel": "Cancel",
+  "command.pick": "Choose a target for your squad.",
+  "command.cancelled": "Squad command cancelled.",
+  "command.failed": "Couldn't send that squad command.",
+  "tasks.enabled": "Squad auto tasks enabled.",
+  "tasks.disabled": "Squad auto tasks disabled.",
+  "error.bridge": "The Stardew Squad is loaded, but the dialogue bridge could not connect.",
   "error.action": "Couldn't open the squad action for {{name}}. Check the SMAPI log."
 }
