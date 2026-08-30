@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — ชวนเข้าทีม",
+  "member.question": "อยากให้ {{name}} ทำอะไร?",
+  "member.command": "ออกคำสั่ง",
+  "member.manage": "จัดการทีม",
+  "member.tasks.on": "งานอัตโนมัติ: เปิด",
+  "member.tasks.off": "งานอัตโนมัติ: ปิด",
+  "member.talk": "คุย",
+  "member.cancel": "ไม่เป็นไร",
+  "command.pick": "เลือกเป้าหมายให้ทีมจัดการ",
+  "command.cancelled": "ยกเลิกคำสั่งแล้ว",
+  "command.failed": "ส่งคำสั่งนี้ไม่ได้",
+  "tasks.enabled": "เปิดงานอัตโนมัติแล้ว",
+  "tasks.disabled": "ปิดงานอัตโนมัติแล้ว",
+  "error.bridge": "โหลด The Stardew Squad แล้ว แต่เชื่อมต่อกับ UI ไม่สำเร็จ",
+  "error.action": "เปิดตัวเลือกทีมของ {{name}} ไม่ได้ โปรดตรวจสอบ SMAPI log"
+}
