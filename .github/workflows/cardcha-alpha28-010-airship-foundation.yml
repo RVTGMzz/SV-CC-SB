@@ -1,0 +1,177 @@
+name: Cardcha alpha28.0.1.0 Airship foundation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-airship-foundation ]
+    paths:
+      - '.github/workflows/cardcha-alpha28-010-airship-foundation.yml'
+      - 'build_assets/apply_alpha28_airship_foundation.py'
+      - 'src/Cardcha/Services/AirshipFoundationService.cs'
+      - 'src/Cardcha/assets/airship_deck.tmx'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28 Airship foundation candidate
+        run: python3 build_assets/apply_alpha28_airship_foundation.py
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.28.0.1.0'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
+          save = (r/'Models/SaveData.cs').read_text()
+          assert 'SchemaVersion { get; set; } = 15' in save
+          for marker in ['AirshipFlybySeen', 'AirshipUnlocked', 'AirshipUnlockedDay', 'AirshipHighestRegionUnlocked']:
+              assert marker in save
+
+          save_service = (r/'Services/SaveService.cs').read_text()
+          assert 'CurrentSchemaVersion = 15' in save_service
+          assert 'Alpha.28 Airship migration' in save_service
+          assert 'data.AirshipFlybySeen ? 1 : 0' in save_service
+
+          progression = (r/'Services/ProgressionService.cs').read_text()
+          assert 'this.Save.Data.AirshipUnlocked = true;' in progression
+          assert 'airship.unlocked' in progression
+
+          mod = (r/'ModEntry.cs').read_text()
+          for marker in [
+              'AirshipFoundationService Airship',
+              'this.Airship.OnAssetRequested',
+              'this.Airship.OnRenderedWorld',
+              'this.Airship.OnButtonPressed',
+              'this.Airship.OnSaveLoaded();',
+              'this.Airship.OnDayStarted();',
+              'this.Airship.OnUpdateTicked(e);',
+              'cardcha_test_airship',
+              'cardcha_test_airship_flyby',
+              'cardcha_airship_status'
+          ]:
+              assert marker in mod
+
+          airship = (r/'Services/AirshipFoundationService.cs').read_text()
+          for marker in [
+              'DeckLocationName = "Cardcha_AirshipDeck"',
+              'AirshipFlybySeen',
+              'MigrateUnlockFromExistingStory',
+              'DebugToggleDeck',
+              'DebugReplayFlyby',
+              'DrawFlyby',
+              'ResolveFarmBoardingTile'
+          ]:
+              assert marker in airship
+          # Cardcha code may mention Druid in a comment, but must never reference/copy its paths/assets.
+          assert 'StardewDruid/Images/' not in airship
+          assert 'StardewDruid/Sheets/' not in airship
+
+          tmx = r/'assets/airship_deck.tmx'
+          root = ET.fromstring(tmx.read_text())
+          assert root.attrib['width'] == '24' and root.attrib['height'] == '14'
+          props = {p.attrib.get('name'): p.attrib.get('value') for p in root.find('properties')}
+          assert props['CardchaAssetPolicy'] == 'cardcha-owned-map|vanilla-tiles-only|no-druid-assets'
+          for layer in root.findall('layer'):
+              values = [x.strip() for x in layer.find('data').text.replace('\n', '').split(',') if x.strip()]
+              assert len(values) == 24 * 14, (layer.attrib['name'], len(values))
+
+          default = json.loads((r/'i18n/default.json').read_text())
+          vi = json.loads((r/'i18n/vi.json').read_text())
+          for key in ['airship.unlocked', 'airship.deck.unavailable', 'airship.route.region1.foundation', 'airship.route.locked']:
+              assert default.get(key)
+              assert vi.get(key)
+
+          # Frozen alpha.27 regressions must remain intact.
+          binder = (r/'UI/CardchaBinderMenu.cs').read_text()
+          assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
+          assert 'SuppressSyntheticDetailClickUntilMs' in binder
+          assert 'LockedCard' in binder and 'PreviewCard' in binder
+
+          item_asset = (r/'Services/ItemAssetService.cs').read_text()
+          assert 'CanBePlacedIndoors = true' in item_asset
+          assert item_asset.count('CanBePlacedOutdoors = false') >= 2
+
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+
+          mystery = (r/'Services/MimiMysteryTownService.cs').read_text()
+          mystery_phase = mystery.index('// This also corrects stale/native schedule state')
+          mystery_end = mystery.index('// During broom flight', mystery_phase)
+          assert 'UpdateChaChaEmotes' not in mystery[mystery_phase:mystery_end]
+
+          print('alpha28.0.1.0 Airship foundation static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile canonical candidate
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha artifact/canonical-src/Services artifact/canonical-src/Models artifact/canonical-src/assets artifact/canonical-src/i18n
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.1.0_AirshipFoundation_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          cp src/Cardcha/Services/AirshipFoundationService.cs artifact/canonical-src/Services/
+          cp src/Cardcha/Services/ProgressionService.cs src/Cardcha/Services/SaveService.cs artifact/canonical-src/Services/
+          cp src/Cardcha/Models/SaveData.cs artifact/canonical-src/Models/
+          cp src/Cardcha/assets/airship_deck.tmx artifact/canonical-src/assets/
+          cp src/Cardcha/i18n/default.json src/Cardcha/i18n/vi.json artifact/canonical-src/i18n/
+          cp src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/manifest.json src/Cardcha/ModEntry.cs artifact/canonical-src/
+
+      - name: Canonicalize alpha28 Airship foundation source if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/ProgressionService.cs \
+            src/Cardcha/Services/SaveService.cs \
+            src/Cardcha/Models/SaveData.cs \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/manifest.json \
+            src/Cardcha/ModEntry.cs
+
+          if git diff --cached --quiet; then
+            echo 'Canonical source already matches alpha28.0.1.0.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'alpha28.0.1.0: canonicalize Airship foundation'
+            git push origin HEAD:cardcha-alpha28-airship-foundation
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-010-airship-foundation
+          path: artifact
+          if-no-files-found: error
