@@ -154,6 +154,19 @@ internal sealed class SaveService
             }
         }
 
+        // v15: Airship foundation. Existing saves that already completed the MiMi/Wizard
+        // handoff receive Region I access immediately instead of replaying onboarding.
+        if (loadedSchema < 15)
+        {
+            if (this.Data.MimiMeetupCompleted || this.Data.MachineDelivered || this.Data.BinderUnlocked)
+            {
+                this.Data.AirshipUnlocked = true;
+                this.Data.AirshipHighestRegionUnlocked = Math.Max(1, this.Data.AirshipHighestRegionUnlocked);
+                if (this.Data.AirshipUnlockedDay < 0)
+                    this.Data.AirshipUnlockedDay = Game1.Date.TotalDays;
+            }
+        }
+
         if (loadedSchema < CurrentSchemaVersion)
         {
             this.Data.SchemaVersion = CurrentSchemaVersion;
