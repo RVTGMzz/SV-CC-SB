@@ -1,0 +1,6 @@
+{
+  "button.recruit": "R  Invite to squad",
+  "button.manage": "R  Squad options",
+  "error.bridge": "The Stardew Squad is loaded, but the dialogue recruit bridge could not connect.",
+  "error.action": "Couldn't open the squad action for {{name}}. Check the SMAPI log."
+}
