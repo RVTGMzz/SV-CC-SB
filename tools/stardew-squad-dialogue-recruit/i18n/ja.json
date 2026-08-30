@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — 仲間に誘う",
+  "member.question": "{{name}}に何をしてもらう？",
+  "member.command": "指示を出す",
+  "member.manage": "仲間を管理",
+  "member.tasks.on": "自動作業：ON",
+  "member.tasks.off": "自動作業：OFF",
+  "member.talk": "話す",
+  "member.cancel": "やめる",
+  "command.pick": "仲間に指示する対象を選んでください。",
+  "command.cancelled": "指示をキャンセルしました。",
+  "command.failed": "その指示を出せませんでした。",
+  "tasks.enabled": "自動作業をONにしました。",
+  "tasks.disabled": "自動作業をOFFにしました。",
+  "error.bridge": "The Stardew Squad は読み込まれていますが、UI連携に失敗しました。",
+  "error.action": "{{name}}の仲間メニューを開けませんでした。SMAPIログを確認してください。"
+}
