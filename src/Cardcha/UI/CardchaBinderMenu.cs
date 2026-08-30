@@ -111,6 +111,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     // physically released, otherwise Favorite/Equip execute twice and immediately undo themselves.
     private bool ControllerDetailActionLatched;
     private Buttons ControllerDetailActionButton;
+    // Stardew can synthesize a mouse click at the snapped cursor after receiveGamePadButton.
+    // Favorite/Equip are toggles, so that second path would instantly undo the controller action.
+    // Consume only the matching synthetic click for a very short window; real mouse clicks remain normal.
+    private long SuppressSyntheticDetailClickUntilMs;
+    private int SuppressSyntheticDetailClickActionId = -1;
 
     private enum BinderFilter
     {
@@ -702,12 +707,16 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (id == FavoriteActionId)
         {
+            if (fromController)
+                this.ArmSyntheticDetailClickSuppression(id);
             this.ActivateFavoriteAction();
             return;
         }
 
         if (id == EquipActionId)
         {
+            if (fromController)
+                this.ArmSyntheticDetailClickSuppression(id);
             this.ToggleEquip();
             return;
         }
@@ -743,6 +752,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
+        if (this.TryConsumeSyntheticDetailClick(x, y))
+            return;
+
         this.LastInputWasController = false;
 
         if (this.BackButton.bounds.Contains(x, y))
@@ -901,6 +913,39 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         }
 
         base.receiveLeftClick(x, y, playSound);
+    }
+
+    private void ArmSyntheticDetailClickSuppression(int actionId)
+    {
+        this.SuppressSyntheticDetailClickActionId = actionId;
+        this.SuppressSyntheticDetailClickUntilMs = Environment.TickCount64 + 220L;
+    }
+
+    private bool TryConsumeSyntheticDetailClick(int x, int y)
+    {
+        if (this.SuppressSyntheticDetailClickActionId < 0)
+            return false;
+
+        long now = Environment.TickCount64;
+        if (now > this.SuppressSyntheticDetailClickUntilMs)
+        {
+            this.SuppressSyntheticDetailClickActionId = -1;
+            this.SuppressSyntheticDetailClickUntilMs = 0L;
+            return false;
+        }
+
+        int hitId = -1;
+        if (Inflate(this.FavoriteActionButton.bounds, 3).Contains(x, y))
+            hitId = FavoriteActionId;
+        else if (Inflate(this.EquipActionButton.bounds, 3).Contains(x, y))
+            hitId = EquipActionId;
+
+        if (hitId != this.SuppressSyntheticDetailClickActionId)
+            return false;
+
+        this.SuppressSyntheticDetailClickActionId = -1;
+        this.SuppressSyntheticDetailClickUntilMs = 0L;
+        return true;
     }
 
     private void HandleCollectionActivation(CardDefinition card, bool fromController)
