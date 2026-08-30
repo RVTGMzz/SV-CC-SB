@@ -968,6 +968,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.ControllerSelectionLocked = true;
         this.PreviewCard = card;
         this.Selected = card;
+        this.ControllerActionTarget = card;
 
         if (secondActivation)
         {
@@ -989,6 +990,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         this.ControllerSelectionLocked = false;
         this.LockedCard = null;
+        this.ControllerActionTarget = null;
         this.LastQuickToggleCardId = null;
         this.LastQuickToggleAtMs = 0;
         this.Status = ModEntry.T("binder.status.browsing");
@@ -1020,13 +1022,23 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.PreviewCard = card;
         this.FavoriteActionButton.leftNeighborID = focusedId;
 
-        // Browsing a new collection card must also move the visible/action card. Keeping
-        // Selected frozen on an older LockedCard was the root cause of "first card works, second
-        // card fails" for both Favorite and Equip on controller.
-        this.Selected = card;
-        this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
-            ? string.Empty
-            : ModEntry.T("binder.status.not-owned");
+        // Browsing and selection are intentionally separate states. Once Confirm locks a card,
+        // moving focus over other collection cells may update PreviewCard, but must NOT replace
+        // the selected/action card. This lets controller navigation and Favorite/Equip coexist.
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+        {
+            this.Selected = this.LockedCard;
+            this.ControllerActionTarget = this.LockedCard;
+            this.Status = ModEntry.T("binder.status.selected", new { name = this.LockedCard.Name });
+        }
+        else
+        {
+            this.Selected = card;
+            this.ControllerActionTarget = card;
+            this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
+                ? string.Empty
+                : ModEntry.T("binder.status.not-owned");
+        }
     }
 
     private void FocusDetailActionsForSelected(int selectedButtonId)
@@ -1101,27 +1113,40 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
 
         CardDefinition card = this.CardButtons[index].Card;
-        this.ControllerActionTarget = card;
         this.PreviewCard = card;
-        this.Selected = card;
         this.FavoriteActionButton.leftNeighborID = focusedCardId;
+
+        if (this.ControllerSelectionLocked && this.LockedCard is not null)
+        {
+            this.ControllerActionTarget = this.LockedCard;
+            this.Selected = this.LockedCard;
+        }
+        else
+        {
+            this.ControllerActionTarget = card;
+            this.Selected = card;
+        }
     }
 
     private void PrepareControllerActionTargetForMousePath()
     {
-        CardDefinition? target = this.ControllerActionTarget ?? this.PreviewCard ?? this.Selected ?? this.LockedCard;
+        CardDefinition? target = this.GetActionTargetCard();
         if (target is null)
             return;
 
         this.ControllerActionTarget = target;
-        this.PreviewCard = target;
         this.Selected = target;
         this.LockedCard = target;
         this.ControllerSelectionLocked = true;
     }
 
+    private CardDefinition? GetActionTargetCard()
+        => this.ControllerSelectionLocked && this.LockedCard is not null
+            ? this.LockedCard
+            : this.PreviewCard ?? this.Selected ?? this.ControllerActionTarget;
+
     private CardDefinition? GetFavoriteTargetCard()
-        => this.Selected ?? this.PreviewCard ?? this.LockedCard;
+        => this.GetActionTargetCard();
 
     private void ActivateFavoriteAction()
     {
@@ -1205,27 +1230,28 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void ToggleEquip()
     {
-        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
+        CardDefinition? card = this.GetActionTargetCard();
+        if (card is null || !this.Save.Data.OwnedCards.Contains(card.Id))
         {
             this.ShowFavoriteToast(ModEntry.T("binder.status.not-owned"));
             Game1.playSound("cancel");
             return;
         }
 
-        if (this.IsStoredEquipped(this.Selected.Id))
+        if (this.IsStoredEquipped(card.Id))
         {
-            if (this.Loadout.Unequip(this.Selected.Id))
+            if (this.Loadout.Unequip(card.Id))
             {
-                this.ShowFavoriteToast(ModEntry.T("binder.status.unequipped", new { name = this.Selected.Name }));
+                this.ShowFavoriteToast(ModEntry.T("binder.status.unequipped", new { name = card.Name }));
                 this.OnLoadoutChanged();
                 Game1.playSound("dwop");
             }
             return;
         }
 
-        if (this.Loadout.Equip(this.Selected.Id))
+        if (this.Loadout.Equip(card.Id))
         {
-            this.ShowFavoriteToast(ModEntry.T("binder.status.equipped", new { name = this.Selected.Name }));
+            this.ShowFavoriteToast(ModEntry.T("binder.status.equipped", new { name = card.Name }));
             this.OnLoadoutChanged();
             Game1.playSound("coin");
         }
@@ -1258,30 +1284,31 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void TryUpgradeSelected()
     {
-        if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
+        CardDefinition? card = this.GetActionTargetCard();
+        if (card is null || !this.Save.Data.OwnedCards.Contains(card.Id))
         {
             this.Status = ModEntry.T("binder.status.not-owned");
             Game1.playSound("cancel");
             return;
         }
 
-        if (this.Upgrades.IsMaxLevel(this.Selected))
+        if (this.Upgrades.IsMaxLevel(card))
         {
-            this.Status = ModEntry.T("binder.status.card-maxed", new { name = this.Selected.Name });
+            this.Status = ModEntry.T("binder.status.card-maxed", new { name = card.Name });
             Game1.playSound("cancel");
             return;
         }
 
-        int have = this.Upgrades.GetCopies(this.Selected);
-        int need = this.Upgrades.GetRequiredCopies(this.Selected);
-        if (!this.Upgrades.TryUpgrade(this.Selected, out int newLevel, out int copiesSpent))
+        int have = this.Upgrades.GetCopies(card);
+        int need = this.Upgrades.GetRequiredCopies(card);
+        if (!this.Upgrades.TryUpgrade(card, out int newLevel, out int copiesSpent))
         {
             this.Status = ModEntry.T("binder.status.card-not-enough-copies", new { have, need });
             Game1.playSound("cancel");
             return;
         }
 
-        this.Status = ModEntry.T("binder.status.card-upgraded", new { name = this.Selected.Name, level = newLevel, copies = copiesSpent });
+        this.Status = ModEntry.T("binder.status.card-upgraded", new { name = card.Name, level = newLevel, copies = copiesSpent });
         Game1.playSound("reward");
     }
 
@@ -1998,11 +2025,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
     private void DrawActionButtons(SpriteBatch b, bool owned)
     {
-        CardDefinition? actionTarget = this.LastInputWasController
-            && IsDetailActionId(this.currentlySnappedComponent?.myID ?? -1)
-            && this.ControllerActionTarget is not null
-                ? this.ControllerActionTarget
-                : this.Selected;
+        CardDefinition? actionTarget = this.GetActionTargetCard();
         bool actionOwned = actionTarget is not null && this.Save.Data.OwnedCards.Contains(actionTarget.Id);
         bool favorite = actionOwned && this.Save.Data.FavoriteCardIds.Contains(actionTarget!.Id);
         bool equipped = actionOwned && this.IsStoredEquipped(actionTarget!.Id);
