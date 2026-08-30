@@ -45,7 +45,7 @@ jobs:
 
           save_service = (r/'Services/SaveService.cs').read_text()
           assert 'CurrentSchemaVersion = 15' in save_service
-          assert 'Alpha.28 Airship migration' in save_service
+          assert 'v15: Airship foundation' in save_service
           assert 'data.AirshipFlybySeen ? 1 : 0' in save_service
 
           progression = (r/'Services/ProgressionService.cs').read_text()
