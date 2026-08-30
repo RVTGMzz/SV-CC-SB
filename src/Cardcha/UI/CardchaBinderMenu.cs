@@ -106,6 +106,11 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     private const long FavoriteToastDurationMs = 3000L;
     // alpha.23: hint bar follows the most recently used input family and controller profile.
     private bool LastInputWasController;
+    // Some controller runtimes can report the same physical Confirm press more than once while
+    // the button is still held. Toggle actions must therefore stay latched until that button is
+    // physically released, otherwise Favorite/Equip execute twice and immediately undo themselves.
+    private bool ControllerDetailActionLatched;
+    private Buttons ControllerDetailActionButton;
 
     private enum BinderFilter
     {
@@ -501,6 +506,28 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.snapCursorToCurrentSnappedComponent();
     }
 
+    public override void update(GameTime time)
+    {
+        base.update(time);
+
+        if (this.ControllerDetailActionLatched
+            && !IsGamePadButtonHeld(this.ControllerDetailActionButton))
+        {
+            this.ControllerDetailActionLatched = false;
+        }
+    }
+
+    private static bool IsGamePadButtonHeld(Buttons button)
+    {
+        foreach (PlayerIndex playerIndex in new[] { PlayerIndex.One, PlayerIndex.Two, PlayerIndex.Three, PlayerIndex.Four })
+        {
+            if (GamePad.GetState(playerIndex).IsButtonDown(button))
+                return true;
+        }
+
+        return false;
+    }
+
     public override void receiveGamePadButton(Buttons b)
     {
         this.LastInputWasController = true;
@@ -509,6 +536,19 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         bool collectionFocused = focusedId >= CardBaseId && focusedId < CardBaseId + this.CardButtons.Count;
         if (collectionFocused)
             this.CaptureControllerActionTarget(focusedId);
+
+        // One physical Confirm press must produce exactly one detail action. In affected runtimes
+        // the same held press can reach receiveGamePadButton twice, which is especially visible on
+        // toggles: Equip -> Unequip and Favorite -> Unfavorite in the same press. Keep the first
+        // event and ignore repeats until the physical button is released.
+        if (this.Controller.IsConfirm(b) && IsDetailActionId(focusedId))
+        {
+            if (this.ControllerDetailActionLatched)
+                return;
+
+            this.ControllerDetailActionLatched = true;
+            this.ControllerDetailActionButton = b;
+        }
 
         // alpha.23: controller actions are semantic and profile-driven. Individual menus never
         // hard-code a brand-specific A/B/X/Y layout again.
