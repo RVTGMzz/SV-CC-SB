@@ -652,15 +652,6 @@ internal sealed class CardchaBinderMenu : IClickableMenu
             return;
 
         int id = focused.myID;
-        if (fromController && this.LastInputWasController && IsDetailActionId(id))
-        {
-            this.PrepareControllerActionTargetForMousePath();
-            Rectangle action = focused.bounds;
-            this.receiveLeftClick(action.Center.X, action.Center.Y, playSound: true);
-            this.LastInputWasController = true;
-            return;
-        }
-
         if (id >= CardBaseId && id < CardBaseId + this.CardButtons.Count)
         {
             int index = id - CardBaseId;
@@ -677,14 +668,12 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (id == EquipActionId)
         {
-            this.RestoreLockedSelectionForAction();
             this.ToggleEquip();
             return;
         }
 
         if (id == UpgradeActionId)
         {
-            this.RestoreLockedSelectionForAction();
             this.TryUpgradeSelected();
             return;
         }
@@ -732,14 +721,12 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (Inflate(this.EquipActionButton.bounds, 3).Contains(x, y))
         {
-            this.RestoreLockedSelectionForAction();
             this.ToggleEquip();
             return;
         }
 
         if (Inflate(this.UpgradeActionButton.bounds, 3).Contains(x, y))
         {
-            this.RestoreLockedSelectionForAction();
             this.TryUpgradeSelected();
             return;
         }
@@ -948,14 +935,9 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         this.PreviewCard = card;
         this.FavoriteActionButton.leftNeighborID = focusedId;
 
-        if (this.ControllerSelectionLocked && this.LockedCard is not null)
-        {
-            // The detail page can stay locked, but Favorite follows the collection card the
-            // controller actually navigated from instead of an older locked selection.
-            this.Selected = this.LockedCard;
-            return;
-        }
-
+        // Browsing a new collection card must also move the visible/action card. Keeping
+        // Selected frozen on an older LockedCard was the root cause of "first card works, second
+        // card fails" for both Favorite and Equip on controller.
         this.Selected = card;
         this.Status = this.Save.Data.OwnedCards.Contains(card.Id)
             ? string.Empty
@@ -1054,16 +1036,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     }
 
     private CardDefinition? GetFavoriteTargetCard()
-    {
-        if (this.LastInputWasController
-            && IsDetailActionId(this.currentlySnappedComponent?.myID ?? -1)
-            && this.ControllerActionTarget is not null)
-        {
-            return this.ControllerActionTarget;
-        }
-
-        return this.PreviewCard ?? this.Selected ?? this.LockedCard;
-    }
+        => this.Selected ?? this.PreviewCard ?? this.LockedCard;
 
     private void ActivateFavoriteAction()
     {
@@ -1149,7 +1122,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
     {
         if (this.Selected is null || !this.Save.Data.OwnedCards.Contains(this.Selected.Id))
         {
-            this.Status = ModEntry.T("binder.status.not-owned");
+            this.ShowFavoriteToast(ModEntry.T("binder.status.not-owned"));
             Game1.playSound("cancel");
             return;
         }
@@ -1158,7 +1131,7 @@ internal sealed class CardchaBinderMenu : IClickableMenu
         {
             if (this.Loadout.Unequip(this.Selected.Id))
             {
-                this.Status = ModEntry.T("binder.status.unequipped", new { name = this.Selected.Name });
+                this.ShowFavoriteToast(ModEntry.T("binder.status.unequipped", new { name = this.Selected.Name }));
                 this.OnLoadoutChanged();
                 Game1.playSound("dwop");
             }
@@ -1167,13 +1140,13 @@ internal sealed class CardchaBinderMenu : IClickableMenu
 
         if (this.Loadout.Equip(this.Selected.Id))
         {
-            this.Status = ModEntry.T("binder.status.equipped", new { name = this.Selected.Name });
+            this.ShowFavoriteToast(ModEntry.T("binder.status.equipped", new { name = this.Selected.Name }));
             this.OnLoadoutChanged();
             Game1.playSound("coin");
         }
         else
         {
-            this.Status = ModEntry.T("binder.status.full", new { slots = this.UnlockedSlots });
+            this.ShowFavoriteToast(ModEntry.T("binder.status.full", new { slots = this.UnlockedSlots }));
             Game1.playSound("cancel");
         }
     }
