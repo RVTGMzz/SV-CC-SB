@@ -6,12 +6,12 @@
   "member.tasks.on": "Công việc tự động: BẬT",
   "member.tasks.off": "Công việc tự động: TẮT",
   "member.talk": "Trò chuyện",
-  "member.cancel": "Huỷ",
-  "command.pick": "Chọn mục tiêu cho đội của bạn.",
-  "command.cancelled": "Đã huỷ lệnh cho đội.",
-  "command.failed": "Không gửi được lệnh cho đội.",
-  "tasks.enabled": "Đã bật công việc tự động của đội.",
-  "tasks.disabled": "Đã tắt công việc tự động của đội.",
-  "error.bridge": "Stardew Squad đã tải nhưng cầu nối giao diện chưa kết nối được.",
-  "error.action": "Không mở được thao tác đội cho {{name}}. Hãy kiểm tra SMAPI log."
+  "member.cancel": "Thôi",
+  "command.pick": "Chọn mục tiêu cho đội.",
+  "command.cancelled": "Đã hủy lệnh.",
+  "command.failed": "Không thể gửi lệnh này.",
+  "tasks.enabled": "Đã bật công việc tự động.",
+  "tasks.disabled": "Đã tắt công việc tự động.",
+  "error.bridge": "Stardew Squad đã tải nhưng không kết nối được với giao diện điều khiển.",
+  "error.action": "Không mở được tùy chọn đội cho {{name}}. Hãy kiểm tra SMAPI log."
 }
