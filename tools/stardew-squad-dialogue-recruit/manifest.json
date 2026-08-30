@@ -1,0 +1,16 @@
+{
+  "Name": "Stardew Squad - Dialogue Recruit Button",
+  "Author": "Ronvotri",
+  "Version": "1.0.0-alpha.1",
+  "Description": "Adds a Rune Factory-style contextual recruit/manage button to NPC dialogue for The Stardew Squad.",
+  "UniqueID": "Ronvotri.StardewSquadDialogueRecruit",
+  "EntryDll": "StardewSquadDialogueRecruit.dll",
+  "MinimumApiVersion": "4.0.0",
+  "Dependencies": [
+    {
+      "UniqueID": "ThaliaFawnheart.TheStardewSquad",
+      "IsRequired": true,
+      "MinimumVersion": "0.12.1"
+    }
+  ]
+}
