@@ -39,10 +39,11 @@ jobs:
           assert mystery.count('this.WorldActors.UpdateChaChaEmotes(') == 1
           assert 'Mystery/??? phase: keep ChaCha visually quiet.' in mystery
           # Merchant/introduced phase keeps emotes; pre-Scrap ??? wandering does not.
-          merchant = mystery.index('if (this.IsMerchantRoutineActive())')
+          update_start = mystery.index('public void OnUpdateTicked()')
+          merchant = mystery.index('if (this.IsMerchantRoutineActive())', update_start)
           first_scrap = mystery.index('if (this.Save.Data.FirstScrapTriggered)', merchant)
           assert 'UpdateChaChaEmotes' in mystery[merchant:first_scrap]
-          mystery_phase = mystery.index('// This also corrects stale/native schedule state')
+          mystery_phase = mystery.index('// This also corrects stale/native schedule state', first_scrap)
           mystery_end = mystery.index('// During broom flight', mystery_phase)
           assert 'UpdateChaChaEmotes' not in mystery[mystery_phase:mystery_end]
 
