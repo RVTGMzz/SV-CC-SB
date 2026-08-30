@@ -1,0 +1,6 @@
+{
+  "button.recruit": "R  Mời đi cùng",
+  "button.manage": "R  Quản lý đội",
+  "error.bridge": "Stardew Squad đã tải nhưng cầu nối nút hội thoại chưa kết nối được.",
+  "error.action": "Không mở được thao tác đội cho {{name}}. Hãy kiểm tra SMAPI log."
+}
