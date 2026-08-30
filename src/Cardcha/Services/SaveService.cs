@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 14;
+    private const int CurrentSchemaVersion = 15;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -100,6 +100,9 @@ internal sealed class SaveService
         this.Data.SuspiciousDust = Math.Max(0, this.Data.SuspiciousDust);
         this.Data.DuplicatePullStreak = Math.Max(0, this.Data.DuplicatePullStreak);
 
+        this.Data.AirshipHighestRegionUnlocked = Math.Clamp(this.Data.AirshipHighestRegionUnlocked, 0, 4);
+        this.Data.AirshipUnlockedDay = Math.Max(-1, this.Data.AirshipUnlockedDay);
+
             if (this.Data.MimiMeetupCompleted && this.Data.MimiMerchantUnlockedDay < 0)
                 this.Data.MimiMerchantUnlockedDay = Math.Max(-1, Game1.Date.TotalDays - 1);
         }
@@ -136,6 +139,19 @@ internal sealed class SaveService
             this.Data.CardLevels.Clear();
             this.Data.CardCopies.Clear();
             this.Data.FavoriteCardIds.Clear();
+        }
+
+        // v15: Airship foundation. Existing saves that already completed the MiMi/Wizard
+        // handoff receive Region I access immediately instead of replaying onboarding.
+        if (loadedSchema < 15)
+        {
+            if (this.Data.MimiMeetupCompleted || this.Data.MachineDelivered || this.Data.BinderUnlocked)
+            {
+                this.Data.AirshipUnlocked = true;
+                this.Data.AirshipHighestRegionUnlocked = Math.Max(1, this.Data.AirshipHighestRegionUnlocked);
+                if (this.Data.AirshipUnlockedDay < 0)
+                    this.Data.AirshipUnlockedDay = Game1.Date.TotalDays;
+            }
         }
 
         if (loadedSchema < CurrentSchemaVersion)
@@ -303,7 +319,11 @@ internal sealed class SaveService
             data.FirstScrapPickupNoticeShown ? 1 : 0,
             data.MimiMeetupOfferedDay,
             data.PortableMachinePurchased ? 1 : 0,
-            data.PortableMachineGifted ? 1 : 0
+            data.PortableMachineGifted ? 1 : 0,
+            data.AirshipFlybySeen ? 1 : 0,
+            data.AirshipUnlocked ? 1 : 0,
+            data.AirshipUnlockedDay,
+            data.AirshipHighestRegionUnlocked
         );
 
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));

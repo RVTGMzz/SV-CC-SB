@@ -2,7 +2,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 14;
+    public int SchemaVersion { get; set; } = 15;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -58,6 +58,12 @@ internal sealed class SaveData
     // v0.1.17-alpha.11.38 — portable machine entitlement.
     public bool PortableMachinePurchased { get; set; }
     public bool PortableMachineGifted { get; set; }
+
+    // alpha.28 — Cardcha-owned Airship progression.
+    public bool AirshipFlybySeen { get; set; }
+    public bool AirshipUnlocked { get; set; }
+    public int AirshipUnlockedDay { get; set; } = -1;
+    public int AirshipHighestRegionUnlocked { get; set; }
 
     public string LastStateFingerprint { get; set; } = "";
 }

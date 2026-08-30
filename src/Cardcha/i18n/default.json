@@ -802,5 +802,9 @@
   "resonance.status.ready": "ChaCha is ready.",
   "resonance.hint.keyboard": "Click a tab or entry. Esc: return to Binder.",
   "resonance.hint.controller": "{{confirm}}: inspect   {{exit}}: return",
-  "reveal.info.close": "Click anywhere to close"
+  "reveal.info.close": "Click anywhere to close",
+  "airship.unlocked": "MiMi has granted you access to the Cardcha Airship. Region I is now available.",
+  "airship.deck.unavailable": "The Airship route is unstable right now. Try again after reloading the day.",
+  "airship.route.region1.foundation": "REGION I // Route survey in progress. Your Binder currently resonates with {{cards}} unique cards. The hunting grounds and 20-card Boss Gate are the next construction step.",
+  "airship.route.locked": "The route console is still dormant."
 }

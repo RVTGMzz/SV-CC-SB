@@ -41,6 +41,7 @@ internal sealed class ModEntry : Mod
     private MimiAtticVisualService AtticVisual = null!;
     private WorldActorService WorldActors = null!;
     private PortableMachineService PortableMachine = null!;
+    private AirshipFoundationService Airship = null!;
 
     public override void Entry(IModHelper helper)
     {
@@ -123,12 +124,14 @@ internal sealed class ModEntry : Mod
             () => this.Mystery.OwnsMimiWorldActor
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
+        this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Mystery.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.Airship.OnAssetRequested;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
@@ -139,6 +142,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
@@ -147,6 +151,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.Home.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -177,6 +182,9 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
         helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
         helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
+        helper.ConsoleCommands.Add("cardcha_airship_status", "Show alpha.28 Airship foundation state.", this.CommandAirshipStatus);
+        helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
+        helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -194,7 +202,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.27.0.7.9.0 ATTIC ACCEPTANCE POLISH TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.1.0 AIRSHIP FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -252,6 +260,7 @@ internal sealed class ModEntry : Mod
         // unlock the Binder), then reconcile Scrap storage to the correct physical/wallet phase.
         this.Progression.OnSaveLoaded();
         this.PortableMachine.OnSaveLoaded();
+        this.Airship.OnSaveLoaded();
         (int storageNormal, int storageShiny) = this.Resources.SyncStorageModeOnLoad();
         if (storageNormal > 0 || storageShiny > 0)
         {
@@ -296,6 +305,7 @@ internal sealed class ModEntry : Mod
         this.EnemyObserver.Reset();
         this.Combat.SyncPassiveBuffs();
         this.Progression.OnDayStarted();
+        this.Airship.OnDayStarted();
         this.Story.OnDayStarted();
         this.Mystery.OnDayStarted();
         this.Social.OnDayStarted();
@@ -312,6 +322,7 @@ internal sealed class ModEntry : Mod
         this.Mystery.OnUpdateTicked();
         this.Home.OnUpdateTicked(e);
         this.Social.OnUpdateTicked(e);
+        this.Airship.OnUpdateTicked(e);
 
         // Universal compatibility observer intentionally runs every tick so a custom
         // enemy that is removed immediately on defeat can't disappear between samples.
@@ -333,6 +344,7 @@ internal sealed class ModEntry : Mod
         this.Mystery.OnReturnedToTitle();
         this.Social.OnReturnedToTitle();
         this.Home.OnReturnedToTitle();
+        this.Airship.OnReturnedToTitle();
         this.Save.Clear();
     }
 
@@ -757,7 +769,8 @@ internal sealed class ModEntry : Mod
             this.Mystery.Describe() + "\n" +
             this.Social.Describe() + "\n" +
             this.Home.Describe() + "\n" +
-            this.PortableMachine.Describe(),
+            this.PortableMachine.Describe() + "\n" +
+            this.Airship.Describe(),
             LogLevel.Alert
         );
     }
@@ -879,10 +892,25 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log(result, LogLevel.Alert);
     }
 
+    private void CommandAirshipStatus(string command, string[] args)
+    {
+        this.Monitor.Log("===== CARDCHA AIRSHIP STATUS =====\n" + this.Airship.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandTestAirship(string command, string[] args)
+    {
+        this.Monitor.Log(this.Airship.DebugToggleDeck(), LogLevel.Alert);
+    }
+
+    private void CommandTestAirshipFlyby(string command, string[] args)
+    {
+        this.Monitor.Log(this.Airship.DebugReplayFlyby(), LogLevel.Alert);
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.27.0.7.9.0 ATTIC ACCEPTANCE POLISH TEST",
+            "Cardcha! v0.3.0-alpha.28.0.1.0 AIRSHIP FOUNDATION TEST",
             LogLevel.Alert
         );
     }

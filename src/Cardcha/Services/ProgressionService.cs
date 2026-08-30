@@ -52,6 +52,10 @@ internal sealed class ProgressionService
             this.Save.Data.MimiMeetupPending = false;
             this.Save.Data.MimiMeetupCompleted = true;
             this.Save.Data.ChaChaLoaned = true;
+            this.Save.Data.AirshipUnlocked = true;
+            this.Save.Data.AirshipHighestRegionUnlocked = Math.Max(1, this.Save.Data.AirshipHighestRegionUnlocked);
+            if (this.Save.Data.AirshipUnlockedDay < 0)
+                this.Save.Data.AirshipUnlockedDay = Game1.Date.TotalDays;
             this.Save.Data.FirstPullQuestActive = this.Save.Data.PullIndex <= 0;
             this.Save.Data.FirstPullCompleted = this.Save.Data.PullIndex > 0;
             this.Save.Data.Chapter1Completed = this.Save.Data.PullIndex > 0;
@@ -201,12 +205,17 @@ internal sealed class ProgressionService
         this.Save.Data.CardchaStoryStage = 3;
         this.Save.Data.MimiMerchantUnlockedDay = Game1.Date.TotalDays;
 
+        this.Save.Data.AirshipUnlocked = true;
+        this.Save.Data.AirshipHighestRegionUnlocked = Math.Max(1, this.Save.Data.AirshipHighestRegionUnlocked);
+        this.Save.Data.AirshipUnlockedDay = Game1.Date.TotalDays;
+
         this.DeliverMachineDirectly();
         this.RemoveMimiMeetupQuest();
         this.Save.Save();
+        Game1.showGlobalMessage(this.Helper.Translation.Get("airship.unlocked").ToString());
 
         this.Monitor.Log(
-            "Cardcha Story Chapter 1 handoff completed: MiMi introduced the player and the Wizard delivered the Machine + Binder.",
+            "Cardcha Story Chapter 1 handoff completed: MiMi introduced the player, the Wizard delivered the Machine + Binder, and Region I Airship access was unlocked.",
             LogLevel.Info
         );
     }

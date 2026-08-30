@@ -882,5 +882,9 @@
   "resonance.status.ready": "ChaCha đã sẵn sàng.",
   "resonance.hint.keyboard": "Nhấn tab hoặc mục để xem. Esc: quay lại Sổ.",
   "resonance.hint.controller": "{{confirm}}: xem   {{exit}}: quay lại",
-  "reveal.info.close": "Nhấn để đóng"
+  "reveal.info.close": "Nhấn để đóng",
+  "airship.unlocked": "MiMi đã cho bạn quyền sử dụng Tàu Bay Cardcha. Khu Vực I đã được mở.",
+  "airship.deck.unavailable": "Tuyến Tàu Bay đang không ổn định. Hãy thử lại sau khi tải lại ngày.",
+  "airship.route.region1.foundation": "KHU VỰC I // Tuyến đường đang được khảo sát. Binder của bạn hiện cộng hưởng với {{cards}} lá bài khác nhau. Khu săn quái và Cổng Boss 20 lá sẽ được xây ở bước tiếp theo.",
+  "airship.route.locked": "Bảng điều khiển tuyến đường vẫn chưa hoạt động."
 }
