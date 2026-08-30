@@ -47,11 +47,11 @@ jobs:
           cp tools/stardew-squad-dialogue-recruit/i18n/vi.json "$OUT/i18n/vi.json"
           cp tools/stardew-squad-dialogue-recruit/README.txt "$OUT/README.txt"
           cd artifact
-          zip -qr StardewSquad_DialogueRecruit_1.0.0-alpha.1.zip '[SMAPI] Stardew Squad Dialogue Recruit'
+          zip -qr StardewSquad_DialogueRecruit_1.0.0-alpha.2.zip '[SMAPI] Stardew Squad Dialogue Recruit'
 
       - name: Upload compiler output
         uses: actions/upload-artifact@v4
         with:
-          name: stardew-squad-dialogue-recruit-alpha1
+          name: stardew-squad-dialogue-recruit-alpha2
           path: artifact
           if-no-files-found: error
