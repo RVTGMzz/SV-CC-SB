@@ -1,0 +1,108 @@
+name: Cardcha alpha27.0.7.8.9 selection + action coexistence
+
+on:
+  push:
+    branches: [ cardcha-alpha27-mimi-real-npc ]
+    paths:
+      - '.github/workflows/cardcha-alpha27-0789-selection-action-coexistence.yml'
+      - 'build_assets/apply_0789.py'
+      - 'src/Cardcha/UI/CardchaBinderMenu.cs'
+      - 'src/Cardcha/Cardcha.csproj'
+      - 'src/Cardcha/Directory.Build.targets'
+      - 'src/Cardcha/manifest.json'
+      - 'src/Cardcha/ModEntry.cs'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply 0.7.8.9 candidate
+        run: python3 build_assets/apply_0789.py
+
+      - name: Static validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.27.0.7.8.9'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
+          binder = (r/'UI/CardchaBinderMenu.cs').read_text()
+          assert 'private CardDefinition? GetActionTargetCard()' in binder
+          assert 'CardDefinition? actionTarget = this.GetActionTargetCard();' in binder
+          assert 'CardDefinition? card = this.GetActionTargetCard();' in binder
+          assert 'this.Selected = this.LockedCard;' in binder
+          assert 'this.ControllerActionTarget = this.LockedCard;' in binder
+          assert 'this.ControllerActionTarget = null;' in binder
+          assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
+          assert 'ArmSyntheticDetailClickSuppression(id)' in binder
+          assert 'SuppressSyntheticDetailClickUntilMs' in binder
+          # The 0.7.8.8 double-toggle fix must remain intact while selection lock is restored.
+          assert 'Environment.TickCount64 + 220L' in binder
+
+          # Approved MiMi visuals remain locked; this patch is Binder-only.
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+          print('0.7.8.9 static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha artifact/canonical-src/UI
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.27.0.7.8.9_SelectionActionCoexistence_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          cp src/Cardcha/UI/CardchaBinderMenu.cs artifact/canonical-src/UI/
+          cp src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/manifest.json src/Cardcha/ModEntry.cs artifact/canonical-src/
+
+      - name: Canonicalize 0.7.8.9 source if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            src/Cardcha/UI/CardchaBinderMenu.cs \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/manifest.json \
+            src/Cardcha/ModEntry.cs
+
+          if git diff --cached --quiet; then
+            echo 'Canonical source already matches 0.7.8.9.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'alpha27.0.7.8.9: preserve locked selection across controller browsing'
+            git push origin HEAD:cardcha-alpha27-mimi-real-npc
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha27-0789-selection-action-coexistence
+          path: artifact
+          if-no-files-found: error
