@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — Inviter dans l’équipe",
+  "member.question": "Que voulez-vous demander à {{name}} ?",
+  "member.command": "Donner un ordre",
+  "member.manage": "Gérer l’équipe",
+  "member.tasks.on": "Tâches auto : OUI",
+  "member.tasks.off": "Tâches auto : NON",
+  "member.talk": "Parler",
+  "member.cancel": "Annuler",
+  "command.pick": "Choisissez une cible pour l’équipe.",
+  "command.cancelled": "Ordre annulé.",
+  "command.failed": "Impossible de donner cet ordre.",
+  "tasks.enabled": "Les tâches automatiques sont activées.",
+  "tasks.disabled": "Les tâches automatiques sont désactivées.",
+  "error.bridge": "The Stardew Squad est chargé, mais la liaison de l’interface a échoué.",
+  "error.action": "Impossible d’ouvrir les options d’équipe de {{name}}. Consultez le journal SMAPI."
+}
