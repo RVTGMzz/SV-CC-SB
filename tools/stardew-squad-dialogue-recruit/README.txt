@@ -5,7 +5,7 @@ Mục tiêu
 - Giữ nguyên The Stardew Squad 0.12.1 và toàn bộ follower/combat/task logic của mod gốc.
 - Không xoá hay thay đổi các hotkey E/F/Alt+... hiện tại; chúng vẫn hoạt động cho người đã quen chơi.
 - Bổ sung đường điều khiển bằng UI/hộp thoại để mobile và controller chơi thuận tiện hơn.
-- Hỗ trợ UI: English, Tiếng Việt, 日本語, 한국어, ไทย, 简体中文, Français, Español.
+- Hỗ trợ UI: English, Tiếng Việt, 日本語, 한국어, ไทย, 中文, Français, Español.
 
 Flow mới
 1. NPC CHƯA vào đội
@@ -50,6 +50,7 @@ Ngôn ngữ
 - ko.json: 한국어
 - th.json: ไทย (custom locale code th)
 - zh.json: 简体中文
+- zh-TW.json: 繁體中文
 - fr.json: Français
 - es.json: Español
 
