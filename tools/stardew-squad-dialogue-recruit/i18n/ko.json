@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — 동료로 초대",
+  "member.question": "{{name}}에게 무엇을 시킬까요?",
+  "member.command": "명령 내리기",
+  "member.manage": "동료 관리",
+  "member.tasks.on": "자동 작업: 켬",
+  "member.tasks.off": "자동 작업: 끔",
+  "member.talk": "대화하기",
+  "member.cancel": "그만두기",
+  "command.pick": "명령할 대상을 선택하세요.",
+  "command.cancelled": "명령을 취소했습니다.",
+  "command.failed": "이 명령을 내릴 수 없습니다.",
+  "tasks.enabled": "자동 작업을 켰습니다.",
+  "tasks.disabled": "자동 작업을 껐습니다.",
+  "error.bridge": "The Stardew Squad는 불러왔지만 UI 연동에 실패했습니다.",
+  "error.action": "{{name}}의 동료 메뉴를 열 수 없습니다. SMAPI 로그를 확인하세요."
+}
