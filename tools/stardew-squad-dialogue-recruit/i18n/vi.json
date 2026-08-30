@@ -1,6 +1,17 @@
 {
-  "button.recruit": "R  Mời đi cùng",
-  "button.manage": "R  Quản lý đội",
-  "error.bridge": "Stardew Squad đã tải nhưng cầu nối nút hội thoại chưa kết nối được.",
+  "button.recruit": "R — Mời vào đội",
+  "member.question": "Bạn muốn {{name}} làm gì?",
+  "member.command": "Ra lệnh",
+  "member.manage": "Quản lý đội",
+  "member.tasks.on": "Công việc tự động: BẬT",
+  "member.tasks.off": "Công việc tự động: TẮT",
+  "member.talk": "Trò chuyện",
+  "member.cancel": "Huỷ",
+  "command.pick": "Chọn mục tiêu cho đội của bạn.",
+  "command.cancelled": "Đã huỷ lệnh cho đội.",
+  "command.failed": "Không gửi được lệnh cho đội.",
+  "tasks.enabled": "Đã bật công việc tự động của đội.",
+  "tasks.disabled": "Đã tắt công việc tự động của đội.",
+  "error.bridge": "Stardew Squad đã tải nhưng cầu nối giao diện chưa kết nối được.",
   "error.action": "Không mở được thao tác đội cho {{name}}. Hãy kiểm tra SMAPI log."
 }
