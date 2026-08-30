@@ -1,0 +1,141 @@
+name: Cardcha alpha28.0.2.0 Sky Dock access
+
+on:
+  push:
+    branches: [ cardcha-alpha28-airship-foundation ]
+    paths:
+      - '.github/workflows/cardcha-alpha28-020-sky-dock.yml'
+      - 'build_assets/apply_alpha28_sky_dock.py'
+      - 'src/Cardcha/Services/AirshipFoundationService.cs'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28 Sky Dock candidate
+        run: python3 build_assets/apply_alpha28_sky_dock.py
+
+      - name: Static compatibility validation
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+
+          r = Path('src/Cardcha')
+          target = '0.3.0-alpha.28.0.2.0'
+          assert json.loads((r/'manifest.json').read_text())['Version'] == target
+          assert target in (r/'Cardcha.csproj').read_text()
+          assert target in (r/'Directory.Build.targets').read_text()
+          assert target in (r/'ModEntry.cs').read_text()
+
+          airship = (r/'Services/AirshipFoundationService.cs').read_text()
+          required = [
+              'SkyDockLocationName = "Forest"',
+              'ResolveSkyDockTile',
+              'ResolveForestFarmWarpTile',
+              'FindSafeDockTile',
+              'IsDockFootprintSafe',
+              'ReturnToSkyDock',
+              'CollisionEdits=NONE',
+              'forest.warps',
+              'farmWarp.X - 7'
+          ]
+          for marker in required:
+              assert marker in airship, marker
+
+          # Compatibility promise: no base Forest layer/object/collision mutation.
+          forbidden = [
+              '.Tiles[',
+              'Objects.Remove(',
+              'Objects.Add(',
+              'terrainFeatures.Remove(',
+              'terrainFeatures.Add(',
+              'setTileProperty',
+              'removeTileProperty'
+          ]
+          for marker in forbidden:
+              assert marker not in airship, marker
+
+          # Farm flyby remains, but normal boarding is no longer on the Farm.
+          assert 'DrawBoardingMarker' not in airship
+          assert 'ResolveFarmBoardingTile' not in airship
+          assert 'Game1.currentLocation == Game1.getFarm()' in airship  # flyby only
+
+          # Frozen alpha.27 regressions remain intact.
+          binder = (r/'UI/CardchaBinderMenu.cs').read_text()
+          assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
+          assert 'SuppressSyntheticDetailClickUntilMs' in binder
+          assert 'LockedCard' in binder and 'PreviewCard' in binder
+
+          item_asset = (r/'Services/ItemAssetService.cs').read_text()
+          assert 'CanBePlacedIndoors = true' in item_asset
+          assert item_asset.count('CanBePlacedOutdoors = false') >= 2
+
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+
+          mystery = (r/'Services/MimiMysteryTownService.cs').read_text()
+          mystery_phase = mystery.index('// This also corrects stale/native schedule state')
+          mystery_end = mystery.index('// During broom flight', mystery_phase)
+          assert 'UpdateChaChaEmotes' not in mystery[mystery_phase:mystery_end]
+
+          print('alpha28.0.2.0 Sky Dock static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile candidate
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha artifact/canonical-src/Services
+
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.2.0_SkyDockAccess_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          cp src/Cardcha/Services/AirshipFoundationService.cs artifact/canonical-src/Services/
+          cp src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/manifest.json src/Cardcha/ModEntry.cs artifact/canonical-src/
+
+      - name: Canonicalize alpha28 Sky Dock source if needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          git add \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/manifest.json \
+            src/Cardcha/ModEntry.cs
+
+          if git diff --cached --quiet; then
+            echo 'Canonical source already matches alpha28.0.2.0.'
+          else
+            git config user.name 'github-actions[bot]'
+            git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+            git commit -m 'alpha28.0.2.0: canonicalize conflict-safe Sky Dock'
+            git push origin HEAD:cardcha-alpha28-airship-foundation
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-020-sky-dock
+          path: artifact
+          if-no-files-found: error
