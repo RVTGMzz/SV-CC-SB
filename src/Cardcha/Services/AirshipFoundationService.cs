@@ -7,22 +7,26 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.28 foundation for Cardcha's self-contained monster-farming world.
+/// Alpha.28 Airship foundation with the conflict-safe Sky Dock entrance.
 ///
-/// This deliberately owns its own location/state and does not depend on Stardew Druid or any
-/// external combat/map mod. The first build provides the one-time pre-MiMi flyby, a persistent
-/// Airship unlock, a real deck GameLocation, a safe Farm boarding marker, and a route-console
-/// placeholder for Region I. Region I combat/spawns are the next vertical-slice layer.
+/// Compatibility contract:
+/// - The Dock is anchored dynamically from Forest's existing Farm warp instead of hard-coded
+///   vanilla coordinates, so custom farm layouts don't move the access point into nonsense.
+/// - It does NOT replace Forest map tiles, add objects, change collision, or reserve NPC paths.
+/// - The visible dock is a lightweight Cardcha overlay only; base-game NPC movement/gameplay
+///   remains authoritative. At worst a map overhaul may make the cosmetic marker less ideal,
+///   but it should not break the Forest or block an NPC.
 /// </summary>
 internal sealed class AirshipFoundationService
 {
     public const string DeckLocationName = "Cardcha_AirshipDeck";
     public const string DeckMapAssetName = "Maps/Cardcha_AirshipDeck";
+    public const string SkyDockLocationName = "Forest";
 
     private const string DeckMapPath = "assets/airship_deck.tmx";
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
-    private const float BoardingUseDistance = 120f;
+    private const float BoardingUseDistance = 128f;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -34,7 +38,8 @@ internal sealed class AirshipFoundationService
     private bool DeckCreationFailed;
     private bool LoggedDeckFailure;
     private bool LoggedDeckCreation;
-    private Point? CachedFarmBoardingTile;
+    private Point? CachedSkyDockTile;
+    private Point? CachedForestFarmWarpTile;
     private long WarpGraceUntilMs;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save)
@@ -64,7 +69,8 @@ internal sealed class AirshipFoundationService
     {
         this.FlybyActive = false;
         this.FlybyStartedAtMs = 0;
-        this.CachedFarmBoardingTile = null;
+        this.CachedSkyDockTile = null;
+        this.CachedForestFarmWarpTile = null;
         this.DeckCreationFailed = false;
         this.LoggedDeckFailure = false;
         this.EnsureDeckLocation();
@@ -116,11 +122,12 @@ internal sealed class AirshipFoundationService
         if (this.FlybyActive && Game1.currentLocation == Game1.getFarm())
             this.DrawFlyby(e.SpriteBatch);
 
-        if (this.Save.Data.AirshipUnlocked && Game1.currentLocation == Game1.getFarm())
-            this.DrawBoardingMarker(e.SpriteBatch, this.ResolveFarmBoardingTile());
+        GameLocation? location = Game1.currentLocation;
+        if (this.Save.Data.AirshipUnlocked && IsSkyDockLocation(location))
+            this.DrawSkyDock(e.SpriteBatch, this.ResolveSkyDockTile());
 
-        if (Game1.currentLocation?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
-            this.DrawDeckMarkers(e.SpriteBatch, Game1.currentLocation);
+        if (location?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
+            this.DrawDeckMarkers(e.SpriteBatch, location);
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -139,10 +146,11 @@ internal sealed class AirshipFoundationService
         if (location is null)
             return;
 
-        if (location == Game1.getFarm() && this.Save.Data.AirshipUnlocked)
+        // Sky Dock is the normal gameplay entrance. It never edits Forest collision/pathing.
+        if (IsSkyDockLocation(location) && this.Save.Data.AirshipUnlocked)
         {
-            Point boarding = this.ResolveFarmBoardingTile();
-            if (!PlayerIsNear(boarding))
+            Point dock = this.ResolveSkyDockTile();
+            if (!PlayerIsNear(dock))
                 return;
 
             GameLocation? deck = this.EnsureDeckLocation();
@@ -183,7 +191,7 @@ internal sealed class AirshipFoundationService
             return;
 
         this.Helper.Input.Suppress(e.Button);
-        this.ReturnToFarm();
+        this.ReturnToSkyDock();
     }
 
     /// <summary>TEST-only direct deck access; does not unlock the Airship or alter story flags.</summary>
@@ -194,8 +202,8 @@ internal sealed class AirshipFoundationService
 
         if (Game1.currentLocation?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
         {
-            this.ReturnToFarm();
-            return "Airship TEST: returned to the Farm. Story/unlock state was not changed.";
+            this.ReturnToSkyDock();
+            return "Airship TEST: returned to Sky Dock. Story/unlock state was not changed.";
         }
 
         GameLocation? deck = this.EnsureDeckLocation();
@@ -205,7 +213,7 @@ internal sealed class AirshipFoundationService
         Point arrival = ResolveDeckArrivalTile(deck);
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(DeckLocationName, arrival.X, arrival.Y, 0);
-        return "Airship TEST: warped to Cardcha_AirshipDeck. Run cardcha_test_airship again to leave. Story/unlock state was not changed.";
+        return "Airship TEST: warped to Cardcha_AirshipDeck. Run cardcha_test_airship again to return to Sky Dock. Story/unlock state was not changed.";
     }
 
     /// <summary>TEST-only replay of the distant Farm flyby without changing the persisted seen flag.</summary>
@@ -226,14 +234,16 @@ internal sealed class AirshipFoundationService
         if (!Context.IsWorldReady)
             return "Airship=<no save>";
 
-        Point boarding = this.ResolveFarmBoardingTile();
+        Point dock = this.ResolveSkyDockTile();
+        Point farmWarp = this.ResolveForestFarmWarpTile();
         bool deckExists = Game1.getLocationFromName(DeckLocationName) is not null;
         return $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
                $"FlybyActive={this.FlybyActive} | " +
                $"Unlocked={this.Save.Data.AirshipUnlocked} | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
-               $"DeckExists={deckExists} | FarmBoarding={boarding.X},{boarding.Y}";
+               $"DeckExists={deckExists} | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
+               $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | CollisionEdits=NONE";
     }
 
     private void MigrateUnlockFromExistingStory()
@@ -265,7 +275,7 @@ internal sealed class AirshipFoundationService
 
         this.Save.Save();
         this.Monitor.Log(
-            "Alpha.28 Airship migration: existing completed MiMi/Wizard handoff now owns Region I access.",
+            "Alpha.28 Airship migration: existing completed MiMi/Wizard handoff now owns Region I access through Sky Dock.",
             LogLevel.Info
         );
     }
@@ -281,8 +291,6 @@ internal sealed class AirshipFoundationService
             this.Save.Save();
         }
 
-        // Keep the foreshadowing unexplained. A familiar magic cue is intentionally subtle here;
-        // final Airship engine audio can replace it later without changing progression logic.
         Game1.playSound("wand");
         this.Monitor.Log(
             persistSeen
@@ -330,35 +338,154 @@ internal sealed class AirshipFoundationService
         }
     }
 
-    private void ReturnToFarm()
+    private void ReturnToSkyDock()
     {
-        GameLocation? farm = Game1.getFarm();
-        if (farm is null)
-            return;
+        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
+        if (forest is null)
+        {
+            GameLocation? farm = Game1.getFarm();
+            if (farm is null)
+                return;
 
-        Point boarding = this.ResolveFarmBoardingTile();
-        Point landing = FindClearTileNear(farm, new Point(boarding.X, boarding.Y + 1));
+            Point fallback = FindClearTileNear(farm, new Point(8, 8));
+            this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+            Game1.warpFarmer(farm.NameOrUniqueName, fallback.X, fallback.Y, 2);
+            return;
+        }
+
+        Point dock = this.ResolveSkyDockTile();
+        Point landing = FindClearTileNear(forest, new Point(dock.X + 1, dock.Y + 1));
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
-        Game1.warpFarmer(farm.NameOrUniqueName, landing.X, landing.Y, 2);
+        Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 2);
     }
 
-    private Point ResolveFarmBoardingTile()
+    private Point ResolveSkyDockTile()
     {
-        if (this.CachedFarmBoardingTile is Point cached)
+        if (this.CachedSkyDockTile is Point cached)
             return cached;
 
-        GameLocation farm = Game1.getFarm();
-        int width = farm.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 80;
-        int height = farm.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 65;
+        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
+        if (forest is null)
+        {
+            this.CachedSkyDockTile = new Point(6, 6);
+            return this.CachedSkyDockTile.Value;
+        }
 
-        // Avoid hard-coding the vanilla farmhouse coordinates. A clear tile near the upper-middle
-        // of any farm map gives vanilla and custom farms a safe, deterministic foundation marker.
+        Point farmWarp = this.ResolveForestFarmWarpTile();
+        int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
+        int height = forest.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
+
+        // Player exits the Farm into Forest; the dock should be visible immediately to the left.
+        // Search a compact left-side band instead of claiming a fixed vanilla tile.
         Point preferred = new(
-            Math.Clamp(width / 2, 3, Math.Max(3, width - 4)),
-            Math.Clamp(height / 5, 4, Math.Max(4, height - 5))
+            Math.Clamp(farmWarp.X - 7, 2, Math.Max(2, width - 3)),
+            Math.Clamp(farmWarp.Y + 2, 2, Math.Max(2, height - 3))
         );
-        this.CachedFarmBoardingTile = FindClearTileNear(farm, preferred);
-        return this.CachedFarmBoardingTile.Value;
+
+        Point? safe = FindSafeDockTile(forest, preferred, farmWarp);
+        this.CachedSkyDockTile = safe ?? preferred;
+        return this.CachedSkyDockTile.Value;
+    }
+
+    private Point ResolveForestFarmWarpTile()
+    {
+        if (this.CachedForestFarmWarpTile is Point cached)
+            return cached;
+
+        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
+        if (forest is null)
+        {
+            this.CachedForestFarmWarpTile = new Point(20, 2);
+            return this.CachedForestFarmWarpTile.Value;
+        }
+
+        try
+        {
+            foreach (Warp warp in forest.warps)
+            {
+                if (!string.IsNullOrWhiteSpace(warp.TargetName)
+                    && warp.TargetName.Contains("Farm", StringComparison.OrdinalIgnoreCase))
+                {
+                    this.CachedForestFarmWarpTile = new Point(warp.X, warp.Y);
+                    return this.CachedForestFarmWarpTile.Value;
+                }
+            }
+        }
+        catch
+        {
+            // A heavily rewritten Forest may expose warps differently. Fall back to upper-middle.
+        }
+
+        int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
+        this.CachedForestFarmWarpTile = new Point(Math.Clamp(width / 2, 3, Math.Max(3, width - 4)), 2);
+        return this.CachedForestFarmWarpTile.Value;
+    }
+
+    private static Point? FindSafeDockTile(GameLocation forest, Point preferred, Point farmWarp)
+    {
+        int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
+        int height = forest.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
+
+        for (int radius = 0; radius <= 7; radius++)
+        {
+            for (int y = Math.Max(2, preferred.Y - radius); y <= Math.Min(height - 3, preferred.Y + radius); y++)
+            {
+                // Keep every candidate visibly left of the Farm entrance and out of its warp lane.
+                for (int x = Math.Max(2, preferred.X - radius); x <= Math.Min(farmWarp.X - 4, preferred.X + radius); x++)
+                {
+                    Point candidate = new(x, y);
+                    if (IsDockFootprintSafe(forest, candidate, farmWarp))
+                        return candidate;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    private static bool IsDockFootprintSafe(GameLocation location, Point anchor, Point farmWarp)
+    {
+        Point[] footprint =
+        {
+            anchor,
+            new(anchor.X - 1, anchor.Y),
+            new(anchor.X + 1, anchor.Y),
+            new(anchor.X - 1, anchor.Y + 1),
+            new(anchor.X, anchor.Y + 1),
+            new(anchor.X + 1, anchor.Y + 1)
+        };
+
+        foreach (Point p in footprint)
+        {
+            if (Math.Abs(p.X - farmWarp.X) <= 3 && Math.Abs(p.Y - farmWarp.Y) <= 3)
+                return false;
+
+            try
+            {
+                Vector2 tile = new(p.X, p.Y);
+                if (location.IsTileBlockedBy(tile) || location.Objects.ContainsKey(tile))
+                    return false;
+            }
+            catch
+            {
+                return false;
+            }
+
+            try
+            {
+                foreach (Warp warp in location.warps)
+                {
+                    if (Math.Abs(warp.X - p.X) <= 2 && Math.Abs(warp.Y - p.Y) <= 2)
+                        return false;
+                }
+            }
+            catch
+            {
+                // Don't reject the candidate solely because a map overhaul hides warp metadata.
+            }
+        }
+
+        return true;
     }
 
     private static Point ResolveDeckArrivalTile(GameLocation deck)
@@ -400,8 +527,6 @@ internal sealed class AirshipFoundationService
         Color gondola = new Color(66, 47, 49) * 0.88f;
         Color glint = new Color(190, 225, 255) * 0.55f;
 
-        // Original procedural silhouette: no external sprite/source is copied. The stacked strips
-        // intentionally read as a distant balloon + gondola and can later be replaced by Cardcha art.
         DrawRect(batch, new Rectangle((int)p.X - 74, (int)p.Y - 20, 148, 10), silhouette);
         DrawRect(batch, new Rectangle((int)p.X - 88, (int)p.Y - 10, 176, 12), silhouette);
         DrawRect(batch, new Rectangle((int)p.X - 94, (int)p.Y + 2, 188, 14), silhouette);
@@ -416,16 +541,36 @@ internal sealed class AirshipFoundationService
         DrawRect(batch, new Rectangle((int)p.X + 12, (int)p.Y + 47, 5, 4), glint);
     }
 
-    private void DrawBoardingMarker(SpriteBatch batch, Point tile)
+    private void DrawSkyDock(SpriteBatch batch, Point tile)
     {
-        Vector2 world = new(tile.X * 64f, tile.Y * 64f);
-        Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-        float pulse = 0.48f + 0.22f * (float)Math.Sin(Environment.TickCount64 / 240.0);
-        Color glow = new Color(115, 214, 255) * Math.Clamp(pulse, 0.2f, 0.8f);
+        Vector2 screen = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2((tile.X - 1) * 64f, tile.Y * 64f)
+        );
 
-        DrawRect(batch, new Rectangle((int)screen.X + 10, (int)screen.Y + 28, 44, 8), glow);
-        DrawRect(batch, new Rectangle((int)screen.X + 28, (int)screen.Y + 10, 8, 44), glow);
-        DrawRect(batch, new Rectangle((int)screen.X + 18, (int)screen.Y + 18, 28, 28), glow * 0.42f);
+        // Small, non-blocking Stardew-scale foundation: weathered planks + two rope posts +
+        // MiMi's restrained cyan route glow. This is intentionally lightweight until final art.
+        Color plankDark = new Color(96, 63, 38) * 0.86f;
+        Color plank = new Color(145, 98, 57) * 0.90f;
+        Color edge = new Color(69, 47, 31) * 0.92f;
+        Color rope = new Color(205, 174, 112) * 0.82f;
+        float pulse = 0.42f + 0.18f * (float)Math.Sin(Environment.TickCount64 / 260.0);
+        Color glow = new Color(105, 214, 236) * pulse;
+
+        for (int row = 0; row < 2; row++)
+        {
+            int y = (int)screen.Y + 18 + row * 25;
+            DrawRect(batch, new Rectangle((int)screen.X + 5, y, 182, 22), plank);
+            DrawRect(batch, new Rectangle((int)screen.X + 5, y + 19, 182, 3), plankDark);
+            for (int seam = 1; seam <= 5; seam++)
+                DrawRect(batch, new Rectangle((int)screen.X + seam * 30, y, 2, 22), edge * 0.62f);
+        }
+
+        DrawRect(batch, new Rectangle((int)screen.X + 9, (int)screen.Y - 16, 9, 78), edge);
+        DrawRect(batch, new Rectangle((int)screen.X + 174, (int)screen.Y - 16, 9, 78), edge);
+        DrawRect(batch, new Rectangle((int)screen.X + 18, (int)screen.Y - 5, 156, 3), rope);
+        DrawRect(batch, new Rectangle((int)screen.X + 78, (int)screen.Y + 31, 38, 5), glow);
+        DrawRect(batch, new Rectangle((int)screen.X + 94, (int)screen.Y + 15, 6, 37), glow);
     }
 
     private void DrawDeckMarkers(SpriteBatch batch, GameLocation deck)
@@ -462,6 +607,9 @@ internal sealed class AirshipFoundationService
             _ => p
         };
     }
+
+    private static bool IsSkyDockLocation(GameLocation? location)
+        => location?.NameOrUniqueName.Equals(SkyDockLocationName, StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool PlayerIsNear(Point tile)
     {
@@ -514,7 +662,8 @@ internal sealed class AirshipFoundationService
         this.FlybyArmAfterMs = 0;
         this.DeckCreationFailed = false;
         this.LoggedDeckFailure = false;
-        this.CachedFarmBoardingTile = null;
+        this.CachedSkyDockTile = null;
+        this.CachedForestFarmWarpTile = null;
         this.WarpGraceUntilMs = 0;
     }
 }
