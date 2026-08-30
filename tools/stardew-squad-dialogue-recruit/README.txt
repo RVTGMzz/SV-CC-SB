@@ -1,18 +1,42 @@
-Stardew Squad - Dialogue Recruit Button
-======================================
+Stardew Squad - Dialogue Recruit Button alpha2
+=============================================
 
 Mục tiêu
-- Giữ nguyên The Stardew Squad 0.12.1 và toàn bộ follower/combat logic của mod gốc.
-- Không còn bắt buộc phải dùng RecruitKey (mặc định E) để mời NPC.
-- Khi đang nói chuyện với một NPC hợp lệ, một nút R xuất hiện phía trên hộp thoại.
-- Chạm trực tiếp nút R trên màn hình, hoặc dùng shoulder R/L trên tay cầm, để mở hành động mời/quản lý Stardew Squad.
+- Giữ nguyên The Stardew Squad 0.12.1 và toàn bộ follower/combat/task logic của mod gốc.
+- Không xoá hay thay đổi các hotkey E/F/Alt+... hiện tại; chúng vẫn hoạt động cho người đã quen chơi.
+- Bổ sung một đường điều khiển bằng UI/hộp thoại để mobile và controller chơi thuận tiện hơn.
 
-Cài đặt
-1. Giữ The Stardew Squad 0.12.1 như bình thường.
-2. Chép folder [SMAPI] Stardew Squad Dialogue Recruit vào Mods.
-3. Vào game, nói chuyện với NPC. Khi nút R xuất hiện, chạm nút để mời họ.
+Flow mới
+1. NPC CHƯA vào đội
+   - Nói chuyện với NPC như Stardew bình thường.
+   - Trên hộp thoại hiện gợi ý: "R — Mời vào đội".
+   - Bấm shoulder R/L trên controller, hoặc chạm trực tiếp vào gợi ý trên mobile, để mở xác nhận mời bằng hộp thoại Stardew gốc.
+   - Ngoài lúc hộp thoại này đang mở, R/L không bị addon chiếm nên vẫn dùng đổi toolbar như bình thường.
+
+2. NPC ĐÃ vào đội
+   - Chỉ cần tương tác/chạm vào NPC.
+   - Không cần bấm R lần nữa.
+   - Một hộp thoại lựa chọn hiện ra với:
+     + Ra lệnh
+     + Quản lý đội
+     + Công việc tự động BẬT/TẮT
+     + Trò chuyện
+     + Huỷ
+
+3. Ra lệnh
+   - Chọn "Ra lệnh" rồi chọn mục tiêu.
+   - Mobile/mouse: chạm mục tiêu.
+   - Controller: quay về phía mục tiêu rồi bấm nút tương tác.
+   - Addon gọi lại chính manual-command routing của Stardew Squad, bao gồm đường multiplayer farmhand -> host khi có.
+
+4. Quản lý đội
+   - Mở menu quản lý gốc của Stardew Squad bằng giao diện question dialogue vanilla để controller/mobile dễ dùng.
+   - Các lựa chọn gốc như Kho đồ / Chờ ở đây / Cho về / Cho cả đội về vẫn do Stardew Squad xử lý.
+
+5. Trò chuyện
+   - Cho phép nói chuyện bình thường với NPC đã vào đội, tránh việc menu squad làm mất tương tác xã hội vanilla.
 
 Lưu ý
-- RecruitKey cũ của Stardew Squad vẫn tồn tại như fallback nhưng addon này không cần nó.
-- Điều kiện tình bạn, giới hạn số thành viên, NPC bị từ chối, multiplayer, combat/task và menu quản lý vẫn do Stardew Squad xử lý.
-- Trong festival/cutscene, nút recruit không hiện để tránh phá state sự kiện.
+- Điều kiện tình bạn, giới hạn thành viên, từ chối recruit, save state, combat, task, multiplayer... vẫn do Stardew Squad sở hữu.
+- Addon chỉ thêm lớp điều khiển UI và gọi lại các manager/action sẵn có của mod gốc.
+- Trong festival/cutscene, addon tránh can thiệp để không phá state sự kiện.
