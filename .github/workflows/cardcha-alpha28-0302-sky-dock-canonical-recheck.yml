@@ -1,0 +1,73 @@
+name: Cardcha alpha28.0.3.0 Sky Dock canonical recheck
+
+on:
+  push:
+    branches: [ cardcha-alpha28-airship-foundation ]
+    paths:
+      - '.github/workflows/cardcha-alpha28-0302-sky-dock-canonical-recheck.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate canonical source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+          r=Path('src/Cardcha')
+          target='0.3.0-alpha.28.0.3.0'
+          assert json.loads((r/'manifest.json').read_text())['Version']==target
+          s=(r/'Services/AirshipFoundationService.cs').read_text()
+          for m in [
+            'SkyDockInteriorLocationName = "Cardcha_SkyDockInterior"',
+            'private static Point ResolveSkyDockInteriorArrivalTile',
+            'Region1Fare = 100',
+            'AirshipFlightsTaken <= 0',
+            'StartFlightCutscene(returning: false)',
+            'StartFlightCutscene(returning: true)',
+            'Game1.player.Money -= fare',
+            'ReturnToSkyDockExterior'
+          ]: assert m in s, m
+          ss=(r/'Services/SaveService.cs').read_text()
+          assert 'CurrentSchemaVersion = 16' in ss
+          assert ss.count('// v15: Airship foundation.') == 1
+          assert 'data.AirshipFlightsTaken' in ss and 'data.AirshipTotalFarePaid' in ss
+          root=ET.fromstring((r/'assets/sky_dock_interior.tmx').read_text())
+          assert root.attrib['width']=='30' and root.attrib['height']=='18'
+          for layer in root.findall('layer'):
+            vals=[v.strip() for v in layer.find('data').text.replace('\n','').split(',') if v.strip()]
+            assert len(vals)==540
+          assert hashlib.sha256((r/'assets/mimi_walk.png').read_bytes()).hexdigest()=='04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((r/'assets/mimi_broom.png').read_bytes()).hexdigest()=='875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((r/'assets/mimi_social_mugshot.png').read_bytes()).hexdigest()=='7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+          print('canonical alpha28.0.3.0 validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile canonical source
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package canonical TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.3.0_SkyDockInteriorFlight_CANONICAL_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-030-canonical
+          path: artifact
+          if-no-files-found: error
