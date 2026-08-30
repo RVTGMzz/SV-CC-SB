@@ -36,9 +36,8 @@ internal static class MachineInteractionPatch
 
         harmony.Patch(target, prefix: prefix);
 
-        // The story Machine is a menu key / home appliance entitlement, not a placeable
-        // big-craftable. Returning false here also prevents Stardew from drawing the green
-        // placement ghost while the player is holding it.
+        // Only the portable Cardcha machine is a handheld menu key and must never enter
+        // Stardew's placement flow. The normal Cardcha Machine remains a real indoor big-craftable.
         MethodInfo? placeable = AccessTools.Method(typeof(SObject), nameof(SObject.isPlaceable), System.Type.EmptyTypes);
         if (placeable is not null)
         {
@@ -88,7 +87,7 @@ internal static class MachineInteractionPatch
 
     private static void IsPlaceablePostfix(SObject __instance, ref bool __result)
     {
-        if (__result && IsCardchaMachine(__instance))
+        if (ItemAssetService.IsPortableMachine(__instance))
             __result = false;
     }
 
