@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — 邀请加入队伍",
+  "member.question": "想让{{name}}做什么？",
+  "member.command": "下达指令",
+  "member.manage": "管理队伍",
+  "member.tasks.on": "自动任务：开启",
+  "member.tasks.off": "自动任务：关闭",
+  "member.talk": "聊天",
+  "member.cancel": "算了",
+  "command.pick": "选择一个要让队伍处理的目标。",
+  "command.cancelled": "已取消指令。",
+  "command.failed": "无法下达这条指令。",
+  "tasks.enabled": "已开启自动任务。",
+  "tasks.disabled": "已关闭自动任务。",
+  "error.bridge": "The Stardew Squad 已加载，但无法连接界面桥接。",
+  "error.action": "无法打开 {{name}} 的队伍选项。请检查 SMAPI 日志。"
+}
