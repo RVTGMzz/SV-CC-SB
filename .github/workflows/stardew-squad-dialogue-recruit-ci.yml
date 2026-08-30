@@ -1,0 +1,57 @@
+name: Stardew Squad Dialogue Recruit CI
+
+on:
+  push:
+    branches:
+      - build/stardew-squad-rune-dialogue
+    paths:
+      - 'tools/stardew-squad-dialogue-recruit/**'
+      - '.github/workflows/stardew-squad-dialogue-recruit-ci.yml'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Add SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Build dialogue recruit addon
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build tools/stardew-squad-dialogue-recruit/StardewSquadDialogueRecruit.csproj \
+            --configuration Release \
+            -p:EnableModDeploy=false \
+            -p:EnableModZip=false
+
+      - name: Stage installable mod
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT='artifact/[SMAPI] Stardew Squad Dialogue Recruit'
+          mkdir -p "$OUT/i18n"
+          DLL="$(find tools/stardew-squad-dialogue-recruit/bin -name StardewSquadDialogueRecruit.dll -print -quit)"
+          test -n "$DLL"
+          cp "$DLL" "$OUT/StardewSquadDialogueRecruit.dll"
+          PDB="$(find tools/stardew-squad-dialogue-recruit/bin -name StardewSquadDialogueRecruit.pdb -print -quit || true)"
+          if [ -n "$PDB" ]; then cp "$PDB" "$OUT/StardewSquadDialogueRecruit.pdb"; fi
+          cp tools/stardew-squad-dialogue-recruit/manifest.json "$OUT/manifest.json"
+          cp tools/stardew-squad-dialogue-recruit/i18n/default.json "$OUT/i18n/default.json"
+          cp tools/stardew-squad-dialogue-recruit/i18n/vi.json "$OUT/i18n/vi.json"
+          cp tools/stardew-squad-dialogue-recruit/README.txt "$OUT/README.txt"
+          cd artifact
+          zip -qr StardewSquad_DialogueRecruit_1.0.0-alpha.1.zip '[SMAPI] Stardew Squad Dialogue Recruit'
+
+      - name: Upload compiler output
+        uses: actions/upload-artifact@v4
+        with:
+          name: stardew-squad-dialogue-recruit-alpha1
+          path: artifact
+          if-no-files-found: error
