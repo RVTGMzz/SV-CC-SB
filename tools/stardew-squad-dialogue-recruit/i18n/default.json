@@ -1,17 +1,17 @@
 {
-  "button.recruit": "R — Invite to squad",
-  "member.question": "What do you want {{name}} to do?",
-  "member.command": "Give command",
-  "member.manage": "Squad options",
+  "button.recruit": "R — Invite to join",
+  "member.question": "What would you like {{name}} to do?",
+  "member.command": "Give a command",
+  "member.manage": "Manage squad",
   "member.tasks.on": "Auto tasks: ON",
   "member.tasks.off": "Auto tasks: OFF",
   "member.talk": "Talk",
-  "member.cancel": "Cancel",
+  "member.cancel": "Never mind",
   "command.pick": "Choose a target for your squad.",
-  "command.cancelled": "Squad command cancelled.",
-  "command.failed": "Couldn't send that squad command.",
-  "tasks.enabled": "Squad auto tasks enabled.",
-  "tasks.disabled": "Squad auto tasks disabled.",
-  "error.bridge": "The Stardew Squad is loaded, but the dialogue bridge could not connect.",
-  "error.action": "Couldn't open the squad action for {{name}}. Check the SMAPI log."
+  "command.cancelled": "Command cancelled.",
+  "command.failed": "Couldn't send that command.",
+  "tasks.enabled": "Auto tasks are now enabled.",
+  "tasks.disabled": "Auto tasks are now disabled.",
+  "error.bridge": "The Stardew Squad is loaded, but the UI bridge couldn't connect.",
+  "error.action": "Couldn't open the squad options for {{name}}. Check the SMAPI log."
 }
