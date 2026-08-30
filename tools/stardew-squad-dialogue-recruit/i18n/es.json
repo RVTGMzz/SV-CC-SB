@@ -1,0 +1,17 @@
+{
+  "button.recruit": "R — Invitar al grupo",
+  "member.question": "¿Qué quieres que haga {{name}}?",
+  "member.command": "Dar una orden",
+  "member.manage": "Gestionar el grupo",
+  "member.tasks.on": "Tareas automáticas: SÍ",
+  "member.tasks.off": "Tareas automáticas: NO",
+  "member.talk": "Hablar",
+  "member.cancel": "Cancelar",
+  "command.pick": "Elige un objetivo para el grupo.",
+  "command.cancelled": "Orden cancelada.",
+  "command.failed": "No se pudo dar esa orden.",
+  "tasks.enabled": "Las tareas automáticas están activadas.",
+  "tasks.disabled": "Las tareas automáticas están desactivadas.",
+  "error.bridge": "The Stardew Squad está cargado, pero no se pudo conectar la interfaz.",
+  "error.action": "No se pudieron abrir las opciones de {{name}}. Revisa el registro de SMAPI."
+}
