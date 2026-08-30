@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 15;
+    private const int CurrentSchemaVersion = 16;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -102,6 +102,11 @@ internal sealed class SaveService
 
         this.Data.AirshipHighestRegionUnlocked = Math.Clamp(this.Data.AirshipHighestRegionUnlocked, 0, 4);
         this.Data.AirshipUnlockedDay = Math.Max(-1, this.Data.AirshipUnlockedDay);
+        this.Data.AirshipFlightsTaken = Math.Max(0, this.Data.AirshipFlightsTaken);
+        this.Data.AirshipTotalFarePaid = Math.Max(0, this.Data.AirshipTotalFarePaid);
+
+        this.Data.AirshipHighestRegionUnlocked = Math.Clamp(this.Data.AirshipHighestRegionUnlocked, 0, 4);
+        this.Data.AirshipUnlockedDay = Math.Max(-1, this.Data.AirshipUnlockedDay);
 
             if (this.Data.MimiMeetupCompleted && this.Data.MimiMerchantUnlockedDay < 0)
                 this.Data.MimiMerchantUnlockedDay = Math.Max(-1, Game1.Date.TotalDays - 1);
@@ -154,17 +159,11 @@ internal sealed class SaveService
             }
         }
 
-        // v15: Airship foundation. Existing saves that already completed the MiMi/Wizard
-        // handoff receive Region I access immediately instead of replaying onboarding.
-        if (loadedSchema < 15)
+        // v16: Sky Dock interior + MiMi fare telemetry.
+        if (loadedSchema < 16)
         {
-            if (this.Data.MimiMeetupCompleted || this.Data.MachineDelivered || this.Data.BinderUnlocked)
-            {
-                this.Data.AirshipUnlocked = true;
-                this.Data.AirshipHighestRegionUnlocked = Math.Max(1, this.Data.AirshipHighestRegionUnlocked);
-                if (this.Data.AirshipUnlockedDay < 0)
-                    this.Data.AirshipUnlockedDay = Game1.Date.TotalDays;
-            }
+            this.Data.AirshipFlightsTaken = Math.Max(0, this.Data.AirshipFlightsTaken);
+            this.Data.AirshipTotalFarePaid = Math.Max(0, this.Data.AirshipTotalFarePaid);
         }
 
         if (loadedSchema < CurrentSchemaVersion)
@@ -336,7 +335,9 @@ internal sealed class SaveService
             data.AirshipFlybySeen ? 1 : 0,
             data.AirshipUnlocked ? 1 : 0,
             data.AirshipUnlockedDay,
-            data.AirshipHighestRegionUnlocked
+            data.AirshipHighestRegionUnlocked,
+            data.AirshipFlightsTaken,
+            data.AirshipTotalFarePaid
         );
 
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));

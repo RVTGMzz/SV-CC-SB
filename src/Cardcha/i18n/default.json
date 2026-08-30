@@ -806,5 +806,11 @@
   "airship.unlocked": "MiMi has granted you access to the Cardcha Airship. Region I is now available.",
   "airship.deck.unavailable": "The Airship route is unstable right now. Try again after reloading the day.",
   "airship.route.region1.foundation": "REGION I // Route survey in progress. Your Binder currently resonates with {{cards}} unique cards. The hunting grounds and 20-card Boss Gate are the next construction step.",
-  "airship.route.locked": "The route console is still dormant."
+  "airship.route.locked": "The route console is still dormant.",
+  "airship.skydock.interior.unavailable": "The Sky Dock hall is unstable right now. Try again after reloading the day.",
+  "airship.route.region1.first_free": "REGION I // MiMi: First flight is on the house. Yes, really. Interact again within a few seconds to depart.",
+  "airship.route.region1.confirm": "REGION I // MiMi fare: {{fare}}g. Fuel, docking, maintenance... friendship does not power an airship. Interact again within a few seconds to depart.",
+  "airship.route.not_enough": "MiMi: The fare is {{fare}}g, and you currently have {{money}}g. I run an airship, not a charity balloon.",
+  "airship.cutscene.departure": "Sky Dock — Departure",
+  "airship.cutscene.return": "Sky Dock — Arrival"
 }

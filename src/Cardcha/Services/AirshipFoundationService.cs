@@ -22,8 +22,18 @@ internal sealed class AirshipFoundationService
     public const string DeckLocationName = "Cardcha_AirshipDeck";
     public const string DeckMapAssetName = "Maps/Cardcha_AirshipDeck";
     public const string SkyDockLocationName = "Forest";
+    public const string SkyDockInteriorLocationName = "Cardcha_SkyDockInterior";
+    public const string SkyDockInteriorMapAssetName = "Maps/Cardcha_SkyDockInterior";
 
     private const string DeckMapPath = "assets/airship_deck.tmx";
+    private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
+    private const int Region1Fare = 100;
+    private const int Region2Fare = 250;
+    private const int Region3Fare = 500;
+    private const int Region4Fare = 1000;
+    private const long DepartureConfirmWindowMs = 5000L;
+    private const long FlightCutsceneDurationMs = 3200L;
+    private const long FlightWarpAtMs = 1650L;
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
     private const float BoardingUseDistance = 128f;
@@ -38,6 +48,14 @@ internal sealed class AirshipFoundationService
     private bool DeckCreationFailed;
     private bool LoggedDeckFailure;
     private bool LoggedDeckCreation;
+    private bool SkyDockInteriorCreationFailed;
+    private bool LoggedSkyDockInteriorFailure;
+    private bool LoggedSkyDockInteriorCreation;
+    private long PendingDepartureUntilMs;
+    private bool FlightCutsceneActive;
+    private bool FlightCutsceneReturning;
+    private bool FlightCutsceneWarped;
+    private long FlightCutsceneStartedAtMs;
     private Point? CachedSkyDockTile;
     private Point? CachedForestFarmWarpTile;
     private long WarpGraceUntilMs;
@@ -51,16 +69,21 @@ internal sealed class AirshipFoundationService
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
-        if (!e.NameWithoutLocale.IsEquivalentTo(DeckMapAssetName))
+        if (e.NameWithoutLocale.IsEquivalentTo(DeckMapAssetName))
+        {
+            e.LoadFromModFile<xTile.Map>(DeckMapPath, AssetLoadPriority.Exclusive);
             return;
+        }
 
-        e.LoadFromModFile<xTile.Map>(DeckMapPath, AssetLoadPriority.Exclusive);
+        if (e.NameWithoutLocale.IsEquivalentTo(SkyDockInteriorMapAssetName))
+            e.LoadFromModFile<xTile.Map>(SkyDockInteriorMapPath, AssetLoadPriority.Exclusive);
     }
 
     public void OnSaveLoaded()
     {
         this.ResetRuntime();
         this.EnsureDeckLocation();
+        this.EnsureSkyDockInteriorLocation();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + FlybyArmDelayMs;
     }
@@ -73,7 +96,10 @@ internal sealed class AirshipFoundationService
         this.CachedForestFarmWarpTile = null;
         this.DeckCreationFailed = false;
         this.LoggedDeckFailure = false;
+        this.SkyDockInteriorCreationFailed = false;
+        this.LoggedSkyDockInteriorFailure = false;
         this.EnsureDeckLocation();
+        this.EnsureSkyDockInteriorLocation();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + 1500L;
     }
@@ -82,6 +108,7 @@ internal sealed class AirshipFoundationService
     {
         this.ResetRuntime();
         this.LoggedDeckCreation = false;
+        this.LoggedSkyDockInteriorCreation = false;
     }
 
     public void OnUpdateTicked(UpdateTickedEventArgs e)
@@ -90,6 +117,17 @@ internal sealed class AirshipFoundationService
             return;
 
         long now = Environment.TickCount64;
+
+        if (this.FlightCutsceneActive)
+        {
+            Game1.player.Halt();
+            this.UpdateFlightCutscene(now);
+            return;
+        }
+
+        if (this.PendingDepartureUntilMs > 0 && now > this.PendingDepartureUntilMs)
+            this.PendingDepartureUntilMs = 0;
+
         if (this.FlybyActive)
         {
             if (now - this.FlybyStartedAtMs >= FlybyDurationMs)
@@ -126,8 +164,14 @@ internal sealed class AirshipFoundationService
         if (this.Save.Data.AirshipUnlocked && IsSkyDockLocation(location))
             this.DrawSkyDock(e.SpriteBatch, this.ResolveSkyDockTile());
 
+        if (location?.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase) == true)
+            this.DrawSkyDockInteriorDetails(e.SpriteBatch, location);
+
         if (location?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawDeckMarkers(e.SpriteBatch, location);
+
+        if (this.FlightCutsceneActive)
+            this.DrawFlightCutscene(e.SpriteBatch);
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -137,6 +181,7 @@ internal sealed class AirshipFoundationService
             || Game1.activeClickableMenu is not null
             || Game1.dialogueUp
             || Game1.eventUp
+            || this.FlightCutsceneActive
             || Environment.TickCount64 < this.WarpGraceUntilMs)
         {
             return;
@@ -153,18 +198,39 @@ internal sealed class AirshipFoundationService
             if (!PlayerIsNear(dock))
                 return;
 
-            GameLocation? deck = this.EnsureDeckLocation();
-            if (deck is null)
+            GameLocation? interior = this.EnsureSkyDockInteriorLocation();
+            if (interior is null)
             {
                 this.Helper.Input.Suppress(e.Button);
-                Game1.drawObjectDialogue(ModEntry.T("airship.deck.unavailable"));
+                Game1.drawObjectDialogue(ModEntry.T("airship.skydock.interior.unavailable"));
                 return;
             }
 
             this.Helper.Input.Suppress(e.Button);
-            Point arrival = ResolveDeckArrivalTile(deck);
+            Point arrival = ResolveSkyDockInteriorArrivalTile(interior);
             this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
-            Game1.warpFarmer(DeckLocationName, arrival.X, arrival.Y, 0);
+            Game1.warpFarmer(SkyDockInteriorLocationName, arrival.X, arrival.Y, 0);
+            return;
+        }
+
+        if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            Point interiorAction = GetActionTile();
+            Point route = ResolveSkyDockInteriorRouteTile(location);
+            Point interiorExit = ResolveSkyDockInteriorExitTile(location);
+
+            if (Touches(interiorAction, route) || PlayerIsNear(route))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                this.HandleRegion1DepartureRequest();
+                return;
+            }
+
+            if (Touches(interiorAction, interiorExit) || PlayerIsNear(interiorExit))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                this.ReturnToSkyDockExterior();
+            }
             return;
         }
 
@@ -191,7 +257,7 @@ internal sealed class AirshipFoundationService
             return;
 
         this.Helper.Input.Suppress(e.Button);
-        this.ReturnToSkyDock();
+        this.StartFlightCutscene(returning: true);
     }
 
     /// <summary>TEST-only direct deck access; does not unlock the Airship or alter story flags.</summary>
@@ -202,8 +268,8 @@ internal sealed class AirshipFoundationService
 
         if (Game1.currentLocation?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
         {
-            this.ReturnToSkyDock();
-            return "Airship TEST: returned to Sky Dock. Story/unlock state was not changed.";
+            this.WarpToSkyDockInterior();
+            return "Airship TEST: returned to Sky Dock interior. Story/unlock/fare state was not changed.";
         }
 
         GameLocation? deck = this.EnsureDeckLocation();
@@ -213,7 +279,7 @@ internal sealed class AirshipFoundationService
         Point arrival = ResolveDeckArrivalTile(deck);
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(DeckLocationName, arrival.X, arrival.Y, 0);
-        return "Airship TEST: warped to Cardcha_AirshipDeck. Run cardcha_test_airship again to return to Sky Dock. Story/unlock state was not changed.";
+        return "Airship TEST: warped to Cardcha_AirshipDeck. Run cardcha_test_airship again to return to Sky Dock interior. Story/unlock/fare state was not changed.";
     }
 
     /// <summary>TEST-only replay of the distant Farm flyby without changing the persisted seen flag.</summary>
@@ -237,12 +303,13 @@ internal sealed class AirshipFoundationService
         Point dock = this.ResolveSkyDockTile();
         Point farmWarp = this.ResolveForestFarmWarpTile();
         bool deckExists = Game1.getLocationFromName(DeckLocationName) is not null;
+        bool interiorExists = Game1.getLocationFromName(SkyDockInteriorLocationName) is not null;
         return $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
                $"FlybyActive={this.FlybyActive} | " +
                $"Unlocked={this.Save.Data.AirshipUnlocked} | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
-               $"DeckExists={deckExists} | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
+               $"DeckExists={deckExists} | InteriorExists={interiorExists} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
                $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | CollisionEdits=NONE";
     }
 
@@ -338,7 +405,160 @@ internal sealed class AirshipFoundationService
         }
     }
 
-    private void ReturnToSkyDock()
+    private GameLocation? EnsureSkyDockInteriorLocation()
+    {
+        if (!Context.IsWorldReady || this.SkyDockInteriorCreationFailed)
+            return null;
+
+        GameLocation? existing = Game1.getLocationFromName(SkyDockInteriorLocationName);
+        if (existing is not null)
+            return existing;
+
+        try
+        {
+            GameLocation interior = new(SkyDockInteriorMapAssetName, SkyDockInteriorLocationName);
+            Game1.locations.Add(interior);
+            if (!this.LoggedSkyDockInteriorCreation)
+            {
+                this.LoggedSkyDockInteriorCreation = true;
+                this.Monitor.Log("Created Cardcha_SkyDockInterior from Cardcha-owned vanilla-tile layout.", LogLevel.Info);
+            }
+            return interior;
+        }
+        catch (Exception ex)
+        {
+            this.SkyDockInteriorCreationFailed = true;
+            if (!this.LoggedSkyDockInteriorFailure)
+            {
+                this.LoggedSkyDockInteriorFailure = true;
+                this.Monitor.Log($"Couldn't create Sky Dock interior; retries suppressed until next save/day. {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            }
+            return null;
+        }
+    }
+
+    private void HandleRegion1DepartureRequest()
+    {
+        if (this.Save.Data.AirshipHighestRegionUnlocked < 1)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.route.locked"));
+            return;
+        }
+
+        // Validate the target before money is ever consumed.
+        if (this.EnsureDeckLocation() is null)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.deck.unavailable"));
+            return;
+        }
+
+        int fare = this.GetRegionFare(1);
+        long now = Environment.TickCount64;
+        if (this.PendingDepartureUntilMs <= now)
+        {
+            this.PendingDepartureUntilMs = now + DepartureConfirmWindowMs;
+            Game1.drawObjectDialogue(
+                fare <= 0
+                    ? ModEntry.T("airship.route.region1.first_free")
+                    : ModEntry.T("airship.route.region1.confirm", new { fare })
+            );
+            return;
+        }
+
+        this.PendingDepartureUntilMs = 0;
+        if (Game1.player.Money < fare)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.route.not_enough", new { fare, money = Game1.player.Money }));
+            return;
+        }
+
+        if (fare > 0)
+            Game1.player.Money -= fare;
+
+        this.Save.Data.AirshipFlightsTaken++;
+        this.Save.Data.AirshipTotalFarePaid += fare;
+        this.Save.Save();
+        this.StartFlightCutscene(returning: false);
+    }
+
+    private int GetRegionFare(int region)
+    {
+        if (this.Save.Data.AirshipFlightsTaken <= 0)
+            return 0; // MiMi's first flight is free; persisted so it can't be consumed twice accidentally.
+
+        return region switch
+        {
+            1 => Region1Fare,
+            2 => Region2Fare,
+            3 => Region3Fare,
+            4 => Region4Fare,
+            _ => Region1Fare
+        };
+    }
+
+    private void StartFlightCutscene(bool returning)
+    {
+        this.FlightCutsceneActive = true;
+        this.FlightCutsceneReturning = returning;
+        this.FlightCutsceneWarped = false;
+        this.FlightCutsceneStartedAtMs = Environment.TickCount64;
+        this.PendingDepartureUntilMs = 0;
+        Game1.player.Halt();
+        Game1.playSound("wand");
+    }
+
+    private void UpdateFlightCutscene(long now)
+    {
+        long elapsed = now - this.FlightCutsceneStartedAtMs;
+        if (!this.FlightCutsceneWarped && elapsed >= FlightWarpAtMs)
+        {
+            this.FlightCutsceneWarped = true;
+            if (this.FlightCutsceneReturning)
+            {
+                if (!this.WarpToSkyDockInterior())
+                    this.ReturnToSkyDockExterior();
+            }
+            else
+            {
+                GameLocation? deck = this.EnsureDeckLocation();
+                if (deck is null)
+                {
+                    // Target was validated before charging; this is a last-resort failure path.
+                    this.FlightCutsceneActive = false;
+                    this.ReturnToSkyDockExterior();
+                    Game1.drawObjectDialogue(ModEntry.T("airship.deck.unavailable"));
+                    return;
+                }
+
+                Point arrival = ResolveDeckArrivalTile(deck);
+                this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+                Game1.warpFarmer(DeckLocationName, arrival.X, arrival.Y, 0);
+            }
+        }
+
+        if (elapsed >= FlightCutsceneDurationMs)
+        {
+            this.FlightCutsceneActive = false;
+            this.FlightCutsceneReturning = false;
+            this.FlightCutsceneWarped = false;
+            this.FlightCutsceneStartedAtMs = 0;
+            this.WarpGraceUntilMs = Environment.TickCount64 + 500L;
+        }
+    }
+
+    private bool WarpToSkyDockInterior()
+    {
+        GameLocation? interior = this.EnsureSkyDockInteriorLocation();
+        if (interior is null)
+            return false;
+
+        Point arrival = ResolveSkyDockInteriorArrivalTile(interior);
+        this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+        Game1.warpFarmer(SkyDockInteriorLocationName, arrival.X, arrival.Y, 0);
+        return true;
+    }
+
+    private void ReturnToSkyDockExterior()
     {
         GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
         if (forest is null)
@@ -488,6 +708,34 @@ internal sealed class AirshipFoundationService
         return true;
     }
 
+    private static Point ResolveSkyDockInteriorArrivalTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        return FindClearTileNear(interior, new Point(width / 2, Math.Max(2, height - 4)));
+    }
+
+    private static Point ResolveSkyDockInteriorExitTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        return new Point(width / 2, Math.Max(1, height - 2));
+    }
+
+    private static Point ResolveSkyDockInteriorRouteTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        return new Point(Math.Clamp(width / 3, 3, width - 4), Math.Clamp(7, 3, height - 5));
+    }
+
+    private static Point ResolveSkyDockInteriorBayTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        return new Point(Math.Clamp(width - 6, 4, width - 3), Math.Clamp(7, 3, height - 5));
+    }
+
     private static Point ResolveDeckArrivalTile(GameLocation deck)
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
@@ -571,6 +819,87 @@ internal sealed class AirshipFoundationService
         DrawRect(batch, new Rectangle((int)screen.X + 18, (int)screen.Y - 5, 156, 3), rope);
         DrawRect(batch, new Rectangle((int)screen.X + 78, (int)screen.Y + 31, 38, 5), glow);
         DrawRect(batch, new Rectangle((int)screen.X + 94, (int)screen.Y + 15, 6, 37), glow);
+    }
+
+    private void DrawSkyDockInteriorDetails(SpriteBatch batch, GameLocation interior)
+    {
+        Point route = ResolveSkyDockInteriorRouteTile(interior);
+        Point exit = ResolveSkyDockInteriorExitTile(interior);
+        Point bay = ResolveSkyDockInteriorBayTile(interior);
+
+        // Route board: warm wood with a restrained MiMi cyan indicator.
+        Vector2 board = Game1.GlobalToLocal(Game1.viewport, new Vector2((route.X - 1) * 64f, (route.Y - 2) * 64f));
+        DrawRect(batch, new Rectangle((int)board.X, (int)board.Y, 150, 82), new Color(91, 58, 36) * 0.94f);
+        DrawRect(batch, new Rectangle((int)board.X + 7, (int)board.Y + 7, 136, 68), new Color(147, 100, 57) * 0.96f);
+        float pulse = 0.45f + 0.18f * (float)Math.Sin(Environment.TickCount64 / 270.0);
+        DrawRect(batch, new Rectangle((int)board.X + 22, (int)board.Y + 52, 92, 6), new Color(104, 220, 238) * pulse);
+
+        // Open-sky docking bay on the right wall. This is an overlay inside Cardcha's own location,
+        // so it cannot affect vanilla collision/pathing.
+        Vector2 sky = Game1.GlobalToLocal(Game1.viewport, new Vector2((bay.X - 2) * 64f, (bay.Y - 4) * 64f));
+        DrawRect(batch, new Rectangle((int)sky.X, (int)sky.Y, 250, 170), new Color(74, 128, 167) * 0.92f);
+        DrawRect(batch, new Rectangle((int)sky.X + 18, (int)sky.Y + 30, 72, 13), new Color(222, 237, 240) * 0.76f);
+        DrawRect(batch, new Rectangle((int)sky.X + 105, (int)sky.Y + 72, 95, 12), new Color(222, 237, 240) * 0.62f);
+        DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y - 8, 266, 8), new Color(67, 45, 31) * 0.96f);
+        DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y + 170, 266, 9), new Color(67, 45, 31) * 0.96f);
+        DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y - 8, 8, 187), new Color(67, 45, 31) * 0.96f);
+        DrawRect(batch, new Rectangle((int)sky.X + 250, (int)sky.Y - 8, 8, 187), new Color(67, 45, 31) * 0.96f);
+
+        DrawWorldMarker(batch, route, new Color(255, 220, 120) * 0.58f);
+        DrawWorldMarker(batch, exit, new Color(120, 220, 255) * 0.52f);
+    }
+
+    private void DrawFlightCutscene(SpriteBatch batch)
+    {
+        float p = Math.Clamp((Environment.TickCount64 - this.FlightCutsceneStartedAtMs) / (float)FlightCutsceneDurationMs, 0f, 1f);
+        int w = Game1.viewport.Width;
+        int h = Game1.viewport.Height;
+
+        DrawRect(batch, new Rectangle(0, 0, w, h), new Color(21, 31, 51) * 0.94f);
+
+        // Dock frame.
+        Color woodDark = new Color(69, 46, 31) * 0.95f;
+        Color wood = new Color(132, 87, 50) * 0.96f;
+        DrawRect(batch, new Rectangle(0, h - 145, w, 145), woodDark);
+        for (int x = 0; x < w; x += 72)
+            DrawRect(batch, new Rectangle(x, h - 137, 66, 72), wood);
+        DrawRect(batch, new Rectangle(70, 0, 16, h - 80), woodDark);
+        DrawRect(batch, new Rectangle(w - 86, 0, 16, h - 80), woodDark);
+
+        // Clouds make the scene read as an elevated dock even before bespoke Cardcha art exists.
+        Color cloud = new Color(222, 236, 241) * 0.66f;
+        DrawRect(batch, new Rectangle(w / 8, h / 4, w / 5, 18), cloud);
+        DrawRect(batch, new Rectangle(w * 5 / 8, h / 3, w / 4, 20), cloud * 0.82f);
+
+        float travel = this.FlightCutsceneReturning ? 1f - p : p;
+        float shipX = MathHelper.Lerp(w * 0.28f, w * 0.78f, travel);
+        float shipY = h * 0.40f - (float)Math.Sin(p * Math.PI) * 24f;
+        this.DrawCinematicAirship(batch, new Vector2(shipX, shipY), 1.15f);
+
+        string title = ModEntry.T(this.FlightCutsceneReturning ? "airship.cutscene.return" : "airship.cutscene.departure");
+        Vector2 size = Game1.smallFont.MeasureString(title);
+        batch.DrawString(Game1.smallFont, title, new Vector2((w - size.X) / 2f, 26f), Color.White * 0.92f);
+    }
+
+    private void DrawCinematicAirship(SpriteBatch batch, Vector2 p, float scale)
+    {
+        int X(float n) => (int)(p.X + n * scale);
+        int Y(float n) => (int)(p.Y + n * scale);
+        int S(float n) => Math.Max(1, (int)(n * scale));
+
+        Color balloon = new Color(55, 44, 75) * 0.96f;
+        Color hull = new Color(101, 66, 43) * 0.98f;
+        Color trim = new Color(178, 125, 67) * 0.92f;
+        Color glow = new Color(116, 222, 241) * 0.72f;
+
+        DrawRect(batch, new Rectangle(X(-76), Y(-45), S(152), S(13)), balloon);
+        DrawRect(batch, new Rectangle(X(-92), Y(-31), S(184), S(21)), balloon);
+        DrawRect(batch, new Rectangle(X(-82), Y(-9), S(164), S(15)), balloon);
+        DrawRect(batch, new Rectangle(X(-45), Y(28), S(90), S(22)), hull);
+        DrawRect(batch, new Rectangle(X(-56), Y(50), S(112), S(8)), trim);
+        DrawRect(batch, new Rectangle(X(-31), Y(6), S(4), S(23)), trim);
+        DrawRect(batch, new Rectangle(X(27), Y(6), S(4), S(23)), trim);
+        DrawRect(batch, new Rectangle(X(7), Y(37), S(7), S(7)), glow);
     }
 
     private void DrawDeckMarkers(SpriteBatch batch, GameLocation deck)
@@ -662,6 +991,13 @@ internal sealed class AirshipFoundationService
         this.FlybyArmAfterMs = 0;
         this.DeckCreationFailed = false;
         this.LoggedDeckFailure = false;
+        this.SkyDockInteriorCreationFailed = false;
+        this.LoggedSkyDockInteriorFailure = false;
+        this.PendingDepartureUntilMs = 0;
+        this.FlightCutsceneActive = false;
+        this.FlightCutsceneReturning = false;
+        this.FlightCutsceneWarped = false;
+        this.FlightCutsceneStartedAtMs = 0;
         this.CachedSkyDockTile = null;
         this.CachedForestFarmWarpTile = null;
         this.WarpGraceUntilMs = 0;

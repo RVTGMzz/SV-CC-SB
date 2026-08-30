@@ -202,7 +202,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.2.0 SKY DOCK ACCESS TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.3.0 SKY DOCK INTERIOR + FLIGHT TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -910,7 +910,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.2.0 SKY DOCK ACCESS TEST",
+            "Cardcha! v0.3.0-alpha.28.0.3.0 SKY DOCK INTERIOR + FLIGHT TEST",
             LogLevel.Alert
         );
     }

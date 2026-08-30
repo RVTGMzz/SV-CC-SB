@@ -886,5 +886,11 @@
   "airship.unlocked": "MiMi đã cho bạn quyền sử dụng Tàu Bay Cardcha. Khu Vực I đã được mở.",
   "airship.deck.unavailable": "Tuyến Tàu Bay đang không ổn định. Hãy thử lại sau khi tải lại ngày.",
   "airship.route.region1.foundation": "KHU VỰC I // Tuyến đường đang được khảo sát. Binder của bạn hiện cộng hưởng với {{cards}} lá bài khác nhau. Khu săn quái và Cổng Boss 20 lá sẽ được xây ở bước tiếp theo.",
-  "airship.route.locked": "Bảng điều khiển tuyến đường vẫn chưa hoạt động."
+  "airship.route.locked": "Bảng điều khiển tuyến đường vẫn chưa hoạt động.",
+  "airship.skydock.interior.unavailable": "Sảnh Sky Dock đang không ổn định. Hãy thử lại sau khi tải lại ngày.",
+  "airship.route.region1.first_free": "KHU VỰC I // MiMi: Chuyến đầu miễn phí. Ừ, thật đó. Tương tác lại trong vài giây để cất cánh.",
+  "airship.route.region1.confirm": "KHU VỰC I // Phí của MiMi: {{fare}}g. Nhiên liệu, phí bến, bảo trì... tàu bay không chạy bằng tình bạn đâu nha. Tương tác lại trong vài giây để cất cánh.",
+  "airship.route.not_enough": "MiMi: Vé là {{fare}}g, mà bạn đang có {{money}}g. Tui lái tàu bay chứ đâu lái khinh khí cầu từ thiện.",
+  "airship.cutscene.departure": "Sky Dock — Khởi hành",
+  "airship.cutscene.return": "Sky Dock — Cập bến"
 }
