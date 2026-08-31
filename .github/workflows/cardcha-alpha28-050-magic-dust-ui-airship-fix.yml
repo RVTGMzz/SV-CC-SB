@@ -1,0 +1,107 @@
+name: Cardcha alpha28.0.4.11 Magic Dust UI Airship Fix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-050-magic-dust-ui-airship-fix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28.0.4.11 source finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_411_finalize.py
+
+      - name: Static acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.11'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+
+          ui = (root/'UI/CardchaUi.cs').read_text()
+          assert 'bool widthFits = lines.All' in ui
+          assert 'font.MeasureString(word).X > width' in ui
+          assert 'trialChunk = current + ch' in ui
+
+          reveal = (root/'UI/CardchaRevealMenu.cs').read_text()
+          assert 'GetResultLabel(PullResult result)' in reveal
+          assert 'result.DustAwarded > 0' in reveal
+          assert 'reveal.duplicate-dust' in reveal
+
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert en['item.dust.name'] == 'Magic Dust'
+          assert vi['item.dust.name'] == 'Bụi Ma Thuật'
+          assert 'Magic Dust' in en['reveal.duplicate-dust']
+          assert 'Bụi Ma Thuật' in vi['reveal.duplicate-dust']
+          assert 'Magic Dust' in en['card.dust_collector.name']
+
+          airship = (root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'new Vector2(-89f * scale, 66f * scale)' in airship
+          assert 'new Vector2(90f * scale, 66f * scale)' in airship
+          assert 'PropellerSpinRadiansPerSecond = 22f' in airship
+          print('alpha28.0.4.11 static acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.11"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.11_MagicDust_UI_Airship_FIX_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - name: Materialize successful text/source fixes back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/GachaService.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/UI/CardchaRevealMenu.cs \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json
+          if git diff --cached --quiet; then
+            echo "No generated source diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.11 fixes [skip ci]"
+            git push origin HEAD:cardcha-alpha28-050-magic-dust-ui-airship-fix
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-050-magic-dust-ui-airship-fix
+          path: artifact
+          if-no-files-found: error
