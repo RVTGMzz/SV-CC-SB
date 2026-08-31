@@ -735,9 +735,9 @@ internal sealed class AirshipFoundationService
         };
 
         int seed = unchecked(
-            (int)(Game1.uniqueIDForThisGame
-                  + Game1.Date.TotalDays * 397L
-                  + this.Save.Data.AirshipFlightsTaken * 7919L)
+            (int)Game1.uniqueIDForThisGame
+            + Game1.Date.TotalDays * 397
+            + this.Save.Data.AirshipFlightsTaken * 7919
         );
         Random random = new(seed);
         Point[] shuffled = candidates.OrderBy(_ => random.Next()).ToArray();
