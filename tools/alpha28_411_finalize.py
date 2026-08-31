@@ -141,12 +141,125 @@ def patch_code_language() -> None:
     path.write_text(text, encoding="utf-8")
 
 
+def patch_wizard_meetup_door() -> None:
+    story_path = MOD / "Services" / "CardchaStoryService.cs"
+    story = story_path.read_text(encoding="utf-8")
+
+    method = '''    public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (!Context.IsWorldReady
+            || !e.Button.IsActionButton()
+            || Game1.activeClickableMenu is not null
+            || Game1.dialogueUp
+            || Game1.eventUp
+            || !this.Progression.ShouldStartMimiMeetup())
+        {
+            return;
+        }
+
+        GameLocation? location = Game1.currentLocation;
+        if (location is null
+            || location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        Point actionTile = GetFacingActionTile();
+        string doorAction = location.doesTileHaveProperty(actionTile.X, actionTile.Y, "Action", "Buildings") ?? "";
+        if (!doorAction.Contains("WizardHouse", StringComparison.OrdinalIgnoreCase))
+            return;
+
+        // Cardcha owns this door interaction only while MiMi's appointment is actually pending.
+        // Before 13:00, replace the vanilla locked-door text with the appointment reminder.
+        // After 17:00, leave the base game/modded map completely authoritative again.
+        if (Game1.timeOfDay < 1300)
+        {
+            this.Helper.Input.Suppress(e.Button);
+            Game1.drawObjectDialogue(ModEntry.T("story.mimi.meetup-too-early"));
+            return;
+        }
+
+        if (Game1.timeOfDay > 1700)
+            return;
+
+        Point arrival = ResolveWizardHouseDoorArrival(doorAction);
+        this.Helper.Input.Suppress(e.Button);
+        Game1.playSound("doorClose");
+        Game1.warpFarmer("WizardHouse", arrival.X, arrival.Y, 2);
+
+        this.Monitor.Log(
+            $"Cardcha Chapter 1: pending MiMi appointment temporarily bypassed Wizard Tower lock at {Game1.timeOfDay}; destination={arrival.X},{arrival.Y}.",
+            LogLevel.Info
+        );
+    }
+
+    private static Point GetFacingActionTile()
+    {
+        Point player = new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
+        return Game1.player.FacingDirection switch
+        {
+            0 => new Point(player.X, player.Y - 1),
+            1 => new Point(player.X + 1, player.Y),
+            2 => new Point(player.X, player.Y + 1),
+            3 => new Point(player.X - 1, player.Y),
+            _ => player
+        };
+    }
+
+    private static Point ResolveWizardHouseDoorArrival(string doorAction)
+    {
+        string[] tokens = doorAction.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        for (int i = 0; i < tokens.Length; i++)
+        {
+            if (!tokens[i].Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            if (i >= 2
+                && int.TryParse(tokens[i - 2], out int beforeX)
+                && int.TryParse(tokens[i - 1], out int beforeY))
+            {
+                return new Point(beforeX, beforeY);
+            }
+
+            if (i + 2 < tokens.Length
+                && int.TryParse(tokens[i + 1], out int afterX)
+                && int.TryParse(tokens[i + 2], out int afterY))
+            {
+                return new Point(afterX, afterY);
+            }
+        }
+
+        // Vanilla WizardHouse doorway fallback. Only used when a map mod keeps the target name
+        // but wraps the action string in an unfamiliar format.
+        return new Point(3, 17);
+    }
+
+'''
+    marker = "    public void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)"
+    if "pending MiMi appointment temporarily bypassed Wizard Tower lock" not in story:
+        if marker not in story:
+            raise RuntimeError("Wizard meetup door insertion marker missing")
+        story = story.replace(marker, method + marker, 1)
+        story_path.write_text(story, encoding="utf-8")
+
+    modentry_path = MOD / "ModEntry.cs"
+    modentry = modentry_path.read_text(encoding="utf-8")
+    subscription = "        helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;\n"
+    marker2 = "        helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;"
+    if subscription.strip() not in modentry:
+        if marker2 not in modentry:
+            raise RuntimeError("Story input subscription marker missing")
+        modentry = modentry.replace(marker2, subscription + marker2, 1)
+        modentry_path.write_text(modentry, encoding="utf-8")
+
+
 def main() -> None:
     patch_versions()
     patch_magic_dust_localization()
     patch_reveal_labels()
     patch_airship_rotors()
     patch_code_language()
+    patch_wizard_meetup_door()
     print(f"Cardcha {VERSION} finalize patch applied")
 
 
