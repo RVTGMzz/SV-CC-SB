@@ -31,6 +31,7 @@ internal sealed class AirshipFoundationService
     private const string DeckMapPath = "assets/airship_deck.tmx";
     private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
     private const string Region1MapPath = "assets/region1_hunting.tmx";
+    private const string AirshipVisualPath = "assets/airship_visual.png";
     private const string Region1MonsterMarkerKey = "Ronvotri.Cardcha/Region1Spawn";
     private const int Region1GateCardRequirement = 20;
     private const int Region1Fare = 100;
@@ -68,6 +69,9 @@ internal sealed class AirshipFoundationService
     private Point? CachedSkyDockTile;
     private Point? CachedForestFarmWarpTile;
     private long WarpGraceUntilMs;
+    private Texture2D? AirshipVisual;
+    private bool AirshipVisualLoadFailed;
+    private bool LoggedAirshipVisualFailure;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save)
     {
@@ -1009,6 +1013,16 @@ internal sealed class AirshipFoundationService
         Vector2 world = new(Game1.viewport.X + screenX, Game1.viewport.Y + screenY);
         Vector2 p = Game1.GlobalToLocal(Game1.viewport, world);
 
+        if (this.TryDrawAirshipSprite(
+                batch,
+                p,
+                230f,
+                new Color(105, 94, 128) * 0.78f,
+                SpriteEffects.None))
+        {
+            return;
+        }
+
         Color silhouette = new Color(48, 38, 68) * 0.82f;
         Color gondola = new Color(66, 47, 49) * 0.88f;
         Color glint = new Color(190, 225, 255) * 0.55f;
@@ -1042,6 +1056,14 @@ internal sealed class AirshipFoundationService
         Color rope = new Color(205, 174, 112) * 0.82f;
         float pulse = 0.42f + 0.18f * (float)Math.Sin(Environment.TickCount64 / 260.0);
         Color glow = new Color(105, 214, 236) * pulse;
+        float shipBob = (float)Math.Sin(Environment.TickCount64 / 360.0) * 4f;
+        this.TryDrawAirshipSprite(
+            batch,
+            new Vector2(screen.X + 96f, screen.Y - 58f + shipBob),
+            170f,
+            Color.White * 0.88f,
+            SpriteEffects.None
+        );
 
         for (int row = 0; row < 2; row++)
         {
@@ -1078,6 +1100,14 @@ internal sealed class AirshipFoundationService
         DrawRect(batch, new Rectangle((int)sky.X, (int)sky.Y, 250, 170), new Color(74, 128, 167) * 0.92f);
         DrawRect(batch, new Rectangle((int)sky.X + 18, (int)sky.Y + 30, 72, 13), new Color(222, 237, 240) * 0.76f);
         DrawRect(batch, new Rectangle((int)sky.X + 105, (int)sky.Y + 72, 95, 12), new Color(222, 237, 240) * 0.62f);
+        float bayBob = (float)Math.Sin(Environment.TickCount64 / 330.0) * 3f;
+        this.TryDrawAirshipSprite(
+            batch,
+            new Vector2(sky.X + 125f, sky.Y + 86f + bayBob),
+            215f,
+            Color.White * 0.96f,
+            SpriteEffects.None
+        );
         DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y - 8, 266, 8), new Color(67, 45, 31) * 0.96f);
         DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y + 170, 266, 9), new Color(67, 45, 31) * 0.96f);
         DrawRect(batch, new Rectangle((int)sky.X - 8, (int)sky.Y - 8, 8, 187), new Color(67, 45, 31) * 0.96f);
@@ -1125,6 +1155,14 @@ internal sealed class AirshipFoundationService
         );
         DrawRect(batch, new Rectangle((int)pad.X, (int)pad.Y, 320, 128), new Color(84, 61, 42) * 0.76f);
         DrawRect(batch, new Rectangle((int)pad.X + 16, (int)pad.Y + 18, 288, 8), new Color(105, 214, 236) * 0.55f);
+        float padBob = (float)Math.Sin(Environment.TickCount64 / 340.0) * 4f;
+        this.TryDrawAirshipSprite(
+            batch,
+            new Vector2(pad.X + 160f, pad.Y - 55f + padBob),
+            260f,
+            Color.White * 0.94f,
+            SpriteEffects.None
+        );
 
         Vector2 sigil = Game1.GlobalToLocal(
             Game1.viewport,
@@ -1164,11 +1202,77 @@ internal sealed class AirshipFoundationService
         float travel = this.FlightCutsceneReturning ? 1f - p : p;
         float shipX = MathHelper.Lerp(w * 0.28f, w * 0.78f, travel);
         float shipY = h * 0.40f - (float)Math.Sin(p * Math.PI) * 24f;
-        this.DrawCinematicAirship(batch, new Vector2(shipX, shipY), 1.15f);
+        SpriteEffects direction = this.FlightCutsceneReturning
+            ? SpriteEffects.FlipHorizontally
+            : SpriteEffects.None;
+        if (!this.TryDrawAirshipSprite(
+                batch,
+                new Vector2(shipX, shipY),
+                Math.Min(720f, w * 0.62f),
+                Color.White * 0.98f,
+                direction))
+        {
+            this.DrawCinematicAirship(batch, new Vector2(shipX, shipY), 1.15f);
+        }
 
         string title = ModEntry.T(this.FlightCutsceneReturning ? "airship.cutscene.return" : "airship.cutscene.departure");
         Vector2 size = Game1.smallFont.MeasureString(title);
         batch.DrawString(Game1.smallFont, title, new Vector2((w - size.X) / 2f, 26f), Color.White * 0.92f);
+    }
+
+    private bool TryDrawAirshipSprite(
+        SpriteBatch batch,
+        Vector2 center,
+        float targetWidth,
+        Color tint,
+        SpriteEffects effects)
+    {
+        Texture2D? sprite = this.GetAirshipVisual();
+        if (sprite is null || targetWidth <= 0f)
+            return false;
+
+        float scale = targetWidth / sprite.Width;
+        Vector2 origin = new(sprite.Width / 2f, sprite.Height / 2f);
+        batch.Draw(
+            sprite,
+            center,
+            sourceRectangle: null,
+            color: tint,
+            rotation: 0f,
+            origin: origin,
+            scale: scale,
+            effects: effects,
+            layerDepth: 1f
+        );
+        return true;
+    }
+
+    private Texture2D? GetAirshipVisual()
+    {
+        if (this.AirshipVisual is not null)
+            return this.AirshipVisual;
+
+        if (this.AirshipVisualLoadFailed)
+            return null;
+
+        try
+        {
+            this.AirshipVisual = this.Helper.ModContent.Load<Texture2D>(AirshipVisualPath);
+            return this.AirshipVisual;
+        }
+        catch (Exception ex)
+        {
+            this.AirshipVisualLoadFailed = true;
+            if (!this.LoggedAirshipVisualFailure)
+            {
+                this.LoggedAirshipVisualFailure = true;
+                this.Monitor.Log(
+                    $"Couldn't load Cardcha Airship visual; procedural fallback remains active. {ex.GetType().Name}: {ex.Message}",
+                    LogLevel.Warn
+                );
+            }
+            return null;
+        }
     }
 
     private void DrawCinematicAirship(SpriteBatch batch, Vector2 p, float scale)
@@ -1293,5 +1397,8 @@ internal sealed class AirshipFoundationService
         this.CachedSkyDockTile = null;
         this.CachedForestFarmWarpTile = null;
         this.WarpGraceUntilMs = 0;
+        this.AirshipVisual = null;
+        this.AirshipVisualLoadFailed = false;
+        this.LoggedAirshipVisualFailure = false;
     }
 }
