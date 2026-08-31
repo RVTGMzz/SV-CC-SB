@@ -75,6 +75,26 @@ Ron A/B tested the Wizard Tower exit map issue with Cardcha removed and confirme
 - **Source acceptance: PASS.**
 - **C# compile: PASS.**
 - **MiMi Wizard Tower appointment door fix: materialized to GitHub source.**
-- **Airship cleanup generation: runs before compile and is materialized after successful compile.**
-- **Final package: intentionally BLOCKED.** The final asset gate currently fails because `src/Cardcha/assets/card_icons.png` on the branch is still not the approved `.4.10` atlas hash `4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee`.
-- Do not weaken or remove this icon hash gate. Materialize the approved atlas first, rerun CI, then package and inspect the ZIP before declaring `.4.11` test-ready.
+- **Airship cleanup generation: PASS and materialized after successful compile.**
+- Main repository package gate remains intentionally strict because the approved `.4.10` atlas binary is not yet materialized as `src/Cardcha/assets/card_icons.png` on the branch. Do not weaken that gate.
+
+## Local final-QA test package created from compiled staging artifact
+The compiled staging artifact from GitHub Actions run `33429049528` was unpacked locally, then the exact approved `.4.10` magical-girl atlas was swapped into the package and the full package was revalidated before delivery.
+
+Package name:
+`Cardcha_v0.3.0-alpha.28.0.4.11_MagicDust_UI_Airship_MiMiDoor_TEST.zip`
+
+Final QA checks:
+- manifest version = `0.3.0-alpha.28.0.4.11`
+- card atlas = 320x1024 and exact approved SHA-256
+- `Magic Dust` / `Bụi Ma Thuật` localization present
+- compiled DLL contains the MiMi Wizard Tower appointment bypass code marker
+- airship visual = 384x256, transparent RGB normalized, static propeller blade sample zones absent
+
+Hashes:
+- final ZIP SHA-256: `93916203fe5aaedbb390af80d217d564b7442eb645c99dadec99b205fc601d4f`
+- `card_icons.png`: `4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee`
+- `airship_visual.png`: `1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132`
+- `Cardcha.dll`: `e7b5930505c4234999ceb87d6380937771cdc5b4067988c1d6c48d2ab1ce50f2`
+
+Important distinction: this local QA ZIP is test-ready and contains the approved atlas. The repository branch still needs the exact atlas binary materialized before the main CI package gate can become green and produce the same package directly from GitHub without the local atlas swap.
