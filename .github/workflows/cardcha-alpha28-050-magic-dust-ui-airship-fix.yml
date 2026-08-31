@@ -60,6 +60,16 @@ jobs:
           assert 'Bụi Ma Thuật' in vi['reveal.duplicate-dust']
           assert 'Magic Dust' in en['card.dust_collector.name']
 
+          story = (root/'Services/CardchaStoryService.cs').read_text()
+          entry = (root/'ModEntry.cs').read_text()
+          assert 'public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)' in story
+          assert 'doorAction.Contains("WizardHouse", StringComparison.OrdinalIgnoreCase)' in story
+          assert 'Game1.timeOfDay < 1300' in story
+          assert 'Game1.timeOfDay > 1700' in story
+          assert 'Game1.warpFarmer("WizardHouse", arrival.X, arrival.Y, 2)' in story
+          assert 'pending MiMi appointment temporarily bypassed Wizard Tower lock' in story
+          assert 'helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;' in entry
+
           # Never silently fall back to the older .4.9 icon atlas.
           icons = root/'assets/card_icons.png'
           icon_raw = icons.read_bytes()
@@ -79,8 +89,6 @@ jobs:
           transparent = pixels[:,:,3] == 0
           assert transparent.any()
           assert np.all(pixels[transparent,:3] == 0), 'transparent RGB must be normalized to black'
-          # Old baked propeller tips occupied these lower outer zones. Obvious beige blades
-          # must be absent; runtime DrawAnimatedPropeller owns all visible blade motion.
           for x, y in [(87, 211), (107, 219), (307, 192), (286, 222)]:
               r,g,b,a = map(int, pixels[y,x])
               assert not (a > 0 and r > 185 and g > 135 and b < 120), (x,y,(r,g,b,a))
@@ -118,6 +126,7 @@ jobs:
             src/Cardcha/ModEntry.cs \
             src/Cardcha/Services/GachaService.cs \
             src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/CardchaStoryService.cs \
             src/Cardcha/UI/CardchaRevealMenu.cs \
             src/Cardcha/i18n/default.json \
             src/Cardcha/i18n/vi.json \
@@ -125,7 +134,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated source/asset diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.11 fixes and clean airship [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.11 fixes, meetup door, and clean airship [skip ci]"
             git push origin HEAD:cardcha-alpha28-050-magic-dust-ui-airship-fix
           fi
 
