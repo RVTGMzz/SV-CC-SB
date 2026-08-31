@@ -16,11 +16,18 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Prepare deterministic asset tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check pillow numpy
+
       - name: Apply alpha28.0.4.11 source finalizer
         shell: bash
         run: |
           set -euo pipefail
           python3 tools/alpha28_411_finalize.py
+          python3 tools/alpha28_411_airship_asset.py
 
       - name: Static acceptance checks
         shell: bash
@@ -28,7 +35,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json
+          import hashlib, json, struct
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.11'
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
@@ -56,6 +63,12 @@ jobs:
           assert 'new Vector2(-89f * scale, 66f * scale)' in airship
           assert 'new Vector2(90f * scale, 66f * scale)' in airship
           assert 'PropellerSpinRadiansPerSecond = 22f' in airship
+
+          visual = root/'assets/airship_visual.png'
+          raw = visual.read_bytes()
+          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', raw[16:24]) == (384, 256)
+          assert hashlib.sha256(raw).hexdigest() == 'f10d100719589d2a7ed5674036bd5210d22548530311e7377a55caf32b9d8073'
           print('alpha28.0.4.11 static acceptance PASS')
           PY
 
@@ -78,7 +91,7 @@ jobs:
           (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.11_MagicDust_UI_Airship_FIX_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
-      - name: Materialize successful text/source fixes back to branch
+      - name: Materialize successful fixes back to branch
         shell: bash
         run: |
           set -euo pipefail
@@ -92,11 +105,12 @@ jobs:
             src/Cardcha/Services/AirshipFoundationService.cs \
             src/Cardcha/UI/CardchaRevealMenu.cs \
             src/Cardcha/i18n/default.json \
-            src/Cardcha/i18n/vi.json
+            src/Cardcha/i18n/vi.json \
+            src/Cardcha/assets/airship_visual.png
           if git diff --cached --quiet; then
-            echo "No generated source diff to materialize."
+            echo "No generated source/asset diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.11 fixes [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.11 fixes and clean airship [skip ci]"
             git push origin HEAD:cardcha-alpha28-050-magic-dust-ui-airship-fix
           fi
 
