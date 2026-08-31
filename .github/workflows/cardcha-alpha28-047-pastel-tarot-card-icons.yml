@@ -114,7 +114,7 @@ jobs:
           test -s stage/Cardcha/Cardcha.dll
           test -s stage/Cardcha/assets/airship_visual.png
           test -s stage/Cardcha/assets/card_icons.png
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.7_AirshipFinalDesignAnimation_TEST.zip Cardcha)
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.7_PastelTarotCardIcons_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
