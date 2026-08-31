@@ -1,0 +1,35 @@
+name: Cardcha alpha28.0.4.11 staging export
+
+on:
+  push:
+    branches: [ cardcha-alpha28-050-magic-dust-ui-airship-fix ]
+
+jobs:
+  export:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare asset tools
+        run: python3 -m pip install --disable-pip-version-check pillow numpy
+      - name: Apply source and airship fixes
+        run: |
+          python3 tools/alpha28_411_finalize.py
+          python3 tools/alpha28_411_airship_asset.py
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+      - name: Compile
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+      - name: Package staging
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifact/stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" artifact/stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json artifact/stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n artifact/stage/Cardcha/
+          (cd artifact/stage && zip -qr ../Cardcha_v0.3.0-alpha.28.0.4.11_STAGING_PRE_ICON_SWAP.zip Cardcha)
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-050-staging-pre-icon-swap
+          path: artifact/Cardcha_v0.3.0-alpha.28.0.4.11_STAGING_PRE_ICON_SWAP.zip
+          if-no-files-found: error
