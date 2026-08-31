@@ -36,7 +36,7 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           from PIL import Image
-          import json, numpy as np, struct
+          import hashlib, json, numpy as np, struct
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.11'
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
@@ -60,6 +60,12 @@ jobs:
           assert 'Bụi Ma Thuật' in vi['reveal.duplicate-dust']
           assert 'Magic Dust' in en['card.dust_collector.name']
 
+          # Never silently fall back to the older .4.9 icon atlas.
+          icons = root/'assets/card_icons.png'
+          icon_raw = icons.read_bytes()
+          assert struct.unpack('>II', icon_raw[16:24]) == (320, 1024)
+          assert hashlib.sha256(icon_raw).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+
           airship = (root/'Services/AirshipFoundationService.cs').read_text()
           assert 'new Vector2(-89f * scale, 66f * scale)' in airship
           assert 'new Vector2(90f * scale, 66f * scale)' in airship
@@ -73,8 +79,8 @@ jobs:
           transparent = pixels[:,:,3] == 0
           assert transparent.any()
           assert np.all(pixels[transparent,:3] == 0), 'transparent RGB must be normalized to black'
-          # The old baked propeller tips occupied these lower outer zones. After cleanup,
-          # the restored hull should remain opaque while obvious beige blade tips are gone.
+          # Old baked propeller tips occupied these lower outer zones. Obvious beige blades
+          # must be absent; runtime DrawAnimatedPropeller owns all visible blade motion.
           for x, y in [(87, 211), (107, 219), (307, 192), (286, 222)]:
               r,g,b,a = map(int, pixels[y,x])
               assert not (a > 0 and r > 185 and g > 135 and b < 120), (x,y,(r,g,b,a))
