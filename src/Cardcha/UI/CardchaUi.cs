@@ -122,7 +122,6 @@ internal static class CardchaUi
         b.Draw(Game1.staminaRect, button.bounds, color);
         DrawBorder(b, button.bounds, border, hovered ? 4 : 3);
 
-        // Subtle bevel: clearer enabled/disabled state without changing architecture.
         Rectangle topHighlight = new(
             button.bounds.X + 4,
             button.bounds.Y + 4,
@@ -297,7 +296,8 @@ internal static class CardchaUi
             List<string> lines = WrapWords(font, safe, logicalWidth);
 
             float totalHeight = lines.Count * (font.LineSpacing + 1) * scale;
-            if (lines.Count <= maxLines && totalHeight <= area.Height)
+            bool widthFits = lines.All(line => font.MeasureString(line).X * scale <= area.Width + 0.5f);
+            if (lines.Count <= maxLines && totalHeight <= area.Height && widthFits)
             {
                 chosenScale = scale;
                 chosenLines = lines;
@@ -360,8 +360,32 @@ internal static class CardchaUi
             string current = string.Empty;
             foreach (string word in paragraph.Split(' ', StringSplitOptions.RemoveEmptyEntries))
             {
+                if (font.MeasureString(word).X > width)
+                {
+                    if (!string.IsNullOrEmpty(current))
+                    {
+                        result.Add(current);
+                        current = string.Empty;
+                    }
+
+                    foreach (char ch in word)
+                    {
+                        string trialChunk = current + ch;
+                        if (string.IsNullOrEmpty(current) || font.MeasureString(trialChunk).X <= width)
+                        {
+                            current = trialChunk;
+                        }
+                        else
+                        {
+                            result.Add(current);
+                            current = ch.ToString();
+                        }
+                    }
+                    continue;
+                }
+
                 string trial = string.IsNullOrEmpty(current) ? word : current + " " + word;
-                if (font.MeasureString(trial).X <= width || string.IsNullOrEmpty(current))
+                if (string.IsNullOrEmpty(current) || font.MeasureString(trial).X <= width)
                 {
                     current = trial;
                 }
@@ -434,8 +458,6 @@ internal static class CardchaUi
                 lineHeight
             );
 
-            // Keep the font at its native readable size.
-            // Only lines which are fully inside the scroll viewport are drawn.
             if (lineRect.Top >= clip.Top && lineRect.Bottom <= clip.Bottom)
             {
                 Utility.drawTextWithShadow(
@@ -610,7 +632,6 @@ internal static class CardchaUi
             dragging || thumbHovered ? 2 : 1
         );
 
-        // Three small grip marks make the thumb read as draggable.
         int gripY = thumb.Center.Y - 4;
         for (int i = 0; i < 3; i++)
         {
