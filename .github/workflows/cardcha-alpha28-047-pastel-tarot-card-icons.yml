@@ -45,7 +45,7 @@ jobs:
 
           icons = root / 'assets/card_icons.png'
           icon_raw = icons.read_bytes()
-          assert icon_raw[:8] == b'\\x89PNG\\r\\n\\x1a\\n'
+          assert icon_raw[:8] == b'\x89PNG\r\n\x1a\n'
           icon_width, icon_height = struct.unpack('>II', icon_raw[16:24])
           icon_bit_depth, icon_color_type = icon_raw[24], icon_raw[25]
           assert (icon_width, icon_height) == (320, 1024), (icon_width, icon_height)
@@ -94,7 +94,7 @@ jobs:
           binder = (root / 'UI/CardchaBinderMenu.cs').read_text()
           assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
           assert 'LockedCard' in binder and 'PreviewCard' in binder
-          print('alpha28.0.4.6 Airship final design animation static validation PASS')
+          print('alpha28.0.4.7 Pastel tarot card icons static validation PASS')
           PY
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
