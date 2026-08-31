@@ -40,7 +40,7 @@ jobs:
           assert (width, height) == (384, 256), (width, height)
           assert bit_depth == 8
           assert color_type in (4, 6), f'PNG must contain alpha, got color type {color_type}'
-          assert hashlib.sha256(raw).hexdigest() == '4c51c12f99827f10ca68a5f62f4296f095d3d2be32f214b6d28bda8c0fdf8871d'
+          assert hashlib.sha256(raw).hexdigest() == '4c51c12f99827f10ca68a5f62f429f095d3d2be32f214b6d28bda8c0fdf8871d'
 
           service = (root / 'Services/AirshipFoundationService.cs').read_text()
           for marker in [
