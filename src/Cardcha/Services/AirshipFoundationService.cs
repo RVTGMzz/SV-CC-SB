@@ -44,6 +44,9 @@ internal sealed class AirshipFoundationService
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
     private const float BoardingUseDistance = 128f;
+    private const float FlybyTiltRadians = 0.028f;
+    private const float CutsceneTiltRadians = 0.045f;
+    private const float CutsceneScalePulse = 0.018f;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -1009,7 +1012,11 @@ internal sealed class AirshipFoundationService
         );
 
         float screenX = MathHelper.Lerp(-240f, Game1.viewport.Width + 240f, progress);
-        float screenY = 92f - (float)Math.Sin(progress * Math.PI) * 18f;
+        float crest = (float)Math.Sin(progress * Math.PI);
+        float bob = (float)Math.Sin(progress * MathHelper.TwoPi * 1.35f) * (2.5f + crest * 4.5f);
+        float screenY = 92f - crest * 18f + bob;
+        float rotation = (float)Math.Sin(progress * MathHelper.TwoPi * 1.15f) * FlybyTiltRadians;
+        float verticalScale = 1f + (float)Math.Sin(progress * MathHelper.TwoPi * 1.35f) * 0.012f;
         Vector2 world = new(Game1.viewport.X + screenX, Game1.viewport.Y + screenY);
         Vector2 p = Game1.GlobalToLocal(Game1.viewport, world);
 
@@ -1018,7 +1025,9 @@ internal sealed class AirshipFoundationService
                 p,
                 230f,
                 new Color(105, 94, 128) * 0.78f,
-                SpriteEffects.None))
+                SpriteEffects.None,
+                rotation,
+                verticalScale))
         {
             return;
         }
@@ -1179,7 +1188,12 @@ internal sealed class AirshipFoundationService
 
     private void DrawFlightCutscene(SpriteBatch batch)
     {
-        float p = Math.Clamp((Environment.TickCount64 - this.FlightCutsceneStartedAtMs) / (float)FlightCutsceneDurationMs, 0f, 1f);
+        float p = Math.Clamp(
+            (Environment.TickCount64 - this.FlightCutsceneStartedAtMs) / (float)FlightCutsceneDurationMs,
+            0f,
+            1f
+        );
+        float eased = MathHelper.SmoothStep(0f, 1f, p);
         int w = Game1.viewport.Width;
         int h = Game1.viewport.Height;
 
@@ -1199,18 +1213,31 @@ internal sealed class AirshipFoundationService
         DrawRect(batch, new Rectangle(w / 8, h / 4, w / 5, 18), cloud);
         DrawRect(batch, new Rectangle(w * 5 / 8, h / 3, w / 4, 20), cloud * 0.82f);
 
-        float travel = this.FlightCutsceneReturning ? 1f - p : p;
+        float crest = (float)Math.Sin(p * Math.PI);
+        float travel = this.FlightCutsceneReturning ? 1f - eased : eased;
         float shipX = MathHelper.Lerp(w * 0.28f, w * 0.78f, travel);
-        float shipY = h * 0.40f - (float)Math.Sin(p * Math.PI) * 24f;
-        SpriteEffects direction = this.FlightCutsceneReturning
+        float bob = (float)Math.Sin(p * MathHelper.TwoPi * 1.25f) * (3f + crest * 8f);
+        float lift = crest * 24f;
+        float shipY = h * 0.40f - lift + bob;
+        float direction = this.FlightCutsceneReturning ? -1f : 1f;
+        float rotation = -direction * CutsceneTiltRadians * (0.30f + crest * 0.70f);
+        float verticalScale = 1f + (float)Math.Sin(p * MathHelper.TwoPi * 1.75f) * CutsceneScalePulse;
+        SpriteEffects directionEffect = this.FlightCutsceneReturning
             ? SpriteEffects.FlipHorizontally
             : SpriteEffects.None;
+        float targetWidth = Math.Min(720f, w * 0.62f);
+
+        // The eased travel, bob, tilt and tiny breathing scale make departure and return feel
+        // like a suspended vessel instead of a static overlay. The same motion runs on both
+        // directions; only the travel direction and sprite flip are reversed.
         if (!this.TryDrawAirshipSprite(
                 batch,
                 new Vector2(shipX, shipY),
-                Math.Min(720f, w * 0.62f),
+                targetWidth,
                 Color.White * 0.98f,
-                direction))
+                directionEffect,
+                rotation,
+                verticalScale))
         {
             this.DrawCinematicAirship(batch, new Vector2(shipX, shipY), 1.15f);
         }
@@ -1227,20 +1254,41 @@ internal sealed class AirshipFoundationService
         Color tint,
         SpriteEffects effects)
     {
+        return this.TryDrawAirshipSprite(
+            batch,
+            center,
+            targetWidth,
+            tint,
+            effects,
+            rotation: 0f,
+            verticalScale: 1f
+        );
+    }
+
+    private bool TryDrawAirshipSprite(
+        SpriteBatch batch,
+        Vector2 center,
+        float targetWidth,
+        Color tint,
+        SpriteEffects effects,
+        float rotation,
+        float verticalScale)
+    {
         Texture2D? sprite = this.GetAirshipVisual();
         if (sprite is null || targetWidth <= 0f)
             return false;
 
         float scale = targetWidth / sprite.Width;
         Vector2 origin = new(sprite.Width / 2f, sprite.Height / 2f);
+        Vector2 drawScale = new(scale, scale * Math.Max(0.01f, verticalScale));
         batch.Draw(
             sprite,
             center,
             sourceRectangle: null,
             color: tint,
-            rotation: 0f,
+            rotation: rotation,
             origin: origin,
-            scale: scale,
+            scale: drawScale,
             effects: effects,
             layerDepth: 1f
         );
