@@ -47,6 +47,7 @@ internal sealed class AirshipFoundationService
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
+    private const float PropellerSpinRadiansPerSecond = 20f;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -1029,6 +1030,15 @@ internal sealed class AirshipFoundationService
                 rotation,
                 verticalScale))
         {
+            this.DrawAirshipPropellerMotion(
+                batch,
+                p,
+                230f,
+                SpriteEffects.None,
+                rotation,
+                verticalScale,
+                spinDirection: 1f
+            );
             return;
         }
 
@@ -1230,14 +1240,28 @@ internal sealed class AirshipFoundationService
         // The eased travel, bob, tilt and tiny breathing scale make departure and return feel
         // like a suspended vessel instead of a static overlay. The same motion runs on both
         // directions; only the travel direction and sprite flip are reversed.
-        if (!this.TryDrawAirshipSprite(
+        bool spriteDrawn = this.TryDrawAirshipSprite(
+            batch,
+            new Vector2(shipX, shipY),
+            targetWidth,
+            Color.White * 0.98f,
+            directionEffect,
+            rotation,
+            verticalScale
+        );
+        if (spriteDrawn)
+        {
+            this.DrawAirshipPropellerMotion(
                 batch,
                 new Vector2(shipX, shipY),
                 targetWidth,
-                Color.White * 0.98f,
                 directionEffect,
                 rotation,
-                verticalScale))
+                verticalScale,
+                spinDirection: direction
+            );
+        }
+        else
         {
             this.DrawCinematicAirship(batch, new Vector2(shipX, shipY), 1.15f);
         }
@@ -1293,6 +1317,116 @@ internal sealed class AirshipFoundationService
             layerDepth: 1f
         );
         return true;
+    }
+
+    private void DrawAirshipPropellerMotion(
+        SpriteBatch batch,
+        Vector2 spriteCenter,
+        float targetWidth,
+        SpriteEffects effects,
+        float rotation,
+        float verticalScale,
+        float spinDirection)
+    {
+        Texture2D? sprite = this.GetAirshipVisual();
+        if (sprite is null || targetWidth <= 0f)
+            return;
+
+        float scale = targetWidth / sprite.Width;
+        bool mirrored = (effects & SpriteEffects.FlipHorizontally) != SpriteEffects.None;
+        float spin = (float)(Environment.TickCount64 / 1000.0)
+            * PropellerSpinRadiansPerSecond
+            * spinDirection;
+
+        Vector2 left = TransformSpriteOffset(
+            new Vector2(-88f * scale, 79f * scale),
+            spriteCenter,
+            rotation,
+            verticalScale,
+            mirrored
+        );
+        Vector2 right = TransformSpriteOffset(
+            new Vector2(88f * scale, 79f * scale),
+            spriteCenter,
+            rotation,
+            verticalScale,
+            mirrored
+        );
+
+        DrawAnimatedPropeller(batch, left, scale, spin);
+        DrawAnimatedPropeller(batch, right, scale, -spin);
+    }
+
+    private static Vector2 TransformSpriteOffset(
+        Vector2 offset,
+        Vector2 center,
+        float rotation,
+        float verticalScale,
+        bool mirrored)
+    {
+        if (mirrored)
+            offset.X = -offset.X;
+
+        offset.Y *= verticalScale;
+        float cos = MathF.Cos(rotation);
+        float sin = MathF.Sin(rotation);
+        return center + new Vector2(
+            offset.X * cos - offset.Y * sin,
+            offset.X * sin + offset.Y * cos
+        );
+    }
+
+    private static void DrawAnimatedPropeller(
+        SpriteBatch batch,
+        Vector2 center,
+        float scale,
+        float spin)
+    {
+        Color outline = new Color(49, 33, 25) * 0.78f;
+        Color blade = new Color(247, 231, 196) * 0.88f;
+        float length = 17f * scale;
+        float outlineWidth = Math.Max(2f, 6f * scale);
+        float bladeWidth = Math.Max(1.5f, 4f * scale);
+
+        for (int i = 0; i < 3; i++)
+        {
+            float angle = spin + i * MathHelper.TwoPi / 3f;
+            DrawRotorStroke(batch, center, angle, length, outlineWidth, outline);
+            DrawRotorStroke(batch, center, angle, length * 0.90f, bladeWidth, blade);
+        }
+
+        int hubRadius = Math.Max(2, (int)(4f * scale));
+        DrawRect(
+            batch,
+            new Rectangle(
+                (int)center.X - hubRadius,
+                (int)center.Y - hubRadius,
+                hubRadius * 2 + 1,
+                hubRadius * 2 + 1
+            ),
+            new Color(191, 128, 42) * 0.94f
+        );
+    }
+
+    private static void DrawRotorStroke(
+        SpriteBatch batch,
+        Vector2 center,
+        float angle,
+        float length,
+        float width,
+        Color color)
+    {
+        batch.Draw(
+            Game1.staminaRect,
+            center,
+            sourceRectangle: null,
+            color: color,
+            rotation: angle,
+            origin: new Vector2(0f, 0.5f),
+            scale: new Vector2(length, width),
+            effects: SpriteEffects.None,
+            layerDepth: 1f
+        );
     }
 
     private Texture2D? GetAirshipVisual()

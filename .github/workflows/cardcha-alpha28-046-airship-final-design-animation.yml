@@ -1,0 +1,112 @@
+name: Cardcha alpha28.0.4.6 Airship final design animation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-046-airship-final-design-animation ]
+    paths:
+      - '.github/workflows/cardcha-alpha28-046-airship-final-design-animation.yml'
+      - 'src/Cardcha/Services/AirshipFoundationService.cs'
+      - 'src/Cardcha/assets/airship_visual.png'
+      - 'src/Cardcha/Cardcha.csproj'
+      - 'src/Cardcha/Directory.Build.targets'
+      - 'src/Cardcha/manifest.json'
+      - 'src/Cardcha/ModEntry.cs'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Airship visual integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          target = '0.3.0-alpha.28.0.4.6'
+          assert json.loads((root / 'manifest.json').read_text())['Version'] == target
+          assert f'<Version>{target}</Version>' in (root / 'Cardcha.csproj').read_text()
+          assert target in (root / 'Directory.Build.targets').read_text()
+
+          visual = root / 'assets/airship_visual.png'
+          raw = visual.read_bytes()
+          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+          width, height = struct.unpack('>II', raw[16:24])
+          bit_depth, color_type = raw[24], raw[25]
+          assert (width, height) == (384, 256), (width, height)
+          assert bit_depth == 8
+          assert color_type in (4, 6), f'PNG must contain alpha, got color type {color_type}'
+          assert hashlib.sha256(raw).hexdigest() == '4c51c12f99827f10ca68a5f62f4296f095d3d2be32f214b6d28bda8c0fdf8871d'
+
+          service = (root / 'Services/AirshipFoundationService.cs').read_text()
+          for marker in [
+              'AirshipVisualPath = "assets/airship_visual.png"',
+              'TryDrawAirshipSprite(',
+              'Helper.ModContent.Load<Texture2D>(AirshipVisualPath)',
+              'SpriteEffects.FlipHorizontally',
+              'procedural fallback remains active',
+              'DrawFlyby(SpriteBatch batch)',
+              'DrawSkyDock(SpriteBatch batch, Point tile)',
+              'DrawSkyDockInteriorDetails',
+              'DrawRegion1Details',
+              'DrawFlightCutscene',
+              'MathHelper.SmoothStep(0f, 1f, p)',
+              'CutsceneTiltRadians',
+              'CutsceneScalePulse',
+              'verticalScale',
+              'DrawAirshipPropellerMotion',
+              'PropellerSpinRadiansPerSecond',
+              'DrawAnimatedPropeller',
+              'DrawRotorStroke'
+          ]:
+              assert marker in service, marker
+
+          for map_name, width, height in [
+              ('airship_deck.tmx', 24, 14),
+              ('sky_dock_interior.tmx', 30, 18),
+              ('region1_hunting.tmx', 40, 28)
+          ]:
+              map_root = ET.fromstring((root / 'assets' / map_name).read_text())
+              expected = width * height
+              for layer in map_root.findall('layer'):
+                  values = [value.strip() for value in (layer.find('data').text or '').split(',')]
+                  assert len(values) == expected, (map_name, layer.attrib['name'], len(values), expected)
+                  assert all(value.isdecimal() for value in values), (map_name, layer.attrib['name'])
+
+          assert hashlib.sha256((root / 'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((root / 'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((root / 'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+          binder = (root / 'UI/CardchaBinderMenu.cs').read_text()
+          assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
+          assert 'LockedCard' in binder and 'PreviewCard' in binder
+          print('alpha28.0.4.6 Airship final design animation static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test -s stage/Cardcha/assets/airship_visual.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.6_AirshipFinalDesignAnimation_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-046-airship-final-design-animation
+          path: artifact
+          if-no-files-found: error
