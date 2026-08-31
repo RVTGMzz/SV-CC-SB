@@ -812,5 +812,9 @@
   "airship.route.region1.confirm": "REGION I // MiMi fare: {{fare}}g. Fuel, docking, maintenance... friendship does not power an airship. Interact again within a few seconds to depart.",
   "airship.route.not_enough": "MiMi: The fare is {{fare}}g, and you currently have {{money}}g. I run an airship, not a charity balloon.",
   "airship.cutscene.departure": "Sky Dock — Departure",
-  "airship.cutscene.return": "Sky Dock — Arrival"
+  "airship.cutscene.return": "Sky Dock — Arrival",
+  "airship.region1.unavailable": "The Region I route is unstable right now. Try again after reloading the day.",
+  "airship.region1.gate.locked": "BOSS GATE // Card Resonance: {{cards}} / {{required}} unique cards. Hunt monsters for Scrap, then use the Cardcha Machine to complete your Binder.",
+  "airship.region1.gate.open": "Boss Gate unlocked — Region I staging area opened.",
+  "airship.region1.boss.staging": "REGION I BOSS STAGING // The gate recognizes your Binder. Boss I arrives in the next combat build; return through the gate for now."
 }

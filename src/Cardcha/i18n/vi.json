@@ -892,5 +892,9 @@
   "airship.route.region1.confirm": "KHU VỰC I // Phí của MiMi: {{fare}}g. Nhiên liệu, phí bến, bảo trì... tàu bay không chạy bằng tình bạn đâu nha. Tương tác lại trong vài giây để cất cánh.",
   "airship.route.not_enough": "MiMi: Vé là {{fare}}g, mà bạn đang có {{money}}g. Tui lái tàu bay chứ đâu lái khinh khí cầu từ thiện.",
   "airship.cutscene.departure": "Sky Dock — Khởi hành",
-  "airship.cutscene.return": "Sky Dock — Cập bến"
+  "airship.cutscene.return": "Sky Dock — Cập bến",
+  "airship.region1.unavailable": "Tuyến Khu Vực I đang không ổn định. Hãy thử lại sau khi tải lại ngày.",
+  "airship.region1.gate.locked": "CỔNG BOSS // Cộng hưởng bài: {{cards}} / {{required}} lá khác nhau. Hãy săn quái lấy Scrap, rồi dùng Máy Cardcha để hoàn thiện Binder.",
+  "airship.region1.gate.open": "Cổng Boss đã mở — khu chuẩn bị Khu Vực I đã được kích hoạt.",
+  "airship.region1.boss.staging": "KHU CHUẨN BỊ BOSS I // Cổng đã nhận Binder của bạn. Boss I sẽ xuất hiện ở bản chiến đấu kế tiếp; hiện giờ hãy quay lại qua cổng."
 }

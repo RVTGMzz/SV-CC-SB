@@ -153,6 +153,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
+        helper.Events.Player.Warped += this.Airship.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
         helper.ConsoleCommands.Add("cardcha_status", "Show Cardcha prototype state.", this.CommandStatus);
@@ -202,7 +203,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.3.1 SKY DOCK BAY INTERACTION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.0 REGION I HUNTING MAP TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -910,7 +911,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.3.1 SKY DOCK BAY INTERACTION TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.0 REGION I HUNTING MAP TEST",
             LogLevel.Alert
         );
     }

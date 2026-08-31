@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Monsters;
 
 namespace Cardcha.Services;
 
@@ -24,9 +25,14 @@ internal sealed class AirshipFoundationService
     public const string SkyDockLocationName = "Forest";
     public const string SkyDockInteriorLocationName = "Cardcha_SkyDockInterior";
     public const string SkyDockInteriorMapAssetName = "Maps/Cardcha_SkyDockInterior";
+    public const string Region1LocationName = "Cardcha_Region1";
+    public const string Region1MapAssetName = "Maps/Cardcha_Region1";
 
     private const string DeckMapPath = "assets/airship_deck.tmx";
     private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
+    private const string Region1MapPath = "assets/region1_hunting.tmx";
+    private const string Region1MonsterMarkerKey = "Ronvotri.Cardcha/Region1Spawn";
+    private const int Region1GateCardRequirement = 20;
     private const int Region1Fare = 100;
     private const int Region2Fare = 250;
     private const int Region3Fare = 500;
@@ -51,6 +57,9 @@ internal sealed class AirshipFoundationService
     private bool SkyDockInteriorCreationFailed;
     private bool LoggedSkyDockInteriorFailure;
     private bool LoggedSkyDockInteriorCreation;
+    private bool Region1CreationFailed;
+    private bool LoggedRegion1Failure;
+    private bool LoggedRegion1Creation;
     private long PendingDepartureUntilMs;
     private bool FlightCutsceneActive;
     private bool FlightCutsceneReturning;
@@ -76,7 +85,13 @@ internal sealed class AirshipFoundationService
         }
 
         if (e.NameWithoutLocale.IsEquivalentTo(SkyDockInteriorMapAssetName))
+        {
             e.LoadFromModFile<xTile.Map>(SkyDockInteriorMapPath, AssetLoadPriority.Exclusive);
+            return;
+        }
+
+        if (e.NameWithoutLocale.IsEquivalentTo(Region1MapAssetName))
+            e.LoadFromModFile<xTile.Map>(Region1MapPath, AssetLoadPriority.Exclusive);
     }
 
     public void OnSaveLoaded()
@@ -84,6 +99,7 @@ internal sealed class AirshipFoundationService
         this.ResetRuntime();
         this.EnsureDeckLocation();
         this.EnsureSkyDockInteriorLocation();
+        this.EnsureRegion1Location();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + FlybyArmDelayMs;
     }
@@ -98,8 +114,11 @@ internal sealed class AirshipFoundationService
         this.LoggedDeckFailure = false;
         this.SkyDockInteriorCreationFailed = false;
         this.LoggedSkyDockInteriorFailure = false;
+        this.Region1CreationFailed = false;
+        this.LoggedRegion1Failure = false;
         this.EnsureDeckLocation();
         this.EnsureSkyDockInteriorLocation();
+        this.EnsureRegion1Location();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + 1500L;
     }
@@ -109,6 +128,7 @@ internal sealed class AirshipFoundationService
         this.ResetRuntime();
         this.LoggedDeckCreation = false;
         this.LoggedSkyDockInteriorCreation = false;
+        this.LoggedRegion1Creation = false;
     }
 
     public void OnUpdateTicked(UpdateTickedEventArgs e)
@@ -169,6 +189,9 @@ internal sealed class AirshipFoundationService
 
         if (location?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawDeckMarkers(e.SpriteBatch, location);
+
+        if (location?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            this.DrawRegion1Details(e.SpriteBatch, location);
 
         if (this.FlightCutsceneActive)
             this.DrawFlightCutscene(e.SpriteBatch);
@@ -238,6 +261,12 @@ internal sealed class AirshipFoundationService
             return;
         }
 
+        if (location.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            this.HandleRegion1Interaction(e, location);
+            return;
+        }
+
         if (!location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             return;
 
@@ -262,6 +291,19 @@ internal sealed class AirshipFoundationService
 
         this.Helper.Input.Suppress(e.Button);
         this.StartFlightCutscene(returning: true);
+    }
+
+    public void OnWarped(object? sender, WarpedEventArgs e)
+    {
+        if (!Context.IsWorldReady
+            || !Context.IsMainPlayer
+            || !e.NewLocation.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase)
+            || e.OldLocation?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            return;
+        }
+
+        this.PopulateRegion1(e.NewLocation);
     }
 
     /// <summary>TEST-only direct deck access; does not unlock the Airship or alter story flags.</summary>
@@ -308,12 +350,13 @@ internal sealed class AirshipFoundationService
         Point farmWarp = this.ResolveForestFarmWarpTile();
         bool deckExists = Game1.getLocationFromName(DeckLocationName) is not null;
         bool interiorExists = Game1.getLocationFromName(SkyDockInteriorLocationName) is not null;
+        bool region1Exists = Game1.getLocationFromName(Region1LocationName) is not null;
         return $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
                $"FlybyActive={this.FlybyActive} | " +
                $"Unlocked={this.Save.Data.AirshipUnlocked} | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
-               $"DeckExists={deckExists} | InteriorExists={interiorExists} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
+               $"DeckExists={deckExists} | InteriorExists={interiorExists} | Region1Exists={region1Exists} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
                $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | CollisionEdits=NONE";
     }
 
@@ -441,6 +484,44 @@ internal sealed class AirshipFoundationService
         }
     }
 
+    private GameLocation? EnsureRegion1Location()
+    {
+        if (!Context.IsWorldReady || this.Region1CreationFailed)
+            return null;
+
+        GameLocation? existing = Game1.getLocationFromName(Region1LocationName);
+        if (existing is not null)
+            return existing;
+
+        try
+        {
+            GameLocation region = new(Region1MapAssetName, Region1LocationName);
+            Game1.locations.Add(region);
+            if (!this.LoggedRegion1Creation)
+            {
+                this.LoggedRegion1Creation = true;
+                this.Monitor.Log(
+                    "Created Cardcha_Region1 hunting grounds with controlled Cardcha monster spawning.",
+                    LogLevel.Info
+                );
+            }
+            return region;
+        }
+        catch (Exception ex)
+        {
+            this.Region1CreationFailed = true;
+            if (!this.LoggedRegion1Failure)
+            {
+                this.LoggedRegion1Failure = true;
+                this.Monitor.Log(
+                    $"Couldn't create Region I hunting grounds; retries suppressed until next save/day. {ex.GetType().Name}: {ex.Message}",
+                    LogLevel.Error
+                );
+            }
+            return null;
+        }
+    }
+
     private void HandleRegion1DepartureRequest()
     {
         if (this.Save.Data.AirshipHighestRegionUnlocked < 1)
@@ -450,9 +531,9 @@ internal sealed class AirshipFoundationService
         }
 
         // Validate the target before money is ever consumed.
-        if (this.EnsureDeckLocation() is null)
+        if (this.EnsureRegion1Location() is null)
         {
-            Game1.drawObjectDialogue(ModEntry.T("airship.deck.unavailable"));
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
             return;
         }
 
@@ -524,19 +605,19 @@ internal sealed class AirshipFoundationService
             }
             else
             {
-                GameLocation? deck = this.EnsureDeckLocation();
-                if (deck is null)
+                GameLocation? region = this.EnsureRegion1Location();
+                if (region is null)
                 {
                     // Target was validated before charging; this is a last-resort failure path.
                     this.FlightCutsceneActive = false;
                     this.ReturnToSkyDockExterior();
-                    Game1.drawObjectDialogue(ModEntry.T("airship.deck.unavailable"));
+                    Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
                     return;
                 }
 
-                Point arrival = ResolveDeckArrivalTile(deck);
+                Point arrival = ResolveRegion1ArrivalTile(region);
                 this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
-                Game1.warpFarmer(DeckLocationName, arrival.X, arrival.Y, 0);
+                Game1.warpFarmer(Region1LocationName, arrival.X, arrival.Y, 0);
             }
         }
 
@@ -581,6 +662,121 @@ internal sealed class AirshipFoundationService
         Point landing = FindClearTileNear(forest, new Point(dock.X + 1, dock.Y + 1));
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 2);
+    }
+
+    private void HandleRegion1Interaction(ButtonPressedEventArgs e, GameLocation location)
+    {
+        Point action = GetActionTile();
+        Point gate = ResolveRegion1GateTile(location);
+        Point returnPad = ResolveRegion1ReturnTile(location);
+        Point bossSigil = ResolveRegion1BossSigilTile(location);
+        int playerTileY = (int)(Game1.player.Position.Y / 64f);
+
+        if (Touches(action, returnPad) || PlayerIsNear(returnPad))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            this.StartFlightCutscene(returning: true);
+            return;
+        }
+
+        if (Touches(action, gate) || PlayerIsNear(gate))
+        {
+            this.Helper.Input.Suppress(e.Button);
+
+            if (playerTileY < gate.Y)
+            {
+                Point mainSide = ResolveRegion1MainGateArrivalTile(location);
+                this.WarpGraceUntilMs = Environment.TickCount64 + 450L;
+                Game1.warpFarmer(Region1LocationName, mainSide.X, mainSide.Y, 2);
+                return;
+            }
+
+            int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+            if (owned < Region1GateCardRequirement)
+            {
+                Game1.drawObjectDialogue(
+                    ModEntry.T(
+                        "airship.region1.gate.locked",
+                        new { cards = owned, required = Region1GateCardRequirement }
+                    )
+                );
+                return;
+            }
+
+            Point staging = ResolveRegion1StagingArrivalTile(location);
+            this.WarpGraceUntilMs = Environment.TickCount64 + 450L;
+            Game1.playSound("discoverMineral");
+            Game1.warpFarmer(Region1LocationName, staging.X, staging.Y, 2);
+            Game1.showGlobalMessage(ModEntry.T("airship.region1.gate.open"));
+            return;
+        }
+
+        if (Touches(action, bossSigil) || PlayerIsNear(bossSigil))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.boss.staging"));
+        }
+    }
+
+    private void PopulateRegion1(GameLocation location)
+    {
+        foreach (NPC actor in location.characters
+                     .Where(actor => actor is Monster && actor.modData.ContainsKey(Region1MonsterMarkerKey))
+                     .ToList())
+        {
+            location.characters.Remove(actor);
+        }
+
+        Point[] candidates =
+        {
+            new(5, 10), new(10, 9), new(15, 11), new(25, 10), new(30, 9), new(35, 11),
+            new(7, 15), new(12, 18), new(17, 16), new(23, 17), new(28, 15), new(34, 18),
+            new(5, 22), new(10, 23), new(15, 21), new(25, 22), new(30, 23), new(35, 21)
+        };
+
+        int seed = unchecked(
+            (int)(Game1.uniqueIDForThisGame
+                  + Game1.Date.TotalDays * 397L
+                  + this.Save.Data.AirshipFlightsTaken * 7919L)
+        );
+        Random random = new(seed);
+        Point[] shuffled = candidates.OrderBy(_ => random.Next()).ToArray();
+        int count = Math.Min(random.Next(8, 12), shuffled.Length);
+        int spawned = 0;
+
+        foreach (Point tile in shuffled)
+        {
+            if (spawned >= count)
+                break;
+
+            Vector2 tileVector = new(tile.X, tile.Y);
+            Vector2 position = tileVector * 64f;
+            try
+            {
+                if (location.IsTileBlockedBy(tileVector) || location.Objects.ContainsKey(tileVector))
+                    continue;
+            }
+            catch
+            {
+                continue;
+            }
+
+            int roll = random.Next(100);
+            Monster monster = roll switch
+            {
+                < 58 => new GreenSlime(position, 0),
+                < 83 => new Bat(position),
+                _ => new Bug(position, 0)
+            };
+            monster.modData[Region1MonsterMarkerKey] = "1";
+            location.characters.Add(monster);
+            spawned++;
+        }
+
+        this.Monitor.Log(
+            $"Region I visit populated with {spawned} controlled monster(s). Drops remain routed through Cardcha's existing Scrap pipeline.",
+            LogLevel.Trace
+        );
     }
 
     private Point ResolveSkyDockTile()
@@ -740,6 +936,44 @@ internal sealed class AirshipFoundationService
         return new Point(Math.Clamp(width - 6, 4, width - 3), Math.Clamp(7, 3, height - 5));
     }
 
+    private static Point ResolveRegion1ArrivalTile(GameLocation region)
+    {
+        int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        int height = region.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 28;
+        return FindClearTileNear(region, new Point(width / 2, Math.Max(8, height - 4)));
+    }
+
+    private static Point ResolveRegion1ReturnTile(GameLocation region)
+    {
+        int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        int height = region.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 28;
+        return new Point(width / 2, Math.Max(8, height - 3));
+    }
+
+    private static Point ResolveRegion1GateTile(GameLocation region)
+    {
+        int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        return new Point(width / 2, 6);
+    }
+
+    private static Point ResolveRegion1MainGateArrivalTile(GameLocation region)
+    {
+        Point gate = ResolveRegion1GateTile(region);
+        return FindClearTileNear(region, new Point(gate.X, gate.Y + 2));
+    }
+
+    private static Point ResolveRegion1StagingArrivalTile(GameLocation region)
+    {
+        Point gate = ResolveRegion1GateTile(region);
+        return FindClearTileNear(region, new Point(gate.X, gate.Y - 2));
+    }
+
+    private static Point ResolveRegion1BossSigilTile(GameLocation region)
+    {
+        int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        return new Point(width / 2, 2);
+    }
+
     private static Point ResolveDeckArrivalTile(GameLocation deck)
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
@@ -852,6 +1086,57 @@ internal sealed class AirshipFoundationService
         DrawWorldMarker(batch, route, new Color(255, 220, 120) * 0.58f);
         DrawWorldMarker(batch, bay, new Color(105, 214, 236) * 0.62f);
         DrawWorldMarker(batch, exit, new Color(120, 220, 255) * 0.52f);
+    }
+
+    private void DrawRegion1Details(SpriteBatch batch, GameLocation region)
+    {
+        int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        int height = region.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 28;
+        Point gate = ResolveRegion1GateTile(region);
+        Point returnPad = ResolveRegion1ReturnTile(region);
+        Point bossSigil = ResolveRegion1BossSigilTile(region);
+
+        Vector2 path = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2((width / 2 - 1) * 64f, (gate.Y + 1) * 64f)
+        );
+        DrawRect(
+            batch,
+            new Rectangle((int)path.X, (int)path.Y, 192, Math.Max(64, (height - gate.Y - 4) * 64)),
+            new Color(154, 116, 70) * 0.28f
+        );
+
+        Vector2 wall = Game1.GlobalToLocal(Game1.viewport, new Vector2(0f, gate.Y * 64f));
+        DrawRect(batch, new Rectangle((int)wall.X, (int)wall.Y + 8, width * 64, 48), new Color(43, 63, 55) * 0.92f);
+        DrawRect(batch, new Rectangle((int)wall.X, (int)wall.Y + 8, width * 64, 7), new Color(104, 142, 102) * 0.78f);
+
+        Vector2 gateScreen = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2((gate.X - 1) * 64f, (gate.Y - 1) * 64f)
+        );
+        DrawRect(batch, new Rectangle((int)gateScreen.X, (int)gateScreen.Y, 192, 128), new Color(47, 39, 48) * 0.96f);
+        DrawRect(batch, new Rectangle((int)gateScreen.X + 12, (int)gateScreen.Y + 14, 168, 102), new Color(117, 86, 48) * 0.92f);
+        for (int x = 34; x <= 150; x += 29)
+            DrawRect(batch, new Rectangle((int)gateScreen.X + x, (int)gateScreen.Y + 20, 9, 90), new Color(37, 31, 40) * 0.96f);
+
+        Vector2 pad = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2((returnPad.X - 2) * 64f, (returnPad.Y - 1) * 64f)
+        );
+        DrawRect(batch, new Rectangle((int)pad.X, (int)pad.Y, 320, 128), new Color(84, 61, 42) * 0.76f);
+        DrawRect(batch, new Rectangle((int)pad.X + 16, (int)pad.Y + 18, 288, 8), new Color(105, 214, 236) * 0.55f);
+
+        Vector2 sigil = Game1.GlobalToLocal(
+            Game1.viewport,
+            new Vector2((bossSigil.X - 1) * 64f, (bossSigil.Y - 1) * 64f)
+        );
+        float pulse = 0.48f + 0.17f * (float)Math.Sin(Environment.TickCount64 / 280.0);
+        DrawRect(batch, new Rectangle((int)sigil.X, (int)sigil.Y + 48, 192, 14), new Color(190, 118, 67) * pulse);
+        DrawRect(batch, new Rectangle((int)sigil.X + 88, (int)sigil.Y, 16, 112), new Color(190, 118, 67) * pulse);
+
+        DrawWorldMarker(batch, gate, new Color(255, 196, 96) * 0.62f);
+        DrawWorldMarker(batch, returnPad, new Color(105, 214, 236) * 0.66f);
+        DrawWorldMarker(batch, bossSigil, new Color(223, 112, 86) * 0.62f);
     }
 
     private void DrawFlightCutscene(SpriteBatch batch)
@@ -998,6 +1283,8 @@ internal sealed class AirshipFoundationService
         this.LoggedDeckFailure = false;
         this.SkyDockInteriorCreationFailed = false;
         this.LoggedSkyDockInteriorFailure = false;
+        this.Region1CreationFailed = false;
+        this.LoggedRegion1Failure = false;
         this.PendingDepartureUntilMs = 0;
         this.FlightCutsceneActive = false;
         this.FlightCutsceneReturning = false;
