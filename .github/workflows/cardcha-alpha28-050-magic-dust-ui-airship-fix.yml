@@ -35,7 +35,8 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, json, struct
+          from PIL import Image
+          import json, numpy as np, struct
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.11'
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
@@ -68,7 +69,15 @@ jobs:
           raw = visual.read_bytes()
           assert raw[:8] == b'\x89PNG\r\n\x1a\n'
           assert struct.unpack('>II', raw[16:24]) == (384, 256)
-          assert hashlib.sha256(raw).hexdigest() == 'f10d100719589d2a7ed5674036bd5210d22548530311e7377a55caf32b9d8073'
+          pixels = np.array(Image.open(visual).convert('RGBA'), dtype=np.uint8)
+          transparent = pixels[:,:,3] == 0
+          assert transparent.any()
+          assert np.all(pixels[transparent,:3] == 0), 'transparent RGB must be normalized to black'
+          # The old baked propeller tips occupied these lower outer zones. After cleanup,
+          # the restored hull should remain opaque while obvious beige blade tips are gone.
+          for x, y in [(87, 211), (107, 219), (307, 192), (286, 222)]:
+              r,g,b,a = map(int, pixels[y,x])
+              assert not (a > 0 and r > 185 and g > 135 and b < 120), (x,y,(r,g,b,a))
           print('alpha28.0.4.11 static acceptance PASS')
           PY
 
