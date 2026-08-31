@@ -89,13 +89,13 @@ internal sealed class GachaService
                 : 1;
             int maxLevel = Math.Clamp(card.MaxLevel <= 0 ? 1 : card.MaxLevel, 1, 5);
 
-            // Once a card is already at max stars, further copies convert directly into Card Dust.
+            // Once a card is already at max stars, further copies convert directly into Magic Dust.
             // The old save field name SuspiciousDust is intentionally retained for compatibility.
             if (level >= maxLevel)
             {
                 dustAwarded = 1;
 
-                // Dust Collector: +15/20/25/30% chance for one extra Card Dust on a maxed duplicate.
+                // Dust Collector: +15/20/25/30% chance for one extra Magic Dust on a maxed duplicate.
                 if (data.EquippedCards.Contains("dust_collector", StringComparer.OrdinalIgnoreCase))
                 {
                     int dustLevel = data.CardLevels.TryGetValue("dust_collector", out int dl) ? Math.Clamp(dl, 1, 4) : 1;
@@ -146,7 +146,7 @@ internal sealed class GachaService
 
         data.PullIndex++;
 
-        // Golden Hand (#60): a clean, deterministic every-10-pulls Card Dust reward.
+        // Golden Hand (#60): a clean, deterministic every-10-pulls Magic Dust reward.
         if (data.EquippedCards.Contains("golden_hand", StringComparer.OrdinalIgnoreCase)
             && data.PullIndex > 0
             && data.PullIndex % 10 == 0)

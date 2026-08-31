@@ -597,9 +597,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
             if (this.Revealed[0])
             {
                 DrawResultAura(b, rect, 0);
-                string resultText = result.IsNew
-                    ? ModEntry.T("reveal.new")
-                    : ModEntry.T("reveal.duplicate");
+                string resultText = this.GetResultLabel(result);
 
                 this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
                 this.DrawPersistentHighRaritySparkle(b, rect, result.Card, 0);
@@ -628,9 +626,7 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
             DrawResultAura(b, rect, i);
 
-            string resultText = result.IsNew
-                ? ModEntry.T("reveal.new")
-                : ModEntry.T("reveal.duplicate");
+            string resultText = this.GetResultLabel(result);
 
             this.Renderer.DrawRevealCard(b, rect, result.Card, resultText);
             this.DrawPersistentHighRaritySparkle(b, rect, result.Card, i);
@@ -798,6 +794,17 @@ internal sealed class CardchaRevealMenu : IClickableMenu
 
         CardRarity rarity = this.Results[index].Card.Rarity;
         Game1.playSound(rarity >= CardRarity.Epic ? "discoverMineral" : "smallSelect");
+    }
+
+    private string GetResultLabel(PullResult result)
+    {
+        if (result.IsNew)
+            return ModEntry.T("reveal.new");
+        if (result.DustAwarded > 0)
+            return ModEntry.T("reveal.duplicate-dust", new { amount = result.DustAwarded });
+        if (result.DuplicateCopiesAwarded > 0)
+            return ModEntry.T("reveal.duplicate-copy", new { amount = result.DuplicateCopiesAwarded });
+        return ModEntry.T("reveal.duplicate");
     }
 
     private static string RarityLabel(CardRarity rarity)

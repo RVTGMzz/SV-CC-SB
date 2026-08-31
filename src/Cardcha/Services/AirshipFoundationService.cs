@@ -47,7 +47,7 @@ internal sealed class AirshipFoundationService
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
-    private const float PropellerSpinRadiansPerSecond = 20f;
+    private const float PropellerSpinRadiansPerSecond = 22f;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -1339,14 +1339,14 @@ internal sealed class AirshipFoundationService
             * spinDirection;
 
         Vector2 left = TransformSpriteOffset(
-            new Vector2(-88f * scale, 79f * scale),
+            new Vector2(-89f * scale, 66f * scale),
             spriteCenter,
             rotation,
             verticalScale,
             mirrored
         );
         Vector2 right = TransformSpriteOffset(
-            new Vector2(88f * scale, 79f * scale),
+            new Vector2(90f * scale, 66f * scale),
             spriteCenter,
             rotation,
             verticalScale,
@@ -1384,7 +1384,7 @@ internal sealed class AirshipFoundationService
     {
         Color outline = new Color(49, 33, 25) * 0.78f;
         Color blade = new Color(247, 231, 196) * 0.88f;
-        float length = 17f * scale;
+        float length = 18f * scale;
         float outlineWidth = Math.Max(2f, 6f * scale);
         float bladeWidth = Math.Max(1.5f, 4f * scale);
 
