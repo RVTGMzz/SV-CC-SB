@@ -217,9 +217,13 @@ internal sealed class AirshipFoundationService
         {
             Point interiorAction = GetActionTile();
             Point route = ResolveSkyDockInteriorRouteTile(location);
+            Point bay = ResolveSkyDockInteriorBayTile(location);
             Point interiorExit = ResolveSkyDockInteriorExitTile(location);
 
-            if (Touches(interiorAction, route) || PlayerIsNear(route))
+            if (Touches(interiorAction, route)
+                || PlayerIsNear(route)
+                || Touches(interiorAction, bay)
+                || PlayerIsNear(bay))
             {
                 this.Helper.Input.Suppress(e.Button);
                 this.HandleRegion1DepartureRequest();
@@ -846,6 +850,7 @@ internal sealed class AirshipFoundationService
         DrawRect(batch, new Rectangle((int)sky.X + 250, (int)sky.Y - 8, 8, 187), new Color(67, 45, 31) * 0.96f);
 
         DrawWorldMarker(batch, route, new Color(255, 220, 120) * 0.58f);
+        DrawWorldMarker(batch, bay, new Color(105, 214, 236) * 0.62f);
         DrawWorldMarker(batch, exit, new Color(120, 220, 255) * 0.52f);
     }
 

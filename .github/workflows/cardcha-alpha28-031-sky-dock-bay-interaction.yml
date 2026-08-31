@@ -1,0 +1,97 @@
+name: Cardcha alpha28.0.3.1 Sky Dock bay interaction
+
+on:
+  push:
+    branches: [ cardcha-alpha28-031-bay-interaction ]
+    paths:
+      - '.github/workflows/cardcha-alpha28-031-sky-dock-bay-interaction.yml'
+      - 'src/Cardcha/Services/AirshipFoundationService.cs'
+      - 'src/Cardcha/assets/airship_deck.tmx'
+      - 'src/Cardcha/assets/sky_dock_interior.tmx'
+      - 'src/Cardcha/Cardcha.csproj'
+      - 'src/Cardcha/Directory.Build.targets'
+      - 'src/Cardcha/manifest.json'
+      - 'src/Cardcha/ModEntry.cs'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Sky Dock bay interaction and TMX CSV
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          target = '0.3.0-alpha.28.0.3.1'
+          assert json.loads((root / 'manifest.json').read_text())['Version'] == target
+          assert f'<Version>{target}</Version>' in (root / 'Cardcha.csproj').read_text()
+          assert target in (root / 'Directory.Build.targets').read_text()
+
+          service = (root / 'Services/AirshipFoundationService.cs').read_text()
+          for marker in [
+              'Point bay = ResolveSkyDockInteriorBayTile(location);',
+              'Touches(interiorAction, bay)',
+              'PlayerIsNear(bay)',
+              'DrawWorldMarker(batch, bay',
+              'this.HandleRegion1DepartureRequest();',
+              'Region1Fare = 100',
+              'AirshipFlightsTaken <= 0',
+              'StartFlightCutscene(returning: false)',
+              'StartFlightCutscene(returning: true)',
+              'Game1.player.Money -= fare',
+              'ReturnToSkyDockExterior'
+          ]:
+              assert marker in service, marker
+
+          for map_name, width, height in [
+              ('airship_deck.tmx', 24, 14),
+              ('sky_dock_interior.tmx', 30, 18)
+          ]:
+              map_root = ET.fromstring((root / 'assets' / map_name).read_text())
+              assert int(map_root.attrib['width']) == width
+              assert int(map_root.attrib['height']) == height
+              expected = width * height
+              for layer in map_root.findall('layer'):
+                  raw = layer.find('data').text or ''
+                  values = [value.strip() for value in raw.split(',')]
+                  assert len(values) == expected, (map_name, layer.attrib['name'], len(values), expected)
+                  assert all(value.isdecimal() for value in values), (map_name, layer.attrib['name'])
+
+          assert hashlib.sha256((root / 'assets/mimi_walk.png').read_bytes()).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert hashlib.sha256((root / 'assets/mimi_broom.png').read_bytes()).hexdigest() == '875c305258151512e46a66d42574a271590f4d184269c03be7b1c1f4f6a161e8'
+          assert hashlib.sha256((root / 'assets/mimi_social_mugshot.png').read_bytes()).hexdigest() == '7db5cd2f6c8815148d68e534bda26036c55f200402f09713d742d1ab1bfebd11'
+          binder = (root / 'UI/CardchaBinderMenu.cs').read_text()
+          assert 'TryConsumeSyntheticDetailClick(x, y)' in binder
+          assert 'LockedCard' in binder and 'PreviewCard' in binder
+          print('alpha28.0.3.1 static validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.3.1_SkyDockBayInteraction_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-031-sky-dock-bay-interaction
+          path: artifact
+          if-no-files-found: error
