@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image
 import numpy as np
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,31 +13,16 @@ def main() -> None:
     if image.size != (384, 256):
         raise RuntimeError(f"Unexpected airship asset size: {image.size}")
 
-    source = np.array(image, dtype=np.uint8)
-    output = source.copy()
+    output = np.array(image, dtype=np.uint8)
 
-    # Remove the two baked/static propeller assemblies by restoring nearby hull pixels.
-    # Runtime code draws the only visible propeller blades, so the base art must be blade-free.
-    mask_image = Image.new("L", image.size, 0)
-    draw = ImageDraw.Draw(mask_image)
-    draw.ellipse((77, 165, 131, 229), fill=255)
-    draw.ellipse((254, 165, 315, 232), fill=255)
-    mask = np.array(mask_image) > 0
-
-    for y, x in zip(*np.where(mask)):
-        if y < 172:
-            continue
-        sample_x = x + 54 if x < 190 else x - 99
-        sample_x = max(0, min(source.shape[1] - 1, sample_x))
-        output[y, x] = source[y, sample_x]
-
-    # Fully transparent pixels in the old PNG kept near-white RGB values, which can produce
-    # a light fringe on dark backgrounds in some render paths. Normalize them to transparent black.
+    # alpha28.0.4.11 ships with the static propeller blades already removed from the source PNG.
+    # This tool is intentionally idempotent: it only sanitizes alpha-edge RGB and must NOT try
+    # to repaint/clone hull pixels on every CI run. Runtime code draws the only visible blades.
     output[output[:, :, 3] == 0, :3] = 0
 
-    # Remove only neutral near-white edge pixels connected to transparency. The actual airship
-    # outline is dark/gold, so this targets export fringe without bleaching the cream balloon.
-    for _ in range(3):
+    # Remove only neutral near-white export fringe that touches transparency. The cream balloon
+    # is warm/beige rather than neutral white, so the narrow neutral threshold avoids eating art.
+    for _ in range(2):
         alpha = output[:, :, 3]
         transparent = alpha == 0
         neighbor_transparent = np.zeros_like(transparent)
@@ -57,13 +42,13 @@ def main() -> None:
                 neighbor_transparent |= shifted
 
         rgb = output[:, :, :3].astype(np.int16)
-        neutral_bright = (rgb.min(axis=2) > 225) & ((rgb.max(axis=2) - rgb.min(axis=2)) < 20)
+        neutral_bright = (rgb.min(axis=2) > 235) & ((rgb.max(axis=2) - rgb.min(axis=2)) < 14)
         remove = (alpha > 0) & neighbor_transparent & neutral_bright
         output[remove] = (0, 0, 0, 0)
 
     output[output[:, :, 3] == 0, :3] = 0
     Image.fromarray(output, mode="RGBA").save(ASSET, optimize=True, compress_level=9)
-    print("Airship asset cleaned: transparent edge normalized; baked propeller blades removed.")
+    print("Airship asset alpha sanitized; no static-blade repainting performed.")
 
 
 if __name__ == "__main__":
