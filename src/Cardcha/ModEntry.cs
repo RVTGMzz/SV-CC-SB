@@ -145,6 +145,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
+        helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Social.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
