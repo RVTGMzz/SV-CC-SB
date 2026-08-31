@@ -203,7 +203,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.7 AIRSHIP FINAL DESIGN ANIMATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.8 AIRSHIP FINAL DESIGN ANIMATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -911,7 +911,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.7 AIRSHIP FINAL DESIGN ANIMATION TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.8 AIRSHIP FINAL DESIGN ANIMATION TEST",
             LogLevel.Alert
         );
     }
