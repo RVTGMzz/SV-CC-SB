@@ -29,14 +29,13 @@ jobs:
           python3 tools/alpha28_411_finalize.py
           python3 tools/alpha28_411_airship_asset.py
 
-      - name: Static acceptance checks
+      - name: Source acceptance checks
         shell: bash
         run: |
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          from PIL import Image
-          import hashlib, json, numpy as np, struct
+          import json
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.11'
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
@@ -70,29 +69,11 @@ jobs:
           assert 'pending MiMi appointment temporarily bypassed Wizard Tower lock' in story
           assert 'helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;' in entry
 
-          # Never silently fall back to the older .4.9 icon atlas.
-          icons = root/'assets/card_icons.png'
-          icon_raw = icons.read_bytes()
-          assert struct.unpack('>II', icon_raw[16:24]) == (320, 1024)
-          assert hashlib.sha256(icon_raw).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
-
           airship = (root/'Services/AirshipFoundationService.cs').read_text()
           assert 'new Vector2(-89f * scale, 66f * scale)' in airship
           assert 'new Vector2(90f * scale, 66f * scale)' in airship
           assert 'PropellerSpinRadiansPerSecond = 22f' in airship
-
-          visual = root/'assets/airship_visual.png'
-          raw = visual.read_bytes()
-          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
-          assert struct.unpack('>II', raw[16:24]) == (384, 256)
-          pixels = np.array(Image.open(visual).convert('RGBA'), dtype=np.uint8)
-          transparent = pixels[:,:,3] == 0
-          assert transparent.any()
-          assert np.all(pixels[transparent,:3] == 0), 'transparent RGB must be normalized to black'
-          for x, y in [(87, 211), (107, 219), (307, 192), (286, 222)]:
-              r,g,b,a = map(int, pixels[y,x])
-              assert not (a > 0 and r > 185 and g > 135 and b < 120), (x,y,(r,g,b,a))
-          print('alpha28.0.4.11 static acceptance PASS')
+          print('alpha28.0.4.11 source acceptance PASS')
           PY
 
       - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
@@ -100,21 +81,7 @@ jobs:
       - name: Compile test build
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Package compiled test build
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf artifact stage
-          mkdir -p artifact stage/Cardcha
-          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
-          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
-          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
-          test -s stage/Cardcha/Cardcha.dll
-          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.11"
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.11_MagicDust_UI_Airship_FIX_TEST.zip Cardcha)
-          sha256sum artifact/*.zip > artifact/SHA256.txt
-
-      - name: Materialize successful fixes back to branch
+      - name: Materialize compiled source fixes back to branch
         shell: bash
         run: |
           set -euo pipefail
@@ -134,9 +101,52 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated source/asset diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.11 fixes, meetup door, and clean airship [skip ci]"
+            git commit -m "chore: materialize compiled alpha28.0.4.11 source fixes and meetup door [skip ci]"
             git push origin HEAD:cardcha-alpha28-050-magic-dust-ui-airship-fix
           fi
+
+      - name: Final asset acceptance gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, numpy as np, struct
+          root = Path('src/Cardcha')
+
+          icons = root/'assets/card_icons.png'
+          icon_raw = icons.read_bytes()
+          assert struct.unpack('>II', icon_raw[16:24]) == (320, 1024)
+          assert hashlib.sha256(icon_raw).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee', 'approved .4.10 icon atlas is not materialized yet'
+
+          visual = root/'assets/airship_visual.png'
+          raw = visual.read_bytes()
+          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', raw[16:24]) == (384, 256)
+          pixels = np.array(Image.open(visual).convert('RGBA'), dtype=np.uint8)
+          transparent = pixels[:,:,3] == 0
+          assert transparent.any()
+          assert np.all(pixels[transparent,:3] == 0), 'transparent RGB must be normalized to black'
+          for x, y in [(87, 211), (107, 219), (307, 192), (286, 222)]:
+              r,g,b,a = map(int, pixels[y,x])
+              assert not (a > 0 and r > 185 and g > 135 and b < 120), (x,y,(r,g,b,a))
+          print('alpha28.0.4.11 final asset acceptance PASS')
+          PY
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.11"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.11_MagicDust_UI_Airship_FIX_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
         with:
