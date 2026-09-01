@@ -1,13 +1,13 @@
 <Project>
   <PropertyGroup>
-    <Version>0.3.0-alpha.28.0.4.13</Version>
+    <Version>0.3.0-alpha.28.0.4.14</Version>
   </PropertyGroup>
 
-  <Target Name="CardchaAlpha280413Finalize" BeforeTargets="BeforeBuild">
-    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/../../tools/alpha28_413_visual_polish.py&quot;" />
+  <Target Name="CardchaAlpha280414Finalize" BeforeTargets="BeforeBuild">
+    <Exec Command="python3 &quot;$(MSBuildProjectDirectory)/../../tools/alpha28_414_airship_upgrades.py&quot;" />
   </Target>
 
-  <Target Name="CardchaAlpha280413Manifest" BeforeTargets="BeforeBuild" DependsOnTargets="CardchaAlpha280413Finalize">
-    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.13\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
+  <Target Name="CardchaAlpha280414Manifest" BeforeTargets="BeforeBuild" DependsOnTargets="CardchaAlpha280414Finalize">
+    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
   </Target>
 </Project>
