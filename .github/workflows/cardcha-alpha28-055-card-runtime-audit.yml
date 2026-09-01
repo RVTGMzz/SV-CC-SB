@@ -1,0 +1,186 @@
+name: Cardcha alpha28.0.4.14.2 Full Card Runtime Audit
+
+on:
+  push:
+    branches: [ cardcha-alpha28-055-card-runtime-audit ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28.0.4.14.2 full card runtime audit finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_4142_card_runtime_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.2'
+
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          save_data = (root/'Models/SaveData.cs').read_text()
+          save_service = (root/'Services/SaveService.cs').read_text()
+          assert 'SchemaVersion { get; set; } = 18' in save_data
+          assert 'StandardPullIndex' in save_data
+          assert 'BattleScholarMonsterTypesToday' in save_data
+          assert 'CurrentSchemaVersion = 18' in save_service
+          assert 'BattleScholarMonsterTypesToday.Clear()' in save_service
+
+          upgrades = (root/'Services/CardUpgradeService.cs').read_text()
+          assert '"vitality" => new CardLevelStats' in upgrades
+          assert 'Primary = Pick(level, 0.10, 0.12, 0.15)' in upgrades
+          assert 'Secondary = Pick(level, 6, 5, 4)' in upgrades
+          assert 'DurationMs = 6000' in upgrades
+
+          combat = (root/'Services/CombatService.cs').read_text()
+          assert 'VitalityAppliedBonus' in combat
+          assert 'PrepareForGameSave' in combat
+          assert 'IsLastStandRuntimeActive' in combat
+          assert 'UpdateLastStandRuntime' in combat
+          assert 'OnCustomEnemyKilled' in combat
+
+          core = (root/'Services/CoreCardEffectsService.cs').read_text()
+          assert 'ReapersMarkUntil' in core
+          assert 'ComboTargetHits' in core
+          assert 'LifeStealFractionalCarry' in core
+          assert 'TryApplyMonsterStagger' in core
+          assert 'OnCustomMonsterKilled' in core
+          assert 'BattleScholarMonsterTypesToday.Count' in core
+          assert 'now < this.VoidPhaseUntil' in core
+          assert 'now >= this.MirrorGuardReadyAt' in core
+          assert 'player.health <= player.maxHealth * .20' in core
+          assert 'modified >= player.health' not in core
+
+          gacha = (root/'Services/GachaService.cs').read_text()
+          assert 'data.StandardPullIndex++' in gacha
+          assert 'cardmasterRareBoost' in gacha
+          assert 'RollStandardRarity(rng, data, cardmasterRareBoost)' in gacha
+          assert 'rareThreshold = Math.Clamp(0.45 + Math.Max(0d, rarePlusBonus)' in gacha
+
+          death = (root/'Services/MonsterDeathService.cs').read_text()
+          assert 'OnCustomEnemyKilled' in death
+
+          entry = (root/'ModEntry.cs').read_text()
+          assert 'GameLoop.Saved += this.OnSaved' in entry
+          assert 'this.Combat.PrepareForGameSave();' in entry
+
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert 'TEMPORARILY INACTIVE' in en['card.victory_charge.desc']
+          assert 'TẠM CHƯA HOẠT ĐỘNG' in vi['card.victory_charge.desc']
+          assert '25g' in vi['card.lucky_pocket.desc']
+          assert '300 HP' in vi['card.bruiser.desc']
+          assert 'Mảnh Bìa Cardcha' in vi['card.treasure_eye.desc']
+          assert 'Mảnh Bìa Cardcha thường' in vi['card.card_seeker.desc']
+          assert '+1 Bụi' in vi['card.dust_collector.desc']
+          assert 'đổi mục tiêu' in vi['card.relentless.desc']
+          assert 'lượt quay Thường kế tiếp' in vi['card.cardmaster.desc']
+
+          audit = Path('docs/CARD_RUNTIME_AUDIT_ALPHA28_055.md').read_text()
+          assert '50 PASS / 12 CLARIFY / 14 BUG' in audit
+          assert 'Victory Charge' in audit
+          assert '`.4.14.2` remediation pass' in audit
+
+          # Locked visual assets remain byte-for-byte unchanged.
+          icons = (root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320, 1024)
+          assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+          visual = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          # Preserve the accepted .4.14.1 Airship UX contract.
+          menu = (root/'UI/AirshipUpgradeMenu.cs').read_text()
+          airship = (root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'NavigationDebounceMs = 140L' in menu
+          assert 'TryHandleAutoTransition' in airship
+          assert 'location.largeTerrainFeatures' in airship
+          assert 'CollisionEdits=NONE' in airship
+          print('alpha28.0.4.14.2 source acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize alpha28.0.4.14.2 source changes back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Models/SaveData.cs \
+            src/Cardcha/Services/SaveService.cs \
+            src/Cardcha/Services/CardUpgradeService.cs \
+            src/Cardcha/Services/CoreCardEffectsService.cs \
+            src/Cardcha/Services/CombatService.cs \
+            src/Cardcha/Services/MonsterDeathService.cs \
+            src/Cardcha/Services/GachaService.cs \
+            src/Cardcha/assets/cards.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            docs/CARD_RUNTIME_AUDIT_ALPHA28_055.md
+          if git diff --cached --quiet; then
+            echo "No generated alpha28.0.4.14.2 diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.2 card runtime audit [skip ci]"
+            git push origin HEAD:cardcha-alpha28-055-card-runtime-audit
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'pending MiMi appointment temporarily bypassed Wizard Tower lock' src/Cardcha/Services/CardchaStoryService.cs
+          grep -q 'bool widthFits = lines.All' src/Cardcha/UI/CardchaUi.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'NavigationDebounceMs = 140L' src/Cardcha/UI/AirshipUpgradeMenu.cs
+          grep -q 'TryHandleAutoTransition' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
+          grep -q 'StandardPullIndex' src/Cardcha/Services/GachaService.cs
+          echo 'alpha28.0.4.14.2 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.2"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.2_FullCardRuntimeAudit_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-055-card-runtime-audit
+          path: artifact
+          if-no-files-found: error
