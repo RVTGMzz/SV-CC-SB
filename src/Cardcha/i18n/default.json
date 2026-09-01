@@ -526,7 +526,7 @@
   "card.card_seeker.star.2": "+18% multiplicative chance for gacha resources.",
   "card.card_seeker.star.3": "+21% multiplicative chance for gacha resources.",
   "card.card_seeker.star.4": "+24% multiplicative chance for gacha resources.",
-  "card.dust_collector.name": "Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Dust Collector",
+  "card.dust_collector.name": "Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Magic Dust Collector",
   "card.dust_collector.desc": "Duplicate cards grant extra Magic Dust.",
   "card.dust_collector.star.1": "Duplicates grant +15% Magic Dust.",
   "card.dust_collector.star.2": "Duplicates grant +20% Magic Dust.",
@@ -818,5 +818,10 @@
   "airship.region1.gate.open": "Boss Gate unlocked — Region I staging area opened.",
   "airship.region1.boss.staging": "REGION I BOSS STAGING // The gate recognizes your Binder. Boss I arrives in the next combat build; return through the gate for now.",
   "reveal.max-dust": "+{{dust}} Magic Dust",
-  "reveal.level-copy": "Duplicate copy +1"
+  "reveal.level-copy": "Duplicate copy +1",
+  "airship.arcane.route_console": "The Arcane Route Console hums softly. Region I is synchronized. Board the Airship through the violet gate to depart. Cards attuned: {{cards}}.",
+  "airship.arcane.bridge.unavailable": "The boarding gate flickers, but the Airship Bridge cannot stabilize right now.",
+  "airship.arcane.bridge.entered": "The violet gate folds around you. The Airship Bridge comes into focus.",
+  "airship.arcane.dock.returned": "The Bridge gate returns you to MiMi's Arcane Dock.",
+  "airship.arcane.bridge.helm": "The navigation core is ready. Use it again to confirm the Region I departure."
 }
