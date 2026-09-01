@@ -27,6 +27,7 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
     private const int UpgradeButtonId = 200;
     private const int CloseButtonId = 201;
     private const int RowBaseId = 100;
+    private const long NavigationDebounceMs = 140L;
 
     private readonly SaveService Save;
     private readonly ControllerProfileService Controller;
@@ -36,15 +37,16 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
 
     private AirshipUpgradeSystem Selected;
     private string Status;
+    private long LastNavigationAtMs;
 
     public AirshipUpgradeMenu(
         SaveService save,
         ControllerProfileService controller,
         AirshipUpgradeSystem initialSelection)
         : base(
-            Game1.uiViewport.Width / 2 - Math.Min(920, Game1.uiViewport.Width - 24) / 2,
+            Game1.uiViewport.Width / 2 - Math.Min(1080, Game1.uiViewport.Width - 24) / 2,
             Game1.uiViewport.Height / 2 - Math.Min(700, Game1.uiViewport.Height - 24) / 2,
-            Math.Min(920, Game1.uiViewport.Width - 24),
+            Math.Min(1080, Game1.uiViewport.Width - 24),
             Math.Min(700, Game1.uiViewport.Height - 24),
             showUpperRightCloseButton: false)
     {
@@ -55,9 +57,9 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
 
         int rowX = this.xPositionOnScreen + 44;
         int rowW = this.width - 88;
-        int rowY = this.yPositionOnScreen + 148;
-        int rowH = 94;
-        int gap = 8;
+        int rowY = this.yPositionOnScreen + 136;
+        int rowH = 100;
+        int gap = 6;
 
         for (int i = 0; i < this.Rows.Length; i++)
         {
@@ -109,9 +111,10 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
     {
         base.populateClickableComponentList();
         this.allClickableComponents.Clear();
+        // Controller focus is intentionally row-only. Footer buttons remain mouse-clickable,
+        // while controller Confirm upgrades the highlighted row and Cancel closes the menu.
+        // This prevents Stardew's spatial snappy-menu resolver from disagreeing with Selected.
         this.allClickableComponents.AddRange(this.Rows);
-        this.allClickableComponents.Add(this.UpgradeButton);
-        this.allClickableComponents.Add(this.CloseButton);
     }
 
     public override void snapToDefaultClickableComponent()
@@ -149,17 +152,22 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
             return;
         }
 
-        if (key is Keys.Up or Keys.Left)
+        if (key == Keys.Up)
         {
-            this.CycleSelection(-1);
+            this.TryMoveSelection(-1);
             return;
         }
 
-        if (key is Keys.Down or Keys.Right)
+        if (key == Keys.Down)
         {
-            this.CycleSelection(1);
+            this.TryMoveSelection(1);
             return;
         }
+
+        // This is a strictly vertical list. Horizontal input is consumed instead of
+        // accidentally cycling rows or letting base snappy navigation choose a distant row.
+        if (key is Keys.Left or Keys.Right)
+            return;
 
         if (key is Keys.Enter or Keys.Space)
         {
@@ -178,24 +186,24 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
             return;
         }
 
-        if (b is Buttons.DPadUp or Buttons.DPadLeft or Buttons.LeftThumbstickUp or Buttons.LeftThumbstickLeft)
+        if (b is Buttons.DPadUp or Buttons.LeftThumbstickUp)
         {
-            this.CycleSelection(-1);
+            this.TryMoveSelection(-1);
             return;
         }
 
-        if (b is Buttons.DPadDown or Buttons.DPadRight or Buttons.LeftThumbstickDown or Buttons.LeftThumbstickRight)
+        if (b is Buttons.DPadDown or Buttons.LeftThumbstickDown)
         {
-            this.CycleSelection(1);
+            this.TryMoveSelection(1);
             return;
         }
+
+        if (b is Buttons.DPadLeft or Buttons.DPadRight or Buttons.LeftThumbstickLeft or Buttons.LeftThumbstickRight)
+            return;
 
         if (this.Controller.IsConfirm(b))
         {
-            if (this.currentlySnappedComponent?.myID == CloseButtonId)
-                this.CloseMenu();
-            else
-                this.TryUpgradeSelected();
+            this.TryUpgradeSelected();
             return;
         }
 
@@ -205,9 +213,17 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
         base.receiveGamePadButton(b);
     }
 
-    private void CycleSelection(int delta)
+    private void TryMoveSelection(int delta)
     {
-        int next = ((int)this.Selected + delta + this.Rows.Length) % this.Rows.Length;
+        long now = Environment.TickCount64;
+        if (now - this.LastNavigationAtMs < NavigationDebounceMs)
+            return;
+
+        this.LastNavigationAtMs = now;
+        int next = Math.Clamp((int)this.Selected + Math.Sign(delta), 0, this.Rows.Length - 1);
+        if (next == (int)this.Selected)
+            return;
+
         this.Select((AirshipUpgradeSystem)next, playSound: true);
     }
 
@@ -437,21 +453,21 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
             b,
             Game1.smallFont,
             ModEntry.T($"airship.upgrade.system.{token}.name"),
-            new Rectangle(row.X + 94, row.Y + 8, row.Width - 350, 30),
+            new Rectangle(row.X + 94, row.Y + 8, row.Width - 310, 32),
             new Color(64, 46, 78),
             centerY: true,
-            maxScale: 1.20f
+            maxScale: 1.30f
         );
         CardchaUi.DrawAutoFitWrappedText(
             b,
             Game1.smallFont,
             ModEntry.T($"airship.upgrade.system.{token}.desc"),
-            new Rectangle(row.X + 94, row.Y + 40, row.Width - 350, 42),
+            new Rectangle(row.X + 94, row.Y + 40, row.Width - 310, 48),
             new Color(88, 76, 96),
             maxLines: 2,
-            minScale: 0.70f,
+            minScale: 0.82f,
             centerX: false,
-            maxScale: 0.96f,
+            maxScale: 1.06f,
             centerY: true
         );
 
@@ -464,7 +480,7 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
             new Color(69, 53, 83),
             centerX: true,
             centerY: true,
-            maxScale: 0.92f
+            maxScale: 1.02f
         );
         for (int pip = 0; pip < MaxLevel; pip++)
         {
@@ -484,7 +500,7 @@ internal sealed class AirshipUpgradeMenu : IClickableMenu
             level >= MaxLevel ? new Color(92, 113, 85) : new Color(114, 78, 91),
             centerX: true,
             centerY: true,
-            maxScale: 0.90f
+            maxScale: 1.00f
         );
     }
 

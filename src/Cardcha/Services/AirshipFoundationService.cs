@@ -159,6 +159,11 @@ internal sealed class AirshipFoundationService
         if (this.PendingDepartureUntilMs > 0 && now > this.PendingDepartureUntilMs)
             this.PendingDepartureUntilMs = 0;
 
+        // Cardcha-owned portal lanes behave like real exits: walk onto the endpoint and transition.
+        // The Forest gate deliberately stays action-driven for maximum map-overhaul compatibility.
+        if (now >= this.WarpGraceUntilMs && this.TryHandleAutoTransition())
+            return;
+
         if (this.FlybyActive)
         {
             if (now - this.FlybyStartedAtMs >= FlybyDurationMs)
@@ -657,6 +662,46 @@ internal sealed class AirshipFoundationService
         }
     }
 
+    private bool TryHandleAutoTransition()
+    {
+        if (Game1.activeClickableMenu is not null || Game1.dialogueUp || Game1.eventUp || this.FlightCutsceneActive)
+            return false;
+
+        GameLocation? location = Game1.currentLocation;
+        if (location is null)
+            return false;
+
+        Point playerTile = new(
+            (int)(Game1.player.Position.X / 64f),
+            (int)(Game1.player.Position.Y / 64f)
+        );
+
+        if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            Point bay = ResolveSkyDockInteriorBayTile(location);
+            Point exit = ResolveSkyDockInteriorExitTile(location);
+            if (playerTile == bay)
+                return this.WarpToAirshipBridge();
+
+            if (playerTile == exit)
+            {
+                this.ReturnToSkyDockExterior();
+                return true;
+            }
+
+            return false;
+        }
+
+        if (location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            Point exit = ResolveDeckExitTile(location);
+            if (playerTile == exit)
+                return this.WarpToSkyDockInterior();
+        }
+
+        return false;
+    }
+
     private bool WarpToAirshipBridge()
     {
         GameLocation? deck = this.EnsureDeckLocation();
@@ -904,14 +949,19 @@ internal sealed class AirshipFoundationService
 
     private static bool IsDockFootprintSafe(GameLocation location, Point anchor, Point farmWarp)
     {
+        // Reserve visual breathing room in front of the overlay too. We do not delete or
+        // alter Forest foliage; instead the dynamic anchor simply rejects a bushy footprint.
         Point[] footprint =
         {
-            anchor,
             new(anchor.X - 1, anchor.Y),
+            anchor,
             new(anchor.X + 1, anchor.Y),
             new(anchor.X - 1, anchor.Y + 1),
             new(anchor.X, anchor.Y + 1),
-            new(anchor.X + 1, anchor.Y + 1)
+            new(anchor.X + 1, anchor.Y + 1),
+            new(anchor.X - 1, anchor.Y + 2),
+            new(anchor.X, anchor.Y + 2),
+            new(anchor.X + 1, anchor.Y + 2)
         };
 
         foreach (Point p in footprint)
@@ -922,8 +972,19 @@ internal sealed class AirshipFoundationService
             try
             {
                 Vector2 tile = new(p.X, p.Y);
-                if (location.IsTileBlockedBy(tile) || location.Objects.ContainsKey(tile))
+                if (location.IsTileBlockedBy(tile)
+                    || location.Objects.ContainsKey(tile)
+                    || location.terrainFeatures.ContainsKey(tile))
+                {
                     return false;
+                }
+
+                Rectangle tileBounds = new(p.X * 64, p.Y * 64, 64, 64);
+                foreach (var feature in location.largeTerrainFeatures)
+                {
+                    if (feature.getBoundingBox().Intersects(tileBounds))
+                        return false;
+                }
             }
             catch
             {
