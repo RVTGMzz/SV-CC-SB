@@ -22,6 +22,15 @@ internal sealed class GachaService
     {
         SaveData data = this.Save.Data;
         long pullIndex = data.PullIndex;
+        double cardmasterRareBoost = 0d;
+        if (type == PullType.Standard
+            && data.StandardPullIndex > 0
+            && data.StandardPullIndex % 10 == 0
+            && data.EquippedCards.Contains("cardmaster", StringComparer.OrdinalIgnoreCase))
+        {
+            int cardmasterLevel = data.CardLevels.TryGetValue("cardmaster", out int cl) ? Math.Clamp(cl, 1, 3) : 1;
+            cardmasterRareBoost = cardmasterLevel switch { 1 => 0.010, 2 => 0.015, _ => 0.020 };
+        }
 
         // Keep save-seed continuity while ensuring reloads don't replay the exact same result.
         ulong runtimeSalt = unchecked(
@@ -53,7 +62,7 @@ internal sealed class GachaService
         else
         {
             CardRarity rarity = type == PullType.Standard
-                ? RollStandardRarity(rng, data)
+                ? RollStandardRarity(rng, data, cardmasterRareBoost)
                 : RollPremiumRarity(rng, data);
 
             List<CardDefinition> pool = this.Registry.ForRarity(rarity)
@@ -145,6 +154,8 @@ internal sealed class GachaService
         }
 
         data.PullIndex++;
+        if (type == PullType.Standard)
+            data.StandardPullIndex++;
 
         // Golden Hand (#60): a clean, deterministic every-10-pulls Magic Dust reward.
         if (data.EquippedCards.Contains("golden_hand", StringComparer.OrdinalIgnoreCase)
@@ -157,13 +168,12 @@ internal sealed class GachaService
             dustAwarded += bonusDust;
         }
 
-        // Cardmaster (#74): approved periodic Dust component. Its small Rare+ weighting bonus
-        // is intentionally conservative and applied only to Standard by nudging the next roll
-        // through the persisted duplicate insurance/pity systems rather than bypassing either.
+        // Cardmaster (#74): every 10 STANDARD pulls grants Dust; the next Standard
+        // pull receives the small Rare+ nudge computed at the start of Pull().
         if (type == PullType.Standard
             && data.EquippedCards.Contains("cardmaster", StringComparer.OrdinalIgnoreCase)
-            && data.PullIndex > 0
-            && data.PullIndex % 10 == 0)
+            && data.StandardPullIndex > 0
+            && data.StandardPullIndex % 10 == 0)
         {
             int level = data.CardLevels.TryGetValue("cardmaster", out int cl) ? Math.Clamp(cl, 1, 3) : 1;
             int bonusDust = level switch { 1 => 5, 2 => 7, _ => 10 };
@@ -196,7 +206,7 @@ internal sealed class GachaService
     private static bool IsActiveBaseSetCard(CardDefinition card)
         => card.Rarity != CardRarity.Mythic && card.StableBaseId is >= 1 and <= CardRegistry.TargetBaseSetCount;
 
-    private CardRarity RollStandardRarity(DeterministicRng rng, SaveData data)
+    private CardRarity RollStandardRarity(DeterministicRng rng, SaveData data, double rarePlusBonus = 0d)
     {
         if (data.StandardSinceLegendary + 1 >= this.Config.StandardLegendaryPity)
             return CardRarity.Legendary;
@@ -206,9 +216,10 @@ internal sealed class GachaService
             return CardRarity.Rare;
 
         double roll = rng.NextDouble();
+        double rareThreshold = Math.Clamp(0.45 + Math.Max(0d, rarePlusBonus), 0.45, 0.95);
         if (roll < 0.03) return CardRarity.Legendary;
         if (roll < 0.15) return CardRarity.Epic;
-        if (roll < 0.45) return CardRarity.Rare;
+        if (roll < rareThreshold) return CardRarity.Rare;
         return CardRarity.Common;
     }
 

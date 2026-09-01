@@ -32,6 +32,12 @@ internal sealed class CombatService
     private long SoulEaterBuffExpiresAt;
     private double SoulEaterDamageBonus;
 
+    private int VitalityAppliedBonus;
+    private long LastStandUntil;
+    private string LastStandLocation = "";
+    private bool LastStandSawMonsters;
+    private bool LastStandReady;
+
     // v0.1.13 visual combat feedback. These are transient and never saved.
     private string HudToastText = "";
     private string HudToastCardId = "";
@@ -219,11 +225,8 @@ internal sealed class CombatService
         bonus += this.Completion.GetOutgoingDamageBonus(monster, who!);
 
         CardLevelStats lastStand = this.GetStats("last_stand");
-        if (this.Loadout.IsEquipped("last_stand")
-            && IsLowHealth(who!, Math.Max(0.01, lastStand.Threshold)))
-        {
+        if (this.IsLastStandRuntimeActive)
             bonus += lastStand.Primary;
-        }
 
         if (bonus <= 0)
         {
@@ -276,6 +279,13 @@ internal sealed class CombatService
     {
         if (who?.IsLocalPlayer == true)
             this.Completion.OnMonsterKilled(monster, who);
+        this.OnEnemyKilled(who);
+    }
+
+    public void OnCustomEnemyKilled(Farmer? who, string sourceType, bool bossLike)
+    {
+        if (who?.IsLocalPlayer == true)
+            this.Completion.OnCustomMonsterKilled(sourceType, who, bossLike);
         this.OnEnemyKilled(who);
     }
 
@@ -399,6 +409,8 @@ internal sealed class CombatService
         // Cardcha combat effects must be completely dormant.
         if (!this.Loadout.CardEffectsActive)
         {
+            this.RemoveVitalityBonus(player);
+            this.ResetLastStandRuntime();
             TryRemoveBuff(player, ThickHideBuffId);
             TryRemoveBuff(player, SwiftFeetBuffId);
             TryRemoveBuff(player, LastStandBuffId);
@@ -419,12 +431,15 @@ internal sealed class CombatService
         else
             TryRemoveBuff(player, ThickHideBuffId);
 
+        this.SyncVitality(player);
+
         bool hasLivingMonster = Game1.currentLocation?.characters
             .OfType<Monster>()
             .Any(m => m.IsMonster && m.Health > 0) == true;
 
         CardLevelStats swift = this.GetStats("swift_feet");
         long now = Environment.TickCount64;
+        this.UpdateLastStandRuntime(player, hasLivingMonster, now);
 
         if (this.Loadout.IsEquipped("swift_feet") && hasLivingMonster)
             this.SwiftFeetExpiresAt = now + Math.Max(0, swift.DurationMs);
@@ -439,20 +454,12 @@ internal sealed class CombatService
             TryRemoveBuff(player, SwiftFeetBuffId);
 
         CardLevelStats lastStand = this.GetStats("last_stand");
-        if (this.Loadout.IsEquipped("last_stand")
-            && IsLowHealth(player, Math.Max(0.01, lastStand.Threshold)))
+        if (this.IsLastStandRuntimeActive)
         {
-            ApplyHiddenBuff(
-                player,
-                LastStandBuffId,
-                defense: Math.Max(0, (int)Math.Round(lastStand.Secondary)),
-                speed: 0
-            );
+            ApplyHiddenBuff(player, LastStandBuffId, defense: Math.Max(0, (int)Math.Round(lastStand.Secondary)), speed: 0);
         }
         else
-        {
             TryRemoveBuff(player, LastStandBuffId);
-        }
 
         this.Completion.Sync(player, hasLivingMonster);
 
@@ -509,6 +516,9 @@ internal sealed class CombatService
 
     public void ResetRuntime()
     {
+        if (Context.IsWorldReady && Game1.player is not null)
+            this.RemoveVitalityBonus(Game1.player);
+        this.ResetLastStandRuntime();
         this.Completion.ResetRuntime();
         this.ClearChain();
         this.ClearSoulEater();
@@ -517,6 +527,79 @@ internal sealed class CombatService
         this.HudToastText = "";
         this.HudToastCardId = "";
         this.HudToastExpiresAt = 0;
+    }
+
+    public void PrepareForGameSave()
+    {
+        if (Context.IsWorldReady && Game1.player is not null)
+            this.RemoveVitalityBonus(Game1.player);
+    }
+
+    private bool IsLastStandRuntimeActive
+        => this.Loadout.CardEffectsActive && this.Loadout.IsEquipped("last_stand") && Environment.TickCount64 < this.LastStandUntil;
+
+    private void SyncVitality(Farmer player)
+    {
+        int desired = this.Loadout.CardEffectsActive && this.Loadout.IsEquipped("vitality")
+            ? Math.Max(0, (int)Math.Round(this.GetStats("vitality").Primary))
+            : 0;
+        int delta = desired - this.VitalityAppliedBonus;
+        if (delta == 0)
+            return;
+        player.maxHealth = Math.Max(1, player.maxHealth + delta);
+        this.VitalityAppliedBonus = desired;
+        if (player.health > player.maxHealth)
+            player.health = player.maxHealth;
+    }
+
+    private void RemoveVitalityBonus(Farmer player)
+    {
+        if (this.VitalityAppliedBonus <= 0)
+            return;
+        player.maxHealth = Math.Max(1, player.maxHealth - this.VitalityAppliedBonus);
+        this.VitalityAppliedBonus = 0;
+        if (player.health > player.maxHealth)
+            player.health = player.maxHealth;
+    }
+
+    private void UpdateLastStandRuntime(Farmer player, bool hasLivingMonster, long now)
+    {
+        string location = Game1.currentLocation?.NameOrUniqueName ?? "";
+        if (!string.Equals(location, this.LastStandLocation, StringComparison.OrdinalIgnoreCase))
+        {
+            this.LastStandLocation = location;
+            this.LastStandSawMonsters = false;
+            this.LastStandReady = false;
+            this.LastStandUntil = 0;
+        }
+        if (!this.Loadout.IsEquipped("last_stand") || !hasLivingMonster)
+        {
+            this.LastStandSawMonsters = false;
+            this.LastStandReady = false;
+            this.LastStandUntil = 0;
+            return;
+        }
+        if (!this.LastStandSawMonsters)
+        {
+            this.LastStandSawMonsters = true;
+            this.LastStandReady = true;
+            this.LastStandUntil = 0;
+        }
+        CardLevelStats stats = this.GetStats("last_stand");
+        if (this.LastStandReady && IsLowHealth(player, Math.Max(0.01, stats.Threshold)))
+        {
+            this.LastStandReady = false;
+            this.LastStandUntil = now + Math.Max(500, stats.DurationMs);
+            Game1.playSound("yoba");
+        }
+    }
+
+    private void ResetLastStandRuntime()
+    {
+        this.LastStandUntil = 0;
+        this.LastStandLocation = "";
+        this.LastStandSawMonsters = false;
+        this.LastStandReady = false;
     }
 
     private CardLevelStats GetStats(string id)

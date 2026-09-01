@@ -2,7 +2,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 17;
+    public int SchemaVersion { get; set; } = 18;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -22,6 +22,11 @@ internal sealed class SaveData
     public int PremiumSinceLegendary { get; set; }
     // alpha.26.5 collection insurance: 20 duplicate pulls -> next eligible pull is NEW.
     public int DuplicatePullStreak { get; set; }
+
+    // alpha.28.0.4.14.2 card-runtime audit.
+    public long StandardPullIndex { get; set; }
+    public HashSet<string> BattleScholarMonsterTypesToday { get; set; } =
+        new(StringComparer.OrdinalIgnoreCase);
     public bool PhoenixHeartUsedToday { get; set; }
     public bool LifelineUsedToday { get; set; }
     public bool GuardianAngelUsedToday { get; set; }

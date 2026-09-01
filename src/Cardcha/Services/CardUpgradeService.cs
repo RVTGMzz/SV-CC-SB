@@ -96,6 +96,11 @@ internal sealed class CardUpgradeService
                 Primary = Pick(level, 1, 2, 3)
             },
 
+            "vitality" => new CardLevelStats
+            {
+                Primary = Pick(level, 10, 15, 20, 25, 30)
+            },
+
             "keen_eye" => new CardLevelStats
             {
                 Primary = Pick(level, 0.02, 0.025, 0.03, 0.035, 0.04)
@@ -134,7 +139,8 @@ internal sealed class CardUpgradeService
             {
                 Primary = Pick(level, 0.12, 0.16, 0.20),
                 Secondary = Pick(level, 3, 4, 5),
-                Threshold = 0.25
+                Threshold = 0.25,
+                DurationMs = 6000
             },
 
             "phoenix_heart" => new CardLevelStats
@@ -144,10 +150,10 @@ internal sealed class CardUpgradeService
 
             "soul_eater" => new CardLevelStats
             {
-                Primary = Pick(level, 0.08, 0.10, 0.12),
-                Secondary = Pick(level, 7, 5, 5),
-                DurationMs = PickInt(level, 5000, 6000, 7000),
-                Threshold = Pick(level, 0.08, 0.10, 0.12)
+                Primary = Pick(level, 0.10, 0.12, 0.15),
+                Secondary = Pick(level, 6, 5, 4),
+                DurationMs = 5000,
+                Threshold = Pick(level, 0.10, 0.12, 0.15)
             },
 
             _ => new CardLevelStats

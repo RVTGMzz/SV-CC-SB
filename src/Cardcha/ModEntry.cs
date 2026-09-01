@@ -135,6 +135,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
+        helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
@@ -205,7 +206,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.1 AIRSHIP UX HOTFIX TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.2 CARD RUNTIME AUDIT TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -295,9 +296,15 @@ internal sealed class ModEntry : Mod
 
     private void OnSaving(object? sender, SavingEventArgs e)
     {
+        this.Combat.PrepareForGameSave();
         // ChaCha is a runtime-only world actor; remove it before Stardew serializes locations.
         this.Story.OnSaving();
         this.Save.Save();
+    }
+
+    private void OnSaved(object? sender, SavedEventArgs e)
+    {
+        this.Combat.SyncPassiveBuffs();
     }
 
     private void OnDayStarted(object? sender, DayStartedEventArgs e)
@@ -913,7 +920,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.1 AIRSHIP UX HOTFIX TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.2 CARD RUNTIME AUDIT TEST",
             LogLevel.Alert
         );
     }

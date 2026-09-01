@@ -72,11 +72,9 @@ internal sealed class MonsterDeathService
         this.LastMonsterMaxHealth = Math.Max(1, maxHealth);
         this.LastDeathSource = sourceType;
 
-        this.Combat.OnEnemyKilled(who);
-        EnemyLootScale scale = DropService.ClassifyEnemy(
-            this.LastMonsterName,
-            sourceType
-        );
+        EnemyLootScale scale = DropService.ClassifyEnemy(this.LastMonsterName, sourceType);
+        string coreType = sourceType.Split(" [observer", StringSplitOptions.None)[0];
+        this.Combat.OnCustomEnemyKilled(who, coreType, scale == EnemyLootScale.BossLike);
 
         this.Drops.TryDrop(
             location,

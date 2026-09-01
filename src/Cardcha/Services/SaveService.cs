@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 17;
+    private const int CurrentSchemaVersion = 18;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -181,6 +181,16 @@ internal sealed class SaveService
             this.Data.AirshipReactorLevel = Math.Clamp(this.Data.AirshipReactorLevel, 0, 3);
         }
 
+        // v18: full active-card runtime audit.
+        if (loadedSchema < 18)
+        {
+            this.Data.StandardPullIndex = Math.Max(0, this.Data.StandardPullIndex);
+            this.Data.BattleScholarMonsterTypesToday = new HashSet<string>(
+                this.Data.BattleScholarMonsterTypesToday ?? new HashSet<string>(),
+                StringComparer.OrdinalIgnoreCase
+            );
+        }
+
         if (loadedSchema < CurrentSchemaVersion)
         {
             this.Data.SchemaVersion = CurrentSchemaVersion;
@@ -235,6 +245,7 @@ internal sealed class SaveService
         this.Data.PhoenixHeartUsedToday = false;
         this.Data.LifelineUsedToday = false;
         this.Data.GuardianAngelUsedToday = false;
+        this.Data.BattleScholarMonsterTypesToday.Clear();
     }
 
     public string DescribePersistence()
@@ -307,6 +318,10 @@ internal sealed class SaveService
             .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
             .Select(p => $"{p.Key}:{p.Value}"));
 
+        string battleScholarTypes = string.Join(",", (data.BattleScholarMonsterTypesToday ?? new HashSet<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+
         string canonical = string.Join(
             "|",
             CurrentSchemaVersion,
@@ -318,6 +333,7 @@ internal sealed class SaveService
             data.ActiveCardSlotCount,
             data.SuspiciousDust,
             data.PullIndex,
+            data.StandardPullIndex,
             data.GachaSeed,
             data.StandardSinceRare,
             data.StandardSinceEpic,
@@ -325,6 +341,7 @@ internal sealed class SaveService
             data.PremiumSinceEpic,
             data.PremiumSinceLegendary,
             data.DuplicatePullStreak,
+            battleScholarTypes,
             data.PhoenixHeartUsedToday ? 1 : 0,
             data.CardboardScraps,
             data.ShinyScraps,

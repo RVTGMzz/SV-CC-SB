@@ -99,3 +99,12 @@ IDs 77–80 (`endless_hunt`, `fate_weaver`, `immortal_echo`, `worldbreaker`) are
 ## Release rule
 
 Do not call the Base Set runtime-complete while any active **BUG** row remains. Do not invent a replacement effect for #20 Victory Charge until the Boss Energy system is either implemented or the card is explicitly redesigned.
+
+
+## `.4.14.2` remediation pass
+
+The `.4.14.2` finalizer fixes or aligns every unambiguous audit finding except **#20 Victory Charge**, which remains an explicit design blocker because the repository has no Boss Energy subsystem to attach it to.
+
+This pass adds a real Vitality max-HP runtime with save-safe removal/reapply; fixes same-target stacks, Reaper's Mark duration, Last Stand duration/encounter limit, Soul Siphon fractional lifesteal, Mirror Guard cooldown arming, Battle Scholar daily persistence, Void Walker phase semantics, Soul Eater values, Cardmaster Standard-pull counting/next-pull Rare+ nudge, Guardian Angel threshold semantics, Crushing Impact stagger where the Monster exposes a compatible stun timer, and observer-only custom-enemy Core kill progression. Ambiguous loot/heuristic card text is made exact instead of promising a broader mechanic than runtime provides.
+
+Victory Charge deliberately receives no secret substitute buff. In this TEST build its card text explicitly marks the missing Boss Energy dependency.

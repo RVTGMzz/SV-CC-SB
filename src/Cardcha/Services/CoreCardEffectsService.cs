@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using StardewValley;
 using StardewValley.Buffs;
 using StardewValley.Monsters;
+using System.Reflection;
 
 namespace Cardcha.Services;
 
@@ -21,7 +22,9 @@ internal sealed class CoreCardEffectsService
 
     private readonly HashSet<Monster> HitTargets = new();
     private readonly Dictionary<Monster, int> TargetHits = new();
-    private readonly HashSet<string> MonsterTypesToday = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<Monster, long> ReapersMarkUntil = new();
+    private Monster? ComboTarget;
+    private int ComboTargetHits;
 
     private long LastOutgoingHitAt;
     private long LastTakenHitAt;
@@ -68,6 +71,7 @@ internal sealed class CoreCardEffectsService
     private long CalmHeartNextHealAt;
     private long LifeStealWindowAt;
     private double LifeStealThisWindow;
+    private double LifeStealFractionalCarry;
 
     // alpha.26.5 completion telemetry for cards whose mechanics need a little context
     // around a hit instead of a flat percentage modifier. All of this is transient.
@@ -164,15 +168,15 @@ internal sealed class CoreCardEffectsService
             this.CounterforceReady = false;
         }
 
-        int priorHits = this.TargetHits.TryGetValue(monster, out int hitCount) ? hitCount : 0;
+        int priorComboHits = ReferenceEquals(this.ComboTarget, monster) ? this.ComboTargetHits : 0;
         if (this.Loadout.IsEquipped("armor_breaker"))
-            bonus += Math.Min(5, priorHits) * this.LevelValue("armor_breaker", .02, .025, .03, .035);
+            bonus += Math.Min(5, priorComboHits) * this.LevelValue("armor_breaker", .02, .025, .03, .035);
 
         if (this.Loadout.IsEquipped("relentless"))
         {
             int level = this.Level("relentless");
             int max = level switch { 1 => 5, 2 => 6, _ => 7 };
-            bonus += Math.Min(max, priorHits) * this.LevelValue("relentless", .02, .025, .03);
+            bonus += Math.Min(max, priorComboHits) * this.LevelValue("relentless", .02, .025, .03);
         }
 
         if (this.Loadout.IsEquipped("berserker_soul") && player.maxHealth > 0)
@@ -190,7 +194,9 @@ internal sealed class CoreCardEffectsService
             this.RhythmHitCount = 0;
         }
 
-        if (this.Loadout.IsEquipped("reapers_mark") && priorHits >= 4)
+        if (this.Loadout.IsEquipped("reapers_mark")
+            && this.ReapersMarkUntil.TryGetValue(monster, out long reaperUntil)
+            && now < reaperUntil)
             bonus += this.LevelValue("reapers_mark", .08, .10, .12);
 
         if (this.Loadout.IsEquipped("marked_prey"))
@@ -265,16 +271,8 @@ internal sealed class CoreCardEffectsService
             this.MirrorGuardReadyAt = now + this.LevelInt("mirror_guard", 12000, 10000, 8000);
         }
 
-        if (this.Loadout.IsEquipped("void_walker") && now >= this.VoidReadyAt)
-        {
-            double proc = this.LevelValue("void_walker", .15, .20, .25);
-            if (Game1.random.NextDouble() < proc)
-            {
-                multiplier *= 1d - this.LevelValue("void_walker", .40, .50, .60);
-                this.VoidPhaseUntil = now + this.LevelInt("void_walker", 1500, 1750, 2000);
-                this.VoidReadyAt = now + this.LevelInt("void_walker", 20000, 18000, 16000);
-            }
-        }
+        if (this.Loadout.IsEquipped("void_walker") && now < this.VoidPhaseUntil)
+            multiplier *= 1d - this.LevelValue("void_walker", .40, .50, .60);
 
         int modified = Math.Max(0, (int)Math.Ceiling(damage * multiplier));
 
@@ -291,18 +289,6 @@ internal sealed class CoreCardEffectsService
                 modified = cap;
                 this.UnyieldingReadyAt = now + this.LevelInt("unyielding", 20000, 18000, 16000);
             }
-        }
-
-        if (this.Loadout.IsEquipped("guardian_angel")
-            && !this.Save.Data.GuardianAngelUsedToday
-            && modified >= player.health)
-        {
-            modified = Math.Max(0, player.health - 1);
-            this.GuardianShield = Math.Max(this.GuardianShield,
-                Math.Max(1, (int)Math.Ceiling(player.maxHealth * this.LevelValue("guardian_angel", .25, .35, .45))));
-            this.Save.Data.GuardianAngelUsedToday = true;
-            this.Save.Save();
-            Game1.playSound("yoba");
         }
 
         return Math.Max(0, modified);
@@ -347,11 +333,26 @@ internal sealed class CoreCardEffectsService
             }
         }
 
+        if (critLike && this.Loadout.IsEquipped("crushing_impact"))
+            TryApplyMonsterStagger(monster, this.LevelInt("crushing_impact", 200, 250, 300, 350));
+
         this.PendingRawHitDamage = 0;
         this.PendingCritLikeHit = false;
 
         this.HitTargets.Add(monster);
-        this.TargetHits[monster] = Math.Min(1000, (this.TargetHits.TryGetValue(monster, out int hits) ? hits : 0) + 1);
+        int targetHits = Math.Min(1000, (this.TargetHits.TryGetValue(monster, out int hits) ? hits : 0) + 1);
+        this.TargetHits[monster] = targetHits;
+        if (this.Loadout.IsEquipped("reapers_mark") && targetHits >= 4)
+        {
+            this.ReapersMarkUntil[monster] = now + 6000;
+            this.TargetHits[monster] = 0;
+        }
+        if (!ReferenceEquals(this.ComboTarget, monster))
+        {
+            this.ComboTarget = monster;
+            this.ComboTargetHits = 0;
+        }
+        this.ComboTargetHits = Math.Min(1000, this.ComboTargetHits + 1);
         this.LastOutgoingHitAt = now;
 
         if (this.Loadout.IsEquipped("rhythm"))
@@ -378,17 +379,26 @@ internal sealed class CoreCardEffectsService
                 this.LifeStealWindowAt = now;
                 this.LifeStealThisWindow = 0;
             }
-
             double cap = this.LevelValue("soul_siphon", 3, 4, 5);
             double healFraction = this.LevelValue("soul_siphon", .010, .0125, .015);
             double room = Math.Max(0, cap - this.LifeStealThisWindow);
-            int heal = Math.Max(0, (int)Math.Floor(Math.Min(room, actual * healFraction)));
-            if (heal > 0)
+            if (room > 0)
             {
-                who.health = Math.Min(who.maxHealth, who.health + heal);
-                this.LifeStealThisWindow += heal;
+                double earned = this.LifeStealFractionalCarry + actual * healFraction;
+                int whole = Math.Max(0, (int)Math.Floor(earned));
+                int heal = Math.Min((int)Math.Floor(room), whole);
+                if (heal > 0)
+                {
+                    who.health = Math.Min(who.maxHealth, who.health + heal);
+                    this.LifeStealThisWindow += heal;
+                }
+                this.LifeStealFractionalCarry = whole > heal && this.LifeStealThisWindow >= cap
+                    ? 0
+                    : Math.Clamp(earned - whole, 0d, 0.999999d);
             }
         }
+        else if (!this.Loadout.IsEquipped("soul_siphon"))
+            this.LifeStealFractionalCarry = 0;
     }
 
     public void AfterFarmerTakesDamage(Farmer player, int healthBefore)
@@ -411,8 +421,35 @@ internal sealed class CoreCardEffectsService
         if (this.Loadout.IsEquipped("backstep"))
             this.BackstepUntil = now + this.LevelInt("backstep", 1000, 1100, 1200, 1300);
 
-        if (this.Loadout.IsEquipped("mirror_guard") && player.maxHealth > 0 && lost >= player.maxHealth * .25)
+        if (this.Loadout.IsEquipped("mirror_guard")
+            && now >= this.MirrorGuardReadyAt
+            && player.maxHealth > 0
+            && lost >= player.maxHealth * .25)
             this.MirrorGuardArmed = true;
+
+        if (this.Loadout.IsEquipped("guardian_angel")
+            && !this.Save.Data.GuardianAngelUsedToday
+            && player.health > 0
+            && player.maxHealth > 0
+            && player.health <= player.maxHealth * .20)
+        {
+            this.GuardianShield = Math.Max(this.GuardianShield,
+                Math.Max(1, (int)Math.Ceiling(player.maxHealth * this.LevelValue("guardian_angel", .25, .35, .45))));
+            this.Save.Data.GuardianAngelUsedToday = true;
+            this.Save.Save();
+            Game1.playSound("yoba");
+        }
+
+        if (this.Loadout.IsEquipped("void_walker") && now >= this.VoidReadyAt)
+        {
+            double proc = this.LevelValue("void_walker", .15, .20, .25);
+            if (Game1.random.NextDouble() < proc)
+            {
+                this.VoidPhaseUntil = now + this.LevelInt("void_walker", 1500, 1750, 2000);
+                this.VoidReadyAt = now + this.LevelInt("void_walker", 20000, 18000, 16000);
+                Game1.playSound("wand");
+            }
+        }
 
         if (this.Loadout.IsEquipped("lifeline")
             && !this.Save.Data.LifelineUsedToday
@@ -435,7 +472,32 @@ internal sealed class CoreCardEffectsService
 
         long now = Environment.TickCount64;
         string monsterType = monster.GetType().FullName ?? monster.GetType().Name;
-        this.MonsterTypesToday.Add(monsterType);
+        this.HandleKillProgress(monsterType, player, IsBossLike(monster), now);
+        this.HitTargets.Remove(monster);
+        this.TargetHits.Remove(monster);
+        this.ReapersMarkUntil.Remove(monster);
+        if (ReferenceEquals(this.ComboTarget, monster))
+        {
+            this.ComboTarget = null;
+            this.ComboTargetHits = 0;
+        }
+        if (ReferenceEquals(this.MarkedPreyTarget, monster))
+        {
+            this.MarkedPreyTarget = null;
+            this.MarkedPreyUntil = 0;
+        }
+    }
+
+    public void OnCustomMonsterKilled(string sourceType, Farmer player, bool bossLike)
+    {
+        if (!this.Loadout.CardEffectsActive)
+            return;
+        this.HandleKillProgress(string.IsNullOrWhiteSpace(sourceType) ? "custom-enemy" : sourceType, player, bossLike, Environment.TickCount64);
+    }
+
+    private void HandleKillProgress(string monsterType, Farmer player, bool bossLike, long now)
+    {
+        this.Save.Data.BattleScholarMonsterTypesToday.Add(monsterType);
 
         if (!this.TookHitSinceLastKill)
             this.NoHitKillStreak = Math.Min(20, this.NoHitKillStreak + 1);
@@ -491,20 +553,12 @@ internal sealed class CoreCardEffectsService
         else
             this.WarDrumStacks = 0;
 
-        if (IsBossLike(monster))
+        if (bossLike)
         {
             if (this.Loadout.IsEquipped("overclock"))
                 this.OverclockUntil = now + 5000;
             if (this.Loadout.IsEquipped("apex_predator"))
                 this.ApexPredatorBuffUntil = now + 6000;
-        }
-
-        this.HitTargets.Remove(monster);
-        this.TargetHits.Remove(monster);
-        if (ReferenceEquals(this.MarkedPreyTarget, monster))
-        {
-            this.MarkedPreyTarget = null;
-            this.MarkedPreyUntil = 0;
         }
     }
 
@@ -610,7 +664,7 @@ internal sealed class CoreCardEffectsService
             if (now - this.StationarySince >= required)
                 defense += bonus;
         }
-        if (this.Loadout.IsEquipped("battle_scholar") && this.MonsterTypesToday.Count >= 3 && this.Level("battle_scholar") >= 3)
+        if (this.Loadout.IsEquipped("battle_scholar") && this.Save.Data.BattleScholarMonsterTypesToday.Count >= 3 && this.Level("battle_scholar") >= 3)
             defense += 1;
 
         double weaponSpeed = 0;
@@ -630,7 +684,7 @@ internal sealed class CoreCardEffectsService
             weaponSpeed += this.LevelValue("time_breaker", .30, .35, .40);
         if (this.Loadout.IsEquipped("titans_grip"))
             weaponSpeed -= this.LevelValue("titans_grip", .10, .08, .06);
-        if (this.Loadout.IsEquipped("battle_scholar") && this.MonsterTypesToday.Count >= 3)
+        if (this.Loadout.IsEquipped("battle_scholar") && this.Save.Data.BattleScholarMonsterTypesToday.Count >= 3)
             weaponSpeed += this.LevelValue("battle_scholar", .02, .03, .04);
 
         double movePercent = 0;
@@ -657,7 +711,7 @@ internal sealed class CoreCardEffectsService
 
         // Battle Scholar's damage component is applied as AttackMultiplier so it also works
         // with unusual compatible weapon paths which don't call our Monster.takeDamage hook.
-        double attackMultiplier = this.Loadout.IsEquipped("battle_scholar") && this.MonsterTypesToday.Count >= 3
+        double attackMultiplier = this.Loadout.IsEquipped("battle_scholar") && this.Save.Data.BattleScholarMonsterTypesToday.Count >= 3
             ? this.LevelValue("battle_scholar", .03, .04, .05)
             : 0;
 
@@ -686,7 +740,9 @@ internal sealed class CoreCardEffectsService
     {
         this.HitTargets.Clear();
         this.TargetHits.Clear();
-        this.MonsterTypesToday.Clear();
+        this.ReapersMarkUntil.Clear();
+        this.ComboTarget = null;
+        this.ComboTargetHits = 0;
         this.LastOutgoingHitAt = 0;
         this.LastTakenHitAt = 0;
         this.CounterforceReady = false;
@@ -705,6 +761,7 @@ internal sealed class CoreCardEffectsService
         this.CalmHeartNextHealAt = 0;
         this.LifeStealWindowAt = 0;
         this.LifeStealThisWindow = 0;
+        this.LifeStealFractionalCarry = 0;
         this.SecondBreathReadyAt = 0;
         this.GuardStepUntil = 0;
         this.BackstepUntil = 0;
@@ -777,6 +834,32 @@ internal sealed class CoreCardEffectsService
         string name = string.IsNullOrWhiteSpace(monster.Name) ? monster.GetType().Name : monster.Name;
         string source = monster.GetType().FullName ?? monster.GetType().Name;
         return DropService.ClassifyEnemy(name, source, monster.modData?.Pairs) == EnemyLootScale.BossLike;
+    }
+
+    private static void TryApplyMonsterStagger(Monster monster, int durationMs)
+    {
+        if (durationMs <= 0)
+            return;
+        try
+        {
+            FieldInfo? field = typeof(Monster).GetField("stunTime", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+            if (field is null)
+                return;
+            object? current = field.GetValue(monster);
+            if (field.FieldType == typeof(int))
+            {
+                int existing = current is int value ? value : 0;
+                field.SetValue(monster, Math.Max(existing, durationMs));
+                return;
+            }
+            PropertyInfo? valueProperty = current?.GetType().GetProperty("Value");
+            if (valueProperty?.CanRead == true && valueProperty.CanWrite && valueProperty.PropertyType == typeof(int))
+            {
+                int existing = valueProperty.GetValue(current) is int value ? value : 0;
+                valueProperty.SetValue(current, Math.Max(existing, durationMs));
+            }
+        }
+        catch { }
     }
 
     private static void TryRemoveBuff(Farmer player, string id)
