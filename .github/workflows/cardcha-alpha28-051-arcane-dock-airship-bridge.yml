@@ -40,7 +40,6 @@ jobs:
           assert 'this.HandleRegion1DepartureRequest();' in airship
           assert 'DrawArcaneSigil' in airship
           assert 'DrawCrystalPylon' in airship
-          assert 'No miniature Airship' not in airship
           assert 'No miniature Airship is drawn inside this room anymore.' in airship
           assert 'if (!this.WarpToAirshipBridge() && !this.WarpToSkyDockInterior())' in airship
           assert 'The Arcane Gate is the normal gameplay entrance.' in airship
