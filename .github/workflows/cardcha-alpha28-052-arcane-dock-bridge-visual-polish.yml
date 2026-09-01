@@ -1,0 +1,129 @@
+name: Cardcha alpha28.0.4.13 Arcane Dock Bridge Visual Polish
+
+on:
+  push:
+    branches: [ cardcha-alpha28-052-arcane-dock-bridge-visual-polish ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28.0.4.13 visual polish finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_413_visual_polish.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.13'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          airship = (root/'Services/AirshipFoundationService.cs').read_text()
+          # Gameplay locks from .4.12.
+          assert 'private bool WarpToAirshipBridge()' in airship
+          assert 'this.HandleRegion1DepartureRequest();' in airship
+          assert 'if (!this.WarpToAirshipBridge() && !this.WarpToSkyDockInterior())' in airship
+          assert 'The Arcane Gate is the normal gameplay entrance.' in airship
+          # Visual polish signatures.
+          for token in ['DrawManaLane', 'DrawArcaneSparkles', 'DrawDiamondRune', 'DrawBridgeConsole', 'DrawCloudBand', 'DrawStarfield']:
+              assert token in airship, token
+          assert 'Panoramic bridge window with subtle moving sky.' in airship
+          assert 'No miniature Airship appears here.' in airship
+          interior = airship[airship.index('private void DrawSkyDockInteriorDetails'):airship.index('private void DrawRegion1Details')]
+          assert 'TryDrawAirshipSprite' not in interior
+
+          dock = (root/'assets/sky_dock_interior.tmx').read_text()
+          bridge = (root/'assets/airship_deck.tmx').read_text()
+          assert 'alpha.28.0.4.13' in dock
+          assert 'arcane-sanctum|violet-cyan-gold|runtime-pixel-polish' in dock
+          assert 'alpha.28.0.4.13' in bridge
+          assert 'panoramic-sky|arcane-navigation-dais|mana-lanes|upgrade-sockets' in bridge
+
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert 'Arcane Route Console' in en['airship.arcane.route_console']
+          assert 'Bàn Điều Tuyến Ma Pháp' in vi['airship.arcane.route_console']
+          assert en['item.dust.name'] == 'Magic Dust'
+          assert vi['item.dust.name'] == 'Bụi Ma Thuật'
+
+          icons = (root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320, 1024)
+          assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+          visual = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          print('alpha28.0.4.13 source acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize alpha28.0.4.13 changes back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/airship_deck.tmx
+          if git diff --cached --quiet; then
+            echo "No generated alpha28.0.4.13 diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.13 visual polish [skip ci]"
+            git push origin HEAD:cardcha-alpha28-052-arcane-dock-bridge-visual-polish
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'pending MiMi appointment temporarily bypassed Wizard Tower lock' src/Cardcha/Services/CardchaStoryService.cs
+          grep -q 'bool widthFits = lines.All' src/Cardcha/UI/CardchaUi.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          echo 'alpha28.0.4.13 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.13"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.13_ArcaneDock_BridgeVisualPolish_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-052-arcane-dock-bridge-visual-polish
+          path: artifact
+          if-no-files-found: error
