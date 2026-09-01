@@ -8,37 +8,24 @@ permissions:
   contents: write
 
 jobs:
-  sync-icons:
+  inspect-source-atlas:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Copy approved .4.10 atlas byte-for-byte
+      - name: Export candidate atlas without modifying it
         shell: bash
         run: |
           set -euo pipefail
-          expected="4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          mkdir -p artifact
           git fetch origin cardcha-alpha28-050-magical-girl-icons:refs/remotes/origin/cardcha-alpha28-050-magical-girl-icons
-          git show origin/cardcha-alpha28-050-magical-girl-icons:src/Cardcha/assets/card_icons.png > /tmp/card_icons.png
-          actual="$(sha256sum /tmp/card_icons.png | awk '{print $1}')"
-          echo "approved source atlas sha256=$actual"
-          test "$actual" = "$expected"
-          install -m 0644 /tmp/card_icons.png src/Cardcha/assets/card_icons.png
-          final="$(sha256sum src/Cardcha/assets/card_icons.png | awk '{print $1}')"
-          test "$final" = "$expected"
+          git show origin/cardcha-alpha28-050-magical-girl-icons:src/Cardcha/assets/card_icons.png > artifact/card_icons_candidate.png
+          sha256sum artifact/card_icons_candidate.png | tee artifact/SHA256.txt
 
-      - name: Commit exact binary atlas to current branch
-        shell: bash
-        run: |
-          set -euo pipefail
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/Cardcha/assets/card_icons.png
-          if git diff --cached --quiet; then
-            echo "Approved .4.10 atlas already byte-identical on this branch."
-          else
-            git commit -m "chore: sync approved .4.10 icon atlas byte-for-byte"
-            git push origin HEAD:cardcha-alpha28-050-magic-dust-ui-airship-fix
-          fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-050-candidate-icon-atlas
+          path: artifact
+          if-no-files-found: error
