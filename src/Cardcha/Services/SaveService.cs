@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 16;
+    private const int CurrentSchemaVersion = 17;
     private readonly IModHelper Helper;
 
     public SaveData Data { get; private set; } = new();
@@ -38,7 +38,12 @@ internal sealed class SaveService
 
         if (loadedSchema < 5)
         {
-            this.Data.ActiveCardSlotCount = Math.Clamp(this.Data.ActiveCardSlotCount <= 0 ? 2 : this.Data.ActiveCardSlotCount, 2, 5);
+            this.Data.AirshipEngineLevel = Math.Clamp(this.Data.AirshipEngineLevel, 0, 3);
+        this.Data.AirshipNavigationLevel = Math.Clamp(this.Data.AirshipNavigationLevel, 0, 3);
+        this.Data.AirshipHullLevel = Math.Clamp(this.Data.AirshipHullLevel, 0, 3);
+        this.Data.AirshipReactorLevel = Math.Clamp(this.Data.AirshipReactorLevel, 0, 3);
+
+        this.Data.ActiveCardSlotCount = Math.Clamp(this.Data.ActiveCardSlotCount <= 0 ? 2 : this.Data.ActiveCardSlotCount, 2, 5);
 
             foreach (string cardId in this.Data.OwnedCards)
             {
@@ -164,6 +169,16 @@ internal sealed class SaveService
         {
             this.Data.AirshipFlightsTaken = Math.Max(0, this.Data.AirshipFlightsTaken);
             this.Data.AirshipTotalFarePaid = Math.Max(0, this.Data.AirshipTotalFarePaid);
+        }
+
+        // v17: Airship infrastructure foundation. Existing saves begin with all four
+        // subsystems dormant at level 0 and retain their Magic Dust untouched.
+        if (loadedSchema < 17)
+        {
+            this.Data.AirshipEngineLevel = Math.Clamp(this.Data.AirshipEngineLevel, 0, 3);
+            this.Data.AirshipNavigationLevel = Math.Clamp(this.Data.AirshipNavigationLevel, 0, 3);
+            this.Data.AirshipHullLevel = Math.Clamp(this.Data.AirshipHullLevel, 0, 3);
+            this.Data.AirshipReactorLevel = Math.Clamp(this.Data.AirshipReactorLevel, 0, 3);
         }
 
         if (loadedSchema < CurrentSchemaVersion)
@@ -337,7 +352,11 @@ internal sealed class SaveService
             data.AirshipUnlockedDay,
             data.AirshipHighestRegionUnlocked,
             data.AirshipFlightsTaken,
-            data.AirshipTotalFarePaid
+            data.AirshipTotalFarePaid,
+            data.AirshipEngineLevel,
+            data.AirshipNavigationLevel,
+            data.AirshipHullLevel,
+            data.AirshipReactorLevel
         );
 
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes(canonical));

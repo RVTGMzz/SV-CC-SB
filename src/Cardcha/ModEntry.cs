@@ -124,7 +124,7 @@ internal sealed class ModEntry : Mod
             () => this.Mystery.OwnsMimiWorldActor
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
-        this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save);
+        this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -164,6 +164,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_unequip", "Unequip a prototype card by ID.", this.CommandUnequip);
         helper.ConsoleCommands.Add("cardcha_combat_status", "Show active Cardcha combat state.", this.CommandCombatStatus);
         helper.ConsoleCommands.Add("cardcha_give_scrap", "Give prototype Scrap: cardcha_give_scrap [normal|shiny] [amount]", this.CommandGiveScrap);
+        helper.ConsoleCommands.Add("cardcha_give_dust", "TEST ONLY: give Magic Dust for Airship upgrade testing: cardcha_give_dust [amount]", this.CommandGiveDust);
         helper.ConsoleCommands.Add("cardcha_give_machine", "Give the Cardcha! Machine prototype.", this.CommandGiveMachine);
         helper.ConsoleCommands.Add("cardcha_give_portable_machine", "Give the Portable Cardcha Machine for testing.", this.CommandGivePortableMachine);
         helper.ConsoleCommands.Add("cardcha_open_machine", "Open the Cardcha! Machine UI for testing.", this.CommandOpenMachine);
@@ -204,7 +205,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.13 ARCANE DOCK + BRIDGE VISUAL POLISH TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14 AIRSHIP UPGRADE FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -912,7 +913,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.11 MAGIC DUST + UI + AIRSHIP POLISH TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14 AIRSHIP UPGRADE FOUNDATION TEST",
             LogLevel.Alert
         );
     }
@@ -959,6 +960,19 @@ internal sealed class ModEntry : Mod
         this.Resources.Add(id, amount);
         string destination = this.Resources.IsBinderWalletActive ? "Binder wallet" : "backpack";
         this.Monitor.Log($"Added {amount} {(shiny ? "Shiny " : "")}Cardboard Scrap to the {destination}.", LogLevel.Info);
+    }
+
+    private void CommandGiveDust(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        int amount = args.Length >= 1 && int.TryParse(args[0], out int parsed)
+            ? Math.Clamp(parsed, 1, 9999)
+            : 50;
+        this.Save.Data.SuspiciousDust += amount;
+        this.Save.Save();
+        this.Monitor.Log($"Added {amount} Magic Dust for Airship upgrade TEST. Total={this.Save.Data.SuspiciousDust}.", LogLevel.Info);
     }
 
     private void CommandGiveMachine(string command, string[] args)

@@ -2,7 +2,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 16;
+    public int SchemaVersion { get; set; } = 17;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -66,6 +66,13 @@ internal sealed class SaveData
     public int AirshipHighestRegionUnlocked { get; set; }
     public int AirshipFlightsTaken { get; set; }
     public int AirshipTotalFarePaid { get; set; }
+
+    // alpha.28.0.4.14: persistent Airship infrastructure levels. Gameplay bonuses are not
+    // attached yet; this foundation validates Magic Dust economy, UI and persistence first.
+    public int AirshipEngineLevel { get; set; }
+    public int AirshipNavigationLevel { get; set; }
+    public int AirshipHullLevel { get; set; }
+    public int AirshipReactorLevel { get; set; }
 
     public string LastStateFingerprint { get; set; } = "";
 }

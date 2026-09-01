@@ -1,3 +1,4 @@
+using Cardcha.UI;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
@@ -52,6 +53,7 @@ internal sealed class AirshipFoundationService
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
     private readonly SaveService Save;
+    private readonly ControllerProfileService Controller;
 
     private bool FlybyActive;
     private long FlybyStartedAtMs;
@@ -77,11 +79,12 @@ internal sealed class AirshipFoundationService
     private bool AirshipVisualLoadFailed;
     private bool LoggedAirshipVisualFailure;
 
-    public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save)
+    public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
         this.Helper = helper;
         this.Monitor = monitor;
         this.Save = save;
+        this.Controller = controller;
     }
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
@@ -297,6 +300,17 @@ internal sealed class AirshipFoundationService
             return;
         }
 
+        foreach ((AirshipUpgradeSystem system, Point tile) in ResolveDeckUpgradeSockets())
+        {
+            if (!Touches(action, tile) && !PlayerIsNear(tile))
+                continue;
+
+            this.Helper.Input.Suppress(e.Button);
+            Game1.playSound("smallSelect");
+            Game1.activeClickableMenu = new AirshipUpgradeMenu(this.Save, this.Controller, system);
+            return;
+        }
+
         if (!Touches(action, exit) && !PlayerIsNear(exit))
             return;
 
@@ -369,7 +383,7 @@ internal sealed class AirshipFoundationService
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
                $"DeckExists={deckExists} | InteriorExists={interiorExists} | Region1Exists={region1Exists} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
-               $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | CollisionEdits=NONE";
+               $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | Upgrades=Engine:{this.Save.Data.AirshipEngineLevel}/3,Navigation:{this.Save.Data.AirshipNavigationLevel}/3,Hull:{this.Save.Data.AirshipHullLevel}/3,Reactor:{this.Save.Data.AirshipReactorLevel}/3 | CollisionEdits=NONE";
     }
 
     private void MigrateUnlockFromExistingStory()
@@ -999,6 +1013,25 @@ internal sealed class AirshipFoundationService
         return new Point(width / 2, 2);
     }
 
+    private static (AirshipUpgradeSystem System, Point Tile)[] ResolveDeckUpgradeSockets()
+        => new[]
+        {
+            (AirshipUpgradeSystem.Engine, new Point(5, 9)),
+            (AirshipUpgradeSystem.Navigation, new Point(18, 9)),
+            (AirshipUpgradeSystem.Hull, new Point(8, 10)),
+            (AirshipUpgradeSystem.Reactor, new Point(15, 10)),
+        };
+
+    private int GetAirshipUpgradeLevel(AirshipUpgradeSystem system)
+        => system switch
+        {
+            AirshipUpgradeSystem.Engine => this.Save.Data.AirshipEngineLevel,
+            AirshipUpgradeSystem.Navigation => this.Save.Data.AirshipNavigationLevel,
+            AirshipUpgradeSystem.Hull => this.Save.Data.AirshipHullLevel,
+            AirshipUpgradeSystem.Reactor => this.Save.Data.AirshipReactorLevel,
+            _ => 0,
+        };
+
     private static Point ResolveDeckArrivalTile(GameLocation deck)
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
@@ -1591,18 +1624,54 @@ internal sealed class AirshipFoundationService
         DrawBridgeConsole(batch, leftConsole, violet, cyan, gold, phase);
         DrawBridgeConsole(batch, rightConsole, cyan, violet, gold, -phase);
 
-        // Dormant upgrade sockets now look like actual ship infrastructure rather than debug marks.
-        Point[] sockets = { new(5, 9), new(18, 9), new(8, 10), new(15, 10) };
-        foreach (Point socket in sockets)
+        // Four real infrastructure sockets. Their persistent level now changes the Bridge visual immediately.
+        foreach ((AirshipUpgradeSystem system, Point socket) in ResolveDeckUpgradeSockets())
         {
             Vector2 s = Game1.GlobalToLocal(Game1.viewport, new Vector2(socket.X * 64f + 32f, socket.Y * 64f + 38f));
-            DrawArcaneSigil(batch, s, 28f, new Color(116, 101, 148) * 0.46f, phase * 0.24f);
-            DrawCrystalPylon(batch, new Vector2(s.X, s.Y + 18f), 24f, new Color(110, 98, 145) * 0.62f, gold * 0.38f);
+            DrawUpgradeSocket(batch, s, system, this.GetAirshipUpgradeLevel(system), phase, gold);
         }
 
         DrawArcaneSigil(batch, exitCenter, 30f, cyan * 0.52f, -phase * 0.42f);
         DrawWorldMarker(batch, helm, gold * 0.76f);
         DrawWorldMarker(batch, exit, cyan * 0.66f);
+    }
+
+    private static void DrawUpgradeSocket(
+        SpriteBatch batch,
+        Vector2 center,
+        AirshipUpgradeSystem system,
+        int level,
+        float phase,
+        Color gold)
+    {
+        level = Math.Clamp(level, 0, AirshipUpgradeMenu.MaxLevel);
+        Color systemColor = system switch
+        {
+            AirshipUpgradeSystem.Engine => new Color(247, 179, 82),
+            AirshipUpgradeSystem.Navigation => new Color(92, 207, 232),
+            AirshipUpgradeSystem.Hull => new Color(127, 151, 220),
+            AirshipUpgradeSystem.Reactor => new Color(205, 113, 232),
+            _ => new Color(180, 160, 200),
+        };
+        float active = level <= 0 ? 0.28f : 0.48f + level * 0.13f;
+        DrawArcaneSigil(batch, center, 28f + level * 3f, systemColor * active, phase * (0.22f + level * 0.09f));
+        DrawCrystalPylon(
+            batch,
+            new Vector2(center.X, center.Y + 18f),
+            24f + level * 5f,
+            systemColor * (0.54f + level * 0.12f),
+            gold * (0.34f + level * 0.14f)
+        );
+        for (int pip = 0; pip < AirshipUpgradeMenu.MaxLevel; pip++)
+        {
+            int x = (int)center.X - 18 + pip * 18;
+            Color pipColor = pip < level ? systemColor * 0.92f : new Color(93, 82, 112) * 0.52f;
+            DrawRect(batch, new Rectangle(x, (int)center.Y + 26, 9, 5), pipColor);
+        }
+        if (level >= 2)
+            DrawDiamondRune(batch, new Vector2(center.X, center.Y - 28f - level * 3f), 8f + level * 2f, systemColor * 0.68f);
+        if (level >= 3)
+            DrawArcaneSparkles(batch, center, 44f, 6, phase * 1.4f, Color.White * 0.48f);
     }
 
     private static void DrawArcaneSigil(SpriteBatch batch, Vector2 center, float radius, Color color, float phase)
