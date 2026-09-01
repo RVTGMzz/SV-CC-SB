@@ -4,6 +4,17 @@ Baseline: alpha28.0.4.13 visual polish PASS.
 Branch: `cardcha-alpha28-053-airship-upgrade-foundation`
 Final successful Actions run: `33498632897`
 
+## Chat transfer note — 2026-09-01
+The user is moving to a new ChatGPT conversation because the current chat is near its limit.
+
+For complete context from `.4.11` through `.4.14`, binary locks, user-test status, build lessons, and exact next steps, read FIRST:
+`handoff/CURRENT_CHAT_HANDOFF_ALPHA28_053_2026-09-01.md`
+
+Quick pointer also exists at:
+`handoff/LATEST_CARDCHA_HANDOFF.md`
+
+Important acceptance state at transfer: `.4.14` is CI/build/package PASS but has NOT yet received the user's first in-game acceptance test. Do not assume the upgrade interaction/persistence is user-approved until the next chat receives the test result.
+
 ## Implemented
 - New dedicated `AirshipUpgradeMenu` UI.
 - Four interactive Airship Bridge infrastructure sockets:
