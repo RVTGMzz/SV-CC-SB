@@ -1,0 +1,149 @@
+name: Cardcha alpha28.0.4.14 Airship Upgrade Foundation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-053-airship-upgrade-foundation ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply alpha28.0.4.14 Airship upgrade finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_414_airship_upgrades.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          save_data = (root/'Models/SaveData.cs').read_text()
+          save_service = (root/'Services/SaveService.cs').read_text()
+          assert 'SchemaVersion { get; set; } = 17' in save_data
+          for field in ['AirshipEngineLevel', 'AirshipNavigationLevel', 'AirshipHullLevel', 'AirshipReactorLevel']:
+              assert field in save_data
+              assert f'data.{field}' in save_service
+          assert 'CurrentSchemaVersion = 17' in save_service
+          assert 'if (loadedSchema < 17)' in save_service
+
+          menu = (root/'UI/AirshipUpgradeMenu.cs').read_text()
+          assert 'internal const int MaxLevel = 3' in menu
+          assert '0 => 5' in menu and '1 => 10' in menu and '2 => 20' in menu
+          assert 'this.Save.Data.SuspiciousDust -= cost;' in menu
+          assert 'this.Save.Save();' in menu
+          assert 'AirshipEngineLevel' in menu and 'AirshipReactorLevel' in menu
+
+          airship = (root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'new AirshipUpgradeMenu(this.Save, this.Controller, system)' in airship
+          assert 'ResolveDeckUpgradeSockets()' in airship
+          assert 'DrawUpgradeSocket' in airship
+          assert 'this.HandleRegion1DepartureRequest();' in airship
+          assert 'if (!this.WarpToAirshipBridge() && !this.WarpToSkyDockInterior())' in airship
+          assert 'CollisionEdits=NONE' in airship
+
+          entry = (root/'ModEntry.cs').read_text()
+          assert 'cardcha_give_dust' in entry
+          assert 'new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller)' in entry
+
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert en['item.dust.name'] == 'Magic Dust'
+          assert vi['item.dust.name'] == 'Bụi Ma Thuật'
+          assert en['airship.upgrade.title'] == 'Airship Infrastructure'
+          assert vi['airship.upgrade.title'] == 'Hạ Tầng Tàu Bay'
+          assert 'TEST COSTS' in en['airship.upgrade.test_notice']
+          assert 'GIÁ TEST' in vi['airship.upgrade.test_notice']
+
+          dock = (root/'assets/sky_dock_interior.tmx').read_text()
+          bridge = (root/'assets/airship_deck.tmx').read_text()
+          assert 'alpha.28.0.4.14' in dock
+          assert 'alpha.28.0.4.14' in bridge
+          assert 'interactive-upgrade-sockets|magic-dust-infrastructure' in bridge
+
+          icons = (root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320, 1024)
+          assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+          visual = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          print('alpha28.0.4.14 source acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize alpha28.0.4.14 changes back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Models/SaveData.cs \
+            src/Cardcha/Services/SaveService.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/airship_deck.tmx
+          if git diff --cached --quiet; then
+            echo "No generated alpha28.0.4.14 diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14 Airship upgrades [skip ci]"
+            git push origin HEAD:cardcha-alpha28-053-airship-upgrade-foundation
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'pending MiMi appointment temporarily bypassed Wizard Tower lock' src/Cardcha/Services/CardchaStoryService.cs
+          grep -q 'bool widthFits = lines.All' src/Cardcha/UI/CardchaUi.cs
+          grep -q 'private bool WarpToAirshipBridge()' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'Region1Fare = 100' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'Region1GateCardRequirement = 20' src/Cardcha/Services/AirshipFoundationService.cs
+          echo 'alpha28.0.4.14 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14_AirshipUpgradeFoundation_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-053-airship-upgrade-foundation
+          path: artifact
+          if-no-files-found: error
