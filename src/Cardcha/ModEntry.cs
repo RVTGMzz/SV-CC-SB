@@ -277,7 +277,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.4 CHACHA SUPPORT CAST RUNTIME TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.5 AIRSHIP VISUAL POLISH TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -1162,7 +1162,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.4.4 CHACHA SUPPORT CAST RUNTIME TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.4.5 CHACHA SUPPORT CAST RUNTIME TEST",
             LogLevel.Alert
         );
     }
