@@ -54,6 +54,8 @@ internal sealed class CombatService
     private long PhoenixHeartProcs;
     private int LastDamageBefore;
     private int LastDamageAfter;
+    internal int DebugThickHideDefense { get; private set; }
+    internal double DebugSwiftFeetSpeed { get; private set; }
     private float LastCritBefore;
     private float LastCritAfter;
 
@@ -126,6 +128,15 @@ internal sealed class CombatService
     public int CurrentSoulEaterKills => Math.Max(0, this.SoulEaterKills);
 
     public int CurrentNoHitKillStreak => this.Completion.CurrentNoHitKillStreak;
+    internal int DebugVitalityAppliedBonus => this.VitalityAppliedBonus;
+    internal CoreCardEffectsService DebugCompletion => this.Completion;
+
+    internal CardPassiveDebugSnapshot DebugSyncCompletion(bool hasLivingMonster)
+    {
+        if (Context.IsWorldReady && Game1.player is not null)
+            this.Completion.Sync(Game1.player, hasLivingMonster);
+        return this.Completion.DebugPassiveSnapshot;
+    }
 
     public int CurrentSoulEaterKillTarget
     {
@@ -415,6 +426,8 @@ internal sealed class CombatService
             TryRemoveBuff(player, SwiftFeetBuffId);
             TryRemoveBuff(player, LastStandBuffId);
             this.SwiftFeetExpiresAt = 0;
+            this.DebugThickHideDefense = 0;
+            this.DebugSwiftFeetSpeed = 0;
             this.BloodFangReadyAt = 0;
             this.ClearChain();
             this.ClearSoulEater();
@@ -426,8 +439,11 @@ internal sealed class CombatService
         }
 
         CardLevelStats thickHide = this.GetStats("thick_hide");
-        if (this.Loadout.IsEquipped("thick_hide"))
-            ApplyHiddenBuff(player, ThickHideBuffId, defense: Math.Max(0, (int)Math.Round(thickHide.Primary)), speed: 0);
+        this.DebugThickHideDefense = this.Loadout.IsEquipped("thick_hide")
+            ? Math.Max(0, (int)Math.Round(thickHide.Primary))
+            : 0;
+        if (this.DebugThickHideDefense > 0)
+            ApplyHiddenBuff(player, ThickHideBuffId, defense: this.DebugThickHideDefense, speed: 0);
         else
             TryRemoveBuff(player, ThickHideBuffId);
 
@@ -448,8 +464,9 @@ internal sealed class CombatService
             this.Loadout.IsEquipped("swift_feet")
             && (hasLivingMonster || (swift.DurationMs > 0 && now < this.SwiftFeetExpiresAt));
 
+        this.DebugSwiftFeetSpeed = swiftActive ? Math.Max(0, swift.Primary) : 0d;
         if (swiftActive)
-            ApplyHiddenBuff(player, SwiftFeetBuffId, defense: 0, speed: Math.Max(0, swift.Primary));
+            ApplyHiddenBuff(player, SwiftFeetBuffId, defense: 0, speed: this.DebugSwiftFeetSpeed);
         else
             TryRemoveBuff(player, SwiftFeetBuffId);
 
@@ -524,6 +541,8 @@ internal sealed class CombatService
         this.ClearSoulEater();
         this.BloodFangReadyAt = 0;
         this.SwiftFeetExpiresAt = 0;
+        this.DebugThickHideDefense = 0;
+        this.DebugSwiftFeetSpeed = 0;
         this.HudToastText = "";
         this.HudToastCardId = "";
         this.HudToastExpiresAt = 0;

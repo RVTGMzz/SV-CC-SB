@@ -45,6 +45,7 @@ internal sealed class ModEntry : Mod
     private CardTestLabService CardLab = null!;
     private CardTestArenaService CardArena = null!;
     private CardTestLabOverlayService CardLabOverlay = null!;
+    private CardAutoScenarioRunnerService CardAutoRunner = null!;
 
     public override void Entry(IModHelper helper)
     {
@@ -131,6 +132,9 @@ internal sealed class ModEntry : Mod
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
+        this.CardAutoRunner = new CardAutoScenarioRunnerService(
+            this.Monitor, this.Config, this.Cards, this.Save, this.Upgrades, this.Combat, this.Drops, this.Gacha
+        );
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -204,6 +208,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
         helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
+        helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -221,7 +226,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.6 CARD TEST ARENA TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.7 CARD AUTO SCENARIO TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -957,7 +962,7 @@ internal sealed class ModEntry : Mod
     {
         if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
             return;
-        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena);
+        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena, this.CardAutoRunner);
     }
 
     private void EndCardTestLabSession()
@@ -976,10 +981,25 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log("Card Test Lab stopped. Arena exited and the real loadout was restored.", LogLevel.Alert);
     }
 
+    private void CommandCardAutoRun(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save before running Card Auto Scenario Runner.", LogLevel.Warn);
+            return;
+        }
+
+        CardScenarioCounts counts = this.CardAutoRunner.RunAll();
+        this.Monitor.Log(
+            $"===== CARD AUTO SCENARIO RUNNER =====\nPASS {counts.Pass} | FAIL {counts.Fail} | BLOCKED {counts.Blocked} | ERROR {counts.Error} | NOT RUN {counts.NotRun}",
+            counts.Fail > 0 || counts.Error > 0 ? LogLevel.Warn : LogLevel.Alert
+        );
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.3.6 CARD TEST ARENA TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.3.7 CARD AUTO SCENARIO TEST",
             LogLevel.Alert
         );
     }

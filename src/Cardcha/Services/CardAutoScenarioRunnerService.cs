@@ -737,7 +737,7 @@ internal sealed class CardAutoScenarioRunnerService
         int expectedX = (int)Math.Round(100d * (1d + knock));
         int expectedStun = AtInt(level, 200, 250, 300, 350);
         int actualStun = ReadWrappedIntField(monster, "stunTime");
-        bool stunSupported = actualStun < 0 || actualStun >= expectedStun;
+        bool stunSupported = actualStun >= expectedStun;
         return x == expectedX && stunSupported
             ? LevelScenarioCheck.Ok($"crit-like trajectory 100->{x}, stagger {actualStun}ms")
             : LevelScenarioCheck.Fail($"trajectory/stun {x}/{actualStun}, expected {expectedX}/≥{expectedStun}");

@@ -18,6 +18,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
     private readonly CardTestLabService Lab;
     private readonly CardRenderer Renderer;
     private readonly CardTestArenaService Arena;
+    private readonly CardAutoScenarioRunnerService AutoRunner;
     private readonly IReadOnlyList<CardDefinition> Cards;
 
     private const int PreferredWidth = 1776;
@@ -45,8 +46,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
     private Rectangle ReturnRect;
     private Rectangle EndLabRect;
     private Rectangle CloseRect;
+    private Rectangle AutoRunRect;
 
-    public CardTestLabMenu(CardTestLabService lab, CardRenderer renderer, CardTestArenaService arena)
+    public CardTestLabMenu(CardTestLabService lab, CardRenderer renderer, CardTestArenaService arena, CardAutoScenarioRunnerService autoRunner)
         : base(
             x: Math.Max(12, (Game1.uiViewport.Width - Math.Min(PreferredWidth, Game1.uiViewport.Width - 24)) / 2),
             y: Math.Max(12, (Game1.uiViewport.Height - Math.Min(PreferredHeight, Game1.uiViewport.Height - 24)) / 2),
@@ -57,6 +59,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         this.Lab = lab;
         this.Renderer = renderer;
         this.Arena = arena;
+        this.AutoRunner = autoRunner;
         this.Cards = lab.ActiveCards;
         this.Lab.BeginSession();
 
@@ -130,6 +133,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
             case Keys.T:
                 this.EnterArenaAndPlay();
                 return;
+            case Keys.F5:
+                this.RunAutoScenarios();
+                return;
             case Keys.F7:
                 this.Arena.ResetDummy(1.0);
                 return;
@@ -194,6 +200,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
             case Buttons.RightStick:
                 this.Arena.ResetDummy(0.19);
                 return;
+            case Buttons.LeftStick:
+                this.RunAutoScenarios();
+                return;
             case Buttons.Start:
                 this.EndLabAndRestore();
                 return;
@@ -207,7 +216,8 @@ internal sealed class CardTestLabMenu : IClickableMenu
         if (this.TrySelectCardRowAt(x, y))
             return;
 
-        if (this.PrevRect.Contains(x, y)) this.MoveSelection(-1, force: true);
+        if (this.AutoRunRect.Contains(x, y)) this.RunAutoScenarios();
+        else if (this.PrevRect.Contains(x, y)) this.MoveSelection(-1, force: true);
         else if (this.NextRect.Contains(x, y)) this.MoveSelection(1, force: true);
         else if (this.LevelDownRect.Contains(x, y)) this.ChangeLevel(-1);
         else if (this.LevelUpRect.Contains(x, y)) this.ChangeLevel(1);
@@ -286,12 +296,18 @@ internal sealed class CardTestLabMenu : IClickableMenu
         float autoProgressScale = Math.Min(0.88f, (outer.Width - 80f) / Math.Max(1f, autoProgressSize.X));
         b.DrawString(Game1.smallFont, autoProgress, new Vector2(outer.Center.X - autoProgressSize.X * autoProgressScale / 2f, outer.Y + 86), new Color(145, 214, 255), 0f, Vector2.Zero, autoProgressScale, SpriteEffects.None, 1f);
 
-        string guide = "↑↓ CHỌN LÁ   •   ←→ LEVEL   •   A EQUIP   •   X BASELINE   •   RT ARENA   •   B THU NHỎ   •   F8 / R-STICK MỞ LẠI";
+        CardScenarioCounts scenarioCounts = this.AutoRunner.Counts();
+        string scenarioProgress = $"AUTO SCENARIO: {scenarioCounts.Pass} PASS   {scenarioCounts.Fail} FAIL   {scenarioCounts.Blocked} BLOCKED   {scenarioCounts.Error} ERROR   {scenarioCounts.NotRun} NOT RUN";
+        Vector2 scenarioSize = Game1.smallFont.MeasureString(scenarioProgress);
+        float scenarioScale = Math.Min(0.88f, (outer.Width - 420f) / Math.Max(1f, scenarioSize.X));
+        b.DrawString(Game1.smallFont, scenarioProgress, new Vector2(outer.Center.X - scenarioSize.X * scenarioScale / 2f, outer.Y + 114), new Color(137, 236, 169), 0f, Vector2.Zero, scenarioScale, SpriteEffects.None, 1f);
+
+        string guide = "↑↓ CHỌN LÁ   •   ←→ LEVEL   •   L3/F5 AUTO RUN ALL   •   A EQUIP   •   RT ARENA   •   B THU NHỎ";
         Vector2 guideSize = Game1.smallFont.MeasureString(guide);
         float guideScale = Math.Min(0.86f, (outer.Width - 80f) / Math.Max(1f, guideSize.X));
-        b.DrawString(Game1.smallFont, guide, new Vector2(outer.Center.X - guideSize.X * guideScale / 2f, outer.Y + 116), new Color(255, 218, 116), 0f, Vector2.Zero, guideScale, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, guide, new Vector2(outer.Center.X - guideSize.X * guideScale / 2f, outer.Y + 142), new Color(255, 218, 116), 0f, Vector2.Zero, guideScale, SpriteEffects.None, 1f);
 
-        int contentTop = outer.Y + 158;
+        int contentTop = outer.Y + 184;
         int controlsHeight = 144;
         int panelHeight = outer.Bottom - controlsHeight - contentTop;
         int listWidth = Math.Min(546, Math.Max(396, outer.Width / 3));
@@ -326,17 +342,21 @@ internal sealed class CardTestLabMenu : IClickableMenu
                 CardchaUi.DrawBorder(b, r, new Color(210, 178, 255), 2);
             }
 
-            CardLabVerdict verdict = this.Lab.GetVerdict(card);
-            string marker = verdict switch
+            CardAutoScenarioResult scenario = this.AutoRunner.Get(card);
+            string marker = scenario.Status switch
             {
-                CardLabVerdict.Pass => "PASS",
-                CardLabVerdict.Fail => "FAIL",
+                CardAutoScenarioStatus.Pass => "AUTO",
+                CardAutoScenarioStatus.Fail => "FAIL",
+                CardAutoScenarioStatus.Blocked => "BLK",
+                CardAutoScenarioStatus.Error => "ERR",
                 _ => " • "
             };
-            Color markerColor = verdict switch
+            Color markerColor = scenario.Status switch
             {
-                CardLabVerdict.Pass => new Color(122, 221, 153),
-                CardLabVerdict.Fail => new Color(240, 118, 130),
+                CardAutoScenarioStatus.Pass => new Color(122, 221, 153),
+                CardAutoScenarioStatus.Fail => new Color(240, 118, 130),
+                CardAutoScenarioStatus.Blocked => new Color(255, 199, 96),
+                CardAutoScenarioStatus.Error => new Color(245, 116, 190),
                 _ => new Color(172, 164, 191)
             };
 
@@ -351,6 +371,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         CardDefinition card = this.Selected;
         CardLabVerdict verdict = this.Lab.GetVerdict(card);
         CardAutoAuditEntry autoAudit = GeneratedCardAutoAudit.Get(card);
+        CardAutoScenarioResult scenario = this.AutoRunner.Get(card);
 
         Rectangle icon = new(panel.X + 20, panel.Y + 20, 128, 128);
         this.Renderer.DrawIcon(b, icon, card);
@@ -389,6 +410,16 @@ internal sealed class CardTestLabMenu : IClickableMenu
         Color runColor = selectedEquipped ? new Color(122, 221, 153) : new Color(145, 214, 255);
         b.DrawString(Game1.smallFont, runState, new Vector2(nameX, panel.Y + 166), runColor, 0f, Vector2.Zero, 0.90f, SpriteEffects.None, 1f);
 
+        Color scenarioColor = scenario.Status switch
+        {
+            CardAutoScenarioStatus.Pass => new Color(122, 221, 153),
+            CardAutoScenarioStatus.Fail => new Color(240, 118, 130),
+            CardAutoScenarioStatus.Blocked => new Color(255, 199, 96),
+            CardAutoScenarioStatus.Error => new Color(245, 116, 190),
+            _ => new Color(190, 183, 206)
+        };
+        b.DrawString(Game1.smallFont, $"AUTO SCENARIO: {scenario.Status.ToString().ToUpperInvariant()} • {scenario.PassedLevels}/{scenario.TotalLevels} levels", new Vector2(nameX, panel.Y + 190), scenarioColor, 0f, Vector2.Zero, 0.88f, SpriteEffects.None, 1f);
+
         string verdictText = verdict == CardLabVerdict.Untested ? "MANUAL: UNTESTED" : $"MANUAL: {verdict.ToString().ToUpperInvariant()}";
         Color verdictColor = verdict switch
         {
@@ -398,16 +429,17 @@ internal sealed class CardTestLabMenu : IClickableMenu
         };
         b.DrawString(Game1.smallFont, verdictText, new Vector2(panel.Right - 190, panel.Y + 110), verdictColor, 0f, Vector2.Zero, 0.88f, SpriteEffects.None, 1f);
 
-        b.DrawString(Game1.smallFont, "SELECTED LEVEL EFFECT", new Vector2(panel.X + 20, panel.Y + 204), new Color(255, 218, 116), 0f, Vector2.Zero, 1.0f, SpriteEffects.None, 1f);
-        Rectangle descriptionArea = new(panel.X + 20, panel.Y + 238, panel.Width - 40, 76);
+        DrawClippedText(b, Game1.smallFont, scenario.Summary, new Rectangle(panel.X + 20, panel.Y + 218, panel.Width - 40, 30), scenarioColor, 0.88f);
+        b.DrawString(Game1.smallFont, "SELECTED LEVEL EFFECT", new Vector2(panel.X + 20, panel.Y + 250), new Color(255, 218, 116), 0f, Vector2.Zero, 1.0f, SpriteEffects.None, 1f);
+        Rectangle descriptionArea = new(panel.X + 20, panel.Y + 282, panel.Width - 40, 70);
         DrawWrapped(b, Game1.smallFont, GetSelectedLevelText(card, this.RequestedLevel), descriptionArea, new Color(241, 234, 220), 1.0f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 324), new Color(255, 218, 116), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
-        Rectangle instructionArea = new(panel.X + 20, panel.Y + 358, panel.Width - 40, 78);
+        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 360), new Color(255, 218, 116), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
+        Rectangle instructionArea = new(panel.X + 20, panel.Y + 394, panel.Width - 40, 70);
         DrawWrapped(b, Game1.smallFont, this.Lab.BuildInstruction(card), instructionArea, Color.White, 0.94f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 446), new Color(145, 214, 255), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
-        Rectangle telemetryArea = new(panel.X + 20, panel.Y + 482, panel.Width - 40, Math.Max(70, panel.Bottom - (panel.Y + 494)));
+        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 472), new Color(145, 214, 255), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
+        Rectangle telemetryArea = new(panel.X + 20, panel.Y + 508, panel.Width - 40, Math.Max(70, panel.Bottom - (panel.Y + 520)));
         DrawWrapped(b, Game1.smallFont, this.Lab.BuildTelemetry(card), telemetryArea, new Color(215, 230, 239), 0.90f, maxLines: 12);
     }
 
@@ -431,6 +463,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         DrawButton(b, this.ReturnRect, "MINIMIZE [B/Q]", new Color(74, 79, 105));
         DrawButton(b, this.EndLabRect, "END LAB / RESTORE [START]", new Color(120, 75, 82));
         DrawButton(b, this.CloseRect, "RETURN [B/Q]", new Color(68, 64, 79));
+        DrawButton(b, this.AutoRunRect, "AUTO RUN ALL [L3/F5]", new Color(52, 142, 99));
     }
 
     private static void DrawButton(SpriteBatch b, Rectangle rect, string text, Color fill)
@@ -439,6 +472,13 @@ internal sealed class CardTestLabMenu : IClickableMenu
         Vector2 size = Game1.smallFont.MeasureString(text);
         float scale = Math.Min(0.96f, (rect.Width - 12f) / Math.Max(1f, size.X));
         b.DrawString(Game1.smallFont, text, new Vector2(rect.Center.X - size.X * scale / 2f, rect.Center.Y - size.Y * scale / 2f), Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 1f);
+    }
+
+    private void RunAutoScenarios()
+    {
+        Game1.playSound("wand");
+        CardScenarioCounts counts = this.AutoRunner.RunAll();
+        Game1.showGlobalMessage($"AUTO SCENARIO • PASS {counts.Pass} • FAIL {counts.Fail} • BLOCKED {counts.Blocked} • ERROR {counts.Error}");
     }
 
     private void MoveSelection(int delta, bool force = false)
@@ -471,7 +511,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
     private bool TrySelectCardRowAt(int x, int y)
     {
         Rectangle outer = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
-        int contentTop = outer.Y + 132;
+        int contentTop = outer.Y + 184;
         int controlsHeight = 144;
         int panelHeight = outer.Bottom - controlsHeight - contentTop;
         int listWidth = Math.Min(546, Math.Max(396, outer.Width / 3));
@@ -573,6 +613,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         this.EndLabRect = new Rectangle(x, row2Y, Math.Max(198, Math.Min(258, left + available - x)), 50);
 
         this.CloseRect = new Rectangle(this.xPositionOnScreen + this.width - 164, this.yPositionOnScreen + 18, 142, 42);
+        this.AutoRunRect = new Rectangle(this.CloseRect.X - 282, this.CloseRect.Y, 270, 42);
     }
 
     private static string GetSelectedLevelText(CardDefinition card, int level)

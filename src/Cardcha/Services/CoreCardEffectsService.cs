@@ -7,6 +7,18 @@ using System.Reflection;
 
 namespace Cardcha.Services;
 
+internal readonly record struct CardPassiveDebugSnapshot(
+    int Defense,
+    double WeaponSpeed,
+    double MovePercent,
+    double Knockback,
+    double CriticalPower,
+    int MagneticRadius,
+    double AttackMultiplier,
+    int VanguardShield,
+    int GuardianShield
+);
+
 /// <summary>
 /// Alpha.26.5 completion pass for Base Set cards whose text existed before their runtime hooks.
 /// This deliberately keeps state transient; daily one-shot effects use SaveData so reloads cannot refresh them.
@@ -84,6 +96,8 @@ internal sealed class CoreCardEffectsService
     private long PhantomReadyAt;
     private long TimeBreakerUntil;
     private long TimeBreakerReadyAt;
+    private CardPassiveDebugSnapshot DebugLastPassive;
+    private double? DebugForcedNextChanceRoll;
 
     public CoreCardEffectsService(LoadoutService loadout, SaveService save, CardRegistry cards, CardUpgradeService upgrades)
     {
@@ -94,6 +108,23 @@ internal sealed class CoreCardEffectsService
     }
 
     public int CurrentNoHitKillStreak => Math.Max(0, this.NoHitKillStreak);
+    internal CardPassiveDebugSnapshot DebugPassiveSnapshot => this.DebugLastPassive;
+
+    internal void DebugForceNextChanceRoll(double value)
+        => this.DebugForcedNextChanceRoll = Math.Clamp(value, 0d, 0.999999999d);
+
+    internal void DebugClearForcedChanceRoll()
+        => this.DebugForcedNextChanceRoll = null;
+
+    private double NextChanceRoll()
+    {
+        if (this.DebugForcedNextChanceRoll is double forced)
+        {
+            this.DebugForcedNextChanceRoll = null;
+            return forced;
+        }
+        return Game1.random.NextDouble();
+    }
 
     /// <summary>
     /// Record the raw Stardew hit before Cardcha multipliers. This provides a conservative
@@ -325,7 +356,7 @@ internal sealed class CoreCardEffectsService
             && now >= this.TimeBreakerReadyAt)
         {
             double proc = this.LevelValue("time_breaker", .10, .12, .15);
-            if (Game1.random.NextDouble() < proc)
+            if (this.NextChanceRoll() < proc)
             {
                 this.TimeBreakerUntil = now + 3000;
                 this.TimeBreakerReadyAt = now + this.LevelInt("time_breaker", 12000, 10000, 8000);
@@ -443,7 +474,7 @@ internal sealed class CoreCardEffectsService
         if (this.Loadout.IsEquipped("void_walker") && now >= this.VoidReadyAt)
         {
             double proc = this.LevelValue("void_walker", .15, .20, .25);
-            if (Game1.random.NextDouble() < proc)
+            if (this.NextChanceRoll() < proc)
             {
                 this.VoidPhaseUntil = now + this.LevelInt("void_walker", 1500, 1750, 2000);
                 this.VoidReadyAt = now + this.LevelInt("void_walker", 20000, 18000, 16000);
@@ -715,6 +746,11 @@ internal sealed class CoreCardEffectsService
             ? this.LevelValue("battle_scholar", .03, .04, .05)
             : 0;
 
+        this.DebugLastPassive = new CardPassiveDebugSnapshot(
+            defense, weaponSpeed, movePercent, knockback, critPower, magnet, attackMultiplier,
+            this.VanguardShield, this.GuardianShield
+        );
+
         BuffEffects effects = new();
         effects.Defense.Value = defense;
         effects.WeaponSpeedMultiplier.Value = (float)weaponSpeed;
@@ -788,6 +824,8 @@ internal sealed class CoreCardEffectsService
         this.PhantomReadyAt = 0;
         this.TimeBreakerUntil = 0;
         this.TimeBreakerReadyAt = 0;
+        this.DebugLastPassive = default;
+        this.DebugForcedNextChanceRoll = null;
         this.StationarySince = Environment.TickCount64;
         if (Game1.player is not null)
             TryRemoveBuff(Game1.player, RuntimeBuffId);

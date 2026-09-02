@@ -28,6 +28,7 @@ internal sealed class DropService
 
     private int KillsSinceNormalScrap;
     private int LuckyBreakFailStreak;
+    private Queue<double>? DebugForcedRolls;
 
     public long EligibleDeaths { get; private set; }
     public long NormalDropEvents { get; private set; }
@@ -171,7 +172,7 @@ internal sealed class DropService
 
         Random rng = Game1.random;
 
-        bool normalDropped = forceNormal || rng.NextDouble() < normalChance;
+        bool normalDropped = forceNormal || this.NextRoll(rng) < normalChance;
         if (normalDropped)
         {
             int awarded = normalAmount + this.RollEssenceFinderBonus(CardboardScrapId, rng);
@@ -191,7 +192,7 @@ internal sealed class DropService
             }
         }
 
-        bool shinyDropped = shinyChance > 0 && rng.NextDouble() < shinyChance;
+        bool shinyDropped = shinyChance > 0 && this.NextRoll(rng) < shinyChance;
         if (shinyDropped)
         {
             int awarded = shinyAmount + this.RollEssenceFinderBonus(ShinyScrapId, rng);
@@ -214,21 +215,21 @@ internal sealed class DropService
         if (killer?.IsLocalPlayer == true)
         {
             if (this.Loadout.IsEquipped("scavenger")
-                && rng.NextDouble() < this.LevelPercent("scavenger", 0.03, 0.04, 0.05, 0.06, 0.07))
+                && this.NextRoll(rng) < this.LevelPercent("scavenger", 0.03, 0.04, 0.05, 0.06, 0.07))
             {
                 this.AwardScrap(location, position, CardboardScrapId, 1);
                 this.LastNormalAmount += 1;
             }
 
             if (this.Loadout.IsEquipped("treasure_eye")
-                && rng.NextDouble() < this.LevelPercent("treasure_eye", 0.04, 0.05, 0.06, 0.07))
+                && this.NextRoll(rng) < this.LevelPercent("treasure_eye", 0.04, 0.05, 0.06, 0.07))
             {
                 this.AwardScrap(location, position, CardboardScrapId, 1);
                 this.LastNormalAmount += 1;
             }
 
             if (this.Loadout.IsEquipped("lucky_pocket")
-                && rng.NextDouble() < this.LevelPercent("lucky_pocket", 0.02, 0.03, 0.04, 0.05, 0.06))
+                && this.NextRoll(rng) < this.LevelPercent("lucky_pocket", 0.02, 0.03, 0.04, 0.05, 0.06))
             {
                 // Low-value money reward by design; this card should feel useful without
                 // becoming a primary economy engine.
@@ -238,14 +239,14 @@ internal sealed class DropService
             if (scale == EnemyLootScale.BossLike)
             {
                 if (this.Loadout.IsEquipped("collectors_instinct")
-                    && rng.NextDouble() < this.LevelPercent("collectors_instinct", 0.05, 0.07, 0.09, 0.11))
+                    && this.NextRoll(rng) < this.LevelPercent("collectors_instinct", 0.05, 0.07, 0.09, 0.11))
                 {
                     this.AwardScrap(location, position, CardboardScrapId, 1);
                     this.LastNormalAmount += 1;
                 }
 
                 if (this.Loadout.IsEquipped("treasure_hunter")
-                    && rng.NextDouble() < this.LevelPercent("treasure_hunter", 0.10, 0.13, 0.16))
+                    && this.NextRoll(rng) < this.LevelPercent("treasure_hunter", 0.10, 0.13, 0.16))
                 {
                     this.AwardScrap(location, position, CardboardScrapId, 1);
                     this.LastNormalAmount += 1;
@@ -255,7 +256,7 @@ internal sealed class DropService
                 {
                     int level = this.Upgrades.GetLevel(this.Cards.Get("kings_ransom"));
                     double upgradeChance = level switch { 2 => 0.20, >= 3 => 0.35, _ => 0d };
-                    if (upgradeChance > 0 && rng.NextDouble() < upgradeChance)
+                    if (upgradeChance > 0 && this.NextRoll(rng) < upgradeChance)
                     {
                         this.AwardScrap(location, position, ShinyScrapId, 1);
                         this.LastShinyAmount += 1;
@@ -273,7 +274,7 @@ internal sealed class DropService
             // breaks the streak. It deliberately doesn't inflate the Shiny economy.
             if (this.Loadout.IsEquipped("fortune_chain")
                 && this.GetNoHitKillStreak() >= 5
-                && rng.NextDouble() < this.LevelPercent("fortune_chain", 0.05, 0.07, 0.09, 0.11))
+                && this.NextRoll(rng) < this.LevelPercent("fortune_chain", 0.05, 0.07, 0.09, 0.11))
             {
                 this.AwardScrap(location, position, CardboardScrapId, 1);
                 this.LastNormalAmount += 1;
@@ -287,7 +288,7 @@ internal sealed class DropService
                 double luckyChance = this.LuckyBreakFailStreak >= 3
                     ? this.LevelPercent("lucky_break", 0.08, 0.12, 0.16)
                     : 0d;
-                if (luckyChance > 0 && rng.NextDouble() < luckyChance)
+                if (luckyChance > 0 && this.NextRoll(rng) < luckyChance)
                 {
                     this.AwardScrap(location, position, CardboardScrapId, 1);
                     this.LastNormalAmount += 1;
@@ -302,6 +303,77 @@ internal sealed class DropService
             {
                 this.LuckyBreakFailStreak = 0;
             }
+        }
+    }
+
+    internal void DebugSetForcedRolls(params double[] rolls)
+        => this.DebugForcedRolls = new Queue<double>((rolls ?? Array.Empty<double>()).Select(value => Math.Clamp(value, 0d, 0.999999999d)));
+
+    private double NextRoll(Random rng)
+        => this.DebugForcedRolls is { Count: > 0 }
+            ? this.DebugForcedRolls.Dequeue()
+            : rng.NextDouble();
+
+    internal IDisposable BeginScenarioTestScope()
+    {
+        int kills = this.KillsSinceNormalScrap;
+        int lucky = this.LuckyBreakFailStreak;
+        long eligible = this.EligibleDeaths;
+        long normalEvents = this.NormalDropEvents;
+        long shinyEvents = this.ShinyDropEvents;
+        double normalChance = this.LastNormalChance;
+        double shinyChance = this.LastShinyChance;
+        bool forced = this.LastNormalForced;
+        string scale = this.LastLootScale;
+        int normalAmount = this.LastNormalAmount;
+        int shinyAmount = this.LastShinyAmount;
+        string enemy = this.LastEnemyName;
+        int rawHp = this.LastRawMaxHealth;
+        Queue<double>? queue = this.DebugForcedRolls is null ? null : new Queue<double>(this.DebugForcedRolls);
+
+        this.KillsSinceNormalScrap = 0;
+        this.LuckyBreakFailStreak = 0;
+        this.EligibleDeaths = 0;
+        this.NormalDropEvents = 0;
+        this.ShinyDropEvents = 0;
+        this.LastNormalChance = 0;
+        this.LastShinyChance = 0;
+        this.LastNormalForced = false;
+        this.LastLootScale = "none";
+        this.LastNormalAmount = 0;
+        this.LastShinyAmount = 0;
+        this.LastEnemyName = "none";
+        this.LastRawMaxHealth = 0;
+        this.DebugForcedRolls = null;
+
+        return new ScenarioScope(() =>
+        {
+            this.KillsSinceNormalScrap = kills;
+            this.LuckyBreakFailStreak = lucky;
+            this.EligibleDeaths = eligible;
+            this.NormalDropEvents = normalEvents;
+            this.ShinyDropEvents = shinyEvents;
+            this.LastNormalChance = normalChance;
+            this.LastShinyChance = shinyChance;
+            this.LastNormalForced = forced;
+            this.LastLootScale = scale;
+            this.LastNormalAmount = normalAmount;
+            this.LastShinyAmount = shinyAmount;
+            this.LastEnemyName = enemy;
+            this.LastRawMaxHealth = rawHp;
+            this.DebugForcedRolls = queue;
+        });
+    }
+
+    private sealed class ScenarioScope : IDisposable
+    {
+        private Action? OnDispose;
+        public ScenarioScope(Action onDispose) => this.OnDispose = onDispose;
+        public void Dispose()
+        {
+            Action? action = this.OnDispose;
+            this.OnDispose = null;
+            action?.Invoke();
         }
     }
 
@@ -376,7 +448,7 @@ internal sealed class DropService
             return 0;
 
         double chance = this.LevelPercent("essence_finder", 0.08, 0.10, 0.12, 0.14, 0.16);
-        if (chance <= 0 || rng.NextDouble() >= chance)
+        if (chance <= 0 || this.NextRoll(rng) >= chance)
             return 0;
 
         // The approved design explicitly applies to BOTH normal and Shiny Scrap.

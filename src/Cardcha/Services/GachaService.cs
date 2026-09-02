@@ -10,6 +10,7 @@ internal sealed class GachaService
     private readonly CardRegistry Registry;
     private readonly SaveService Save;
     private readonly ModConfig Config;
+    private Queue<double>? DebugForcedRolls;
 
     public GachaService(CardRegistry registry, SaveService save, ModConfig config)
     {
@@ -109,7 +110,7 @@ internal sealed class GachaService
                 {
                     int dustLevel = data.CardLevels.TryGetValue("dust_collector", out int dl) ? Math.Clamp(dl, 1, 4) : 1;
                     double extraChance = dustLevel switch { 1 => 0.15, 2 => 0.20, 3 => 0.25, _ => 0.30 };
-                    if (rng.NextDouble() < extraChance)
+                    if (this.NextRoll(rng) < extraChance)
                         dustAwarded++;
                 }
 
@@ -140,7 +141,7 @@ internal sealed class GachaService
                 double expectedRefund = pullCost * refundRate;
                 int refund = (int)Math.Floor(expectedRefund);
                 double fractional = expectedRefund - refund;
-                if (fractional > 0 && rng.NextDouble() < fractional)
+                if (fractional > 0 && this.NextRoll(rng) < fractional)
                     refund++;
 
                 if (refund > 0)
@@ -187,6 +188,33 @@ internal sealed class GachaService
         return new PullResult(card, isNew, duplicateCopies, dustAwarded, type, pullIndex);
     }
 
+    internal void DebugSetForcedRolls(params double[] rolls)
+        => this.DebugForcedRolls = new Queue<double>((rolls ?? Array.Empty<double>()).Select(value => Math.Clamp(value, 0d, 0.999999999d)));
+
+    private double NextRoll(DeterministicRng rng)
+        => this.DebugForcedRolls is { Count: > 0 }
+            ? this.DebugForcedRolls.Dequeue()
+            : rng.NextDouble();
+
+    internal IDisposable BeginScenarioTestScope()
+    {
+        Queue<double>? queue = this.DebugForcedRolls is null ? null : new Queue<double>(this.DebugForcedRolls);
+        this.DebugForcedRolls = null;
+        return new ScenarioScope(() => this.DebugForcedRolls = queue);
+    }
+
+    private sealed class ScenarioScope : IDisposable
+    {
+        private Action? OnDispose;
+        public ScenarioScope(Action onDispose) => this.OnDispose = onDispose;
+        public void Dispose()
+        {
+            Action? action = this.OnDispose;
+            this.OnDispose = null;
+            action?.Invoke();
+        }
+    }
+
     private IEnumerable<CardDefinition> GetEligibleUnowned(PullType type, SaveData data)
     {
         foreach (CardDefinition card in this.Registry.All)
@@ -215,7 +243,7 @@ internal sealed class GachaService
         if (data.StandardSinceRare + 1 >= 10)
             return CardRarity.Rare;
 
-        double roll = rng.NextDouble();
+        double roll = this.NextRoll(rng);
         double rareThreshold = Math.Clamp(0.45 + Math.Max(0d, rarePlusBonus), 0.45, 0.95);
         if (roll < 0.03) return CardRarity.Legendary;
         if (roll < 0.15) return CardRarity.Epic;
@@ -231,7 +259,7 @@ internal sealed class GachaService
             return CardRarity.Epic;
 
         // Approved Premium distribution remains unchanged: 55% Rare / 35% Epic / 10% Legendary.
-        double roll = rng.NextDouble();
+        double roll = this.NextRoll(rng);
         if (roll < 0.10) return CardRarity.Legendary;
         if (roll < 0.45) return CardRarity.Epic;
         return CardRarity.Rare;

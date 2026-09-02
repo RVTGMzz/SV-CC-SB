@@ -11,6 +11,7 @@ internal sealed class SaveService
     private const string SaveKey = "cardcha-save-v1";
     private const int CurrentSchemaVersion = 18;
     private readonly IModHelper Helper;
+    private int TransientTestDepth;
 
     public SaveData Data { get; private set; } = new();
 
@@ -222,8 +223,93 @@ internal sealed class SaveService
             : $"WARNING — loaded state fingerprint changed. Saved={Short(expected)} Loaded={Short(actual)}. Data was kept; no automatic rollback was performed.";
     }
 
+    internal IDisposable BeginTransientTestScope()
+    {
+        SaveData snapshot = CloneData(this.Data);
+        this.TransientTestDepth++;
+        return new TransientScope(() =>
+        {
+            this.Data = snapshot;
+            this.TransientTestDepth = Math.Max(0, this.TransientTestDepth - 1);
+        });
+    }
+
+    private static SaveData CloneData(SaveData d)
+        => new()
+        {
+            SchemaVersion = d.SchemaVersion,
+            OwnedCards = new HashSet<string>(d.OwnedCards ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase),
+            EquippedCards = new List<string>(d.EquippedCards ?? new List<string>()),
+            CardLevels = new Dictionary<string, int>(d.CardLevels ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
+            CardCopies = new Dictionary<string, int>(d.CardCopies ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
+            FavoriteCardIds = new HashSet<string>(d.FavoriteCardIds ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase),
+            ActiveCardSlotCount = d.ActiveCardSlotCount,
+            SuspiciousDust = d.SuspiciousDust,
+            PullIndex = d.PullIndex,
+            GachaSeed = d.GachaSeed,
+            StandardSinceRare = d.StandardSinceRare,
+            StandardSinceEpic = d.StandardSinceEpic,
+            StandardSinceLegendary = d.StandardSinceLegendary,
+            PremiumSinceEpic = d.PremiumSinceEpic,
+            PremiumSinceLegendary = d.PremiumSinceLegendary,
+            DuplicatePullStreak = d.DuplicatePullStreak,
+            StandardPullIndex = d.StandardPullIndex,
+            BattleScholarMonsterTypesToday = new HashSet<string>(d.BattleScholarMonsterTypesToday ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase),
+            PhoenixHeartUsedToday = d.PhoenixHeartUsedToday,
+            LifelineUsedToday = d.LifelineUsedToday,
+            GuardianAngelUsedToday = d.GuardianAngelUsedToday,
+            CardboardScraps = d.CardboardScraps,
+            ShinyScraps = d.ShinyScraps,
+            FirstScrapTriggered = d.FirstScrapTriggered,
+            FirstScrapDay = d.FirstScrapDay,
+            MachineLetterQueued = d.MachineLetterQueued,
+            MachineDelivered = d.MachineDelivered,
+            BinderUnlocked = d.BinderUnlocked,
+            MimiIntroSeen = d.MimiIntroSeen,
+            MimiMeetupPending = d.MimiMeetupPending,
+            MimiMeetupCompleted = d.MimiMeetupCompleted,
+            ChaChaLoaned = d.ChaChaLoaned,
+            FirstPullQuestActive = d.FirstPullQuestActive,
+            FirstPullCompleted = d.FirstPullCompleted,
+            Chapter1Completed = d.Chapter1Completed,
+            CardchaStoryChapter = d.CardchaStoryChapter,
+            CardchaStoryStage = d.CardchaStoryStage,
+            MimiMerchantUnlockedDay = d.MimiMerchantUnlockedDay,
+            MimiFirstMerchantPepTalkShown = d.MimiFirstMerchantPepTalkShown,
+            FirstScrapPickupNoticeShown = d.FirstScrapPickupNoticeShown,
+            MimiMeetupOfferedDay = d.MimiMeetupOfferedDay,
+            PortableMachinePurchased = d.PortableMachinePurchased,
+            PortableMachineGifted = d.PortableMachineGifted,
+            AirshipFlybySeen = d.AirshipFlybySeen,
+            AirshipUnlocked = d.AirshipUnlocked,
+            AirshipUnlockedDay = d.AirshipUnlockedDay,
+            AirshipHighestRegionUnlocked = d.AirshipHighestRegionUnlocked,
+            AirshipFlightsTaken = d.AirshipFlightsTaken,
+            AirshipTotalFarePaid = d.AirshipTotalFarePaid,
+            AirshipEngineLevel = d.AirshipEngineLevel,
+            AirshipNavigationLevel = d.AirshipNavigationLevel,
+            AirshipHullLevel = d.AirshipHullLevel,
+            AirshipReactorLevel = d.AirshipReactorLevel,
+            LastStateFingerprint = d.LastStateFingerprint ?? ""
+        };
+
+    private sealed class TransientScope : IDisposable
+    {
+        private Action? OnDispose;
+        public TransientScope(Action onDispose) => this.OnDispose = onDispose;
+        public void Dispose()
+        {
+            Action? action = this.OnDispose;
+            this.OnDispose = null;
+            action?.Invoke();
+        }
+    }
+
     public void Save()
     {
+        if (this.TransientTestDepth > 0)
+            return;
+
         if (!Context.IsWorldReady)
             return;
 
