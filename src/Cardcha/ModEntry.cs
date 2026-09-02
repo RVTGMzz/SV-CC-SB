@@ -209,7 +209,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.3 CARD TEST LAB TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.1 CARD TEST LAB UX TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -299,6 +299,7 @@ internal sealed class ModEntry : Mod
 
     private void OnSaving(object? sender, SavingEventArgs e)
     {
+        this.CardLab.EndSession();
         this.Combat.PrepareForGameSave();
         // ChaCha is a runtime-only world actor; remove it before Stardew serializes locations.
         this.Story.OnSaving();
@@ -936,13 +937,13 @@ internal sealed class ModEntry : Mod
         }
 
         Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer);
-        this.Monitor.Log("Card Test Lab opened. Temporary test loadout will be restored when the Lab closes.", LogLevel.Alert);
+        this.Monitor.Log("Card Test Lab opened. EQUIP/UNEQUIP & PLAY keeps the temporary Lab session active; END LAB restores the real loadout.", LogLevel.Alert);
     }
 
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.3 CARD TEST LAB TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.3.1 CARD TEST LAB UX TEST",
             LogLevel.Alert
         );
     }

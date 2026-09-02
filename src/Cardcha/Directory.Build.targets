@@ -1,11 +1,11 @@
 <Project>
   <PropertyGroup>
-    <Version>0.3.0-alpha.28.0.4.14.3</Version>
+    <Version>0.3.0-alpha.28.0.4.14.3.1</Version>
   </PropertyGroup>
 
-  <!-- .4.14.3 Card Test Lab is materialized by CI before compilation.
+  <!-- .4.14.3.1 Card Test Lab UX is materialized by CI before compilation.
        Keep this hook version-only so repeated local builds cannot reapply source patches. -->
-  <Target Name="CardchaAlpha2804143Manifest" BeforeTargets="BeforeBuild">
-    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.3\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
+  <Target Name="CardchaAlpha28041431Manifest" BeforeTargets="BeforeBuild">
+    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.3.1\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
   </Target>
 </Project>

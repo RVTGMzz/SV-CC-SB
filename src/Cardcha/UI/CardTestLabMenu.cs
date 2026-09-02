@@ -317,15 +317,15 @@ internal sealed class CardTestLabMenu : IClickableMenu
         };
         b.DrawString(Game1.smallFont, verdictText, new Vector2(panel.Right - 125, panel.Y + 110), verdictColor, 0f, Vector2.Zero, 0.88f, SpriteEffects.None, 1f);
 
-        Rectangle descriptionArea = new(panel.X + 20, panel.Y + 170, panel.Width - 40, 86);
+        Rectangle descriptionArea = new(panel.X + 20, panel.Y + 168, panel.Width - 40, 68);
         DrawWrapped(b, Game1.smallFont, card.Description, descriptionArea, new Color(241, 234, 220), 0.88f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 266), new Color(255, 218, 116), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
-        Rectangle instructionArea = new(panel.X + 20, panel.Y + 300, panel.Width - 40, 102);
+        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 244), new Color(255, 218, 116), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
+        Rectangle instructionArea = new(panel.X + 20, panel.Y + 278, panel.Width - 40, 74);
         DrawWrapped(b, Game1.smallFont, this.Lab.BuildInstruction(card), instructionArea, Color.White, 0.86f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 410), new Color(145, 214, 255), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
-        Rectangle telemetryArea = new(panel.X + 20, panel.Y + 446, panel.Width - 40, Math.Max(70, panel.Bottom - (panel.Y + 460)));
+        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 360), new Color(145, 214, 255), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
+        Rectangle telemetryArea = new(panel.X + 20, panel.Y + 396, panel.Width - 40, Math.Max(70, panel.Bottom - (panel.Y + 408)));
         DrawWrapped(b, Game1.smallFont, this.Lab.BuildTelemetry(card), telemetryArea, new Color(215, 230, 239), 0.78f, maxLines: 12);
     }
 
