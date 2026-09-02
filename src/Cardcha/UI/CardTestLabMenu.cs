@@ -20,6 +20,11 @@ internal sealed class CardTestLabMenu : IClickableMenu
     private readonly CardTestArenaService Arena;
     private readonly IReadOnlyList<CardDefinition> Cards;
 
+    private const int PreferredWidth = 1776;
+    private const int PreferredHeight = 1080;
+    private const long SelectionDebounceMs = 160L;
+    private long LastSelectionInputAtMs;
+
     private int SelectedIndex;
     private int RequestedLevel = 1;
 
@@ -43,10 +48,10 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
     public CardTestLabMenu(CardTestLabService lab, CardRenderer renderer, CardTestArenaService arena)
         : base(
-            x: Math.Max(12, (Game1.uiViewport.Width - Math.Min(1480, Game1.uiViewport.Width - 24)) / 2),
-            y: Math.Max(12, (Game1.uiViewport.Height - Math.Min(900, Game1.uiViewport.Height - 24)) / 2),
-            width: Math.Min(1480, Game1.uiViewport.Width - 24),
-            height: Math.Min(900, Game1.uiViewport.Height - 24),
+            x: Math.Max(12, (Game1.uiViewport.Width - Math.Min(PreferredWidth, Game1.uiViewport.Width - 24)) / 2),
+            y: Math.Max(12, (Game1.uiViewport.Height - Math.Min(PreferredHeight, Game1.uiViewport.Height - 24)) / 2),
+            width: Math.Min(PreferredWidth, Game1.uiViewport.Width - 24),
+            height: Math.Min(PreferredHeight, Game1.uiViewport.Height - 24),
             showUpperRightCloseButton: false)
     {
         this.Lab = lab;
@@ -199,15 +204,30 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
     public override void receiveLeftClick(int x, int y, bool playSound = true)
     {
-        if (this.PrevRect.Contains(x, y)) this.MoveSelection(-1);
-        else if (this.NextRect.Contains(x, y)) this.MoveSelection(1);
+        if (this.TrySelectCardRowAt(x, y))
+            return;
+
+        if (this.PrevRect.Contains(x, y)) this.MoveSelection(-1, force: true);
+        else if (this.NextRect.Contains(x, y)) this.MoveSelection(1, force: true);
         else if (this.LevelDownRect.Contains(x, y)) this.ChangeLevel(-1);
         else if (this.LevelUpRect.Contains(x, y)) this.ChangeLevel(1);
         else if (this.EquipRect.Contains(x, y)) this.EquipAndPlay();
         else if (this.UnequipRect.Contains(x, y)) this.UnequipAndPlay();
-        else if (this.PassRect.Contains(x, y)) this.Lab.SetVerdict(this.Selected, CardLabVerdict.Pass);
-        else if (this.FailRect.Contains(x, y)) this.Lab.SetVerdict(this.Selected, CardLabVerdict.Fail);
-        else if (this.ResetRect.Contains(x, y)) this.Lab.ResetTelemetry();
+        else if (this.PassRect.Contains(x, y))
+        {
+            this.Lab.SetVerdict(this.Selected, CardLabVerdict.Pass);
+            Game1.playSound("coin");
+        }
+        else if (this.FailRect.Contains(x, y))
+        {
+            this.Lab.SetVerdict(this.Selected, CardLabVerdict.Fail);
+            Game1.playSound("cancel");
+        }
+        else if (this.ResetRect.Contains(x, y))
+        {
+            this.Lab.ResetTelemetry();
+            Game1.playSound("smallSelect");
+        }
         else if (this.HpFullRect.Contains(x, y)) this.Lab.SetHealthPercent(1.0);
         else if (this.HpLowRect.Contains(x, y)) this.Lab.SetHealthPercent(0.19);
         else if (this.DummyFullRect.Contains(x, y)) this.Arena.ResetDummy(1.0);
@@ -215,12 +235,21 @@ internal sealed class CardTestLabMenu : IClickableMenu
         else if (this.ArenaRect.Contains(x, y)) this.EnterArenaAndPlay();
         else if (this.ReturnRect.Contains(x, y) || this.CloseRect.Contains(x, y)) this.ReturnToGame();
         else if (this.EndLabRect.Contains(x, y)) this.EndLabAndRestore();
+        else base.receiveLeftClick(x, y, playSound);
+    }
+
+    public override void receiveScrollWheelAction(int direction)
+    {
+        if (direction > 0)
+            this.MoveSelection(-1, force: true);
+        else if (direction < 0)
+            this.MoveSelection(1, force: true);
     }
 
     public override void gameWindowSizeChanged(Rectangle oldBounds, Rectangle newBounds)
     {
-        this.width = Math.Min(1480, Game1.uiViewport.Width - 24);
-        this.height = Math.Min(900, Game1.uiViewport.Height - 24);
+        this.width = Math.Min(PreferredWidth, Game1.uiViewport.Width - 24);
+        this.height = Math.Min(PreferredHeight, Game1.uiViewport.Height - 24);
         this.xPositionOnScreen = Math.Max(12, (Game1.uiViewport.Width - this.width) / 2);
         this.yPositionOnScreen = Math.Max(12, (Game1.uiViewport.Height - this.height) / 2);
         this.RebuildRects();
@@ -256,10 +285,10 @@ internal sealed class CardTestLabMenu : IClickableMenu
         float guideScale = Math.Min(0.86f, (outer.Width - 80f) / Math.Max(1f, guideSize.X));
         b.DrawString(Game1.smallFont, guide, new Vector2(outer.Center.X - guideSize.X * guideScale / 2f, outer.Y + 91), new Color(255, 218, 116), 0f, Vector2.Zero, guideScale, SpriteEffects.None, 1f);
 
-        int contentTop = outer.Y + 126;
-        int controlsHeight = 126;
+        int contentTop = outer.Y + 132;
+        int controlsHeight = 144;
         int panelHeight = outer.Bottom - controlsHeight - contentTop;
-        int listWidth = Math.Min(455, Math.Max(330, outer.Width / 3));
+        int listWidth = Math.Min(546, Math.Max(396, outer.Width / 3));
         Rectangle listPanel = new(outer.X + 20, contentTop, listWidth, panelHeight);
         Rectangle detailPanel = new(listPanel.Right + 16, contentTop, outer.Right - listPanel.Right - 36, panelHeight);
         CardchaUi.DrawRoundedPanel(b, listPanel, new Color(47, 44, 64), new Color(105, 91, 139), 2, 10);
@@ -274,7 +303,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
     private void DrawCardList(SpriteBatch b, Rectangle panel)
     {
-        int rowHeight = 43;
+        int rowHeight = 51;
         int visible = Math.Max(7, (panel.Height - 20) / rowHeight);
         int start = Math.Clamp(this.SelectedIndex - visible / 2, 0, Math.Max(0, this.Cards.Count - visible));
         int end = Math.Min(this.Cards.Count, start + visible);
@@ -305,9 +334,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
                 _ => new Color(172, 164, 191)
             };
 
-            b.DrawString(Game1.smallFont, marker, new Vector2(r.X + 8, r.Y + 7), markerColor, 0f, Vector2.Zero, 0.82f, SpriteEffects.None, 1f);
+            b.DrawString(Game1.smallFont, marker, new Vector2(r.X + 8, r.Y + 7), markerColor, 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
             string label = $"#{card.StableBaseId:00}  {card.Name}";
-            DrawClippedText(b, Game1.smallFont, label, new Rectangle(r.X + 72, r.Y + 5, r.Width - 80, r.Height - 6), Color.White, 0.88f);
+            DrawClippedText(b, Game1.smallFont, label, new Rectangle(r.X + 72, r.Y + 5, r.Width - 80, r.Height - 6), Color.White, 1.0f);
         }
     }
 
@@ -321,9 +350,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
         CardchaUi.DrawBorder(b, icon, CardchaUi.RarityColor(card.Rarity), 3);
 
         int nameX = icon.Right + 18;
-        DrawClippedText(b, Game1.dialogueFont, $"#{card.StableBaseId:00} {card.Name}", new Rectangle(nameX, panel.Y + 18, panel.Right - nameX - 20, 52), Color.White, 0.92f);
-        b.DrawString(Game1.smallFont, $"Rarity: {card.Rarity}   EffectKey: {card.EffectKey}", new Vector2(nameX, panel.Y + 72), new Color(206, 196, 225), 0f, Vector2.Zero, 0.86f, SpriteEffects.None, 1f);
-        b.DrawString(Game1.smallFont, $"TEST LEVEL: {this.RequestedLevel}/{Math.Max(1, card.MaxLevel)}", new Vector2(nameX, panel.Y + 105), new Color(255, 218, 116), 0f, Vector2.Zero, 0.98f, SpriteEffects.None, 1f);
+        DrawClippedText(b, Game1.dialogueFont, $"#{card.StableBaseId:00} {card.Name}", new Rectangle(nameX, panel.Y + 18, panel.Right - nameX - 20, 52), Color.White, 1.0f);
+        b.DrawString(Game1.smallFont, $"Rarity: {card.Rarity}   EffectKey: {card.EffectKey}", new Vector2(nameX, panel.Y + 72), new Color(206, 196, 225), 0f, Vector2.Zero, 0.96f, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, $"TEST LEVEL: {this.RequestedLevel}/{Math.Max(1, card.MaxLevel)}", new Vector2(nameX, panel.Y + 105), new Color(255, 218, 116), 0f, Vector2.Zero, 1.08f, SpriteEffects.None, 1f);
 
         bool selectedEquipped = this.Lab.IsSelectedCardEquipped(card);
         string runState = selectedEquipped
@@ -332,7 +361,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
                 ? "ACTIVE TEST: BASELINE / UNEQUIPPED"
                 : "SELECTED / NOT PREPARED";
         Color runColor = selectedEquipped ? new Color(122, 221, 153) : new Color(145, 214, 255);
-        b.DrawString(Game1.smallFont, runState, new Vector2(nameX, panel.Y + 136), runColor, 0f, Vector2.Zero, 0.84f, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, runState, new Vector2(nameX, panel.Y + 136), runColor, 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
 
         string verdictText = verdict == CardLabVerdict.Untested ? "UNTESTED" : verdict.ToString().ToUpperInvariant();
         Color verdictColor = verdict switch
@@ -341,18 +370,18 @@ internal sealed class CardTestLabMenu : IClickableMenu
             CardLabVerdict.Fail => new Color(240, 118, 130),
             _ => new Color(190, 183, 206)
         };
-        b.DrawString(Game1.smallFont, verdictText, new Vector2(panel.Right - 125, panel.Y + 110), verdictColor, 0f, Vector2.Zero, 0.88f, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, verdictText, new Vector2(panel.Right - 125, panel.Y + 110), verdictColor, 0f, Vector2.Zero, 0.98f, SpriteEffects.None, 1f);
 
         Rectangle descriptionArea = new(panel.X + 20, panel.Y + 168, panel.Width - 40, 68);
-        DrawWrapped(b, Game1.smallFont, card.Description, descriptionArea, new Color(241, 234, 220), 0.88f, maxLines: 4);
+        DrawWrapped(b, Game1.smallFont, card.Description, descriptionArea, new Color(241, 234, 220), 0.98f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 244), new Color(255, 218, 116), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, "WHAT TO DO / CÁCH TEST", new Vector2(panel.X + 20, panel.Y + 244), new Color(255, 218, 116), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
         Rectangle instructionArea = new(panel.X + 20, panel.Y + 278, panel.Width - 40, 74);
-        DrawWrapped(b, Game1.smallFont, this.Lab.BuildInstruction(card), instructionArea, Color.White, 0.86f, maxLines: 4);
+        DrawWrapped(b, Game1.smallFont, this.Lab.BuildInstruction(card), instructionArea, Color.White, 0.96f, maxLines: 4);
 
-        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 360), new Color(145, 214, 255), 0f, Vector2.Zero, 0.94f, SpriteEffects.None, 1f);
+        b.DrawString(Game1.smallFont, "LIVE TELEMETRY / KẾT QUẢ THỰC TẾ", new Vector2(panel.X + 20, panel.Y + 360), new Color(145, 214, 255), 0f, Vector2.Zero, 1.02f, SpriteEffects.None, 1f);
         Rectangle telemetryArea = new(panel.X + 20, panel.Y + 396, panel.Width - 40, Math.Max(70, panel.Bottom - (panel.Y + 408)));
-        DrawWrapped(b, Game1.smallFont, this.Lab.BuildTelemetry(card), telemetryArea, new Color(215, 230, 239), 0.78f, maxLines: 12);
+        DrawWrapped(b, Game1.smallFont, this.Lab.BuildTelemetry(card), telemetryArea, new Color(215, 230, 239), 0.90f, maxLines: 12);
     }
 
     private void DrawButtons(SpriteBatch b)
@@ -381,17 +410,67 @@ internal sealed class CardTestLabMenu : IClickableMenu
     {
         CardchaUi.DrawRoundedPanel(b, rect, fill, Color.White * 0.35f, 2, 7);
         Vector2 size = Game1.smallFont.MeasureString(text);
-        float scale = Math.Min(0.86f, (rect.Width - 12f) / Math.Max(1f, size.X));
+        float scale = Math.Min(0.96f, (rect.Width - 12f) / Math.Max(1f, size.X));
         b.DrawString(Game1.smallFont, text, new Vector2(rect.Center.X - size.X * scale / 2f, rect.Center.Y - size.Y * scale / 2f), Color.White, 0f, Vector2.Zero, scale, SpriteEffects.None, 1f);
     }
 
-    private void MoveSelection(int delta)
+    private void MoveSelection(int delta, bool force = false)
+    {
+        if (this.Cards.Count == 0 || delta == 0)
+            return;
+
+        long now = Environment.TickCount64;
+        if (!force && now - this.LastSelectionInputAtMs < SelectionDebounceMs)
+            return;
+
+        this.LastSelectionInputAtMs = now;
+        this.SelectIndex((this.SelectedIndex + delta + this.Cards.Count) % this.Cards.Count);
+    }
+
+    private void SelectIndex(int index)
     {
         if (this.Cards.Count == 0)
             return;
-        this.SelectedIndex = (this.SelectedIndex + delta + this.Cards.Count) % this.Cards.Count;
+
+        int next = Math.Clamp(index, 0, this.Cards.Count - 1);
+        if (next == this.SelectedIndex)
+            return;
+
+        this.SelectedIndex = next;
         this.RequestedLevel = Math.Clamp(this.RequestedLevel, 1, Math.Max(1, this.Selected.MaxLevel));
         Game1.playSound("shiny4");
+    }
+
+    private bool TrySelectCardRowAt(int x, int y)
+    {
+        Rectangle outer = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
+        int contentTop = outer.Y + 132;
+        int controlsHeight = 144;
+        int panelHeight = outer.Bottom - controlsHeight - contentTop;
+        int listWidth = Math.Min(546, Math.Max(396, outer.Width / 3));
+        Rectangle panel = new(outer.X + 20, contentTop, listWidth, panelHeight);
+
+        if (!panel.Contains(x, y))
+            return false;
+
+        const int rowHeight = 51;
+        int visible = Math.Max(7, (panel.Height - 20) / rowHeight);
+        int start = Math.Clamp(this.SelectedIndex - visible / 2, 0, Math.Max(0, this.Cards.Count - visible));
+        int end = Math.Min(this.Cards.Count, start + visible);
+
+        for (int i = start; i < end; i++)
+        {
+            int row = i - start;
+            Rectangle rowRect = new(panel.X + 10, panel.Y + 10 + row * rowHeight, panel.Width - 20, rowHeight - 4);
+            if (!rowRect.Contains(x, y))
+                continue;
+
+            this.LastSelectionInputAtMs = Environment.TickCount64;
+            this.SelectIndex(i);
+            return true;
+        }
+
+        return false;
     }
 
     private void ChangeLevel(int delta)
@@ -442,31 +521,31 @@ internal sealed class CardTestLabMenu : IClickableMenu
     {
         int left = this.xPositionOnScreen + 20;
         int available = this.width - 40;
-        int gap = 7;
-        int row1Y = this.yPositionOnScreen + this.height - 106;
-        int row2Y = this.yPositionOnScreen + this.height - 56;
+        int gap = 8;
+        int row1Y = this.yPositionOnScreen + this.height - 124;
+        int row2Y = this.yPositionOnScreen + this.height - 66;
 
         int x = left;
-        this.PrevRect = new Rectangle(x, row1Y, 102, 42); x += 102 + gap;
-        this.NextRect = new Rectangle(x, row1Y, 102, 42); x += 102 + gap;
-        this.LevelDownRect = new Rectangle(x, row1Y, 76, 42); x += 76 + gap;
-        this.LevelUpRect = new Rectangle(x, row1Y, 76, 42); x += 76 + gap;
-        this.EquipRect = new Rectangle(x, row1Y, 172, 42); x += 172 + gap;
-        this.UnequipRect = new Rectangle(x, row1Y, 188, 42); x += 188 + gap;
-        this.ResetRect = new Rectangle(x, row1Y, Math.Max(140, Math.Min(190, left + available - x)), 42);
+        this.PrevRect = new Rectangle(x, row1Y, 118, 50); x += 118 + gap;
+        this.NextRect = new Rectangle(x, row1Y, 118, 50); x += 118 + gap;
+        this.LevelDownRect = new Rectangle(x, row1Y, 88, 50); x += 88 + gap;
+        this.LevelUpRect = new Rectangle(x, row1Y, 88, 50); x += 88 + gap;
+        this.EquipRect = new Rectangle(x, row1Y, 198, 50); x += 198 + gap;
+        this.UnequipRect = new Rectangle(x, row1Y, 218, 50); x += 218 + gap;
+        this.ResetRect = new Rectangle(x, row1Y, Math.Max(168, Math.Min(228, left + available - x)), 50);
 
         x = left;
-        this.PassRect = new Rectangle(x, row2Y, 96, 42); x += 96 + gap;
-        this.FailRect = new Rectangle(x, row2Y, 96, 42); x += 96 + gap;
-        this.HpFullRect = new Rectangle(x, row2Y, 100, 42); x += 100 + gap;
-        this.HpLowRect = new Rectangle(x, row2Y, 94, 42); x += 94 + gap;
-        this.DummyFullRect = new Rectangle(x, row2Y, 145, 42); x += 145 + gap;
-        this.DummyLowRect = new Rectangle(x, row2Y, 142, 42); x += 142 + gap;
-        this.ArenaRect = new Rectangle(x, row2Y, 140, 42); x += 140 + gap;
-        this.ReturnRect = new Rectangle(x, row2Y, 128, 42); x += 128 + gap;
-        this.EndLabRect = new Rectangle(x, row2Y, Math.Max(175, Math.Min(220, left + available - x)), 42);
+        this.PassRect = new Rectangle(x, row2Y, 108, 50); x += 108 + gap;
+        this.FailRect = new Rectangle(x, row2Y, 108, 50); x += 108 + gap;
+        this.HpFullRect = new Rectangle(x, row2Y, 116, 50); x += 116 + gap;
+        this.HpLowRect = new Rectangle(x, row2Y, 110, 50); x += 110 + gap;
+        this.DummyFullRect = new Rectangle(x, row2Y, 170, 50); x += 170 + gap;
+        this.DummyLowRect = new Rectangle(x, row2Y, 166, 50); x += 166 + gap;
+        this.ArenaRect = new Rectangle(x, row2Y, 164, 50); x += 164 + gap;
+        this.ReturnRect = new Rectangle(x, row2Y, 148, 50); x += 148 + gap;
+        this.EndLabRect = new Rectangle(x, row2Y, Math.Max(198, Math.Min(258, left + available - x)), 50);
 
-        this.CloseRect = new Rectangle(this.xPositionOnScreen + this.width - 148, this.yPositionOnScreen + 18, 126, 38);
+        this.CloseRect = new Rectangle(this.xPositionOnScreen + this.width - 164, this.yPositionOnScreen + 18, 142, 42);
     }
 
     private static void DrawWrapped(SpriteBatch b, SpriteFont font, string text, Rectangle area, Color color, float scale, int maxLines)
