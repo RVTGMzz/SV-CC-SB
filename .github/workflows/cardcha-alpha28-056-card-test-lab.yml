@@ -1,0 +1,130 @@
+name: Cardcha alpha28.0.4.14.3 Card Test Lab
+
+on:
+  push:
+    branches: [ cardcha-alpha28-056-card-test-lab ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Card Test Lab finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_4143_card_test_lab.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.3'
+
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          entry = (root/'ModEntry.cs').read_text()
+          assert 'private CardTestLabService CardLab' in entry
+          assert 'new CardTestLabService(this.Cards, this.Save, this.Combat)' in entry
+          assert 'cardcha_card_test' in entry
+          assert 'new CardTestLabMenu(this.CardLab, this.Renderer)' in entry
+          assert 'this.CardLab.EndSession();' in entry
+
+          lab = (root/'Services/CardTestLabService.cs').read_text()
+          menu = (root/'UI/CardTestLabMenu.cs').read_text()
+          assert 'StableBaseId <= 76' in lab
+          assert 'OwnedSnapshot' in lab and 'EquippedSnapshot' in lab and 'LevelsSnapshot' in lab
+          assert 'No SaveService.Save() call is made' in lab
+          assert 'PrepareCard' in lab and 'EndSession' in lab
+          assert 'BuildVerificationReport' in lab
+          assert 'HP 19%' in menu
+          assert 'PASS [X/P]' in menu
+          assert 'FAIL [Y/F]' in menu
+          assert 'PREPARE / EQUIP' in menu
+
+          # Existing locked visuals remain exact.
+          icons = (root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320, 1024)
+          assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+          visual = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          # Newly approved MiMi sprites are byte-locked by Git blob hash.
+          # Any one-byte overwrite/resave changes git hash-object and fails the build.
+          print('Card Test Lab source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize Card Test Lab source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/CardTestLabService.cs \
+            src/Cardcha/UI/CardTestLabMenu.cs \
+            tools/alpha28_4143_card_test_lab.py \
+            .github/workflows/cardcha-alpha28-056-card-test-lab.yml
+          if git diff --cached --quiet; then
+            echo "No generated Card Test Lab diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.3 Card Test Lab [skip ci]"
+            git push origin HEAD:cardcha-alpha28-056-card-test-lab
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
+          grep -q 'cardcha_card_test' src/Cardcha/ModEntry.cs
+          echo 'alpha28.0.4.14.3 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3_CardTestLab_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-056-card-test-lab
+          path: artifact
+          if-no-files-found: error
