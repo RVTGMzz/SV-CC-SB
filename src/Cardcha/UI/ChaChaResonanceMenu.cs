@@ -259,8 +259,17 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
 
         if (this.CurrentTab == ResonanceTab.Abilities)
         {
-            int milestone = new[] { 20, 40, 60, 80 }[Math.Clamp(index, 0, 3)];
-            this.Status = ModEntry.T("resonance.ability.status.future", new { milestone });
+            ChaChaSkillService? skills = ModEntry.StaticChaChaSkills;
+            if (index == 0 && skills is not null && skills.HasSkill(ChaChaSkillService.VitalSkillId))
+            {
+                skills.SetActive(ChaChaSkillService.VitalSkillId);
+                this.Status = ModEntry.T("resonance.ability.vital.equipped");
+                return;
+            }
+
+            this.Status = index == 0
+                ? ModEntry.T("resonance.ability.vital.find-region1")
+                : ModEntry.T("resonance.ability.region.future", new { region = index + 1 });
             Game1.playSound("cancel");
             return;
         }
@@ -654,45 +663,114 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
 
     private void DrawAbilities(SpriteBatch b, Color pink)
     {
-        int[] milestones = { 20, 40, 60, 80 };
-        for (int i = 0; i < this.EntryButtons.Count && i < milestones.Length; i++)
+        ChaChaSkillService? skills = ModEntry.StaticChaChaSkills;
+        bool vitalFound = skills?.HasSkill(ChaChaSkillService.VitalSkillId) == true;
+        bool vitalActive = skills?.IsActive(ChaChaSkillService.VitalSkillId) == true;
+        int vitalLevel = skills?.GetLevel(ChaChaSkillService.VitalSkillId) ?? 0;
+
+        for (int i = 0; i < this.EntryButtons.Count && i < 4; i++)
         {
             Rectangle r = this.EntryButtons[i].bounds;
-            int milestone = milestones[i];
             bool focused = this.currentlySnappedComponent?.myID == this.EntryButtons[i].myID;
+            bool first = i == 0;
+            bool found = first && vitalFound;
 
+            Color border = focused
+                ? Color.White
+                : found
+                    ? new Color(124, 238, 178)
+                    : new Color(111, 83, 117);
             CardchaUi.DrawRoundedPanel(
                 b,
                 r,
                 new Color(47, 35, 55),
-                focused ? Color.White : new Color(111, 83, 117),
+                border,
                 thickness: focused ? 4 : 3,
                 radius: 10
             );
 
-            Rectangle sourceRect = new(r.X + 16, r.Y + 16, r.Width - 32, 34);
+            Rectangle sourceRect = new(r.X + 16, r.Y + 13, r.Width - 32, 38);
             CardchaUi.DrawScaledText(
                 b,
                 Game1.dialogueFont,
-                ModEntry.T("resonance.ability.dungeon", new { milestone }),
+                first ? ModEntry.T("resonance.ability.region1.source") : ModEntry.T("resonance.ability.region.source", new { region = i + 1 }),
                 sourceRect,
-                new Color(242, 190, 222),
+                first ? new Color(174, 244, 205) : new Color(242, 190, 222) * 0.62f,
                 centerX: true,
                 centerY: true,
                 padding: 3,
-                maxScale: 0.72f
+                maxScale: 0.68f
             );
 
             int emblemSize = Math.Min(78, Math.Max(54, r.Height / 3));
-            Rectangle emblem = new(r.Center.X - emblemSize / 2, r.Y + 62, emblemSize, emblemSize);
-            CardchaUi.DrawRoundedPanel(b, emblem, new Color(28, 24, 35), pink * 0.38f, thickness: 2, radius: 30);
-            CardchaUi.DrawScaledText(b, Game1.dialogueFont, "?", emblem, pink, centerX: true, centerY: true, padding: 8, maxScale: 0.86f);
+            Rectangle emblem = new(r.Center.X - emblemSize / 2, r.Y + 61, emblemSize, emblemSize);
+            Color emblemBorder = found ? new Color(132, 255, 194) : pink * 0.38f;
+            CardchaUi.DrawRoundedPanel(b, emblem, new Color(28, 24, 35), emblemBorder, thickness: 2, radius: 30);
+            CardchaUi.DrawScaledText(
+                b,
+                Game1.dialogueFont,
+                found ? "+" : "?",
+                emblem,
+                found ? new Color(159, 255, 203) : pink,
+                centerX: true,
+                centerY: true,
+                padding: 8,
+                maxScale: 0.86f
+            );
 
-            Rectangle line1 = new(r.X + 16, emblem.Bottom + 12, r.Width - 32, 28);
-            CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("resonance.ability.undiscovered"), line1, Color.White * 0.82f, centerX: true, centerY: true, padding: 2, maxScale: 0.92f);
+            Rectangle nameRect = new(r.X + 14, emblem.Bottom + 9, r.Width - 28, 31);
+            string name = first
+                ? found ? ModEntry.T("resonance.ability.vital.name") : ModEntry.T("resonance.ability.undiscovered")
+                : ModEntry.T("resonance.ability.future-name");
+            CardchaUi.DrawScaledText(
+                b,
+                Game1.dialogueFont,
+                name,
+                nameRect,
+                found ? Color.White : Color.White * 0.72f,
+                centerX: true,
+                centerY: true,
+                padding: 2,
+                maxScale: 0.72f
+            );
 
-            Rectangle line2 = new(r.X + 20, r.Bottom - 50, r.Width - 40, 36);
-            CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("resonance.ability.future"), line2, Color.White * 0.52f, centerX: true, centerY: true, padding: 3, maxScale: 0.78f);
+            Rectangle infoRect = new(r.X + 17, nameRect.Bottom + 2, r.Width - 34, 28);
+            string info = first
+                ? found
+                    ? ModEntry.T("resonance.ability.vital.level", new { level = vitalLevel, max = ChaChaSkillService.MaxSkillLevel })
+                    : ModEntry.T("resonance.ability.vital.find-region1")
+                : ModEntry.T("resonance.ability.region.future", new { region = i + 1 });
+            CardchaUi.DrawScaledText(
+                b,
+                Game1.smallFont,
+                info,
+                infoRect,
+                found ? new Color(169, 244, 201) : Color.White * 0.50f,
+                centerX: true,
+                centerY: true,
+                padding: 2,
+                maxScale: 0.82f
+            );
+
+            Rectangle bottomRect = new(r.X + 18, r.Bottom - 50, r.Width - 36, 38);
+            string bottom = first && found
+                ? vitalActive
+                    ? ModEntry.T("resonance.ability.vital.active")
+                    : ModEntry.T("resonance.ability.vital.select")
+                : first
+                    ? ModEntry.T("resonance.ability.normal-form")
+                    : ModEntry.T("resonance.ability.not-designed");
+            CardchaUi.DrawScaledText(
+                b,
+                Game1.smallFont,
+                bottom,
+                bottomRect,
+                first && vitalActive ? CardchaUi.Gold : Color.White * 0.56f,
+                centerX: true,
+                centerY: true,
+                padding: 3,
+                maxScale: 0.78f
+            );
         }
     }
 

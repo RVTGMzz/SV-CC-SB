@@ -933,5 +933,19 @@
   "chacha.boss.activated": "ChaCha đã hấp thụ đủ cộng hưởng và chuyển sang Boss Form!",
   "chacha.energy.label": "NĂNG LƯỢNG CHACHA",
   "chacha.energy.charging": "Đang tích năng lượng Boss Form",
-  "chacha.boss.hint.combo": "SẴN SÀNG  •  {{controller}} / SHIFT+A / CLICK"
+  "chacha.boss.hint.combo": "SẴN SÀNG  •  {{controller}} / SHIFT+A / CLICK",
+  "resonance.ability.region1.source": "KHU VỰC I • Lv 0–20",
+  "resonance.ability.region.source": "KHU VỰC {{region}} • Map tương lai",
+  "resonance.ability.future-name": "Kỹ năng chưa thiết kế",
+  "resonance.ability.region.future": "Dành cho kỹ năng khám phá ở Khu Vực {{region}}.",
+  "resonance.ability.not-designed": "Hiệu ứng và cân bằng chưa được thiết kế.",
+  "resonance.ability.normal-form": "Passive form thường • ChaCha sẽ hiện hiệu ứng cast khi kích hoạt.",
+  "resonance.ability.vital.name": "Phúc Lành Sinh Khí",
+  "resonance.ability.vital.level": "Lv {{level}}/{{max}} • Nâng bằng Bụi Ma Thuật",
+  "resonance.ability.vital.find-region1": "Tìm kỹ năng này khi khám phá Khu Vực I.",
+  "resonance.ability.vital.active": "ĐANG DÙNG • Hỗ trợ form thường",
+  "resonance.ability.vital.select": "Chọn để dùng kỹ năng form thường này.",
+  "resonance.ability.vital.equipped": "Đã dùng Phúc Lành Sinh Khí. Chỉ số hồi máu/chi phí đang chờ bảng cân bằng đã chốt.",
+  "chacha.skill.vital.found": "ChaCha đã tìm thấy Phúc Lành Sinh Khí! Kỹ năng form thường đã được trang bị.",
+  "chacha.skill.vital.already": "ChaCha đã biết Phúc Lành Sinh Khí rồi."
 }

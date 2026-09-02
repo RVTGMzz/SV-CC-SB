@@ -2,7 +2,7 @@ namespace Cardcha.Models;
 
 internal sealed class SaveData
 {
-    public int SchemaVersion { get; set; } = 18;
+    public int SchemaVersion { get; set; } = 19;
     public HashSet<string> OwnedCards { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<string> EquippedCards { get; set; } = new();
     public Dictionary<string, int> CardLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -52,6 +52,12 @@ internal sealed class SaveData
     public bool Chapter1Completed { get; set; }
     public int CardchaStoryChapter { get; set; } = 1;
     public int CardchaStoryStage { get; set; }
+
+    // alpha.28.0.4.14.4.2 — persistent ChaCha normal-form skills found while exploring
+    // Cardcha custom regions. Boss Forms / Mythic Echoes are intentionally separate.
+    public HashSet<string> ChaChaSkillsFound { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public Dictionary<string, int> ChaChaSkillLevels { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public string ActiveChaChaSkillId { get; set; } = "";
 
     public int MimiMerchantUnlockedDay { get; set; } = -1;
     public bool MimiFirstMerchantPepTalkShown { get; set; }

@@ -855,5 +855,19 @@
   "chacha.boss.activated": "ChaCha absorbed the full resonance and entered Boss Form!",
   "chacha.energy.label": "CHACHA ENERGY",
   "chacha.energy.charging": "Boss Form charge",
-  "chacha.boss.hint.combo": "READY  •  {{controller}} / SHIFT+A / CLICK"
+  "chacha.boss.hint.combo": "READY  •  {{controller}} / SHIFT+A / CLICK",
+  "resonance.ability.region1.source": "REGION I • Lv 0–20",
+  "resonance.ability.region.source": "REGION {{region}} • Future map",
+  "resonance.ability.future-name": "Skill not designed yet",
+  "resonance.ability.region.future": "Reserved for the Region {{region}} exploration skill.",
+  "resonance.ability.not-designed": "Effect and balance intentionally not designed yet.",
+  "resonance.ability.normal-form": "Normal-form passive • ChaCha visibly casts when triggered.",
+  "resonance.ability.vital.name": "Vital Blessing",
+  "resonance.ability.vital.level": "Lv {{level}}/{{max}} • Upgraded with Magic Dust",
+  "resonance.ability.vital.find-region1": "Find this skill while exploring Region I.",
+  "resonance.ability.vital.active": "ACTIVE • Normal-form support",
+  "resonance.ability.vital.select": "Select to use this normal-form skill.",
+  "resonance.ability.vital.equipped": "Vital Blessing equipped. Healing values/costs are still waiting for the approved balance table.",
+  "chacha.skill.vital.found": "ChaCha discovered Vital Blessing! The normal-form skill has been equipped.",
+  "chacha.skill.vital.already": "ChaCha already knows Vital Blessing."
 }

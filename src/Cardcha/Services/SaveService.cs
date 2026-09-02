@@ -9,7 +9,7 @@ namespace Cardcha.Services;
 internal sealed class SaveService
 {
     private const string SaveKey = "cardcha-save-v1";
-    private const int CurrentSchemaVersion = 18;
+    private const int CurrentSchemaVersion = 19;
     private readonly IModHelper Helper;
     private int TransientTestDepth;
 
@@ -192,6 +192,21 @@ internal sealed class SaveService
             );
         }
 
+        // v19: ChaCha normal-form exploration skill foundation. Existing saves begin
+        // with no discovered ChaCha skills; no Magic Dust or card state is changed.
+        if (loadedSchema < 19)
+        {
+            this.Data.ChaChaSkillsFound = new HashSet<string>(
+                this.Data.ChaChaSkillsFound ?? new HashSet<string>(),
+                StringComparer.OrdinalIgnoreCase
+            );
+            this.Data.ChaChaSkillLevels = new Dictionary<string, int>(
+                this.Data.ChaChaSkillLevels ?? new Dictionary<string, int>(),
+                StringComparer.OrdinalIgnoreCase
+            );
+            this.Data.ActiveChaChaSkillId ??= "";
+        }
+
         if (loadedSchema < CurrentSchemaVersion)
         {
             this.Data.SchemaVersion = CurrentSchemaVersion;
@@ -274,6 +289,9 @@ internal sealed class SaveService
             Chapter1Completed = d.Chapter1Completed,
             CardchaStoryChapter = d.CardchaStoryChapter,
             CardchaStoryStage = d.CardchaStoryStage,
+            ChaChaSkillsFound = new HashSet<string>(d.ChaChaSkillsFound ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase),
+            ChaChaSkillLevels = new Dictionary<string, int>(d.ChaChaSkillLevels ?? new Dictionary<string, int>(), StringComparer.OrdinalIgnoreCase),
+            ActiveChaChaSkillId = d.ActiveChaChaSkillId ?? "",
             MimiMerchantUnlockedDay = d.MimiMerchantUnlockedDay,
             MimiFirstMerchantPepTalkShown = d.MimiFirstMerchantPepTalkShown,
             FirstScrapPickupNoticeShown = d.FirstScrapPickupNoticeShown,
@@ -344,6 +362,9 @@ internal sealed class SaveService
         this.Data.CardLevels ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         this.Data.CardCopies ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         this.Data.FavoriteCardIds ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        this.Data.ChaChaSkillsFound ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        this.Data.ChaChaSkillLevels ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        this.Data.ActiveChaChaSkillId ??= "";
         this.Data.LastStateFingerprint ??= "";
         this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
         this.Data.ShinyScraps = Math.Max(0, this.Data.ShinyScraps);
@@ -381,6 +402,23 @@ internal sealed class SaveService
                 copies[id] = count;
         }
         this.Data.CardCopies = copies;
+
+        this.Data.ChaChaSkillsFound = new HashSet<string>(
+            this.Data.ChaChaSkillsFound.Where(p => !string.IsNullOrWhiteSpace(p)),
+            StringComparer.OrdinalIgnoreCase
+        );
+        Dictionary<string, int> normalizedChaChaSkillLevels = new(StringComparer.OrdinalIgnoreCase);
+        foreach (string skillId in this.Data.ChaChaSkillsFound)
+        {
+            int level = this.Data.ChaChaSkillLevels.TryGetValue(skillId, out int storedLevel) ? storedLevel : 1;
+            normalizedChaChaSkillLevels[skillId] = Math.Clamp(level, 1, ChaChaSkillService.MaxSkillLevel);
+        }
+        this.Data.ChaChaSkillLevels = normalizedChaChaSkillLevels;
+        if (!string.IsNullOrWhiteSpace(this.Data.ActiveChaChaSkillId)
+            && !this.Data.ChaChaSkillsFound.Contains(this.Data.ActiveChaChaSkillId))
+        {
+            this.Data.ActiveChaChaSkillId = "";
+        }
     }
 
     private static string ComputeFingerprint(SaveData data)
@@ -407,6 +445,13 @@ internal sealed class SaveService
         string battleScholarTypes = string.Join(",", (data.BattleScholarMonsterTypesToday ?? new HashSet<string>())
             .Where(p => !string.IsNullOrWhiteSpace(p))
             .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+
+        string chachaSkills = string.Join(",", (data.ChaChaSkillsFound ?? new HashSet<string>())
+            .Where(p => !string.IsNullOrWhiteSpace(p))
+            .OrderBy(p => p, StringComparer.OrdinalIgnoreCase));
+        string chachaSkillLevels = string.Join(",", (data.ChaChaSkillLevels ?? new Dictionary<string, int>())
+            .OrderBy(p => p.Key, StringComparer.OrdinalIgnoreCase)
+            .Select(p => $"{p.Key}:{p.Value}"));
 
         string canonical = string.Join(
             "|",
@@ -445,6 +490,9 @@ internal sealed class SaveService
             data.Chapter1Completed ? 1 : 0,
             data.CardchaStoryChapter,
             data.CardchaStoryStage,
+            chachaSkills,
+            chachaSkillLevels,
+            data.ActiveChaChaSkillId ?? "",
             data.MimiMerchantUnlockedDay,
             data.FirstScrapPickupNoticeShown ? 1 : 0,
             data.MimiMeetupOfferedDay,
