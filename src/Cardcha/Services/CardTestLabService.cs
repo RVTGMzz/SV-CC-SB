@@ -12,8 +12,9 @@ internal enum CardLabVerdict
 }
 
 /// <summary>
-/// TEST-only orchestration for visually validating every active Base Set card without permanently
-/// mutating the player's collection, loadout, card levels, or story-gating flags.
+/// TEST-only orchestration for validating every active Base Set card without permanently mutating
+/// the player's collection, loadout, card levels, or story-gating flags.
+/// A Lab session may remain active while the menu is closed so the player can perform real gameplay tests.
 /// </summary>
 internal sealed class CardTestLabService
 {
@@ -29,6 +30,9 @@ internal sealed class CardTestLabService
     private bool MachineDeliveredSnapshot;
     private bool BinderUnlockedSnapshot;
     private bool MimiMeetupCompletedSnapshot;
+    private string ActiveCardIdValue = "";
+    private int ActiveLevelValue = 1;
+    private bool TestCardEquippedValue;
 
     public CardTestLabService(CardRegistry cards, SaveService save, CombatService combat)
     {
@@ -44,6 +48,9 @@ internal sealed class CardTestLabService
             .ToList();
 
     public bool IsSessionActive => this.SessionActive;
+    public string ActiveCardId => this.ActiveCardIdValue;
+    public int ActiveLevel => Math.Max(1, this.ActiveLevelValue);
+    public bool IsTestCardEquipped => this.TestCardEquippedValue;
 
     public void BeginSession()
     {
@@ -75,15 +82,45 @@ internal sealed class CardTestLabService
         SaveData data = this.Save.Data;
         int level = Math.Clamp(requestedLevel, 1, Math.Max(1, card.MaxLevel));
 
-        // Reset transient state before swapping cards so buffs such as Vitality are removed cleanly.
+        // Exactly one Lab card is active at a time. This keeps test results attributable to one effect.
         this.Combat.ResetRuntime();
         data.OwnedCards.Add(card.Id);
         data.EquippedCards.Clear();
         data.EquippedCards.Add(card.Id);
         data.CardLevels[card.Id] = level;
+        this.ActiveCardIdValue = card.Id;
+        this.ActiveLevelValue = level;
+        this.TestCardEquippedValue = true;
         this.Combat.ResetVerificationTelemetry();
         this.Combat.SyncPassiveBuffs();
     }
+
+    public void PrepareBaseline(CardDefinition card, int requestedLevel)
+    {
+        if (!Context.IsWorldReady)
+            return;
+
+        this.BeginSession();
+        SaveData data = this.Save.Data;
+        int level = Math.Clamp(requestedLevel, 1, Math.Max(1, card.MaxLevel));
+
+        // Baseline mode keeps the selected card/level visible but equips no Cardcha card.
+        this.Combat.ResetRuntime();
+        data.OwnedCards.Add(card.Id);
+        data.EquippedCards.Clear();
+        data.CardLevels[card.Id] = level;
+        this.ActiveCardIdValue = card.Id;
+        this.ActiveLevelValue = level;
+        this.TestCardEquippedValue = false;
+        this.Combat.ResetVerificationTelemetry();
+        this.Combat.SyncPassiveBuffs();
+    }
+
+    public bool IsSelectedCardEquipped(CardDefinition card)
+        => this.SessionActive
+           && this.TestCardEquippedValue
+           && this.ActiveCardIdValue.Equals(card.Id, StringComparison.OrdinalIgnoreCase)
+           && this.Save.Data.EquippedCards.Contains(card.Id, StringComparer.OrdinalIgnoreCase);
 
     public void EndSession()
     {
@@ -109,6 +146,9 @@ internal sealed class CardTestLabService
         this.OwnedSnapshot = null;
         this.EquippedSnapshot = null;
         this.LevelsSnapshot = null;
+        this.ActiveCardIdValue = "";
+        this.ActiveLevelValue = 1;
+        this.TestCardEquippedValue = false;
         this.Combat.ResetVerificationTelemetry();
         this.Combat.SyncPassiveBuffs();
     }
@@ -145,9 +185,16 @@ internal sealed class CardTestLabService
 
         SaveData data = this.Save.Data;
         int level = data.CardLevels.TryGetValue(selected.Id, out int storedLevel) ? storedLevel : 1;
-        string equipped = data.EquippedCards.Contains(selected.Id, StringComparer.OrdinalIgnoreCase) ? "YES" : "no";
+        string selectedEquipped = this.IsSelectedCardEquipped(selected) ? "YES" : "no";
+        string activeMode = string.IsNullOrWhiteSpace(this.ActiveCardIdValue)
+            ? "not prepared"
+            : this.TestCardEquippedValue
+                ? $"EQUIPPED: {this.ActiveCardIdValue} Lv {this.ActiveLevelValue}"
+                : $"BASELINE / UNEQUIPPED: {this.ActiveCardIdValue} Lv {this.ActiveLevelValue}";
+
         return
-            $"Selected: #{selected.StableBaseId:00} {selected.Name} | Lv {level} | Equipped {equipped}\n" +
+            $"Lab run: {activeMode}\n" +
+            $"Selected: #{selected.StableBaseId:00} {selected.Name} | Lv {level} | Selected equipped {selectedEquipped}\n" +
             $"Player HP: {Game1.player.health}/{Game1.player.maxHealth}\n" +
             this.Combat.BuildVerificationReport();
     }
@@ -156,17 +203,17 @@ internal sealed class CardTestLabService
     {
         return card.Id.ToLowerInvariant() switch
         {
-            "iron_edge" => "Hit the same enemy with a weapon. Watch Damage last BEFORE->AFTER.",
-            "keen_eye" => "Attack normally. Watch Crit last BEFORE->AFTER; a modified crit hook proves the bonus is wired.",
-            "vitality" => "Press PREPARE. Max HP should increase immediately; closing Lab must restore it.",
-            "executioner" => "Lower an enemy below the threshold, then hit it and compare outgoing damage.",
-            "first_strike" => "Hit a fresh/full-health enemy once, then hit again. First hit should receive the card bonus only once.",
-            "armor_breaker" => "Hit one target repeatedly. Keep the same target so stack behavior can be observed.",
-            "blood_fang" => "Take damage first, then kill an enemy. Watch HP recovery and Blood Fang proc telemetry.",
-            "chain_hunter" => "Kill enemies quickly. Watch Chain Hunter stacks and remaining timer in telemetry.",
-            "phoenix_heart" => "Use only on a disposable TEST save state. Take lethal damage and verify the once-per-day rescue.",
-            "last_stand" => "Keep a living monster nearby, press HP 19%, then watch the LastStand passive state.",
-            "soul_eater" => "Kill enemies and watch Soul Eater kill counter, bonus percent, and timer.",
+            "iron_edge" => "EQUIP & PLAY, hit the same enemy with a weapon, reopen Lab, then read Damage BEFORE->AFTER. Use UNEQUIP & PLAY for baseline.",
+            "keen_eye" => "EQUIP & PLAY and attack normally. Reopen Lab and inspect Crit BEFORE->AFTER; compare with UNEQUIP baseline.",
+            "vitality" => "EQUIP & PLAY. Max HP should increase immediately. UNEQUIP & PLAY should remove the temporary bonus.",
+            "executioner" => "Lower an enemy below the threshold, EQUIP & PLAY, then hit it and compare outgoing damage against UNEQUIP baseline.",
+            "first_strike" => "EQUIP & PLAY and hit a fresh/full-health enemy once, then hit again. The first-hit bonus should only apply once.",
+            "armor_breaker" => "EQUIP & PLAY and hit one target repeatedly. Keep the same target so stack behavior can be observed.",
+            "blood_fang" => "Take damage first, EQUIP & PLAY, then kill an enemy. Reopen Lab and inspect HP recovery + Blood Fang proc telemetry.",
+            "chain_hunter" => "EQUIP & PLAY and kill enemies quickly. Reopen Lab to inspect Chain Hunter stacks and timer.",
+            "phoenix_heart" => "Use only in TEST. EQUIP & PLAY, take lethal damage, then verify the once-per-day rescue before marking PASS.",
+            "last_stand" => "Set HP 19%, EQUIP & PLAY, keep a living monster nearby, then reopen Lab and inspect LastStand state.",
+            "soul_eater" => "EQUIP & PLAY, kill enemies, then reopen Lab to inspect Soul Eater kill counter, bonus percent, and timer.",
             "victory_charge" => "BLOCKED: Boss Energy does not exist yet. Do not mark PASS based on a substitute effect.",
             _ => BuildGenericInstruction(card)
         };
@@ -178,18 +225,18 @@ internal sealed class CardTestLabService
         string id = card.Id.ToLowerInvariant();
 
         if (key.Contains("crit") || id.Contains("crit"))
-            return "Attack repeatedly and watch Crit telemetry. A modified hook is visible even if RNG does not crit.";
+            return "EQUIP & PLAY, attack repeatedly, reopen Lab and inspect Crit telemetry. Compare against UNEQUIP baseline.";
         if (key.Contains("damage") || id.Contains("strike") || id.Contains("hunter") || id.Contains("predator"))
-            return "Attack an enemy and compare Damage BEFORE->AFTER in telemetry.";
+            return "Use UNEQUIP & PLAY for a baseline hit, then EQUIP & PLAY and repeat the same test. Compare Damage BEFORE->AFTER.";
         if (key.Contains("health") || key.Contains("heal") || id.Contains("heart") || id.Contains("medic"))
-            return "Change HP first, trigger the card condition, then watch the HP line and proc counters.";
+            return "Change HP first, EQUIP & PLAY, trigger the exact condition, then reopen Lab and inspect HP/proc telemetry.";
         if (key.Contains("drop") || key.Contains("loot") || id.Contains("scavenger") || id.Contains("seeker") || id.Contains("treasure"))
-            return "Defeat eligible enemies and watch the real drop result. RNG misses are not failures by themselves.";
+            return "EQUIP & PLAY and defeat eligible enemies. Reopen Lab after several kills; RNG misses alone are not failures.";
         if (key.Contains("pull") || key.Contains("gacha") || id.Contains("cardmaster") || id.Contains("collector"))
-            return "Prepare this card, then perform the relevant Standard/Premium pull and verify the real gacha result/counter.";
+            return "EQUIP & PLAY, perform the relevant Standard/Premium pull, then reopen Lab and verify the real gacha result/counter.";
         if (key.Contains("defense") || key.Contains("speed") || key.Contains("buff"))
-            return "Press PREPARE and observe the player/passive buff telemetry; enter combat if the condition requires a monster.";
+            return "EQUIP & PLAY and observe the player/passive state. Use UNEQUIP & PLAY immediately after for comparison.";
 
-        return "Prepare the card, perform the exact condition written in its description, and use telemetry + visible gameplay result together.";
+        return "EQUIP & PLAY, perform the exact condition in the description, reopen Lab, then judge using telemetry + visible gameplay. UNEQUIP gives the baseline.";
     }
 }
