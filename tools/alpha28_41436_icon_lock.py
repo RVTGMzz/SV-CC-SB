@@ -26,9 +26,12 @@ else:
 
 print(f'Card icon atlas lock PASS: {digest} ({width}x{height})')
 
-# .4.14.3.7 one-time compatibility pre-hook. The historical Core service has an XML
-# summary between namespace and class, so prepare the debug-snapshot anchor before the
-# Auto Scenario finalizer. The shim is idempotent and does not touch gameplay behavior.
+# .4.14.3.7 compatibility pre-hook. Prepare Core's historical XML-comment anchor,
+# then run the resilient one-time Auto Scenario materializer. The workflow sees the
+# resulting ModEntry marker and skips the legacy direct invocation immediately after.
 shim = Path('tools/alpha28_41437_core_anchor.py')
 if shim.exists():
     runpy.run_path(str(shim), run_name='__main__')
+wrapper = Path('tools/alpha28_41437_auto_scenario_v2.py')
+if wrapper.exists() and 'CardAutoScenarioRunnerService CardAutoRunner' not in (ROOT/'ModEntry.cs').read_text(encoding='utf-8'):
+    runpy.run_path(str(wrapper), run_name='__main__')
