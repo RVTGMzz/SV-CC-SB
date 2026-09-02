@@ -45,6 +45,7 @@ internal sealed class AirshipFoundationService
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
     private const float BoardingUseDistance = 128f;
+    private const float ForestGateUseDistance = 320f;
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -234,7 +235,9 @@ internal sealed class AirshipFoundationService
         if (IsSkyDockLocation(location) && this.Save.Data.AirshipUnlocked)
         {
             Point dock = this.ResolveSkyDockTile();
-            if (!PlayerIsNear(dock))
+            // The Forest gate never edits collision. A wider action-only radius lets the player
+            // activate it from the reachable side of fences/foliage on modded Forest maps.
+            if (!PlayerIsNear(dock, ForestGateUseDistance))
                 return;
 
             GameLocation? interior = this.EnsureSkyDockInteriorLocation();
@@ -972,6 +975,13 @@ internal sealed class AirshipFoundationService
             try
             {
                 Vector2 tile = new(p.X, p.Y);
+                // Static map-overhaul fences, trunks, and canopy pieces can live on map layers
+                // without being represented as terrain features. Reject those anchors too.
+                var buildings = location.Map?.GetLayer("Buildings");
+                var front = location.Map?.GetLayer("Front");
+                if (buildings?.Tiles[p.X, p.Y] is not null || front?.Tiles[p.X, p.Y] is not null)
+                    return false;
+
                 if (location.IsTileBlockedBy(tile)
                     || location.Objects.ContainsKey(tile)
                     || location.terrainFeatures.ContainsKey(tile))
@@ -1800,9 +1810,9 @@ internal sealed class AirshipFoundationService
         {
             int x = bounds.X + i * period + shift - 70;
             int y = bounds.Y + bounds.Height / 3 + (i % 3) * 31;
-            DrawRect(batch, new Rectangle(x, y, 96, 11), color * 0.56f);
-            DrawRect(batch, new Rectangle(x + 22, y - 9, 62, 13), color * 0.72f);
-            DrawRect(batch, new Rectangle(x + 48, y + 7, 82, 9), color * 0.44f);
+            DrawClippedRect(batch, bounds, new Rectangle(x, y, 96, 11), color * 0.56f);
+            DrawClippedRect(batch, bounds, new Rectangle(x + 22, y - 9, 62, 13), color * 0.72f);
+            DrawClippedRect(batch, bounds, new Rectangle(x + 48, y + 7, 82, 9), color * 0.44f);
         }
     }
 
@@ -2027,9 +2037,9 @@ internal sealed class AirshipFoundationService
         {
             int x = bounds.X + i * period + shift - 80;
             int y = bounds.Y + yOffset + (i % 2) * 16;
-            DrawRect(batch, new Rectangle(x, y, 118, 13), color * 0.72f);
-            DrawRect(batch, new Rectangle(x + 24, y - 11, 72, 15), color * 0.82f);
-            DrawRect(batch, new Rectangle(x + 57, y + 8, 96, 10), color * 0.58f);
+            DrawClippedRect(batch, bounds, new Rectangle(x, y, 118, 13), color * 0.72f);
+            DrawClippedRect(batch, bounds, new Rectangle(x + 24, y - 11, 72, 15), color * 0.82f);
+            DrawClippedRect(batch, bounds, new Rectangle(x + 57, y + 8, 96, 10), color * 0.58f);
         }
     }
 
@@ -2060,6 +2070,14 @@ internal sealed class AirshipFoundationService
         batch.Draw(Game1.staminaRect, rectangle, color);
     }
 
+    private static void DrawClippedRect(SpriteBatch batch, Rectangle bounds, Rectangle rectangle, Color color)
+    {
+        Rectangle clipped = Rectangle.Intersect(bounds, rectangle);
+        if (clipped.Width <= 0 || clipped.Height <= 0)
+            return;
+        DrawRect(batch, clipped, color);
+    }
+
     private static Point GetActionTile()
     {
         Point p = new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
@@ -2077,10 +2095,13 @@ internal sealed class AirshipFoundationService
         => location?.NameOrUniqueName.Equals(SkyDockLocationName, StringComparison.OrdinalIgnoreCase) == true;
 
     private static bool PlayerIsNear(Point tile)
+        => PlayerIsNear(tile, BoardingUseDistance);
+
+    private static bool PlayerIsNear(Point tile, float useDistance)
     {
         Vector2 center = new(tile.X * 64f + 32f, tile.Y * 64f + 32f);
         Vector2 player = Game1.player.Position + new Vector2(32f, 32f);
-        return Vector2.DistanceSquared(center, player) <= BoardingUseDistance * BoardingUseDistance;
+        return Vector2.DistanceSquared(center, player) <= useDistance * useDistance;
     }
 
     private static bool Touches(Point actionTile, Point tile)
