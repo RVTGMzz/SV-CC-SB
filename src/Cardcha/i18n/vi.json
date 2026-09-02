@@ -983,5 +983,13 @@
   "resonance.ability.find-region": "Tìm kỹ năng này khi khám phá Khu Vực {{region}}.",
   "resonance.ability.equipped": "Đã chọn {{name}} cho form thường của ChaCha.",
   "resonance.ability.active": "ĐANG DÙNG • Hỗ trợ form thường",
-  "resonance.ability.select": "Chọn để dùng kỹ năng form thường này"
+  "resonance.ability.select": "Chọn để dùng kỹ năng form thường này",
+  "resonance.ability.module-active": "{{name}} đã học và tự động ghép vào Hỗ Trợ ChaCha.",
+  "resonance.ability.module-on": "ĐÃ HỌC • Tự ghép vào cùng một lần cast",
+  "resonance.support.cast.title": "Hỗ Trợ ChaCha",
+  "resonance.support.cast.body": "Sinh Khí Lv{{level}} • Cast khi hạ quái {{kill}}% • Hồi {{heal}}% Máu tối đa • Cooldown {{cooldown}}s • Còn {{remaining}}s",
+  "resonance.support.rescue.title": "Cứu Nguy Khi Nhận Sát Thương",
+  "resonance.support.rescue.body": "Mỗi hit gây mất máu roll {{lucky}}% Lucky Cast. Từ trên 30% tụt xuống ≤30% Máu sẽ chắc chắn Emergency Cast 1 lần. Cả hai bỏ qua cooldown.",
+  "resonance.support.modules.title": "Một Cast • Nhiều Module",
+  "resonance.support.modules.body": "Đã học {{learned}}/4 module. Khiên: 20s. Tiếp Sức: 30% hồi thể lực. Phúc Vận: 50% nhận +1 Luck trong 10s. Không có cooldown riêng."
 }

@@ -10,11 +10,13 @@ namespace Cardcha.Patches;
 internal static class FarmerDamagePatch
 {
     private static CombatService? Combat;
+    private static ChaChaSupportCastService? Support;
     private static CardTestArenaService? TestArena;
 
-    public static void Apply(Harmony harmony, CombatService combat, CardTestArenaService? testArena = null)
+    public static void Apply(Harmony harmony, CombatService combat, ChaChaSupportCastService support, CardTestArenaService? testArena = null)
     {
         Combat = combat;
+        Support = support;
         TestArena = testArena;
         MethodInfo? target = AccessTools.Method(
             typeof(Farmer),
@@ -39,6 +41,8 @@ internal static class FarmerDamagePatch
             TestArena?.TryOverrideIncomingDamage(ref damage, damager);
             if (Combat is not null)
                 damage = Combat.ModifyFarmerDamage(damage, __instance, damager);
+            if (Support is not null)
+                damage = Support.ModifyIncomingDamage(damage, __instance);
         }
         catch (Exception ex)
         {
@@ -50,7 +54,9 @@ internal static class FarmerDamagePatch
     {
         try
         {
+            int healthAfterHit = __instance.health;
             Combat?.AfterFarmerTakesDamage(__instance, __state);
+            Support?.AfterFarmerTakesDamage(__instance, __state, healthAfterHit);
             TestArena?.AfterFarmerDamage(__instance);
         }
         catch (Exception ex)

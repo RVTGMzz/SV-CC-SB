@@ -264,8 +264,8 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             string skillId = ChaChaSkillMaterialService.GetSkillIdForIndex(index);
             if (skills is not null && skills.HasSkill(skillId))
             {
-                skills.SetActive(skillId);
-                this.Status = ModEntry.T("resonance.ability.equipped", new { name = ModEntry.T($"chacha.skill.{skillId}.name") });
+                this.Status = ModEntry.T("resonance.ability.module-active", new { name = ModEntry.T($"chacha.skill.{skillId}.name") });
+                Game1.playSound("smallSelect");
                 return;
             }
 
@@ -670,7 +670,6 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             Rectangle r = this.EntryButtons[i].bounds;
             string skillId = ChaChaSkillMaterialService.GetSkillIdForIndex(i);
             bool found = skills?.HasSkill(skillId) == true;
-            bool active = skills?.IsActive(skillId) == true;
             int level = skills?.GetLevel(skillId) ?? 0;
             bool focused = this.currentlySnappedComponent?.myID == this.EntryButtons[i].myID;
             Color accent = i switch
@@ -747,14 +746,14 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
 
             Rectangle bottomRect = new(r.X + 18, r.Bottom - 48, r.Width - 36, 36);
             string bottom = found
-                ? active ? ModEntry.T("resonance.ability.active") : ModEntry.T("resonance.ability.select")
+                ? ModEntry.T("resonance.ability.module-on")
                 : ModEntry.T("resonance.ability.normal-form");
             CardchaUi.DrawScaledText(
                 b,
                 Game1.smallFont,
                 bottom,
                 bottomRect,
-                active ? CardchaUi.Gold : Color.White * 0.56f,
+                found ? CardchaUi.Gold : Color.White * 0.56f,
                 centerX: true,
                 centerY: true,
                 padding: 3,
@@ -777,43 +776,46 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
         if (this.EntryButtons.Count < 3)
             return;
 
-        int discovered = this.DiscoveredCount;
-        int total = CardRegistry.TargetBaseSetCount;
-        (int hit, int hurt) = GetSupportProcRates(discovered);
-        int recovery = 10 + Math.Clamp(discovered / 10, 0, 8);
-        int nextSupport = GetNextMilestone(discovered, new[] { 20, 40, 60, 80 });
-        int nextRecovery = GetNextMilestone(discovered, new[] { 10, 20, 30, 40, 50, 60, 70, 80 });
+        ChaChaSkillService? skills = ModEntry.StaticChaChaSkills;
+        ChaChaSupportCastService? support = ModEntry.StaticChaChaSupport;
+        int vital = skills?.GetLevel(ChaChaSkillService.VitalSkillId) ?? 0;
+        double kill = vital > 0 ? ChaChaSupportCastService.GetKillChance(vital) : 0d;
+        double lucky = vital > 0 ? ChaChaSupportCastService.GetLuckyDamageChance(vital) : 0d;
+        int cooldown = vital > 0 ? ChaChaSupportCastService.GetCooldownSeconds(vital) : 0;
+        double heal = vital > 0 ? ChaChaSupportCastService.GetVitalHealPercent(vital) : 0d;
 
         this.DrawSupportBlock(
             b,
             this.EntryButtons[0],
-            ModEntry.T("resonance.support.collection.title"),
-            ModEntry.T("resonance.support.collection.body", new
+            ModEntry.T("resonance.support.cast.title"),
+            ModEntry.T("resonance.support.cast.body", new
             {
-                current = discovered,
-                total,
-                next = nextSupport < 0 ? ModEntry.T("resonance.complete") : nextSupport.ToString()
+                level = vital,
+                kill = Math.Round(kill * 100d),
+                cooldown,
+                heal = Math.Round(heal * 100d),
+                remaining = support?.CooldownSecondsRemaining.ToString("0.0") ?? "0.0"
             }),
-            new Color(111, 81, 130),
+            new Color(91, 87, 132),
             pink
         );
 
         this.DrawSupportBlock(
             b,
             this.EntryButtons[1],
-            ModEntry.T("resonance.support.trigger.title"),
-            ModEntry.T("resonance.support.trigger.body", new { hit, hurt }),
-            new Color(89, 81, 125),
+            ModEntry.T("resonance.support.rescue.title"),
+            ModEntry.T("resonance.support.rescue.body", new { lucky = Math.Round(lucky * 100d) }),
+            new Color(80, 88, 128),
             pink
         );
 
-        string recoveryNext = nextRecovery < 0 ? ModEntry.T("resonance.complete") : nextRecovery.ToString();
+        int learned = ChaChaSkillService.SkillIds.Count(id => skills?.HasSkill(id) == true);
         this.DrawSupportBlock(
             b,
             this.EntryButtons[2],
-            ModEntry.T("resonance.support.recovery.title"),
-            ModEntry.T("resonance.support.recovery.body", new { recovery, next = recoveryNext }),
-            new Color(99, 73, 112),
+            ModEntry.T("resonance.support.modules.title"),
+            ModEntry.T("resonance.support.modules.body", new { learned }),
+            new Color(103, 75, 112),
             pink
         );
     }

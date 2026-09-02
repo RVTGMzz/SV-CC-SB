@@ -17,6 +17,7 @@ internal sealed class MonsterDeathService
     private readonly DropService Drops;
     private readonly CombatService Combat;
     private readonly ChaChaSkillMaterialService Materials;
+    private readonly ChaChaSupportCastService Support;
 
     public long DeathsHandled { get; private set; }
     public string LastMonsterName { get; private set; } = "none";
@@ -24,11 +25,12 @@ internal sealed class MonsterDeathService
     public long CustomDeathsHandled { get; private set; }
     public string LastDeathSource { get; private set; } = "none";
 
-    public MonsterDeathService(DropService drops, CombatService combat, ChaChaSkillMaterialService materials)
+    public MonsterDeathService(DropService drops, CombatService combat, ChaChaSkillMaterialService materials, ChaChaSupportCastService support)
     {
         this.Drops = drops;
         this.Combat = combat;
         this.Materials = materials;
+        this.Support = support;
     }
 
     public void HandleDeath(Monster monster, Farmer? who, GameLocation? location = null)
@@ -59,6 +61,7 @@ internal sealed class MonsterDeathService
         this.Drops.TryDrop(resolvedLocation, monster, who);
         EnemyLootScale scale = DropService.ClassifyEnemy(this.LastMonsterName, this.LastDeathSource, monster.modData?.Pairs);
         this.Materials.TryDrop(resolvedLocation, monster.Position, who, scale);
+        this.Support.OnMonsterKilled(who);
     }
 
     public void HandleCustomDeath(
@@ -89,6 +92,7 @@ internal sealed class MonsterDeathService
             scale
         );
         this.Materials.TryDrop(location, position, who, scale);
+        this.Support.OnMonsterKilled(who);
     }
 
     public string Describe()

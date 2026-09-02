@@ -7,11 +7,9 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Persistent ChaCha normal-form skill foundation.
-/// Skills are exploration rewards, independent from Mythic Echo/Boss Form.
-/// This pass deliberately leaves the first skill's healing balance uncommitted until the
-/// previously-agreed values are recovered/confirmed; discovery, equip, level persistence and
-/// ChaCha cast presentation are real and testable now.
+/// Persistent ChaCha normal-form skill/module foundation.
+/// Skills are exploration rewards and modules on one Support Cast, independent from Mythic Echo/Boss Form.
+/// ActiveChaChaSkillId remains only as a legacy save field; learned modules no longer compete for an active slot.
 /// </summary>
 internal sealed class ChaChaSkillService
 {
@@ -208,7 +206,7 @@ internal sealed class ChaChaSkillService
         => $"Found=[{string.Join(',', this.Save.Data.ChaChaSkillsFound.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))}] | " +
            $"Active={this.ActiveSkillId} | Levels=" +
            $"Vital:{this.GetLevel(VitalSkillId)},Guard:{this.GetLevel(GuardSkillId)},Spirit:{this.GetLevel(SpiritSkillId)},Luck:{this.GetLevel(LuckSkillId)} | " +
-           "SkillEffects=DESIGN_LOCK_PENDING (normal-form runtime effects are not enabled yet)";
+           "SupportCastRuntime=ENABLED (learned Region skills are modules on one shared cast)";
 
     private Point ResolveRegion1RelicTile(GameLocation location)
     {

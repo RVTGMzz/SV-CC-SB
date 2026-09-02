@@ -16,6 +16,7 @@ internal sealed class ModEntry : Mod
     internal static IMonitor? StaticMonitor;
     internal static IModHelper? StaticHelper;
     internal static ChaChaSkillService? StaticChaChaSkills;
+    internal static ChaChaSupportCastService? StaticChaChaSupport;
     private static readonly HashSet<string> LoggedErrors = new(StringComparer.OrdinalIgnoreCase);
 
     private ModConfig Config = null!;
@@ -29,6 +30,7 @@ internal sealed class ModEntry : Mod
     private BossEnergyService BossEnergy = null!;
     private ChaChaBossFormService ChaChaBossForm = null!;
     private ChaChaSkillService ChaChaSkills = null!;
+    private ChaChaSupportCastService ChaChaSupport = null!;
     private ChaChaSkillMaterialService ChaChaMaterials = null!;
     private CombatService Combat = null!;
     private CardRenderer Renderer = null!;
@@ -71,6 +73,11 @@ internal sealed class ModEntry : Mod
         this.WorldActors = new WorldActorService(this.Monitor);
         this.ChaChaSkills = new ChaChaSkillService(helper, this.Monitor, this.Save, this.WorldActors);
         StaticChaChaSkills = this.ChaChaSkills;
+        this.ChaChaBossForm = new ChaChaBossFormService(
+            helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors, this.Controller
+        );
+        this.ChaChaSupport = new ChaChaSupportCastService(this.Monitor, this.Save, this.ChaChaSkills, () => this.ChaChaBossForm.IsActive);
+        StaticChaChaSupport = this.ChaChaSupport;
         this.ChaChaMaterials = new ChaChaSkillMaterialService(helper, this.Monitor, this.Save, this.ChaChaSkills, this.Controller);
         this.Progression = new ProgressionService(helper, this.Monitor, this.Save);
         this.Drops = new DropService(
@@ -83,7 +90,7 @@ internal sealed class ModEntry : Mod
             () => this.Progression.HasFirstScrapTriggered,
             () => this.Combat.CurrentNoHitKillStreak
         );
-        this.Deaths = new MonsterDeathService(this.Drops, this.Combat, this.ChaChaMaterials);
+        this.Deaths = new MonsterDeathService(this.Drops, this.Combat, this.ChaChaMaterials, this.ChaChaSupport);
         this.EnemyObserver = new UniversalEnemyObserverService(this.Deaths);
         this.CombatHud = new CombatHudRenderer(
             this.Config,
@@ -98,9 +105,6 @@ internal sealed class ModEntry : Mod
             helper,
             this.Save,
             this.OpenBinderFromMenu
-        );
-        this.ChaChaBossForm = new ChaChaBossFormService(
-            helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors, this.Controller
         );
         this.PortableMachine = new PortableMachineService(
             helper,
@@ -164,20 +168,24 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.BossEnergy.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaBossForm.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.ChaChaSupport.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSkills.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSupport.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.BossEnergy.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaBossForm.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.ChaChaSupport.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.ChaChaSupport.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaMaterials.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaBossForm.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
@@ -245,6 +253,13 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_chacha_materials", "TEST ONLY: give all four ChaCha region upgrade materials: cardcha_chacha_materials [amount]", this.CommandChaChaMaterials);
         helper.ConsoleCommands.Add("cardcha_chacha_station", "TEST ONLY: open the Airship ChaCha Resonance Pedestal UI directly.", this.CommandChaChaStation);
         helper.ConsoleCommands.Add("cardcha_chacha_material_status", "Show ChaCha region-material and Airship station state.", this.CommandChaChaMaterialStatus);
+        helper.ConsoleCommands.Add("cardcha_chacha_support_status", "Show ChaCha one-cast support runtime state.", (_, _) => this.Monitor.Log("===== CHACHA SUPPORT CAST =====\n" + this.ChaChaSupport.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_chacha_support_force", "TEST ONLY: force one ChaCha Support Cast, bypassing cooldown.", (_, args) =>
+        {
+            if (!Context.IsWorldReady) return;
+            bool ok = this.ChaChaSupport.DebugForceCast(args.FirstOrDefault() ?? "debug");
+            this.Monitor.Log(ok ? "TEST: ChaCha Support Cast forced." : "TEST: Support Cast unavailable (unlock Vital/ChaCha or leave Boss Form).", ok ? LogLevel.Alert : LogLevel.Warn);
+        });
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -256,13 +271,13 @@ internal sealed class ModEntry : Mod
         MonsterDropPatch.Apply(harmony, this.Deaths);
         MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena);
         CriticalChancePatch.Apply(harmony, this.Combat);
-        FarmerDamagePatch.Apply(harmony, this.Combat, this.CardArena);
+        FarmerDamagePatch.Apply(harmony, this.Combat, this.ChaChaSupport, this.CardArena);
         MachineInteractionPatch.Apply(harmony, this.OpenMachineMenu);
         BookNavigationPatch.Apply(harmony, this.BookTab);
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.3 CHACHA SKILL MATERIALS + AIRSHIP STATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.4 CHACHA SUPPORT CAST RUNTIME TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -1147,7 +1162,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.4.3 CHACHA SKILL MATERIALS + AIRSHIP STATION TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.4.4 CHACHA SUPPORT CAST RUNTIME TEST",
             LogLevel.Alert
         );
     }
