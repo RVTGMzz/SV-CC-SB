@@ -1,0 +1,207 @@
+name: Cardcha alpha28.0.4.14.4.2 ChaCha Skill Foundation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-060-chacha-skill-foundation ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply ChaCha skill finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_41442_chacha_skill_foundation.py
+          python3 tools/alpha28_41436_auto_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct, re
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.2'
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          data = (root/'Models/SaveData.cs').read_text()
+          save = (root/'Services/SaveService.cs').read_text()
+          skill = (root/'Services/ChaChaSkillService.cs').read_text()
+          menu = (root/'UI/ChaChaResonanceMenu.cs').read_text()
+          entry = (root/'ModEntry.cs').read_text()
+          boss = (root/'Services/ChaChaBossFormService.cs').read_text()
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+
+          # Persistent skill foundation.
+          assert 'SchemaVersion { get; set; } = 19' in data
+          assert 'CurrentSchemaVersion = 19' in save
+          for token in ['ChaChaSkillsFound', 'ChaChaSkillLevels', 'ActiveChaChaSkillId']:
+              assert token in data
+              assert token in save
+          assert 'if (loadedSchema < 19)' in save
+          assert 'ChaChaSkillsFound = new HashSet<string>' in save[save.index('private static SaveData CloneData'):]
+          assert 'normalizedChaChaSkillLevels' in save
+          assert 'string chachaSkills =' in save and 'string chachaSkillLevels =' in save
+
+          # Region I exploration pickup, normal-form identity, cast presentation.
+          assert 'VitalSkillId = "vital_blessing"' in skill
+          assert 'MaxSkillLevel = 5' in skill
+          assert 'AirshipFoundationService.Region1LocationName' in skill
+          assert 'ResolveRegion1RelicTile' in skill
+          assert 'DiscoverVitalSkill' in skill
+          assert 'TriggerCastPresentation' in skill
+          assert 'this.Save.Data.ChaChaLoaned' in skill
+          assert 'ActiveChaChaSkillId' in skill
+          assert 'HealBalance=UNLOCKED_FOR_DESIGN' in skill
+
+          # Balance is deliberately NOT invented in this foundation.
+          assert 'Game1.player.health' not in skill
+          assert 'Game1.player.maxHealth' not in skill
+          assert 'SuspiciousDust -=' not in skill
+          assert 'TrySpend' not in skill
+          assert 'healPercent' not in skill and 'healAmount' not in skill
+
+          # Abilities tab now represents custom-map discoveries, not card-count milestones.
+          ability_start = menu.index('private void DrawAbilities')
+          ability_end = menu.index('private void DrawSupportProgress', ability_start)
+          abilities = menu[ability_start:ability_end]
+          assert 'REGION' not in abilities  # all player text remains localized
+          assert 'ChaChaSkillService.VitalSkillId' in abilities
+          assert 'resonance.ability.region1.source' in abilities
+          assert 'resonance.ability.region.source' in abilities
+          assert 'resonance.ability.future-name' in abilities
+          assert 'new[] { 20, 40, 60, 80 }' not in abilities
+          assert 'milestone' not in abilities.lower()
+
+          # Mod wiring + TEST hooks.
+          assert 'internal static ChaChaSkillService? StaticChaChaSkills;' in entry
+          assert 'private ChaChaSkillService ChaChaSkills = null!;' in entry
+          assert 'this.ChaChaSkills = new ChaChaSkillService' in entry
+          assert 'this.ChaChaSkills.OnRenderedWorld' in entry
+          assert 'this.ChaChaSkills.OnButtonPressed' in entry
+          assert 'this.ChaChaSkills.OnWarped' in entry
+          assert 'this.ChaChaSkills.OnReturnedToTitle' in entry
+          for command in ['cardcha_chacha_skill_unlock','cardcha_chacha_skill_level','cardcha_chacha_skill_cast','cardcha_chacha_skill_status']:
+              assert command in entry
+          assert 'Select/View x3' not in entry
+          assert 'Left Shift+A' in entry
+          assert f'Cardcha! v{version} CHACHA SKILL FOUNDATION TEST' in entry
+
+          # Player-facing skill contract and no invented Map II-IV designs.
+          assert vi['resonance.ability.region1.source'] == 'KHU VỰC I • Lv 0–20'
+          assert vi['resonance.ability.vital.name'] == 'Phúc Lành Sinh Khí'
+          assert 'Bụi Ma Thuật' in vi['resonance.ability.vital.level']
+          assert 'chưa thiết kế' in vi['resonance.ability.future-name'].lower()
+          assert 'Future map' in en['resonance.ability.region.source']
+
+          # Preserve Boss Form activation/aura contract.
+          assert 'BossFormDurationMs = 10000' in boss
+          assert 'SButton.LeftShift' in boss and 'SButton.A' in boss
+          assert 'ControllerAction.Confirm' in boss and 'ControllerAction.Deselect' in boss
+          for threshold in ['energy >= 75d', 'energy >= 50d', 'energy >= 25d']:
+              assert threshold in boss
+
+          # Preserve 76-card baseline.
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+
+          # Locked visuals + Forest compatibility.
+          icons=(root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320,1024)
+          assert hashlib.sha256(icons).hexdigest() == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          airship=(root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(airship).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'CollisionEdits=NONE' in (root/'Services/AirshipFoundationService.cs').read_text()
+
+          print('ChaCha skill foundation source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize ChaCha skill source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Models/SaveData.cs \
+            src/Cardcha/Services/SaveService.cs \
+            src/Cardcha/Services/ChaChaSkillService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
+            src/Cardcha/UI/ChaChaResonanceMenu.cs \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            tools/alpha28_41442_chacha_skill_foundation.py \
+            .github/workflows/cardcha-alpha28-060-chacha-skill-foundation.yml
+          if git diff --cached --quiet; then
+            echo "No generated ChaCha skill diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.2 ChaCha skill foundation [skip ci]"
+            git push origin HEAD:cardcha-alpha28-060-chacha-skill-foundation
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'CurrentSchemaVersion = 19' src/Cardcha/Services/SaveService.cs
+          grep -q 'VitalSkillId = "vital_blessing"' src/Cardcha/Services/ChaChaSkillService.cs
+          grep -q 'HealBalance=UNLOCKED_FOR_DESIGN' src/Cardcha/Services/ChaChaSkillService.cs
+          grep -q 'KHU VỰC I • Lv 0–20' src/Cardcha/i18n/vi.json
+          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('src/Cardcha/assets/card_auto_audit.json', encoding='utf-8'))
+          assert len(rows)==76 and all(r['status']=='PASS' for r in rows)
+          print('76/76 card contract preserved')
+          PY
+          echo 'alpha28.0.4.14.4.2 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.2"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.2_ChaChaSkillFoundation_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-060-chacha-skill-foundation
+          path: artifact
+          if-no-files-found: error
