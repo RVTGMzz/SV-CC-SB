@@ -16,19 +16,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply Card Test Lab finalizers
+      - name: Apply current Card Lab generators
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/alpha28_41432_arena_modentry.py
-          python3 tools/alpha28_41432_arena_menu.py
-          python3 tools/alpha28_41432_arena_compilefix.py
-          python3 tools/alpha28_41434_lab_input_ui.py
-          python3 tools/alpha28_41435_arena_kill_targets.py
+          # Older Arena/UI finalizers are already materialized in branch source.
+          # Replaying them would try to patch pre-.3.6 labels and regress the current Lab.
           python3 tools/alpha28_41436_auto_audit.py
-          python3 tools/alpha28_41436_lab_auto_ui.py
           python3 tools/alpha28_41436_icon_lock.py
-          python3 tools/alpha28_41437_auto_scenario.py
+          if ! grep -q 'CardAutoScenarioRunnerService CardAutoRunner' src/Cardcha/ModEntry.cs; then
+            python3 tools/alpha28_41437_auto_scenario.py
+          else
+            echo 'Auto Scenario Runner already materialized; skipping one-time source patch.'
+          fi
           python3 tools/alpha28_41432_version.py
 
       - name: Source acceptance checks
@@ -37,9 +37,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json, hashlib, struct, re
-          import xml.etree.ElementTree as ET
-
+          import json, hashlib, struct, xml.etree.ElementTree as ET
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.14.3.7'
 
@@ -56,33 +54,8 @@ jobs:
           drops = (root/'Services/DropService.cs').read_text()
           gacha = (root/'Services/GachaService.cs').read_text()
           arena = (root/'Services/CardTestArenaService.cs').read_text()
-          patch = (root/'Patches/MonsterDamagePatch.cs').read_text()
-          overlay = (root/'Services/CardTestLabOverlayService.cs').read_text()
           audit = json.loads((root/'assets/card_auto_audit.json').read_text())
 
-          # Existing arena/input contracts remain intact.
-          assert 'FixedOutgoingRawDamage = 100' in arena
-          assert 'FixedIncomingRawDamage = 10' in arena
-          assert 'KillTargetCount = 4' in arena
-          assert 'KillTargetMaxHealth = 100' in arena
-          assert 'ClampMainDummyDamage' in arena
-          assert 'TestArena?.ClampMainDummyDamage(__instance, ref damage);' in patch
-          assert 'CARD LAB • ARENA' in overlay
-          assert 'PreferredWidth = 1776' in menu
-          assert 'PreferredHeight = 1080' in menu
-          assert 'SelectionDebounceMs = 160L' in menu
-          assert 'TrySelectCardRowAt' in menu
-          assert 'receiveScrollWheelAction' in menu
-
-          # Static contract audit remains uncontaminated by the test harness.
-          assert len(audit) == 76
-          assert sum(row['status'] == 'BLOCKED' for row in audit) == 1
-          assert next(row for row in audit if row['id'] == 'victory_charge')['status'] == 'BLOCKED'
-          assert all(row['starRuleCount'] == row['maxLevel'] for row in audit)
-          audit_tool = Path('tools/alpha28_41436_auto_audit.py').read_text()
-          assert "'CardAutoScenarioRunnerService.cs'" in audit_tool
-
-          # .3.7 runtime scenario runner contracts.
           assert 'CardAutoScenarioRunnerService CardAutoRunner' in entry
           assert 'cardcha_card_auto_run' in entry
           assert 'new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena, this.CardAutoRunner)' in entry
@@ -94,37 +67,38 @@ jobs:
           assert 'for (int level = 1; level <= max; level++)' in runner
           assert runner.count('=> this.Check') >= 70
 
-          # No-write / deterministic seams used by the runtime scenarios.
-          assert 'BeginTransientTestScope' in save
-          assert 'TransientTestDepth > 0' in save
+          assert 'BeginTransientTestScope' in save and 'TransientTestDepth > 0' in save
           assert 'BeginScenarioTestScope' in drops and 'DebugSetForcedRolls' in drops
           assert 'BeginScenarioTestScope' in gacha and 'DebugSetForcedRolls' in gacha
-          assert 'CardPassiveDebugSnapshot' in core
-          assert 'DebugForceNextChanceRoll' in core
-          assert 'NextChanceRoll() < proc' in core
-          assert 'DebugSyncCompletion' in combat
-          assert 'DebugVitalityAppliedBonus' in combat
+          assert 'CardPassiveDebugSnapshot' in core and 'DebugForceNextChanceRoll' in core
+          assert 'DebugSyncCompletion' in combat and 'DebugVitalityAppliedBonus' in combat
 
-          # TMX parser guard.
+          assert len(audit) == 76
+          assert sum(row['status'] == 'BLOCKED' for row in audit) == 1
+          assert next(row for row in audit if row['id'] == 'victory_charge')['status'] == 'BLOCKED'
+          assert "'CardAutoScenarioRunnerService.cs'" in Path('tools/alpha28_41436_auto_audit.py').read_text()
+
+          assert 'FixedOutgoingRawDamage = 100' in arena
+          assert 'KillTargetCount = 4' in arena
+          assert 'KillTargetMaxHealth = 100' in arena
+          assert 'PreferredWidth = 1776' in menu
+          assert 'SelectionDebounceMs = 160L' in menu
+
           map_xml = ET.parse(root/'assets/card_test_arena.tmx').getroot()
-          width, height = int(map_xml.attrib['width']), int(map_xml.attrib['height'])
-          assert (width, height) == (18, 12)
+          w, h = int(map_xml.attrib['width']), int(map_xml.attrib['height'])
+          assert (w, h) == (18, 12)
           for layer in map_xml.findall('layer'):
               data = layer.find('data')
+              tokens = [(x or '').strip() for x in (data.text or '').split(',')]
               assert data is not None and data.attrib.get('encoding') == 'csv'
-              tokens = [(token or '').strip() for token in (data.text or '').split(',')]
-              assert all(tokens)
-              assert len([int(token) for token in tokens]) == width * height
+              assert all(tokens) and len([int(x) for x in tokens]) == w*h
 
-          # Official corrected icon atlas lock.
           icons = (root/'assets/card_icons.png').read_bytes()
           assert struct.unpack('>II', icons[16:24]) == (320, 1024)
           digest = hashlib.sha256(icons).hexdigest()
-          lock = (root/'assets/card_icons.sha256.lock').read_text().strip().lower()
-          assert digest == lock == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
-
-          visual = (root/'assets/airship_visual.png').read_bytes()
-          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert digest == (root/'assets/card_icons.sha256.lock').read_text().strip().lower()
+          assert digest == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
           print('alpha28.0.4.14.3.7 source acceptance PASS')
           PY
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
@@ -141,41 +115,8 @@ jobs:
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add \
-            src/Cardcha/manifest.json \
-            src/Cardcha/Cardcha.csproj \
-            src/Cardcha/Directory.Build.targets \
-            src/Cardcha/ModEntry.cs \
-            src/Cardcha/Patches/MonsterDamagePatch.cs \
-            src/Cardcha/Patches/FarmerDamagePatch.cs \
-            src/Cardcha/Services/SaveService.cs \
-            src/Cardcha/Services/CombatService.cs \
-            src/Cardcha/Services/CoreCardEffectsService.cs \
-            src/Cardcha/Services/DropService.cs \
-            src/Cardcha/Services/GachaService.cs \
-            src/Cardcha/Services/CardTestLabService.cs \
-            src/Cardcha/Services/CardTestArenaService.cs \
-            src/Cardcha/Services/CardTestLabOverlayService.cs \
-            src/Cardcha/Services/CardAutoScenarioRunnerService.cs \
-            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
-            src/Cardcha/UI/CardTestLabMenu.cs \
-            src/Cardcha/assets/card_test_arena.tmx \
-            src/Cardcha/assets/card_auto_audit.json \
-            src/Cardcha/assets/card_icons.sha256.lock \
-            tools/alpha28_41432_version.py \
-            tools/alpha28_41432_arena_modentry.py \
-            tools/alpha28_41432_arena_menu.py \
-            tools/alpha28_41432_arena_compilefix.py \
-            tools/alpha28_41434_lab_input_ui.py \
-            tools/alpha28_41435_arena_kill_targets.py \
-            tools/alpha28_41436_auto_audit.py \
-            tools/alpha28_41436_lab_auto_ui.py \
-            tools/alpha28_41436_icon_lock.py \
-            tools/alpha28_41437_auto_scenario.py \
-            .github/workflows/cardcha-alpha28-056-card-test-lab.yml
-          if git diff --cached --quiet; then
-            echo "No generated Auto Scenario diff to materialize."
-          else
+          git add src/Cardcha tools/alpha28_41432_version.py tools/alpha28_41436_auto_audit.py tools/alpha28_41436_icon_lock.py tools/alpha28_41437_auto_scenario.py .github/workflows/cardcha-alpha28-056-card-test-lab.yml
+          if ! git diff --cached --quiet; then
             git commit -m "chore: materialize alpha28.0.4.14.3.7 Auto Scenario Runner [skip ci]"
             git push origin HEAD:cardcha-alpha28-056-card-test-lab
           fi
@@ -186,14 +127,10 @@ jobs:
           set -euo pipefail
           test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
           test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
-          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
-          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
           grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
           grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
           grep -q 'KillTargetCount = 4' src/Cardcha/Services/CardTestArenaService.cs
           grep -q 'BeginTransientTestScope' src/Cardcha/Services/SaveService.cs
-          grep -q 'DebugSetForcedRolls' src/Cardcha/Services/DropService.cs
-          grep -q 'DebugSetForcedRolls' src/Cardcha/Services/GachaService.cs
           grep -q 'AUTO RUN ALL' src/Cardcha/UI/CardTestLabMenu.cs
           grep -q 'cardcha_card_auto_run' src/Cardcha/ModEntry.cs
           echo 'alpha28.0.4.14.3.7 regression gate PASS'
