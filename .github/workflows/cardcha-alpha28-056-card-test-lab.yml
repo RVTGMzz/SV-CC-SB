@@ -1,4 +1,4 @@
-name: Cardcha alpha28.0.4.14.3 Card Test Lab
+name: Cardcha alpha28.0.4.14.3.1 Card Test Lab UX
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply Card Test Lab finalizer
+      - name: Apply Card Test Lab UX finalizer
         shell: bash
         run: |
           set -euo pipefail
@@ -30,7 +30,7 @@ jobs:
           from pathlib import Path
           import json, hashlib, struct
           root = Path('src/Cardcha')
-          version = '0.3.0-alpha.28.0.4.14.3'
+          version = '0.3.0-alpha.28.0.4.14.3.1'
 
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
           assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
@@ -41,19 +41,31 @@ jobs:
           assert 'new CardTestLabService(this.Cards, this.Save, this.Combat)' in entry
           assert 'cardcha_card_test' in entry
           assert 'new CardTestLabMenu(this.CardLab, this.Renderer)' in entry
-          assert 'this.CardLab.EndSession();' in entry
+          assert 'this.CardLab.EndSession();\n        this.Combat.PrepareForGameSave();' in entry
+          assert 'CARD TEST LAB UX TEST' in entry
 
           lab = (root/'Services/CardTestLabService.cs').read_text()
           menu = (root/'UI/CardTestLabMenu.cs').read_text()
           assert 'StableBaseId <= 76' in lab
           assert 'OwnedSnapshot' in lab and 'EquippedSnapshot' in lab and 'LevelsSnapshot' in lab
           assert 'No SaveService.Save() call is made' in lab
-          assert 'PrepareCard' in lab and 'EndSession' in lab
+          assert 'PrepareCard' in lab and 'PrepareBaseline' in lab and 'EndSession' in lab
+          assert 'Exactly one Lab card is active at a time' in lab
           assert 'BuildVerificationReport' in lab
-          assert 'HP 19%' in menu
-          assert 'PASS [X/P]' in menu
-          assert 'FAIL [Y/F]' in menu
-          assert 'PREPARE / EQUIP' in menu
+          assert 'EQUIPPED:' in lab and 'BASELINE / UNEQUIPPED:' in lab
+
+          assert 'width: Math.Min(1480' in menu
+          assert 'height: Math.Min(900' in menu
+          assert 'Buttons.DPadUp' in menu and 'this.MoveSelection(-1)' in menu
+          assert 'Buttons.DPadDown' in menu and 'this.MoveSelection(1)' in menu
+          assert 'Buttons.DPadLeft' in menu and 'this.ChangeLevel(-1)' in menu
+          assert 'Buttons.DPadRight' in menu and 'this.ChangeLevel(1)' in menu
+          assert 'EQUIP & PLAY [A]' in menu
+          assert 'UNEQUIP & PLAY [X]' in menu
+          assert 'RETURN TO GAME [B/Q]' in menu
+          assert 'END LAB / RESTORE [START]' in menu
+          assert 'Deliberately keep the Lab session alive' in menu
+          assert 'cardcha_card_test để mở lại và xem kết quả' in menu
 
           # Existing locked visuals remain exact.
           icons = (root/'assets/card_icons.png').read_bytes()
@@ -62,9 +74,7 @@ jobs:
           visual = (root/'assets/airship_visual.png').read_bytes()
           assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
 
-          # Newly approved MiMi sprites are byte-locked by Git blob hash.
-          # Any one-byte overwrite/resave changes git hash-object and fails the build.
-          print('Card Test Lab source acceptance PASS')
+          print('Card Test Lab UX source acceptance PASS')
           PY
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
@@ -74,7 +84,7 @@ jobs:
       - name: Compile test build
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Materialize Card Test Lab source back to branch
+      - name: Materialize Card Test Lab UX source back to branch
         shell: bash
         run: |
           set -euo pipefail
@@ -90,9 +100,9 @@ jobs:
             tools/alpha28_4143_card_test_lab.py \
             .github/workflows/cardcha-alpha28-056-card-test-lab.yml
           if git diff --cached --quiet; then
-            echo "No generated Card Test Lab diff to materialize."
+            echo "No generated Card Test Lab UX diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.14.3 Card Test Lab [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.14.3.1 Card Test Lab UX [skip ci]"
             git push origin HEAD:cardcha-alpha28-056-card-test-lab
           fi
 
@@ -106,8 +116,10 @@ jobs:
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
           grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
           grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
-          grep -q 'cardcha_card_test' src/Cardcha/ModEntry.cs
-          echo 'alpha28.0.4.14.3 regression gate PASS'
+          grep -q 'PrepareBaseline' src/Cardcha/Services/CardTestLabService.cs
+          grep -q 'END LAB / RESTORE' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'CARD TEST LAB UX TEST' src/Cardcha/ModEntry.cs
+          echo 'alpha28.0.4.14.3.1 regression gate PASS'
 
       - name: Package compiled test build
         shell: bash
@@ -119,12 +131,12 @@ jobs:
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -s stage/Cardcha/Cardcha.dll
-          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3"
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3_CardTestLab_TEST.zip Cardcha)
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.1"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.1_CardTestLabUX_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-056-card-test-lab
+          name: cardcha-alpha28-056-card-test-lab-ux
           path: artifact
           if-no-files-found: error
