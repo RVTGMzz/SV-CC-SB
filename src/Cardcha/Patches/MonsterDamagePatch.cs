@@ -49,6 +49,7 @@ internal static class MonsterDamagePatch
             if (Combat is not null)
             {
                 damage = Combat.ModifyMonsterDamage(__instance, damage, isBomb, who);
+                TestArena?.ClampMainDummyDamage(__instance, ref damage);
                 Combat.ModifyMonsterTrajectory(ref xTrajectory, ref yTrajectory, isBomb, who);
             }
         }

@@ -18,14 +18,26 @@ internal sealed class CardTestArenaService
     public const string LocationName = "Cardcha_CardTestArena";
     public const string MapAssetName = "Maps/Cardcha_CardTestArena";
     public const string TestMonsterMarkerKey = "Ronvotri.Cardcha/CardTestArenaDummy";
+    public const string KillTargetMarkerKey = "Ronvotri.Cardcha/CardTestArenaKillTarget";
+    public const string KillTargetSlotKey = "Ronvotri.Cardcha/CardTestArenaKillSlot";
 
     private const string MapPath = "assets/card_test_arena.tmx";
     private const int FixedOutgoingRawDamage = 100;
     private const int FixedIncomingRawDamage = 10;
     private const int DummyMaxHealth = 500;
+    private const int KillTargetCount = 4;
+    private const int KillTargetMaxHealth = 100;
     private const long RespawnDelayMs = 450L;
+    private const long KillTargetRespawnDelayMs = 350L;
     private static readonly Point PlayerArrivalTile = new(4, 6);
     private static readonly Point DummySpawnTile = new(11, 6);
+    private static readonly Point[] KillTargetSpawnTiles =
+    {
+        new(8, 3),
+        new(11, 3),
+        new(14, 3),
+        new(14, 8)
+    };
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -34,6 +46,7 @@ internal sealed class CardTestArenaService
     private bool CreationFailed;
     private bool LoggedCreation;
     private long RespawnAtMs;
+    private readonly long[] KillTargetRespawnAtMs = new long[KillTargetCount];
     private string ReturnLocationName = "";
     private Point ReturnTile;
     private int ReturnFacing = 2;
@@ -82,6 +95,7 @@ internal sealed class CardTestArenaService
         {
             this.ArenaEntered = true;
             this.EnsureDummy(forceRespawn: true);
+            this.EnsureKillTargets(forceRespawn: true);
             return;
         }
 
@@ -101,6 +115,7 @@ internal sealed class CardTestArenaService
             Game1.player.Stamina = Game1.player.MaxStamina;
 
         this.EnsureDummy(forceRespawn: false);
+        this.EnsureKillTargets(forceRespawn: false);
     }
 
     public bool EnterArena()
@@ -129,7 +144,8 @@ internal sealed class CardTestArenaService
         this.RespawnAtMs = 0;
         Game1.warpFarmer(LocationName, PlayerArrivalTile.X, PlayerArrivalTile.Y, 1);
         this.EnsureDummy(forceRespawn: true);
-        Game1.showGlobalMessage("Card Test Arena: TIME FROZEN • raw hit 100 • dummy hit 10");
+        this.EnsureKillTargets(forceRespawn: true);
+        Game1.showGlobalMessage("Card Test Arena: TIME FROZEN • IMMORTAL DUMMY + 4 KILL TARGETS • raw hit 100 • dummy hit 10");
         return true;
     }
 
@@ -170,7 +186,8 @@ internal sealed class CardTestArenaService
             || isBomb
             || damage <= 0
             || who is null
-            || !monster.modData.ContainsKey(TestMonsterMarkerKey))
+            || (!monster.modData.ContainsKey(TestMonsterMarkerKey)
+                && !monster.modData.ContainsKey(KillTargetMarkerKey)))
         {
             return false;
         }
@@ -181,6 +198,20 @@ internal sealed class CardTestArenaService
 
         damage = FixedOutgoingRawDamage;
         return true;
+    }
+
+    public void ClampMainDummyDamage(Monster monster, ref int damage)
+    {
+        if (!this.IsInArena
+            || damage <= 0
+            || !monster.modData.ContainsKey(TestMonsterMarkerKey))
+        {
+            return;
+        }
+
+        // The main dummy is the non-lethal comparison target. Leave it at 1 HP at worst,
+        // then EnsureDummy refills it on the next update. Kill cards only fire from the four kill targets.
+        damage = Math.Min(damage, Math.Max(0, monster.Health - 1));
     }
 
     public bool TryOverrideIncomingDamage(ref int damage, Monster? damager)
@@ -239,7 +270,8 @@ internal sealed class CardTestArenaService
         string dummyStatus = dummy is null
             ? "respawning"
             : $"HP {Math.Max(0, dummy.Health)}/{Math.Max(1, dummy.MaxHealth)}";
-        return $"Arena={(this.IsInArena ? "ACTIVE" : "off")} | Time={(this.IsInArena ? "FROZEN" : "normal")} | Dummy={dummyStatus} | RawOutgoing={FixedOutgoingRawDamage} | RawIncoming={FixedIncomingRawDamage}";
+        int killTargets = this.GetLivingKillTargetCount();
+        return $"Arena={(this.IsInArena ? "ACTIVE" : "off")} | Time={(this.IsInArena ? "FROZEN" : "normal")} | ImmortalDummy={dummyStatus} | KillTargets={killTargets}/{KillTargetCount} | RawOutgoing={FixedOutgoingRawDamage} | RawIncoming={FixedIncomingRawDamage}";
     }
 
     public void DrawHud(SpriteBatch b)
@@ -249,7 +281,8 @@ internal sealed class CardTestArenaService
 
         Monster? dummy = this.GetDummy();
         string hp = dummy is null ? "RESPAWNING..." : $"{Math.Max(0, dummy.Health)}/{Math.Max(1, dummy.MaxHealth)} HP";
-        string line = $"CARD TEST ARENA   TIME FROZEN   DUMMY {hp}   RAW HIT 100   RAW HIT TO YOU 10";
+        int killTargets = this.GetLivingKillTargetCount();
+        string line = $"CARD TEST ARENA   TIME FROZEN   IMMORTAL DUMMY {hp}   KILL TARGETS {killTargets}/{KillTargetCount}   RAW HIT 100   RAW HIT TO YOU 10";
         Vector2 size = Game1.smallFont.MeasureString(line);
         float scale = Math.Min(0.9f, (Game1.uiViewport.Width - 40f) / Math.Max(1f, size.X));
         Rectangle bg = new(16, Game1.uiViewport.Height - 58, Math.Min(Game1.uiViewport.Width - 32, (int)(size.X * scale) + 28), 42);
@@ -295,6 +328,13 @@ internal sealed class CardTestArenaService
             return;
 
         Monster? existing = this.GetDummy();
+        if (existing is not null && existing.Health == 1 && !forceRespawn)
+        {
+            existing.Health = existing.MaxHealth;
+            existing.Position = new Vector2(DummySpawnTile.X * 64f, DummySpawnTile.Y * 64f);
+            this.RespawnAtMs = 0;
+            return;
+        }
         if (existing is not null && existing.Health > 0 && !forceRespawn)
             return;
 
@@ -324,6 +364,66 @@ internal sealed class CardTestArenaService
         this.RespawnAtMs = 0;
     }
 
+    private void EnsureKillTargets(bool forceRespawn)
+    {
+        if (!this.IsInArena)
+            return;
+
+        GameLocation? arena = Game1.currentLocation;
+        if (arena is null)
+            return;
+
+        long now = Environment.TickCount64;
+        for (int slot = 0; slot < KillTargetCount; slot++)
+        {
+            Monster? existing = this.GetKillTarget(slot);
+            if (existing is not null && existing.Health > 0 && !forceRespawn)
+                continue;
+
+            if (existing is not null)
+                arena.characters.Remove(existing);
+
+            if (!forceRespawn)
+            {
+                if (this.KillTargetRespawnAtMs[slot] <= 0)
+                {
+                    this.KillTargetRespawnAtMs[slot] = now + KillTargetRespawnDelayMs;
+                    continue;
+                }
+                if (now < this.KillTargetRespawnAtMs[slot])
+                    continue;
+            }
+
+            Point spawn = KillTargetSpawnTiles[slot];
+            GreenSlime target = new(new Vector2(spawn.X * 64f, spawn.Y * 64f), 0)
+            {
+                MaxHealth = KillTargetMaxHealth,
+                Health = KillTargetMaxHealth,
+                Speed = 0
+            };
+            target.modData[KillTargetMarkerKey] = "1";
+            target.modData[KillTargetSlotKey] = slot.ToString();
+            arena.characters.Add(target);
+            this.KillTargetRespawnAtMs[slot] = 0;
+        }
+    }
+
+    private Monster? GetKillTarget(int slot)
+    {
+        string slotText = slot.ToString();
+        return Game1.currentLocation?.characters
+            .OfType<Monster>()
+            .FirstOrDefault(monster =>
+                monster.modData.ContainsKey(KillTargetMarkerKey)
+                && monster.modData.TryGetValue(KillTargetSlotKey, out string? value)
+                && value == slotText);
+    }
+
+    private int GetLivingKillTargetCount()
+        => Game1.currentLocation?.characters
+            .OfType<Monster>()
+            .Count(monster => monster.Health > 0 && monster.modData.ContainsKey(KillTargetMarkerKey)) ?? 0;
+
     private Monster? GetDummy()
         => Game1.currentLocation?.characters
             .OfType<Monster>()
@@ -335,8 +435,12 @@ internal sealed class CardTestArenaService
         if (arena is null)
             return;
 
-        foreach (NPC actor in arena.characters.Where(actor => actor.modData.ContainsKey(TestMonsterMarkerKey)).ToList())
+        foreach (NPC actor in arena.characters.Where(actor =>
+                     actor.modData.ContainsKey(TestMonsterMarkerKey)
+                     || actor.modData.ContainsKey(KillTargetMarkerKey)).ToList())
+        {
             arena.characters.Remove(actor);
+        }
     }
 
     private void RestoreClock()
@@ -354,6 +458,7 @@ internal sealed class CardTestArenaService
         this.RemoveDummy();
         this.CreationFailed = false;
         this.RespawnAtMs = 0;
+        Array.Clear(this.KillTargetRespawnAtMs, 0, this.KillTargetRespawnAtMs.Length);
         this.ReturnLocationName = "";
         this.ReturnTile = Point.Zero;
         this.ReturnFacing = 2;
