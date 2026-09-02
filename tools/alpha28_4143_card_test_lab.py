@@ -69,7 +69,14 @@ entry_path.write_text(entry, encoding='utf-8')
 menu_path = ROOT / 'UI/CardTestLabMenu.cs'
 menu = menu_path.read_text(encoding='utf-8')
 menu = menu.replace('    public override void cleanupBeforeExit()\n', '    protected override void cleanupBeforeExit()\n', 1)
-menu = menu.replace('Game1.uiViewport.Bounds', 'Game1.uiViewport')
+menu = menu.replace(
+    'b.Draw(Game1.fadeToBlackRect, Game1.uiViewport.Bounds, Color.Black * 0.72f);',
+    'b.Draw(Game1.fadeToBlackRect, new Microsoft.Xna.Framework.Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.72f);'
+)
+menu = menu.replace(
+    'b.Draw(Game1.fadeToBlackRect, Game1.uiViewport, Color.Black * 0.72f);',
+    'b.Draw(Game1.fadeToBlackRect, new Microsoft.Xna.Framework.Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.72f);'
+)
 menu_path.write_text(menu, encoding='utf-8')
 
 print(f'Applied {VERSION} Card Test Lab finalizer')
