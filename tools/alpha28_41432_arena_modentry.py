@@ -3,7 +3,7 @@ import re
 
 p = Path('src/Cardcha/ModEntry.cs')
 s = p.read_text(encoding='utf-8')
-VERSION = '0.3.0-alpha.28.0.4.14.3.3'
+VERSION = '0.3.0-alpha.28.0.4.14.3.4'
 
 def once(old, new):
     global s
