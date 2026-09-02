@@ -1,0 +1,250 @@
+name: Cardcha alpha28.0.4.14.4.3 ChaCha Skill Materials Airship
+
+on:
+  push:
+    branches: [ cardcha-alpha28-061-chacha-skill-materials-airship ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply ChaCha materials + Airship finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_41443_chacha_skill_materials_airship.py
+          python3 tools/alpha28_41436_auto_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.3'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          data=(root/'Models/SaveData.cs').read_text()
+          save=(root/'Services/SaveService.cs').read_text()
+          skills=(root/'Services/ChaChaSkillService.cs').read_text()
+          mats=(root/'Services/ChaChaSkillMaterialService.cs').read_text()
+          itemsvc=(root/'Services/ItemAssetService.cs').read_text()
+          deaths=(root/'Services/MonsterDeathService.cs').read_text()
+          menu=(root/'UI/ChaChaSkillUpgradeMenu.cs').read_text()
+          resonance=(root/'UI/ChaChaResonanceMenu.cs').read_text()
+          entry=(root/'ModEntry.cs').read_text()
+          boss=(root/'Services/ChaChaBossFormService.cs').read_text()
+          airship=(root/'Services/AirshipFoundationService.cs').read_text()
+          vi=json.loads((root/'i18n/vi.json').read_text())
+          en=json.loads((root/'i18n/default.json').read_text())
+          audit=json.loads((root/'assets/card_auto_audit.json').read_text())
+
+          # Save contract stays schema 19.
+          assert 'SchemaVersion { get; set; } = 19' in data
+          assert 'CurrentSchemaVersion = 19' in save
+          assert all(x in data for x in ['ChaChaSkillsFound','ChaChaSkillLevels','ActiveChaChaSkillId'])
+
+          # Four normal-form skill identities are now stable, but actual effects remain disabled.
+          for token in [
+              'VitalSkillId = "vital_blessing"',
+              'GuardSkillId = "bunny_aegis"',
+              'SpiritSkillId = "spirit_aid"',
+              'LuckSkillId = "lucky_echo"',
+              'ApplyUpgradeFromStation',
+              'DebugDiscoverSkill'
+          ]:
+              assert token in skills
+          forbidden=['Game1.player.health','Game1.player.maxHealth','healAmount','healPercent']
+          assert not any(x in skills for x in forbidden)
+          assert not any(x in mats for x in forbidden)
+          assert 'SkillEffects=DESIGN_LOCK_PENDING' in skills
+
+          # Four physical upgrade items + official icon sheets.
+          ids=[
+              'Ronvotri.Cardcha_VitalDewdrop',
+              'Ronvotri.Cardcha_MoonshieldShard',
+              'Ronvotri.Cardcha_BreezeFeather',
+              'Ronvotri.Cardcha_FortuneCoin'
+          ]
+          for x in ids:
+              assert x in mats
+          for i in range(1,5):
+              assert f'item.chacha-material.{i}.name' in vi
+              assert f'item.chacha-material.{i}.desc' in vi
+          for sprite in [3,4,5,6]:
+              assert f'                    {sprite}\n' in itemsvc or f'                    {sprite}\r\n' in itemsvc
+          assert 'ChaChaSkillMaterialsTextureAsset' in itemsvc
+          assert 'ChaChaSkillIconsTextureAsset' in itemsvc
+
+          # Region drop route. Only Region I exists today; II-IV are reserved by exact Cardcha names.
+          assert 'RegularRegionMaterialChance = 0.18d' in mats
+          assert 'BossRegionMaterialChance = 1.00d' in mats
+          assert 'AirshipFoundationService.Region1LocationName' in mats
+          assert 'Cardcha_Region2' in mats and 'Cardcha_Region3' in mats and 'Cardcha_Region4' in mats
+          assert 'this.Materials.TryDrop(resolvedLocation' in deaths
+          assert 'this.Materials.TryDrop(location, position, who, scale)' in deaths
+
+          # Airship pedestal is an overlay-only station; no new map collision/tile claims.
+          assert 'StationTile = new(19, 5)' in mats
+          assert 'AirshipFoundationService.DeckLocationName' in mats
+          assert 'new ChaChaSkillUpgradeMenu' in mats
+          assert 'CollisionEdits=NONE' in airship
+          assert 'location.setTileProperty' not in mats
+          assert 'location.Objects.Add' not in mats
+
+          # Upgrade economy is centralized and visibly provisional. Transaction needs both ingredients.
+          assert 'UpgradeMaterialCosts = { 3, 5, 8, 12 }' in mats
+          assert 'UpgradeDustCosts = { 5, 10, 15, 25 }' in mats
+          assert 'RemovePhysicalObject(materialId, quote.MaterialCost)' in mats
+          assert 'this.Save.Data.SuspiciousDust = Math.Max(0, haveDust - quote.DustCost)' in mats
+          assert 'this.Skills.ApplyUpgradeFromStation(skillId)' in mats
+          assert 'Bụi Ma Thuật' in vi['chacha.station.subtitle']
+
+          # Upgrade menu and ChaCha abilities use the approved four art cells.
+          assert 'ChaChaSkillIconsTextureAsset' in menu
+          assert 'ChaChaSkillMaterialsTextureAsset' in menu
+          assert 'new(index * 32, 0, 32, 32)' in menu
+          assert 'SkillIconTexture' in resonance
+          assert 'GetSkillIdForIndex(i)' in resonance
+          for key in [
+              'chacha.skill.vital_blessing.name',
+              'chacha.skill.bunny_aegis.name',
+              'chacha.skill.spirit_aid.name',
+              'chacha.skill.lucky_echo.name'
+          ]:
+              assert key in vi and key in en
+          assert vi['chacha.skill.vital_blessing.name'] == 'Phúc Lành Sinh Khí'
+          assert vi['chacha.skill.bunny_aegis.name'] == 'Hộ Mệnh Thỏ Tiên'
+          assert vi['chacha.skill.spirit_aid.name'] == 'Tinh Linh Tiếp Sức'
+          assert vi['chacha.skill.lucky_echo.name'] == 'Phúc Vận Thỏ Tiên'
+
+          # Runtime wiring + debug access for a practical test pass.
+          assert 'private ChaChaSkillMaterialService ChaChaMaterials = null!;' in entry
+          assert 'new ChaChaSkillMaterialService' in entry
+          assert 'new MonsterDeathService(this.Drops, this.Combat, this.ChaChaMaterials)' in entry
+          assert 'this.ChaChaMaterials.OnRenderedWorld' in entry
+          assert 'this.ChaChaMaterials.OnButtonPressed' in entry
+          for cmd in ['cardcha_chacha_materials','cardcha_chacha_station','cardcha_chacha_material_status']:
+              assert cmd in entry
+          assert f'Cardcha! v{version} CHACHA SKILL MATERIALS + AIRSHIP STATION TEST' in entry
+
+          # Boss Form UX stays locked.
+          assert 'BossFormDurationMs = 10000' in boss
+          assert 'SButton.LeftShift' in boss and 'SButton.A' in boss
+          assert 'ControllerAction.Confirm' in boss and 'ControllerAction.Deselect' in boss
+
+          # Four generated sheets are exact build assets.
+          def png_size(path):
+              b=path.read_bytes()
+              assert b[:8] == b'\x89PNG\r\n\x1a\n'
+              return struct.unpack('>II', b[16:24])
+          items=root/'assets/items.png'
+          material=root/'assets/chacha_skill_materials.png'
+          icons=root/'assets/chacha_skill_icons.png'
+          assert png_size(items)==(112,16)
+          assert png_size(material)==(128,32)
+          assert png_size(icons)==(128,32)
+          assert hashlib.sha256(items.read_bytes()).hexdigest() == '601d7dabbcd0d1ec733d60565f406c2e597eca75370eea35c3235d8c68d44362'
+          assert hashlib.sha256(material.read_bytes()).hexdigest() == '90085a96cb368490bd4da927162e4ea4811dcdf6c714c50f0b5f667516f7d7c6'
+          assert hashlib.sha256(icons.read_bytes()).hexdigest() == '6ee1c4f32bc19420e459cbe07cbce1341f90f69d91f4ebaacd2d813c18d407cd'
+
+          # Preserve locked art and 76-card runtime contract.
+          card_icons=(root/'assets/card_icons.png').read_bytes()
+          assert png_size(root/'assets/card_icons.png')==(320,1024)
+          assert hashlib.sha256(card_icons).hexdigest()=='c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert len(audit)==76 and all(r['status']=='PASS' for r in audit)
+
+          print('ChaCha skill materials + Airship station source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize current source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/ChaChaSkillService.cs \
+            src/Cardcha/Services/ChaChaSkillMaterialService.cs \
+            src/Cardcha/Services/ItemAssetService.cs \
+            src/Cardcha/Services/MonsterDeathService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
+            src/Cardcha/UI/ChaChaResonanceMenu.cs \
+            src/Cardcha/UI/ChaChaSkillUpgradeMenu.cs \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            tools/alpha28_41443_chacha_skill_materials_airship.py \
+            .github/workflows/cardcha-alpha28-061-chacha-skill-materials-airship.yml
+          if git diff --cached --quiet; then
+            echo "No generated source diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.3 ChaCha materials Airship [skip ci]"
+            git push origin HEAD:cardcha-alpha28-061-chacha-skill-materials-airship
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/items.png | cut -d' ' -f1)" = "601d7dabbcd0d1ec733d60565f406c2e597eca75370eea35c3235d8c68d44362"
+          test "$(sha256sum src/Cardcha/assets/chacha_skill_materials.png | cut -d' ' -f1)" = "90085a96cb368490bd4da927162e4ea4811dcdf6c714c50f0b5f667516f7d7c6"
+          test "$(sha256sum src/Cardcha/assets/chacha_skill_icons.png | cut -d' ' -f1)" = "6ee1c4f32bc19420e459cbe07cbce1341f90f69d91f4ebaacd2d813c18d407cd"
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'CurrentSchemaVersion = 19' src/Cardcha/Services/SaveService.cs
+          grep -q 'StationTile = new(19, 5)' src/Cardcha/Services/ChaChaSkillMaterialService.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('src/Cardcha/assets/card_auto_audit.json', encoding='utf-8'))
+          assert len(rows)==76 and all(r['status']=='PASS' for r in rows)
+          print('76/76 active-card contract preserved')
+          PY
+          echo 'alpha28.0.4.14.4.3 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.3"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.3_ChaChaSkillMaterialsAirship_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-061-chacha-skill-materials-airship
+          path: artifact
+          if-no-files-found: error
