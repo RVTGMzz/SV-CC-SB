@@ -8,17 +8,19 @@ namespace Cardcha.Patches;
 
 /// <summary>
 /// Applies target-aware Cardcha damage bonuses and detects actual deaths at Monster.takeDamage.
-/// This is now Cardcha's primary death/reward hook.
+/// Card Test Arena may normalize the raw pre-card hit so percentage effects are easy to verify.
 /// </summary>
 internal static class MonsterDamagePatch
 {
     private static CombatService? Combat;
     private static MonsterDeathService? Deaths;
+    private static CardTestArenaService? TestArena;
 
-    public static void Apply(Harmony harmony, CombatService combat, MonsterDeathService deaths)
+    public static void Apply(Harmony harmony, CombatService combat, MonsterDeathService deaths, CardTestArenaService? testArena = null)
     {
         Combat = combat;
         Deaths = deaths;
+        TestArena = testArena;
 
         MethodInfo? target = AccessTools.Method(
             typeof(Monster),
@@ -42,6 +44,8 @@ internal static class MonsterDamagePatch
 
         try
         {
+            TestArena?.TryOverrideOutgoingDamage(__instance, ref damage, isBomb, who);
+
             if (Combat is not null)
             {
                 damage = Combat.ModifyMonsterDamage(__instance, damage, isBomb, who);
