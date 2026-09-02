@@ -1,4 +1,4 @@
-name: Cardcha alpha28.0.4.14.3.3 Card Test Arena TMX Hotfix
+name: Cardcha alpha28.0.4.14.3.4 Card Test Lab Input UI Hotfix
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply Card Test Arena finalizers
+      - name: Apply Card Test Lab finalizers
         shell: bash
         run: |
           set -euo pipefail
@@ -24,6 +24,7 @@ jobs:
           python3 tools/alpha28_41432_arena_modentry.py
           python3 tools/alpha28_41432_arena_menu.py
           python3 tools/alpha28_41432_arena_compilefix.py
+          python3 tools/alpha28_41434_lab_input_ui.py
 
       - name: Source acceptance checks
         shell: bash
@@ -34,7 +35,7 @@ jobs:
           import json, hashlib, struct
           import xml.etree.ElementTree as ET
           root = Path('src/Cardcha')
-          version = '0.3.0-alpha.28.0.4.14.3.3'
+          version = '0.3.0-alpha.28.0.4.14.3.4'
 
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
           assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
@@ -66,6 +67,17 @@ jobs:
           assert 'CARD LAB • ARENA' in overlay
           assert 'SButton.F8' in overlay
           assert 'ControllerRightStick' in overlay
+
+          # .3.4 input/UI contract.
+          assert 'PreferredWidth = 1776' in menu
+          assert 'PreferredHeight = 1080' in menu
+          assert 'SelectionDebounceMs = 160L' in menu
+          assert 'TrySelectCardRowAt' in menu
+          assert 'receiveScrollWheelAction' in menu
+          assert 'MoveSelection(int delta, bool force = false)' in menu
+          assert 'int rowHeight = 51' in menu
+          assert 'EQUIP & PLAY [A]' in menu
+          assert 'UNEQUIP & PLAY [X]' in menu
           assert 'TEST ARENA [RT/T]' in menu
           assert 'DUMMY 100% [LT/F7]' in menu
           assert 'DUMMY 19% [R3/F6]' in menu
@@ -93,7 +105,7 @@ jobs:
           assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
           visual = (root/'assets/airship_visual.png').read_bytes()
           assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
-          print('Card Test Arena TMX source acceptance PASS')
+          print('Card Test Lab input/UI source acceptance PASS')
           PY
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
@@ -103,7 +115,7 @@ jobs:
       - name: Compile test build
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Materialize Card Test Arena source back to branch
+      - name: Materialize Card Test Lab source back to branch
         shell: bash
         run: |
           set -euo pipefail
@@ -125,11 +137,12 @@ jobs:
             tools/alpha28_41432_arena_modentry.py \
             tools/alpha28_41432_arena_menu.py \
             tools/alpha28_41432_arena_compilefix.py \
+            tools/alpha28_41434_lab_input_ui.py \
             .github/workflows/cardcha-alpha28-056-card-test-lab.yml
           if git diff --cached --quiet; then
-            echo "No generated Card Test Arena diff to materialize."
+            echo "No generated Card Test Lab diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.14.3.3 Card Test Arena TMX hotfix [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.14.3.4 Card Test Lab input UI hotfix [skip ci]"
             git push origin HEAD:cardcha-alpha28-056-card-test-lab
           fi
 
@@ -145,9 +158,13 @@ jobs:
           grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
           grep -q 'FixedOutgoingRawDamage = 100' src/Cardcha/Services/CardTestArenaService.cs
           grep -q 'Game1.gameTimeInterval = 0' src/Cardcha/Services/CardTestArenaService.cs
+          grep -q 'PreferredWidth = 1776' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'SelectionDebounceMs = 160L' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'TrySelectCardRowAt' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'receiveScrollWheelAction' src/Cardcha/UI/CardTestLabMenu.cs
           grep -q 'CARD LAB • ARENA' src/Cardcha/Services/CardTestLabOverlayService.cs
           grep -q 'cardcha_card_test_stop' src/Cardcha/ModEntry.cs
-          echo 'alpha28.0.4.14.3.3 regression gate PASS'
+          echo 'alpha28.0.4.14.3.4 regression gate PASS'
 
       - name: Package compiled test build
         shell: bash
@@ -159,12 +176,12 @@ jobs:
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -s stage/Cardcha/Cardcha.dll
-          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.3"
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.3_CardTestArena_TMXHotfix_TEST.zip Cardcha)
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.4"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.4_CardTestLabInputUI_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-056-card-test-arena-tmx-hotfix
+          name: cardcha-alpha28-056-card-test-lab-input-ui
           path: artifact
           if-no-files-found: error
