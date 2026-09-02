@@ -1,0 +1,199 @@
+name: Cardcha alpha28.0.4.14.4.1 ChaCha Energy Aura Chord
+
+on:
+  push:
+    branches: [ cardcha-alpha28-059-chacha-energy-hud-chord ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply ChaCha Energy HUD chord finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_41441_chacha_energy_hud_chord.py
+          python3 tools/alpha28_41436_auto_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.1'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          form = (root/'Services/ChaChaBossFormService.cs').read_text()
+          controller = (root/'Services/ControllerProfileService.cs').read_text()
+          combat_hud = (root/'UI/CombatHudRenderer.cs').read_text()
+          energy = (root/'Services/BossEnergyService.cs').read_text()
+          world = (root/'Services/WorldActorService.cs').read_text()
+          entry = (root/'ModEntry.cs').read_text()
+          combat = (root/'Services/CombatService.cs').read_text()
+          save_data = (root/'Models/SaveData.cs').read_text()
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+
+          # Unified HUD: old separate Boss Energy circle and old separate READY card are gone.
+          assert 'Key: "boss_energy"' not in combat_hud
+          assert 'GetEnergyHudRect()' in form
+          assert 'CHACHA ENERGY' == en['chacha.energy.label']
+          assert vi['chacha.energy.label'] == 'NĂNG LƯỢNG CHACHA'
+          assert 'this.BossEnergy.CurrentEnergy' in form
+          assert 'BossEnergyService.MaxEnergy' in form
+
+          # Exact aura progression: none <25, white 25+, yellow 50+, orange 75+, red 100/READY.
+          assert 'if (energy >= 75d) return 3;' in form
+          assert 'if (energy >= 50d) return 2;' in form
+          assert 'if (energy >= 25d) return 1;' in form
+          assert '1 => new Color(242, 244, 255)' in form
+          assert '2 => new Color(255, 226, 82)' in form
+          assert '3 => new Color(255, 145, 45)' in form
+          assert '4 => new Color(232, 54, 48)' in form
+          assert 'OnRenderedWorld' in form and 'EnsureAuraTexture' in form
+          assert 'stage >= 4' in form and 'Math.Sin(now / 105d)' in form
+
+          # Input contract: semantic controller Confirm+Deselect, Switch labels resolve B+Y;
+          # keyboard is specifically Left Shift+A, plus mouse click on the one HUD.
+          assert 'public SButton GetButton(ControllerAction action)' in controller
+          assert 'ControllerAction.Confirm' in form and 'ControllerAction.Deselect' in form
+          assert 'this.Helper.Input.IsDown(confirm)' in form
+          assert 'this.Helper.Input.IsDown(deselect)' in form
+          assert 'SButton.LeftShift' in form and 'SButton.A' in form
+          assert 'Left Shift+A keyboard chord' in form
+          assert 'SButton.R' not in form
+          assert 'TripleSelectWindowMs' not in form
+          assert 'RequiredSelectPresses' not in form
+          assert 'ControllerBack' not in form
+          assert 'e.Button == SButton.MouseLeft' in form
+          assert 'this.GetEnergyHudRect().Contains' in form
+          # Nintendo semantic labels from ControllerProfileService must be B + Y.
+          assert 'ControllerAction.Confirm or ControllerAction.Skip => "B"' in controller
+          assert 'ControllerAction.Deselect => "Y"' in controller
+
+          # Boss Form remains a 10s foundation with no hidden stat bonuses.
+          assert 'BossFormDurationMs = 10000' in form
+          assert 'this.BossEnergy.TrySpend(BossEnergyService.MaxEnergy)' in form
+          assert 'this.BossEnergy.SetGainSuppressed(true)' in form
+          assert 'this.BossEnergy.SetGainSuppressed(false)' in form
+          forbidden = ['ModifyMonsterDamage(', 'ModifyCriticalChance(', 'ModifyFarmerDamage(', 'CardLevelStats']
+          assert all(token not in form for token in forbidden)
+          assert 'ChaChaBossForm' not in combat
+
+          # Story gate + non-persistent runtime state remain intact.
+          assert 'this.Save.Data.ChaChaLoaned' in form
+          assert 'BossEnergy' not in save_data
+          assert 'BossForm' not in save_data
+          assert 'ChaChaBossNativeScale = 0.74f' in world
+
+          # Mod wiring includes HUD, world aura, input, update and test hooks.
+          assert 'this.ChaChaBossForm.OnRenderedHud' in entry
+          assert 'this.ChaChaBossForm.OnRenderedWorld' in entry
+          assert 'this.ChaChaBossForm.OnButtonPressed' in entry
+          assert 'this.ChaChaBossForm.OnUpdateTicked' in entry
+          assert 'this.WorldActors, this.Controller' in entry
+          assert 'cardcha_chacha_boss_ready' in entry
+          assert f'Cardcha! v{version} CHACHA ENERGY AURA + CHORD TEST' in entry
+
+          for key in ['chacha.energy.label','chacha.energy.charging','chacha.boss.hint.combo','chacha.boss.active','chacha.boss.timer','chacha.boss.activated']:
+              assert key in en and key in vi
+
+          # Preserve 76-card green baseline and locked approved art.
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+          icons=(root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320,1024)
+          assert hashlib.sha256(icons).hexdigest() == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          airship=(root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(airship).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          print('ChaCha Energy aura + unified HUD + chord source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize ChaCha Energy source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/ControllerProfileService.cs \
+            src/Cardcha/Services/ChaChaBossFormService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
+            src/Cardcha/UI/CombatHudRenderer.cs \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            tools/alpha28_41441_chacha_energy_hud_chord.py \
+            .github/workflows/cardcha-alpha28-059-chacha-energy-hud-chord.yml
+          if git diff --cached --quiet; then
+            echo "No generated ChaCha Energy diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.1 ChaCha Energy aura chord [skip ci]"
+            git push origin HEAD:cardcha-alpha28-059-chacha-energy-hud-chord
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'Left Shift+A keyboard chord' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'ControllerAction.Deselect' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'EnergyAuraStage' src/Cardcha/Services/ChaChaBossFormService.cs
+          ! grep -q 'RequiredSelectPresses' src/Cardcha/Services/ChaChaBossFormService.cs
+          ! grep -q 'Key: "boss_energy"' src/Cardcha/UI/CombatHudRenderer.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('src/Cardcha/assets/card_auto_audit.json', encoding='utf-8'))
+          assert len(rows)==76 and all(r['status']=='PASS' for r in rows)
+          print('76/76 card contract preserved')
+          PY
+          echo 'alpha28.0.4.14.4.1 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.1"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.1_ChaChaEnergyAuraChord_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-059-chacha-energy-hud-chord
+          path: artifact
+          if-no-files-found: error
