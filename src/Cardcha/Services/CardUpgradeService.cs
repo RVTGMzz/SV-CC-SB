@@ -101,6 +101,11 @@ internal sealed class CardUpgradeService
                 Primary = Pick(level, 10, 15, 20, 25, 30)
             },
 
+            "victory_charge" => new CardLevelStats
+            {
+                Primary = Pick(level, 0.10, 0.15, 0.20, 0.25, 0.30)
+            },
+
             "keen_eye" => new CardLevelStats
             {
                 Primary = Pick(level, 0.02, 0.025, 0.03, 0.035, 0.04)
@@ -180,6 +185,11 @@ internal sealed class CardUpgradeService
             "thick_hide" => ModEntry.T(
                 "binder.level-effect.thick-hide",
                 new { defense = (int)Math.Round(s.Primary) }
+            ),
+
+            "victory_charge" => ModEntry.T(
+                "binder.level-effect.victory-charge",
+                new { bonus = Percent(s.Primary) }
             ),
 
             "keen_eye" => ModEntry.T(

@@ -385,12 +385,12 @@
   "card.essence_finder.star.4": "After Cardboard/Shiny Scrap drops: +14% chance for +1 more of the same type.",
   "card.essence_finder.star.5": "After Cardboard/Shiny Scrap drops: +16% chance for +1 more of the same type.",
   "card.victory_charge.name": "Victory Charge",
-  "card.victory_charge.desc": "TEMPORARILY INACTIVE IN THIS TEST BUILD: this card requires the Boss Energy system, which does not exist yet. It grants no hidden substitute bonus.",
-  "card.victory_charge.star.1": "Pending Boss Energy system.",
-  "card.victory_charge.star.2": "Pending Boss Energy system.",
-  "card.victory_charge.star.3": "Pending Boss Energy system.",
-  "card.victory_charge.star.4": "Pending Boss Energy system.",
-  "card.victory_charge.star.5": "Pending Boss Energy system.",
+  "card.victory_charge.desc": "Boss Energy gained from kills +10%; does not increase Energy gained from damage or crit-like hits.",
+  "card.victory_charge.star.1": "Boss Energy gained from kills +10%.",
+  "card.victory_charge.star.2": "Boss Energy gained from kills +15%.",
+  "card.victory_charge.star.3": "Boss Energy gained from kills +20%.",
+  "card.victory_charge.star.4": "Boss Energy gained from kills +25%.",
+  "card.victory_charge.star.5": "Boss Energy gained from kills +30%.",
   "card.lucky_pocket.name": "Lucky Pocket",
   "card.lucky_pocket.desc": "Defeating a monster has a small chance to grant an extra 25g.",
   "card.lucky_pocket.star.1": "Kill: +2% chance to gain an extra 25g.",
@@ -844,5 +844,7 @@
   "airship.upgrade.system.hull.name": "Hull & Shield",
   "airship.upgrade.system.hull.desc": "Reinforces the vessel and its warding field. Combat benefits are intentionally not active yet.",
   "airship.upgrade.system.reactor.name": "Arcane Reactor",
-  "airship.upgrade.system.reactor.desc": "Feeds Magic Dust resonance into the ship's infrastructure and future high-tier systems."
+  "airship.upgrade.system.reactor.desc": "Feeds Magic Dust resonance into the ship's infrastructure and future high-tier systems.",
+  "hud.boss-energy": "Boss Energy",
+  "binder.level-effect.victory-charge": "Boss Energy from kills +{{bonus}}%. Damage/crit-like Energy is unchanged."
 }

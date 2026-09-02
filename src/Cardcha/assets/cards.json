@@ -398,17 +398,17 @@
     "Build": "Ultimate",
     "EffectKey": "boss_energy_kill",
     "Value": 0.0,
-    "Description": "TẠM CHƯA HOẠT ĐỘNG TRONG BẢN TEST: lá này cần hệ Năng lượng Trùm, nhưng hệ đó chưa được triển khai. Không cộng chỉ số ẩn.",
+    "Description": "Boss Energy nhận từ hạ quái +10%; không tăng phần Energy nhận từ sát thương hoặc đòn chí mạng.",
     "IconIndex": 19,
     "UseInitialFallback": false,
     "MaxLevel": 5,
     "LevelStep": 0.0,
     "StarRules": [
-      "Chờ hệ Năng lượng Trùm.",
-      "Chờ hệ Năng lượng Trùm.",
-      "Chờ hệ Năng lượng Trùm.",
-      "Chờ hệ Năng lượng Trùm.",
-      "Chờ hệ Năng lượng Trùm."
+      "Boss Energy nhận từ hạ quái +10%.",
+      "Boss Energy nhận từ hạ quái +15%.",
+      "Boss Energy nhận từ hạ quái +20%.",
+      "Boss Energy nhận từ hạ quái +25%.",
+      "Boss Energy nhận từ hạ quái +30%."
     ]
   },
   {

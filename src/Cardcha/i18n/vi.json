@@ -466,12 +466,12 @@
   "card.essence_finder.star.4": "Khi đã rơi Mảnh Bìa thường/lấp lánh: +14% cơ hội nhận thêm +1 cùng loại.",
   "card.essence_finder.star.5": "Khi đã rơi Mảnh Bìa thường/lấp lánh: +16% cơ hội nhận thêm +1 cùng loại.",
   "card.victory_charge.name": "Tích Năng Chiến Thắng",
-  "card.victory_charge.desc": "TẠM CHƯA HOẠT ĐỘNG TRONG BẢN TEST: lá này cần hệ Năng lượng Trùm, nhưng hệ đó chưa được triển khai. Không cộng chỉ số ẩn.",
-  "card.victory_charge.star.1": "Chờ hệ Năng lượng Trùm.",
-  "card.victory_charge.star.2": "Chờ hệ Năng lượng Trùm.",
-  "card.victory_charge.star.3": "Chờ hệ Năng lượng Trùm.",
-  "card.victory_charge.star.4": "Chờ hệ Năng lượng Trùm.",
-  "card.victory_charge.star.5": "Chờ hệ Năng lượng Trùm.",
+  "card.victory_charge.desc": "Boss Energy nhận từ hạ quái +10%; không tăng phần Energy nhận từ sát thương hoặc đòn chí mạng.",
+  "card.victory_charge.star.1": "Boss Energy nhận từ hạ quái +10%.",
+  "card.victory_charge.star.2": "Boss Energy nhận từ hạ quái +15%.",
+  "card.victory_charge.star.3": "Boss Energy nhận từ hạ quái +20%.",
+  "card.victory_charge.star.4": "Boss Energy nhận từ hạ quái +25%.",
+  "card.victory_charge.star.5": "Boss Energy nhận từ hạ quái +30%.",
   "card.lucky_pocket.name": "Túi May Mắn",
   "card.lucky_pocket.desc": "Khi hạ quái, có xác suất nhỏ nhận thêm 25g.",
   "card.lucky_pocket.star.1": "Hạ quái: +2% cơ hội nhận thêm 25g.",
@@ -922,5 +922,7 @@
   "airship.upgrade.system.hull.name": "Thân Tàu & Khiên",
   "airship.upgrade.system.hull.desc": "Gia cố thân tàu và kết giới bảo vệ. Bản này chưa kích hoạt lợi ích chiến đấu.",
   "airship.upgrade.system.reactor.name": "Lò Phản Ứng Ma Pháp",
-  "airship.upgrade.system.reactor.desc": "Dẫn cộng hưởng Bụi Ma Thuật vào hạ tầng tàu và các hệ thống cao cấp trong tương lai."
+  "airship.upgrade.system.reactor.desc": "Dẫn cộng hưởng Bụi Ma Thuật vào hạ tầng tàu và các hệ thống cao cấp trong tương lai.",
+  "hud.boss-energy": "Năng Lượng Trùm",
+  "binder.level-effect.victory-charge": "Boss Energy từ hạ quái +{{bonus}}%. Energy từ sát thương/chí mạng không đổi."
 }

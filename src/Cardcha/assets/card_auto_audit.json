@@ -277,10 +277,13 @@
     "effectKey": "boss_energy_kill",
     "maxLevel": 5,
     "starRuleCount": 5,
-    "runtimeRefs": 0,
-    "runtimeFiles": [],
-    "status": "BLOCKED",
-    "reason": "Boss Energy subsystem does not exist yet"
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/BossEnergyService.cs",
+      "Services/CardUpgradeService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
   },
   {
     "baseId": 21,

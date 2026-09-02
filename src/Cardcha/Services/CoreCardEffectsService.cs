@@ -109,6 +109,8 @@ internal sealed class CoreCardEffectsService
 
     public int CurrentNoHitKillStreak => Math.Max(0, this.NoHitKillStreak);
     internal CardPassiveDebugSnapshot DebugPassiveSnapshot => this.DebugLastPassive;
+    internal int LastProcessedActualDamage { get; private set; }
+    internal bool LastProcessedCritLike { get; private set; }
 
     internal void DebugForceNextChanceRoll(double value)
         => this.DebugForcedNextChanceRoll = Math.Clamp(value, 0d, 0.999999999d);
@@ -333,6 +335,8 @@ internal sealed class CoreCardEffectsService
         int actual = Math.Max(0, healthBefore - Math.Max(0, monster.Health));
         if (actual <= 0)
         {
+            this.LastProcessedActualDamage = 0;
+            this.LastProcessedCritLike = false;
             this.PendingRawHitDamage = 0;
             this.PendingCritLikeHit = false;
             return;
@@ -340,6 +344,8 @@ internal sealed class CoreCardEffectsService
 
         long now = Environment.TickCount64;
         bool critLike = this.PendingCritLikeHit;
+        this.LastProcessedActualDamage = actual;
+        this.LastProcessedCritLike = critLike;
         int rawHit = this.PendingRawHitDamage > 0 ? this.PendingRawHitDamage : actual;
 
         // Keep a slowly moving ordinary-hit baseline. Likely crits are deliberately excluded

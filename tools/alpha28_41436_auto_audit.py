@@ -56,7 +56,7 @@ for card in active:
             effect_refs += b
 
     runtime_refs = id_refs + effect_refs
-    blocked = card_id.lower() == 'victory_charge'
+    blocked = False
 
     reasons = []
     if blocked:

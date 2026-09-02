@@ -22,6 +22,7 @@ internal sealed class CombatService
     private readonly SaveService Save;
     private readonly CardRegistry Cards;
     private readonly CardUpgradeService Upgrades;
+    private readonly BossEnergyService BossEnergy;
     private readonly CoreCardEffectsService Completion;
 
     private int ChainHunterStacks;
@@ -59,13 +60,14 @@ internal sealed class CombatService
     private float LastCritBefore;
     private float LastCritAfter;
 
-    public CombatService(ModConfig config, LoadoutService loadout, SaveService save, CardRegistry cards, CardUpgradeService upgrades)
+    public CombatService(ModConfig config, LoadoutService loadout, SaveService save, CardRegistry cards, CardUpgradeService upgrades, BossEnergyService bossEnergy)
     {
         this.Config = config;
         this.Loadout = loadout;
         this.Save = save;
         this.Cards = cards;
         this.Upgrades = upgrades;
+        this.BossEnergy = bossEnergy;
         this.Completion = new CoreCardEffectsService(loadout, save, cards, upgrades);
     }
 
@@ -289,19 +291,32 @@ internal sealed class CombatService
     public void OnMonsterKilled(Monster monster, Farmer? who)
     {
         if (who?.IsLocalPlayer == true)
+        {
             this.Completion.OnMonsterKilled(monster, who);
+            string name = string.IsNullOrWhiteSpace(monster.Name) ? monster.GetType().Name : monster.Name;
+            string source = monster.GetType().FullName ?? monster.GetType().Name;
+            bool bossLike = DropService.ClassifyEnemy(name, source, monster.modData?.Pairs) == EnemyLootScale.BossLike;
+            this.BossEnergy.OnKill(bossLike, who);
+        }
         this.OnEnemyKilled(who);
     }
 
     public void OnCustomEnemyKilled(Farmer? who, string sourceType, bool bossLike)
     {
         if (who?.IsLocalPlayer == true)
+        {
             this.Completion.OnCustomMonsterKilled(sourceType, who, bossLike);
+            this.BossEnergy.OnKill(bossLike, who);
+        }
         this.OnEnemyKilled(who);
     }
 
     public void AfterMonsterTakesDamage(Monster monster, Farmer? who, int healthBefore)
-        => this.Completion.AfterMonsterTakesDamage(monster, who, healthBefore);
+    {
+        this.Completion.AfterMonsterTakesDamage(monster, who, healthBefore);
+        if (who?.IsLocalPlayer == true)
+            this.BossEnergy.OnDamageDealt(this.Completion.LastProcessedActualDamage, this.Completion.LastProcessedCritLike);
+    }
 
     public int ModifyFarmerDamage(int damage, Farmer farmer, Monster? attacker)
     {
@@ -512,7 +527,8 @@ internal sealed class CombatService
             $"Chain Hunter now: {this.CurrentChainHunterStacks}/{this.Config.ChainHunterMaxStacks} ({this.CurrentChainSecondsRemaining:0.0}s)\n" +
             $"Soul Eater: {this.CurrentSoulEaterKills}/{this.CurrentSoulEaterKillTarget}, buff={(this.IsSoulEaterActive ? $"+{this.CurrentSoulEaterDamagePercent:0.#}% ({this.CurrentSoulEaterSecondsRemaining:0.0}s)" : "off")}\n" +
             $"Phoenix Heart procs this session: {this.PhoenixHeartProcs} | used today: {this.Save.Data.PhoenixHeartUsedToday}\n" +
-            $"Passive buffs: {passive}";
+            $"Passive buffs: {passive}\n" +
+            $"Boss Energy: {this.BossEnergy.Describe()}";
     }
 
     public void ResetVerificationTelemetry()

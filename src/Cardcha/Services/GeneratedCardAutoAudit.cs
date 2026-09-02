@@ -40,7 +40,7 @@ internal static class GeneratedCardAutoAudit
         ["calm_heart"] = new(CardAutoAuditStatus.Pass, 2, 4, 4, "runtime hook/reference + per-level display contract present"),
         ["scavenger"] = new(CardAutoAuditStatus.Pass, 2, 5, 5, "runtime hook/reference + per-level display contract present"),
         ["essence_finder"] = new(CardAutoAuditStatus.Pass, 4, 5, 5, "runtime hook/reference + per-level display contract present"),
-        ["victory_charge"] = new(CardAutoAuditStatus.Blocked, 0, 5, 5, "Boss Energy subsystem does not exist yet"),
+        ["victory_charge"] = new(CardAutoAuditStatus.Pass, 4, 5, 5, "runtime hook/reference + per-level display contract present"),
         ["lucky_pocket"] = new(CardAutoAuditStatus.Pass, 2, 5, 5, "runtime hook/reference + per-level display contract present"),
         ["treasure_magnet"] = new(CardAutoAuditStatus.Pass, 2, 5, 5, "runtime hook/reference + per-level display contract present"),
         ["explorer"] = new(CardAutoAuditStatus.Pass, 3, 5, 5, "runtime hook/reference + per-level display contract present"),

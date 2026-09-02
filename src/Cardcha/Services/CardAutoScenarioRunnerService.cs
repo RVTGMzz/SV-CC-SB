@@ -43,6 +43,7 @@ internal sealed class CardAutoScenarioRunnerService
     private readonly CombatService Combat;
     private readonly DropService Drops;
     private readonly GachaService Gacha;
+    private readonly BossEnergyService BossEnergy;
     private readonly Dictionary<string, CardAutoScenarioResult> Results = new(StringComparer.OrdinalIgnoreCase);
 
     public CardAutoScenarioRunnerService(
@@ -53,7 +54,8 @@ internal sealed class CardAutoScenarioRunnerService
         CardUpgradeService upgrades,
         CombatService combat,
         DropService drops,
-        GachaService gacha)
+        GachaService gacha,
+        BossEnergyService bossEnergy)
     {
         this.Monitor = monitor;
         this.Config = config;
@@ -63,6 +65,7 @@ internal sealed class CardAutoScenarioRunnerService
         this.Combat = combat;
         this.Drops = drops;
         this.Gacha = gacha;
+        this.BossEnergy = bossEnergy;
     }
 
     public IReadOnlyList<CardDefinition> ActiveCards
@@ -116,6 +119,7 @@ internal sealed class CardAutoScenarioRunnerService
         finally
         {
             this.Combat.ResetRuntime();
+            this.BossEnergy.Reset();
             this.Config.EnableCombatCards = combatBefore;
             this.Config.EnableMonsterDrops = dropsBefore;
             this.Config.PrototypeDropMultiplier = multiplierBefore;
@@ -141,18 +145,6 @@ internal sealed class CardAutoScenarioRunnerService
 
     private CardAutoScenarioResult RunCardInternal(CardDefinition card)
     {
-        if (card.Id.Equals("victory_charge", StringComparison.OrdinalIgnoreCase))
-        {
-            return new CardAutoScenarioResult
-            {
-                CardId = card.Id,
-                Status = CardAutoScenarioStatus.Blocked,
-                TotalLevels = Math.Max(1, card.MaxLevel),
-                Summary = "BLOCKED: Boss Energy subsystem does not exist yet.",
-                Detail = "No substitute effect is accepted."
-            };
-        }
-
         int max = Math.Max(1, card.MaxLevel);
         int passed = 0;
         List<string> details = new();
@@ -236,6 +228,7 @@ internal sealed class CardAutoScenarioRunnerService
                 "calm_heart" => this.CheckCalmHeart(level),
                 "scavenger" => this.CheckDropBonus(level, "scavenger"),
                 "essence_finder" => this.CheckEssenceFinder(level),
+                "victory_charge" => this.CheckVictoryCharge(level),
                 "lucky_pocket" => this.CheckLuckyPocket(level),
                 "treasure_magnet" => this.CheckTreasureMagnet(level),
                 "explorer" => this.CheckKillPassiveMove(level, "explorer", .05, .06, .07, .08, .10),
@@ -298,6 +291,7 @@ internal sealed class CardAutoScenarioRunnerService
         finally
         {
             this.Combat.ResetRuntime();
+            this.BossEnergy.Reset();
             playerSnapshot.Restore(player);
         }
     }
@@ -307,6 +301,7 @@ internal sealed class CardAutoScenarioRunnerService
         this.Combat.ResetRuntime();
         this.Combat.ResetVerificationTelemetry();
         this.Combat.DebugCompletion.DebugClearForcedChanceRoll();
+        this.BossEnergy.DebugSetEnergy(0d);
 
         SaveData data = this.Save.Data;
         data.MachineDelivered = true;
@@ -338,6 +333,35 @@ internal sealed class CardAutoScenarioRunnerService
         player.health = 100;
         player.Money = 1000;
         player.Stamina = player.MaxStamina;
+    }
+
+    private LevelScenarioCheck CheckVictoryCharge(int level)
+    {
+        double bonus = At(level, .10, .15, .20, .25, .30);
+
+        this.BossEnergy.DebugSetEnergy(0d);
+        this.BossEnergy.OnDamageDealt(100, false);
+        this.BossEnergy.OnDamageDealt(170, true);
+        double nonKillActual = this.BossEnergy.CurrentEnergy;
+        double nonKillExpected = 1d + 1.7d + BossEnergyService.CritLikeEnergy;
+
+        this.BossEnergy.DebugSetEnergy(0d);
+        this.BossEnergy.OnKill(false, Game1.player);
+        double regularActual = this.BossEnergy.CurrentEnergy;
+        double regularExpected = BossEnergyService.RegularKillEnergy * (1d + bonus);
+
+        this.BossEnergy.DebugSetEnergy(0d);
+        this.BossEnergy.OnKill(true, Game1.player);
+        double bossActual = this.BossEnergy.CurrentEnergy;
+        double bossExpected = BossEnergyService.BossLikeKillEnergy * (1d + bonus);
+
+        bool pass = Near(nonKillActual, nonKillExpected)
+                    && Near(regularActual, regularExpected)
+                    && Near(bossActual, bossExpected);
+
+        return pass
+            ? LevelScenarioCheck.Ok($"damage/crit {nonKillActual:0.##} unchanged; kill {regularActual:0.##}/{bossActual:0.##}, expected {regularExpected:0.##}/{bossExpected:0.##}")
+            : LevelScenarioCheck.Fail($"energy damage/crit {nonKillActual:0.##} exp {nonKillExpected:0.##}; kill {regularActual:0.##}/{bossActual:0.##} exp {regularExpected:0.##}/{bossExpected:0.##}");
     }
 
     private LevelScenarioCheck CheckFlatDamage(int level, params double[] bonus)

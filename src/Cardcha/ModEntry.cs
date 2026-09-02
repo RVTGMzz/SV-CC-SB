@@ -25,6 +25,7 @@ internal sealed class ModEntry : Mod
     private LoadoutService Loadout = null!;
     private ItemAssetService Items = null!;
     private ResourceService Resources = null!;
+    private BossEnergyService BossEnergy = null!;
     private CombatService Combat = null!;
     private CardRenderer Renderer = null!;
     private ControllerProfileService Controller = null!;
@@ -60,7 +61,8 @@ internal sealed class ModEntry : Mod
         this.Gacha = new GachaService(this.Cards, this.Save, this.Config);
         this.Items = new ItemAssetService(helper);
         this.Resources = new ResourceService(this.Save);
-        this.Combat = new CombatService(this.Config, this.Loadout, this.Save, this.Cards, this.Upgrades);
+        this.BossEnergy = new BossEnergyService(this.Loadout, this.Cards, this.Upgrades);
+        this.Combat = new CombatService(this.Config, this.Loadout, this.Save, this.Cards, this.Upgrades, this.BossEnergy);
         this.Renderer = new CardRenderer(helper);
         this.Progression = new ProgressionService(helper, this.Monitor, this.Save);
         this.Drops = new DropService(
@@ -78,6 +80,7 @@ internal sealed class ModEntry : Mod
         this.CombatHud = new CombatHudRenderer(
             this.Config,
             this.Combat,
+            this.BossEnergy,
             this.Loadout,
             this.Save,
             this.Cards,
@@ -133,7 +136,7 @@ internal sealed class ModEntry : Mod
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
         this.CardAutoRunner = new CardAutoScenarioRunnerService(
-            this.Monitor, this.Config, this.Cards, this.Save, this.Upgrades, this.Combat, this.Drops, this.Gacha
+            this.Monitor, this.Config, this.Cards, this.Save, this.Upgrades, this.Combat, this.Drops, this.Gacha, this.BossEnergy
         );
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
@@ -149,10 +152,12 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.BossEnergy.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.BossEnergy.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
@@ -226,7 +231,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.7 CARD AUTO SCENARIO TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.8 BOSS ENERGY + VICTORY CHARGE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -999,7 +1004,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.3.7 CARD AUTO SCENARIO TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.3.8 BOSS ENERGY + VICTORY CHARGE TEST",
             LogLevel.Alert
         );
     }

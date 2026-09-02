@@ -21,6 +21,7 @@ internal sealed class CombatHudRenderer
 
     private readonly ModConfig Config;
     private readonly CombatService Combat;
+    private readonly BossEnergyService BossEnergy;
     private readonly LoadoutService Loadout;
     private readonly SaveService Save;
     private readonly CardRegistry Cards;
@@ -34,6 +35,7 @@ internal sealed class CombatHudRenderer
     public CombatHudRenderer(
         ModConfig config,
         CombatService combat,
+        BossEnergyService bossEnergy,
         LoadoutService loadout,
         SaveService save,
         CardRegistry cards,
@@ -42,6 +44,7 @@ internal sealed class CombatHudRenderer
     {
         this.Config = config;
         this.Combat = combat;
+        this.BossEnergy = bossEnergy;
         this.Loadout = loadout;
         this.Save = save;
         this.Cards = cards;
@@ -173,6 +176,22 @@ internal sealed class CombatHudRenderer
     private List<HudEntry> BuildEntries()
     {
         List<HudEntry> entries = new();
+
+        if (this.BossEnergy.CurrentEnergy > 0.001d || this.Loadout.IsEquipped("victory_charge"))
+        {
+            entries.Add(new HudEntry(
+                Key: "boss_energy",
+                CardId: "victory_charge",
+                Label: ModEntry.T("hud.boss-energy"),
+                Value: $"{this.BossEnergy.CurrentEnergy:0.#}/{BossEnergyService.MaxEnergy:0}",
+                RemainingSeconds: null,
+                TotalSeconds: null,
+                Timing: HudTiming.None,
+                StackText: "",
+                Kind: HudKind.Ready,
+                Priority: 5
+            ));
+        }
 
         string toast = this.Combat.CurrentHudToast;
         if (!string.IsNullOrWhiteSpace(toast))

@@ -214,7 +214,7 @@ internal sealed class CardTestLabService
             "phoenix_heart" => "Use only in TEST. EQUIP & PLAY, take lethal damage, then verify the once-per-day rescue before marking PASS.",
             "last_stand" => "Set HP 19%, EQUIP & PLAY, keep a living monster nearby, then reopen Lab and inspect LastStand state.",
             "soul_eater" => "EQUIP & PLAY, kill enemies, then reopen Lab to inspect Soul Eater kill counter, bonus percent, and timer.",
-            "victory_charge" => "BLOCKED: Boss Energy does not exist yet. Do not mark PASS based on a substitute effect.",
+            "victory_charge" => "EQUIP & PLAY and defeat a kill target. Boss Energy should gain more from the kill at higher star levels; damage/crit-like Energy must stay unchanged.",
             _ => BuildGenericInstruction(card)
         };
     }
