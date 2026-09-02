@@ -65,10 +65,11 @@ entry = entry.replace(
 )
 entry_path.write_text(entry, encoding='utf-8')
 
-# CardTestLabMenu.cs compile compatibility: IClickableMenu.cleanupBeforeExit is protected.
+# CardTestLabMenu.cs compile compatibility fixes.
 menu_path = ROOT / 'UI/CardTestLabMenu.cs'
 menu = menu_path.read_text(encoding='utf-8')
 menu = menu.replace('    public override void cleanupBeforeExit()\n', '    protected override void cleanupBeforeExit()\n', 1)
+menu = menu.replace('Game1.uiViewport.Bounds', 'Game1.uiViewport')
 menu_path.write_text(menu, encoding='utf-8')
 
 print(f'Applied {VERSION} Card Test Lab finalizer')
