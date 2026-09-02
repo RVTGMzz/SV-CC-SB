@@ -10,10 +10,12 @@ namespace Cardcha.Patches;
 internal static class FarmerDamagePatch
 {
     private static CombatService? Combat;
+    private static CardTestArenaService? TestArena;
 
-    public static void Apply(Harmony harmony, CombatService combat)
+    public static void Apply(Harmony harmony, CombatService combat, CardTestArenaService? testArena = null)
     {
         Combat = combat;
+        TestArena = testArena;
         MethodInfo? target = AccessTools.Method(
             typeof(Farmer),
             nameof(Farmer.takeDamage),
@@ -34,6 +36,7 @@ internal static class FarmerDamagePatch
         __state = __instance.health;
         try
         {
+            TestArena?.TryOverrideIncomingDamage(ref damage, damager);
             if (Combat is not null)
                 damage = Combat.ModifyFarmerDamage(damage, __instance, damager);
         }
@@ -48,6 +51,7 @@ internal static class FarmerDamagePatch
         try
         {
             Combat?.AfterFarmerTakesDamage(__instance, __state);
+            TestArena?.AfterFarmerDamage(__instance);
         }
         catch (Exception ex)
         {
