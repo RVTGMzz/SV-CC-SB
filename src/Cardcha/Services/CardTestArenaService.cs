@@ -61,13 +61,13 @@ internal sealed class CardTestArenaService
             e.LoadFromModFile<xTile.Map>(MapPath, AssetLoadPriority.Exclusive);
     }
 
-    public void OnSaveLoaded()
+    public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
         this.ResetRuntime();
         this.EnsureLocation();
     }
 
-    public void OnReturnedToTitle()
+    public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
     {
         this.ResetRuntime();
         this.LoggedCreation = false;
@@ -89,7 +89,7 @@ internal sealed class CardTestArenaService
             this.RestoreClock();
     }
 
-    public void OnUpdateTicked(UpdateTickedEventArgs e)
+    public void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
         if (!this.IsInArena)
             return;

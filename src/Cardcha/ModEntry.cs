@@ -43,6 +43,8 @@ internal sealed class ModEntry : Mod
     private PortableMachineService PortableMachine = null!;
     private AirshipFoundationService Airship = null!;
     private CardTestLabService CardLab = null!;
+    private CardTestArenaService CardArena = null!;
+    private CardTestLabOverlayService CardLabOverlay = null!;
 
     public override void Entry(IModHelper helper)
     {
@@ -127,6 +129,8 @@ internal sealed class ModEntry : Mod
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
+        this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
+        this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -134,15 +138,20 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Airship.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.CardArena.OnAssetRequested;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
+        helper.Events.GameLoop.SaveLoaded += this.CardArena.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
@@ -156,8 +165,10 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.CardLabOverlay.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.Player.Warped += this.Airship.OnWarped;
+        helper.Events.Player.Warped += this.CardArena.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
         helper.ConsoleCommands.Add("cardcha_status", "Show Cardcha prototype state.", this.CommandStatus);
@@ -192,6 +203,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
+        helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -201,15 +213,15 @@ internal sealed class ModEntry : Mod
 
         Harmony harmony = new(this.ModManifest.UniqueID);
         MonsterDropPatch.Apply(harmony, this.Deaths);
-        MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths);
+        MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena);
         CriticalChancePatch.Apply(harmony, this.Combat);
-        FarmerDamagePatch.Apply(harmony, this.Combat);
+        FarmerDamagePatch.Apply(harmony, this.Combat, this.CardArena);
         MachineInteractionPatch.Apply(harmony, this.OpenMachineMenu);
         BookNavigationPatch.Apply(harmony, this.BookTab);
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.1 CARD TEST LAB UX TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.2 CARD TEST ARENA TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -299,6 +311,7 @@ internal sealed class ModEntry : Mod
 
     private void OnSaving(object? sender, SavingEventArgs e)
     {
+        this.CardArena.PrepareForSave();
         this.CardLab.EndSession();
         this.Combat.PrepareForGameSave();
         // ChaCha is a runtime-only world actor; remove it before Stardew serializes locations.
@@ -936,14 +949,37 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer);
-        this.Monitor.Log("Card Test Lab opened. EQUIP/UNEQUIP & PLAY keeps the temporary Lab session active; END LAB restores the real loadout.", LogLevel.Alert);
+        this.OpenCardTestLab();
+        this.Monitor.Log("Card Test Lab opened. Minimize once, then reopen from CARD LAB tab / F8 / controller right-stick. Arena stays active until END LAB or cardcha_card_test_stop.", LogLevel.Alert);
+    }
+
+    private void OpenCardTestLab()
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena);
+    }
+
+    private void EndCardTestLabSession()
+    {
+        this.CardArena.ExitArena();
+        this.CardLab.EndSession();
+        if (Game1.activeClickableMenu is CardTestLabMenu)
+            Game1.exitActiveMenu();
+    }
+
+    private void CommandCardTestStop(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        this.EndCardTestLabSession();
+        this.Monitor.Log("Card Test Lab stopped. Arena exited and the real loadout was restored.", LogLevel.Alert);
     }
 
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.3.1 CARD TEST LAB UX TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.3.2 CARD TEST ARENA TEST",
             LogLevel.Alert
         );
     }

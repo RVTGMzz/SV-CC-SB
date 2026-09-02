@@ -17,6 +17,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
 {
     private readonly CardTestLabService Lab;
     private readonly CardRenderer Renderer;
+    private readonly CardTestArenaService Arena;
     private readonly IReadOnlyList<CardDefinition> Cards;
 
     private int SelectedIndex;
@@ -33,11 +34,14 @@ internal sealed class CardTestLabMenu : IClickableMenu
     private Rectangle ResetRect;
     private Rectangle HpFullRect;
     private Rectangle HpLowRect;
+    private Rectangle DummyFullRect;
+    private Rectangle DummyLowRect;
+    private Rectangle ArenaRect;
     private Rectangle ReturnRect;
     private Rectangle EndLabRect;
     private Rectangle CloseRect;
 
-    public CardTestLabMenu(CardTestLabService lab, CardRenderer renderer)
+    public CardTestLabMenu(CardTestLabService lab, CardRenderer renderer, CardTestArenaService arena)
         : base(
             x: Math.Max(12, (Game1.uiViewport.Width - Math.Min(1480, Game1.uiViewport.Width - 24)) / 2),
             y: Math.Max(12, (Game1.uiViewport.Height - Math.Min(900, Game1.uiViewport.Height - 24)) / 2),
@@ -47,6 +51,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
     {
         this.Lab = lab;
         this.Renderer = renderer;
+        this.Arena = arena;
         this.Cards = lab.ActiveCards;
         this.Lab.BeginSession();
 
@@ -117,6 +122,15 @@ internal sealed class CardTestLabMenu : IClickableMenu
             case Keys.D2:
                 this.Lab.SetHealthPercent(0.19);
                 return;
+            case Keys.T:
+                this.EnterArenaAndPlay();
+                return;
+            case Keys.F7:
+                this.Arena.ResetDummy(1.0);
+                return;
+            case Keys.F6:
+                this.Arena.ResetDummy(0.19);
+                return;
             case Keys.End:
                 this.EndLabAndRestore();
                 return;
@@ -166,6 +180,15 @@ internal sealed class CardTestLabMenu : IClickableMenu
                 this.Lab.ResetTelemetry();
                 Game1.playSound("smallSelect");
                 return;
+            case Buttons.RightTrigger:
+                this.EnterArenaAndPlay();
+                return;
+            case Buttons.LeftTrigger:
+                this.Arena.ResetDummy(1.0);
+                return;
+            case Buttons.RightStick:
+                this.Arena.ResetDummy(0.19);
+                return;
             case Buttons.Start:
                 this.EndLabAndRestore();
                 return;
@@ -187,6 +210,9 @@ internal sealed class CardTestLabMenu : IClickableMenu
         else if (this.ResetRect.Contains(x, y)) this.Lab.ResetTelemetry();
         else if (this.HpFullRect.Contains(x, y)) this.Lab.SetHealthPercent(1.0);
         else if (this.HpLowRect.Contains(x, y)) this.Lab.SetHealthPercent(0.19);
+        else if (this.DummyFullRect.Contains(x, y)) this.Arena.ResetDummy(1.0);
+        else if (this.DummyLowRect.Contains(x, y)) this.Arena.ResetDummy(0.19);
+        else if (this.ArenaRect.Contains(x, y)) this.EnterArenaAndPlay();
         else if (this.ReturnRect.Contains(x, y) || this.CloseRect.Contains(x, y)) this.ReturnToGame();
         else if (this.EndLabRect.Contains(x, y)) this.EndLabAndRestore();
     }
@@ -225,7 +251,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         Vector2 progressSize = Game1.smallFont.MeasureString(progress);
         b.DrawString(Game1.smallFont, progress, new Vector2(outer.Center.X - progressSize.X * 0.9f / 2f, outer.Y + 60), new Color(224, 213, 244), 0f, Vector2.Zero, 0.9f, SpriteEffects.None, 1f);
 
-        string guide = "↑↓ CHỌN LÁ   •   ←→ LEVEL   •   A EQUIP & PLAY   •   X UNEQUIP & PLAY   •   gõ cardcha_card_test để mở lại và xem kết quả";
+        string guide = "↑↓ CHỌN LÁ   •   ←→ LEVEL   •   A EQUIP   •   X BASELINE   •   RT VÀO ARENA   •   B THU NHỎ   •   F8 / R-STICK MỞ LẠI";
         Vector2 guideSize = Game1.smallFont.MeasureString(guide);
         float guideScale = Math.Min(0.86f, (outer.Width - 80f) / Math.Max(1f, guideSize.X));
         b.DrawString(Game1.smallFont, guide, new Vector2(outer.Center.X - guideSize.X * guideScale / 2f, outer.Y + 91), new Color(255, 218, 116), 0f, Vector2.Zero, guideScale, SpriteEffects.None, 1f);
@@ -341,9 +367,12 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
         DrawButton(b, this.PassRect, "PASS [Y/P]", new Color(57, 137, 92));
         DrawButton(b, this.FailRect, "FAIL [RB/F]", new Color(155, 62, 75));
-        DrawButton(b, this.HpFullRect, "HP 100% [1]", new Color(69, 111, 96));
-        DrawButton(b, this.HpLowRect, "HP 19% [2]", new Color(145, 91, 78));
-        DrawButton(b, this.ReturnRect, "RETURN TO GAME [B/Q]", new Color(74, 79, 105));
+        DrawButton(b, this.HpFullRect, "ME 100% [1]", new Color(69, 111, 96));
+        DrawButton(b, this.HpLowRect, "ME 19% [2]", new Color(145, 91, 78));
+        DrawButton(b, this.DummyFullRect, "DUMMY 100% [LT/F7]", new Color(74, 105, 126));
+        DrawButton(b, this.DummyLowRect, "DUMMY 19% [R3/F6]", new Color(111, 82, 128));
+        DrawButton(b, this.ArenaRect, "TEST ARENA [RT/T]", new Color(56, 128, 126));
+        DrawButton(b, this.ReturnRect, "MINIMIZE [B/Q]", new Color(74, 79, 105));
         DrawButton(b, this.EndLabRect, "END LAB / RESTORE [START]", new Color(120, 75, 82));
         DrawButton(b, this.CloseRect, "RETURN [B/Q]", new Color(68, 64, 79));
     }
@@ -388,6 +417,13 @@ internal sealed class CardTestLabMenu : IClickableMenu
         this.exitThisMenu();
     }
 
+    private void EnterArenaAndPlay()
+    {
+        Game1.playSound("wand");
+        this.exitThisMenu();
+        this.Arena.EnterArena();
+    }
+
     private void ReturnToGame()
     {
         Game1.playSound("smallSelect");
@@ -396,6 +432,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
     private void EndLabAndRestore()
     {
+        this.Arena.ExitArena();
         this.Lab.EndSession();
         Game1.playSound("bigDeSelect");
         this.exitThisMenu();
@@ -405,7 +442,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
     {
         int left = this.xPositionOnScreen + 20;
         int available = this.width - 40;
-        int gap = 8;
+        int gap = 7;
         int row1Y = this.yPositionOnScreen + this.height - 106;
         int row2Y = this.yPositionOnScreen + this.height - 56;
 
@@ -416,15 +453,18 @@ internal sealed class CardTestLabMenu : IClickableMenu
         this.LevelUpRect = new Rectangle(x, row1Y, 76, 42); x += 76 + gap;
         this.EquipRect = new Rectangle(x, row1Y, 172, 42); x += 172 + gap;
         this.UnequipRect = new Rectangle(x, row1Y, 188, 42); x += 188 + gap;
-        this.ResetRect = new Rectangle(x, row1Y, Math.Max(130, Math.Min(190, left + available - x)), 42);
+        this.ResetRect = new Rectangle(x, row1Y, Math.Max(140, Math.Min(190, left + available - x)), 42);
 
         x = left;
-        this.PassRect = new Rectangle(x, row2Y, 120, 42); x += 120 + gap;
-        this.FailRect = new Rectangle(x, row2Y, 120, 42); x += 120 + gap;
-        this.HpFullRect = new Rectangle(x, row2Y, 112, 42); x += 112 + gap;
-        this.HpLowRect = new Rectangle(x, row2Y, 106, 42); x += 106 + gap;
-        this.ReturnRect = new Rectangle(x, row2Y, 190, 42); x += 190 + gap;
-        this.EndLabRect = new Rectangle(x, row2Y, Math.Max(190, Math.Min(242, left + available - x)), 42);
+        this.PassRect = new Rectangle(x, row2Y, 96, 42); x += 96 + gap;
+        this.FailRect = new Rectangle(x, row2Y, 96, 42); x += 96 + gap;
+        this.HpFullRect = new Rectangle(x, row2Y, 100, 42); x += 100 + gap;
+        this.HpLowRect = new Rectangle(x, row2Y, 94, 42); x += 94 + gap;
+        this.DummyFullRect = new Rectangle(x, row2Y, 145, 42); x += 145 + gap;
+        this.DummyLowRect = new Rectangle(x, row2Y, 142, 42); x += 142 + gap;
+        this.ArenaRect = new Rectangle(x, row2Y, 140, 42); x += 140 + gap;
+        this.ReturnRect = new Rectangle(x, row2Y, 128, 42); x += 128 + gap;
+        this.EndLabRect = new Rectangle(x, row2Y, Math.Max(175, Math.Min(220, left + available - x)), 42);
 
         this.CloseRect = new Rectangle(this.xPositionOnScreen + this.width - 148, this.yPositionOnScreen + 18, 126, 38);
     }
