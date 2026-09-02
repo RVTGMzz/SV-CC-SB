@@ -23,6 +23,7 @@ jobs:
           python3 tools/alpha28_41432_version.py
           python3 tools/alpha28_41432_arena_modentry.py
           python3 tools/alpha28_41432_arena_menu.py
+          python3 tools/alpha28_41432_arena_compilefix.py
 
       - name: Source acceptance checks
         shell: bash
@@ -58,6 +59,9 @@ jobs:
           assert 'TEST ARENA REVIVE' in arena
           assert 'RespawnDelayMs' in arena
           assert 'steady_grip' in arena
+          assert 'OnSaveLoaded(object? sender, SaveLoadedEventArgs e)' in arena
+          assert 'OnUpdateTicked(object? sender, UpdateTickedEventArgs e)' in arena
+          assert 'OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)' in arena
           assert 'CARD LAB • ARENA' in overlay
           assert 'SButton.F8' in overlay
           assert 'ControllerRightStick' in overlay
@@ -106,6 +110,7 @@ jobs:
             tools/alpha28_41432_version.py \
             tools/alpha28_41432_arena_modentry.py \
             tools/alpha28_41432_arena_menu.py \
+            tools/alpha28_41432_arena_compilefix.py \
             .github/workflows/cardcha-alpha28-056-card-test-lab.yml
           if git diff --cached --quiet; then
             echo "No generated Card Test Arena diff to materialize."
