@@ -14,8 +14,8 @@ active = sorted(
 )
 assert len(active) == 76, f'expected 76 active cards, got {len(active)}'
 
-# Scan real runtime surfaces only. Test-Lab files are deliberately excluded so the
-# audit cannot pass just because a card name appears in its own test instructions.
+# Scan real runtime surfaces only. Test-Lab / scenario-runner files are deliberately excluded so the
+# audit cannot pass just because a card name appears in its own test instructions or adapter.
 scan_files = []
 for path in [ROOT / 'ModEntry.cs', *sorted((ROOT / 'Services').glob('*.cs')), *sorted((ROOT / 'Patches').glob('*.cs'))]:
     if not path.exists():
@@ -24,6 +24,7 @@ for path in [ROOT / 'ModEntry.cs', *sorted((ROOT / 'Services').glob('*.cs')), *s
         'CardTestLabService.cs',
         'CardTestArenaService.cs',
         'CardTestLabOverlayService.cs',
+        'CardAutoScenarioRunnerService.cs',
         'GeneratedCardAutoAudit.cs',
     }:
         continue
@@ -87,8 +88,6 @@ for card in active:
 
 REPORT_JSON.write_text(json.dumps(results, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 
-# Generated C# keeps the in-game Lab self-contained. This is a build-time contract
-# report, not a claim that every animation/RNG interaction has been human-tested.
 def esc(s: str) -> str:
     return s.replace('\\', '\\\\').replace('"', '\\"')
 
@@ -152,7 +151,5 @@ for r in results:
     if r['status'] != 'PASS':
         print(f"  #{r['baseId']:02} {r['id']}: {r['status']} - {r['reason']}")
 
-# Hard failures here are metadata integrity failures. Missing runtime references are
-# surfaced as REVIEW so the build still produces a test artifact for inspection.
 assert all(r['starRuleCount'] == r['maxLevel'] for r in results), 'one or more active cards have StarRules/MaxLevel drift'
 assert all(r['starRuleCount'] > 0 for r in results), 'one or more active cards have no StarRules'
