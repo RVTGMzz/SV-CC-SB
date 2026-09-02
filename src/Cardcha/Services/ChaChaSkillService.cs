@@ -16,7 +16,15 @@ namespace Cardcha.Services;
 internal sealed class ChaChaSkillService
 {
     public const string VitalSkillId = "vital_blessing";
+    public const string GuardSkillId = "bunny_aegis";
+    public const string SpiritSkillId = "spirit_aid";
+    public const string LuckSkillId = "lucky_echo";
     public const int MaxSkillLevel = 5;
+
+    public static IReadOnlyList<string> SkillIds { get; } = new[]
+    {
+        VitalSkillId, GuardSkillId, SpiritSkillId, LuckSkillId
+    };
     private const int CastVisualDurationMs = 1050;
 
     private readonly IModHelper Helper;
@@ -89,13 +97,43 @@ internal sealed class ChaChaSkillService
         return true;
     }
 
+    internal bool ApplyUpgradeFromStation(string id)
+    {
+        if (!this.HasSkill(id))
+            return false;
+
+        int level = this.GetLevel(id);
+        if (level <= 0 || level >= MaxSkillLevel)
+            return false;
+
+        this.Save.Data.ChaChaSkillLevels[id] = level + 1;
+        return true;
+    }
+
+    public bool DebugDiscoverSkill(string id, bool showPresentation = true)
+    {
+        if (!Context.IsWorldReady || !this.Save.Data.ChaChaLoaned || !SkillIds.Contains(id, StringComparer.OrdinalIgnoreCase))
+            return false;
+
+        bool fresh = this.Save.Data.ChaChaSkillsFound.Add(id);
+        if (!this.Save.Data.ChaChaSkillLevels.ContainsKey(id))
+            this.Save.Data.ChaChaSkillLevels[id] = 1;
+        if (string.IsNullOrWhiteSpace(this.Save.Data.ActiveChaChaSkillId))
+            this.Save.Data.ActiveChaChaSkillId = id;
+        this.Save.Save();
+
+        if (showPresentation)
+            this.TriggerCastPresentation();
+        return fresh;
+    }
+
     /// <summary>
     /// TEST-only level setter. Real Magic Dust upgrade costs remain intentionally uncommitted
     /// until the approved heal-level table is restored. This lets UI/persistence be tested now.
     /// </summary>
     public bool DebugSetLevel(string id, int level)
     {
-        if (!this.HasSkill(id))
+        if (!this.HasSkill(id) || !SkillIds.Contains(id, StringComparer.OrdinalIgnoreCase))
             return false;
 
         this.Save.Data.ChaChaSkillLevels[id] = Math.Clamp(level, 1, MaxSkillLevel);
@@ -168,8 +206,9 @@ internal sealed class ChaChaSkillService
 
     public string Describe()
         => $"Found=[{string.Join(',', this.Save.Data.ChaChaSkillsFound.OrderBy(p => p, StringComparer.OrdinalIgnoreCase))}] | " +
-           $"Active={this.ActiveSkillId} | VitalLv={this.GetLevel(VitalSkillId)}/{MaxSkillLevel} | " +
-           "HealBalance=UNLOCKED_FOR_DESIGN (runtime heal not enabled yet)";
+           $"Active={this.ActiveSkillId} | Levels=" +
+           $"Vital:{this.GetLevel(VitalSkillId)},Guard:{this.GetLevel(GuardSkillId)},Spirit:{this.GetLevel(SpiritSkillId)},Luck:{this.GetLevel(LuckSkillId)} | " +
+           "SkillEffects=DESIGN_LOCK_PENDING (normal-form runtime effects are not enabled yet)";
 
     private Point ResolveRegion1RelicTile(GameLocation location)
     {

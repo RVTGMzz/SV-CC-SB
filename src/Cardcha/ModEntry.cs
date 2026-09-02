@@ -29,6 +29,7 @@ internal sealed class ModEntry : Mod
     private BossEnergyService BossEnergy = null!;
     private ChaChaBossFormService ChaChaBossForm = null!;
     private ChaChaSkillService ChaChaSkills = null!;
+    private ChaChaSkillMaterialService ChaChaMaterials = null!;
     private CombatService Combat = null!;
     private CardRenderer Renderer = null!;
     private ControllerProfileService Controller = null!;
@@ -67,6 +68,10 @@ internal sealed class ModEntry : Mod
         this.BossEnergy = new BossEnergyService(this.Loadout, this.Cards, this.Upgrades);
         this.Combat = new CombatService(this.Config, this.Loadout, this.Save, this.Cards, this.Upgrades, this.BossEnergy);
         this.Renderer = new CardRenderer(helper);
+        this.WorldActors = new WorldActorService(this.Monitor);
+        this.ChaChaSkills = new ChaChaSkillService(helper, this.Monitor, this.Save, this.WorldActors);
+        StaticChaChaSkills = this.ChaChaSkills;
+        this.ChaChaMaterials = new ChaChaSkillMaterialService(helper, this.Monitor, this.Save, this.ChaChaSkills, this.Controller);
         this.Progression = new ProgressionService(helper, this.Monitor, this.Save);
         this.Drops = new DropService(
             this.Config,
@@ -78,7 +83,7 @@ internal sealed class ModEntry : Mod
             () => this.Progression.HasFirstScrapTriggered,
             () => this.Combat.CurrentNoHitKillStreak
         );
-        this.Deaths = new MonsterDeathService(this.Drops, this.Combat);
+        this.Deaths = new MonsterDeathService(this.Drops, this.Combat, this.ChaChaMaterials);
         this.EnemyObserver = new UniversalEnemyObserverService(this.Deaths);
         this.CombatHud = new CombatHudRenderer(
             this.Config,
@@ -94,9 +99,6 @@ internal sealed class ModEntry : Mod
             this.Save,
             this.OpenBinderFromMenu
         );
-        this.WorldActors = new WorldActorService(this.Monitor);
-        this.ChaChaSkills = new ChaChaSkillService(helper, this.Monitor, this.Save, this.WorldActors);
-        StaticChaChaSkills = this.ChaChaSkills;
         this.ChaChaBossForm = new ChaChaBossFormService(
             helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors, this.Controller
         );
@@ -176,6 +178,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.ChaChaMaterials.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaBossForm.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
@@ -183,6 +186,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.ChaChaSkills.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.ChaChaMaterials.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.BookTab.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Social.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Mystery.OnButtonPressed;
@@ -238,6 +242,9 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_chacha_skill_level", "TEST ONLY: set the Region I ChaCha skill level 1-5 without spending Magic Dust.", this.CommandChaChaSkillLevel);
         helper.ConsoleCommands.Add("cardcha_chacha_skill_cast", "TEST ONLY: replay the normal-form ChaCha skill cast visual.", this.CommandChaChaSkillCast);
         helper.ConsoleCommands.Add("cardcha_chacha_skill_status", "Show persistent ChaCha normal-form skill state.", this.CommandChaChaSkillStatus);
+        helper.ConsoleCommands.Add("cardcha_chacha_materials", "TEST ONLY: give all four ChaCha region upgrade materials: cardcha_chacha_materials [amount]", this.CommandChaChaMaterials);
+        helper.ConsoleCommands.Add("cardcha_chacha_station", "TEST ONLY: open the Airship ChaCha Resonance Pedestal UI directly.", this.CommandChaChaStation);
+        helper.ConsoleCommands.Add("cardcha_chacha_material_status", "Show ChaCha region-material and Airship station state.", this.CommandChaChaMaterialStatus);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -255,7 +262,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.2 CHACHA SKILL FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.3 CHACHA SKILL MATERIALS + AIRSHIP STATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -1056,21 +1063,51 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        bool fresh = this.ChaChaSkills.DiscoverVitalSkill(showPresentation: true);
-        this.Monitor.Log(fresh ? "TEST: discovered Region I ChaCha skill." : "TEST: Region I ChaCha skill was already discovered.", LogLevel.Alert);
+        string arg = args.FirstOrDefault()?.Trim().ToLowerInvariant() ?? "vital";
+        IEnumerable<string> ids = arg == "all"
+            ? ChaChaSkillService.SkillIds
+            : new[]
+            {
+                arg switch
+                {
+                    "guard" or "aegis" or "bunny_aegis" => ChaChaSkillService.GuardSkillId,
+                    "spirit" or "spirit_aid" => ChaChaSkillService.SpiritSkillId,
+                    "luck" or "lucky" or "lucky_echo" => ChaChaSkillService.LuckSkillId,
+                    _ => ChaChaSkillService.VitalSkillId
+                }
+            };
+
+        int fresh = 0;
+        foreach (string id in ids)
+            if (this.ChaChaSkills.DebugDiscoverSkill(id, showPresentation: false))
+                fresh++;
+        this.ChaChaSkills.TriggerCastPresentation();
+        this.Monitor.Log($"TEST: discovered {fresh} new ChaCha skill(s). Found=[{string.Join(",", this.Save.Data.ChaChaSkillsFound)}]", LogLevel.Alert);
     }
 
     private void CommandChaChaSkillLevel(string command, string[] args)
     {
         if (!Context.IsWorldReady)
             return;
-        int level = args.Length > 0 && int.TryParse(args[0], out int parsed) ? Math.Clamp(parsed, 1, ChaChaSkillService.MaxSkillLevel) : 1;
-        if (!this.ChaChaSkills.DebugSetLevel(ChaChaSkillService.VitalSkillId, level))
+
+        int level = args.Length > 0 && int.TryParse(args[0], out int parsed)
+            ? Math.Clamp(parsed, 1, ChaChaSkillService.MaxSkillLevel)
+            : 1;
+        string selector = args.Length > 1 ? args[1].Trim().ToLowerInvariant() : "vital";
+        string skillId = selector switch
         {
-            this.Monitor.Log("Discover the Region I ChaCha skill first. Use cardcha_chacha_skill_unlock for TEST.", LogLevel.Warn);
+            "guard" or "aegis" => ChaChaSkillService.GuardSkillId,
+            "spirit" => ChaChaSkillService.SpiritSkillId,
+            "luck" or "lucky" => ChaChaSkillService.LuckSkillId,
+            _ => ChaChaSkillService.VitalSkillId
+        };
+
+        if (!this.ChaChaSkills.DebugSetLevel(skillId, level))
+        {
+            this.Monitor.Log("Discover that ChaCha skill first. Use cardcha_chacha_skill_unlock <vital|guard|spirit|luck|all> for TEST.", LogLevel.Warn);
             return;
         }
-        this.Monitor.Log($"TEST: Region I ChaCha skill set to Lv {level}/{ChaChaSkillService.MaxSkillLevel}. No Magic Dust was spent; balance is not locked yet.", LogLevel.Alert);
+        this.Monitor.Log($"TEST: {skillId} set to Lv {level}/{ChaChaSkillService.MaxSkillLevel}. No materials or Magic Dust were spent.", LogLevel.Alert);
     }
 
     private void CommandChaChaSkillCast(string command, string[] args)
@@ -1086,10 +1123,31 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log("===== CHACHA NORMAL-FORM SKILLS =====\n" + this.ChaChaSkills.Describe(), LogLevel.Alert);
     }
 
+    private void CommandChaChaMaterials(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        int amount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? Math.Clamp(parsed, 1, 999) : 20;
+        this.ChaChaMaterials.GiveAllForDebug(amount);
+        this.Monitor.Log($"TEST: gave {amount} of each ChaCha skill material to the backpack.", LogLevel.Alert);
+    }
+
+    private void CommandChaChaStation(string command, string[] args)
+    {
+        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+            return;
+        Game1.activeClickableMenu = new ChaChaSkillUpgradeMenu(this.Save, this.ChaChaSkills, this.ChaChaMaterials, this.Controller);
+    }
+
+    private void CommandChaChaMaterialStatus(string command, string[] args)
+    {
+        this.Monitor.Log("===== CHACHA SKILL MATERIALS =====\n" + this.ChaChaMaterials.Describe(), LogLevel.Alert);
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.4.2 CHACHA SKILL FOUNDATION TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.4.3 CHACHA SKILL MATERIALS + AIRSHIP STATION TEST",
             LogLevel.Alert
         );
     }

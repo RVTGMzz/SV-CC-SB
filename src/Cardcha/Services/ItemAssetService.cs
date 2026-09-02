@@ -13,6 +13,8 @@ internal sealed class ItemAssetService
     public const string MachineTextureAsset = "Mods/Ronvotri.Cardcha/Machine";
     public const string MachineUiTextureAsset = "Mods/Ronvotri.Cardcha/MachineUi";
     public const string PortableMachineTextureAsset = "Mods/Ronvotri.Cardcha/PortableMachine";
+    public const string ChaChaSkillMaterialsTextureAsset = "Mods/Ronvotri.Cardcha/ChaChaSkillMaterials";
+    public const string ChaChaSkillIconsTextureAsset = "Mods/Ronvotri.Cardcha/ChaChaSkillIcons";
     public const string CardchaMachineId = "Ronvotri.Cardcha_Machine";
     public const string MachineMarkerKey = "Ronvotri.Cardcha/MachineInstance";
     public const string PortableMachineId = "Ronvotri.Cardcha_PortableMachine";
@@ -52,6 +54,18 @@ internal sealed class ItemAssetService
             return;
         }
 
+        if (e.Name.IsEquivalentTo(ChaChaSkillMaterialsTextureAsset))
+        {
+            e.LoadFromModFile<Texture2D>("assets/chacha_skill_materials.png", AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(ChaChaSkillIconsTextureAsset))
+        {
+            e.LoadFromModFile<Texture2D>("assets/chacha_skill_icons.png", AssetLoadPriority.Medium);
+            return;
+        }
+
         if (e.NameWithoutLocale.IsEquivalentTo("Data/Objects"))
         {
             e.Edit(asset =>
@@ -71,6 +85,26 @@ internal sealed class ItemAssetService
                     this.Helper.Translation.Get("item.dust.name").ToString(),
                     this.Helper.Translation.Get("item.dust.desc").ToString(),
                     2
+                );
+                data[ChaChaSkillMaterialService.VitalDewdropId] = MakeObject(
+                    this.Helper.Translation.Get("item.chacha-material.1.name").ToString(),
+                    this.Helper.Translation.Get("item.chacha-material.1.desc").ToString(),
+                    3
+                );
+                data[ChaChaSkillMaterialService.MoonshieldShardId] = MakeObject(
+                    this.Helper.Translation.Get("item.chacha-material.2.name").ToString(),
+                    this.Helper.Translation.Get("item.chacha-material.2.desc").ToString(),
+                    4
+                );
+                data[ChaChaSkillMaterialService.BreezeFeatherId] = MakeObject(
+                    this.Helper.Translation.Get("item.chacha-material.3.name").ToString(),
+                    this.Helper.Translation.Get("item.chacha-material.3.desc").ToString(),
+                    5
+                );
+                data[ChaChaSkillMaterialService.FortuneCoinId] = MakeObject(
+                    this.Helper.Translation.Get("item.chacha-material.4.name").ToString(),
+                    this.Helper.Translation.Get("item.chacha-material.4.desc").ToString(),
+                    6
                 );
             });
             return;
