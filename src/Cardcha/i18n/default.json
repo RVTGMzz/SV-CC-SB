@@ -846,5 +846,11 @@
   "airship.upgrade.system.reactor.name": "Arcane Reactor",
   "airship.upgrade.system.reactor.desc": "Feeds Magic Dust resonance into the ship's infrastructure and future high-tier systems.",
   "hud.boss-energy": "Boss Energy",
-  "binder.level-effect.victory-charge": "Boss Energy from kills +{{bonus}}%. Damage/crit-like Energy is unchanged."
+  "binder.level-effect.victory-charge": "Boss Energy from kills +{{bonus}}%. Damage/crit-like Energy is unchanged.",
+  "chacha.boss.ready": "CHACHA BOSS FORM • READY",
+  "chacha.boss.hint": "CLICK • or press SELECT / VIEW ×3",
+  "chacha.boss.triple": "SELECT / VIEW  {{count}}/{{max}}",
+  "chacha.boss.active": "CHACHA BOSS FORM • ACTIVE",
+  "chacha.boss.timer": "{{seconds}}s remaining",
+  "chacha.boss.activated": "ChaCha absorbed the full resonance and entered Boss Form!"
 }

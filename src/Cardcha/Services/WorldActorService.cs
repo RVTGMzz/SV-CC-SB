@@ -37,6 +37,7 @@ internal sealed class WorldActorService
     // smaller inside its native 48x48 frames, so keep the accepted 10% runtime compensation.
     private const float MimiBroomNativeScale = MimiNativeScale * 1.10f;
     private const float ChaChaNativeScale = 0.5625f;
+    private const float ChaChaBossNativeScale = 0.74f;
 
     private static readonly int[] ChaChaEmotePool = { 32, 16, 20, 56, 60, 8, 40 };
 
@@ -45,6 +46,7 @@ internal sealed class WorldActorService
     private Texture2D? MimiPortraitTexture;
     private long NextChaChaEmoteAtMs;
     private int LastChaChaEmote = -1;
+    private bool ChaChaBossVisualActive;
 
     public WorldActorService(IMonitor monitor)
     {
@@ -304,7 +306,7 @@ internal sealed class WorldActorService
         actor.Halt();
         actor.Position = position;
         actor.FacingDirection = direction;
-        actor.Scale = ChaChaNativeScale;
+        actor.Scale = this.ChaChaBossVisualActive ? ChaChaBossNativeScale : ChaChaNativeScale;
         actor.forceOneTileWide.Value = true;
         actor.farmerPassesThrough = true;
         actor.collidesWithOtherCharacters.Value = false;
@@ -322,6 +324,16 @@ internal sealed class WorldActorService
             : Math.Clamp(direction, 0, 3) * 4 + Math.Clamp(frame, 0, 3);
         this.ChaChaActor = actor;
         return actor;
+    }
+
+    public bool IsChaChaBossVisualActive => this.ChaChaBossVisualActive;
+
+    public void SetChaChaBossVisual(bool active)
+    {
+        this.ChaChaBossVisualActive = active;
+        NPC? actor = this.FindChaChaActor();
+        if (actor is not null)
+            actor.Scale = active ? ChaChaBossNativeScale : ChaChaNativeScale;
     }
 
     public NPC? FindChaChaActor()
@@ -364,6 +376,7 @@ internal sealed class WorldActorService
             this.ChaChaActor = null;
             this.NextChaChaEmoteAtMs = 0;
             this.LastChaChaEmote = -1;
+            this.ChaChaBossVisualActive = false;
             return;
         }
 
@@ -380,6 +393,7 @@ internal sealed class WorldActorService
         this.ChaChaActor = null;
         this.NextChaChaEmoteAtMs = 0;
         this.LastChaChaEmote = -1;
+        this.ChaChaBossVisualActive = false;
     }
 
     /// <summary>
@@ -492,5 +506,6 @@ internal sealed class WorldActorService
         this.ChaChaActor = null;
         this.NextChaChaEmoteAtMs = 0;
         this.LastChaChaEmote = -1;
+        this.ChaChaBossVisualActive = false;
     }
 }

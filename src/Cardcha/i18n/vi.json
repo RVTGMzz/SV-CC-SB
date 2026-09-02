@@ -924,5 +924,11 @@
   "airship.upgrade.system.reactor.name": "Lò Phản Ứng Ma Pháp",
   "airship.upgrade.system.reactor.desc": "Dẫn cộng hưởng Bụi Ma Thuật vào hạ tầng tàu và các hệ thống cao cấp trong tương lai.",
   "hud.boss-energy": "Năng Lượng Trùm",
-  "binder.level-effect.victory-charge": "Boss Energy từ hạ quái +{{bonus}}%. Energy từ sát thương/chí mạng không đổi."
+  "binder.level-effect.victory-charge": "Boss Energy từ hạ quái +{{bonus}}%. Energy từ sát thương/chí mạng không đổi.",
+  "chacha.boss.ready": "CHACHA BOSS FORM • SẴN SÀNG",
+  "chacha.boss.hint": "BẤM NÚT • hoặc SELECT / VIEW ×3",
+  "chacha.boss.triple": "SELECT / VIEW  {{count}}/{{max}}",
+  "chacha.boss.active": "CHACHA BOSS FORM • ĐANG KÍCH HOẠT",
+  "chacha.boss.timer": "Còn {{seconds}} giây",
+  "chacha.boss.activated": "ChaCha đã hấp thụ đủ cộng hưởng và chuyển sang Boss Form!"
 }

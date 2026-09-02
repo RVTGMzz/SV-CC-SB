@@ -26,6 +26,7 @@ internal sealed class ModEntry : Mod
     private ItemAssetService Items = null!;
     private ResourceService Resources = null!;
     private BossEnergyService BossEnergy = null!;
+    private ChaChaBossFormService ChaChaBossForm = null!;
     private CombatService Combat = null!;
     private CardRenderer Renderer = null!;
     private ControllerProfileService Controller = null!;
@@ -92,6 +93,9 @@ internal sealed class ModEntry : Mod
             this.OpenBinderFromMenu
         );
         this.WorldActors = new WorldActorService(this.Monitor);
+        this.ChaChaBossForm = new ChaChaBossFormService(
+            helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors
+        );
         this.PortableMachine = new PortableMachineService(
             helper,
             this.Monitor,
@@ -153,14 +157,18 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.BossEnergy.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.ChaChaBossForm.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.BossEnergy.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.ChaChaBossForm.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
@@ -175,6 +183,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.CardLabOverlay.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.ChaChaBossForm.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.Player.Warped += this.Airship.OnWarped;
         helper.Events.Player.Warped += this.CardArena.OnWarped;
@@ -214,6 +223,8 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
         helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
         helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
+        helper.ConsoleCommands.Add("cardcha_chacha_boss_ready", "TEST ONLY: fill Boss Energy to 100 so the ChaCha activation UI can be tested.", this.CommandChaChaBossReady);
+        helper.ConsoleCommands.Add("cardcha_chacha_boss_status", "Show ChaCha Boss Form runtime state.", this.CommandChaChaBossStatus);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -231,7 +242,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.3.8 BOSS ENERGY + VICTORY CHARGE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.4 CHACHA BOSS FORM FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -324,6 +335,7 @@ internal sealed class ModEntry : Mod
         this.CardArena.PrepareForSave();
         this.CardLab.EndSession();
         this.Combat.PrepareForGameSave();
+        this.ChaChaBossForm.OnSaving();
         // ChaCha is a runtime-only world actor; remove it before Stardew serializes locations.
         this.Story.OnSaving();
         this.Save.Save();
@@ -1001,10 +1013,27 @@ internal sealed class ModEntry : Mod
         );
     }
 
+    private void CommandChaChaBossReady(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save before priming ChaCha Boss Form.", LogLevel.Warn);
+            return;
+        }
+
+        this.ChaChaBossForm.DebugPrimeReady();
+        this.Monitor.Log("ChaCha Boss Form TEST primed to 100 Boss Energy. Use the flashing button or Select/View x3.", LogLevel.Alert);
+    }
+
+    private void CommandChaChaBossStatus(string command, string[] args)
+    {
+        this.Monitor.Log("===== CHACHA BOSS FORM =====\n" + this.ChaChaBossForm.Describe(), LogLevel.Alert);
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.3.8 BOSS ENERGY + VICTORY CHARGE TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.4 CHACHA BOSS FORM FOUNDATION TEST",
             LogLevel.Alert
         );
     }

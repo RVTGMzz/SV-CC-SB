@@ -23,8 +23,10 @@ internal sealed class BossEnergyService
     private readonly CardUpgradeService Upgrades;
 
     private double Current;
+    private bool GainSuppressed;
 
     public double CurrentEnergy => Math.Clamp(this.Current, 0d, MaxEnergy);
+    public bool IsGainSuppressed => this.GainSuppressed;
     public double LastGain { get; private set; }
     public double LastBaseGain { get; private set; }
     public double LastVictoryChargeBonus { get; private set; }
@@ -69,6 +71,9 @@ internal sealed class BossEnergyService
         this.Add(baseGain + victoryBonus, baseGain, victoryBonus, bossLike ? "boss kill" : "kill");
     }
 
+    public void SetGainSuppressed(bool suppressed)
+        => this.GainSuppressed = suppressed;
+
     public bool TrySpend(double amount)
     {
         amount = Math.Max(0d, amount);
@@ -89,6 +94,7 @@ internal sealed class BossEnergyService
         this.LastVictoryChargeBonus = 0d;
         this.LastSource = "none";
         this.GainEvents = 0;
+        this.GainSuppressed = false;
     }
 
     public void OnDayStarted(object? sender, DayStartedEventArgs e)
@@ -102,11 +108,11 @@ internal sealed class BossEnergyService
 
     public string Describe()
         => $"BossEnergy={this.CurrentEnergy:0.##}/{MaxEnergy:0} | Last={this.LastGain:0.##} from {this.LastSource} " +
-           $"(base={this.LastBaseGain:0.##}, VictoryChargeBonus={this.LastVictoryChargeBonus:0.##}) | Events={this.GainEvents}";
+           $"(base={this.LastBaseGain:0.##}, VictoryChargeBonus={this.LastVictoryChargeBonus:0.##}) | Events={this.GainEvents} | Suppressed={this.GainSuppressed}";
 
     private void Add(double amount, double baseGain, double victoryBonus, string source)
     {
-        if (amount <= 0d)
+        if (amount <= 0d || this.GainSuppressed)
             return;
 
         double before = this.CurrentEnergy;
