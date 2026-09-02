@@ -1,0 +1,122 @@
+name: Cardcha alpha28.0.4.14.4.5.1 Gate Visual Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0631-gate-visual-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply gate visual hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0631_gate_visual_hotfix.py
+          python3 tools/fix_png_crc.py
+
+      - name: Source acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, struct, binascii
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5.1'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+
+          airship=(root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'ForestGateUseDistance = 320f' in airship
+          assert 'PlayerIsNear(dock, ForestGateUseDistance)' in airship
+          assert 'GetLayer("Buildings")' in airship
+          assert 'GetLayer("Front")' in airship
+          assert 'DrawClippedRect(batch, bounds' in airship
+          assert 'CollisionEdits=NONE' in airship
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text()
+
+          audit=json.loads((root/'assets/card_auto_audit.json').read_text())
+          assert len(audit)==76 and all(r['status']=='PASS' for r in audit)
+
+          sig=b'\x89PNG\r\n\x1a\n'
+          def validate_png(p):
+              b=p.read_bytes(); assert b.startswith(sig), p
+              pos=8; iend=False
+              while pos < len(b):
+                  assert pos+12 <= len(b), p
+                  n=struct.unpack('>I', b[pos:pos+4])[0]
+                  typ=b[pos+4:pos+8]
+                  data=b[pos+8:pos+8+n]
+                  stored=struct.unpack('>I', b[pos+8+n:pos+12+n])[0]
+                  crc=binascii.crc32(typ)
+                  crc=binascii.crc32(data, crc) & 0xffffffff
+                  assert stored==crc, (p,typ)
+                  pos += 12+n
+                  if typ==b'IEND': iend=True; break
+              assert iend, p
+          pngs=list((root/'assets').rglob('*.png'))
+          for p in pngs: validate_png(p)
+          print(f'Gate visual source acceptance PASS; PNGs={len(pngs)}; cards=76/76')
+          PY
+
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize hotfix source and repaired PNGs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/alpha28-0631-gate-visual-hotfix.md \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/assets/*.png \
+            tools/alpha28_0631_gate_visual_hotfix.py \
+            tools/fix_png_crc.py \
+            .github/workflows/cardcha-alpha28-0631-gate-visual-hotfix.yml
+          if git diff --cached --quiet; then
+            echo "No materialization diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.1 Gate Visual Hotfix [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0631-gate-visual-hotfix
+          fi
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.1"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.1_GateVisualHotfix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0631-gate-visual-hotfix
+          path: artifact
+          if-no-files-found: error
