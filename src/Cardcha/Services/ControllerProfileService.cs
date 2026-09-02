@@ -57,6 +57,16 @@ internal sealed class ControllerProfileService
     public bool IsSkip(Buttons button)
         => button == this.GetRawButton(ControllerAction.Skip);
 
+    public SButton GetButton(ControllerAction action)
+        => this.GetRawButton(action) switch
+        {
+            Buttons.A => SButton.ControllerA,
+            Buttons.B => SButton.ControllerB,
+            Buttons.X => SButton.ControllerX,
+            Buttons.Y => SButton.ControllerY,
+            _ => SButton.None
+        };
+
     public string GetLabel(ControllerAction action)
     {
         ControllerLayoutKind layout = this.ResolveLayout();

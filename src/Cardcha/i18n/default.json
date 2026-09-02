@@ -852,5 +852,8 @@
   "chacha.boss.triple": "SELECT / VIEW  {{count}}/{{max}}",
   "chacha.boss.active": "CHACHA BOSS FORM • ACTIVE",
   "chacha.boss.timer": "{{seconds}}s remaining",
-  "chacha.boss.activated": "ChaCha absorbed the full resonance and entered Boss Form!"
+  "chacha.boss.activated": "ChaCha absorbed the full resonance and entered Boss Form!",
+  "chacha.energy.label": "CHACHA ENERGY",
+  "chacha.energy.charging": "Boss Form charge",
+  "chacha.boss.hint.combo": "READY  •  {{controller}} / SHIFT+A / CLICK"
 }

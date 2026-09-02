@@ -8,39 +8,39 @@ namespace Cardcha.Services;
 
 /// <summary>
 /// Runtime-only ChaCha Boss Form foundation.
-/// Full Boss Energy unlocks a flashing activation card. Mouse/touch activates directly;
-/// controller Select/View must be pressed three times within a short confirmation window.
+/// ChaCha visibly charges through four aura stages, owns one unified Energy HUD, and activates
+/// through a semantic controller chord, Left Shift+A on keyboard, or a click on the READY bar.
 /// This foundation intentionally grants no combat stat bonuses yet.
 /// </summary>
 internal sealed class ChaChaBossFormService
 {
     public const int BossFormDurationMs = 10000;
-    public const int TripleSelectWindowMs = 1200;
-    public const int RequiredSelectPresses = 3;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
     private readonly SaveService Save;
     private readonly BossEnergyService BossEnergy;
     private readonly WorldActorService WorldActors;
+    private readonly ControllerProfileService Controller;
 
-    private int SelectPressCount;
-    private long LastSelectPressAt;
     private long ActiveUntil;
     private bool ReadyAnnounced;
+    private Texture2D? AuraTexture;
 
     public ChaChaBossFormService(
         IModHelper helper,
         IMonitor monitor,
         SaveService save,
         BossEnergyService bossEnergy,
-        WorldActorService worldActors)
+        WorldActorService worldActors,
+        ControllerProfileService controller)
     {
         this.Helper = helper;
         this.Monitor = monitor;
         this.Save = save;
         this.BossEnergy = bossEnergy;
         this.WorldActors = worldActors;
+        this.Controller = controller;
     }
 
     public bool IsActive => this.ActiveUntil > Environment.TickCount64;
@@ -48,17 +48,22 @@ internal sealed class ChaChaBossFormService
                            && this.Save.Data.ChaChaLoaned
                            && this.BossEnergy.CurrentEnergy >= BossEnergyService.MaxEnergy - 0.001d;
 
-    public int CurrentSelectPressCount
+    public double SecondsRemaining
+        => this.IsActive ? Math.Max(0d, (this.ActiveUntil - Environment.TickCount64) / 1000d) : 0d;
+
+    public int EnergyAuraStage
     {
         get
         {
-            this.ExpireTripleSelectIfNeeded();
-            return this.SelectPressCount;
+            if (this.IsActive || this.IsReady)
+                return 4;
+            double energy = this.BossEnergy.CurrentEnergy;
+            if (energy >= 75d) return 3;
+            if (energy >= 50d) return 2;
+            if (energy >= 25d) return 1;
+            return 0;
         }
     }
-
-    public double SecondsRemaining
-        => this.IsActive ? Math.Max(0d, (this.ActiveUntil - Environment.TickCount64) / 1000d) : 0d;
 
     public void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
     {
@@ -72,8 +77,6 @@ internal sealed class ChaChaBossFormService
             return;
         }
 
-        this.ExpireTripleSelectIfNeeded();
-
         if (this.IsActive)
         {
             this.WorldActors.SetChaChaBossVisual(true);
@@ -85,7 +88,6 @@ internal sealed class ChaChaBossFormService
         if (!this.IsReady)
         {
             this.ReadyAnnounced = false;
-            this.SelectPressCount = 0;
             return;
         }
 
@@ -94,40 +96,53 @@ internal sealed class ChaChaBossFormService
             this.ReadyAnnounced = true;
             Game1.playSound("yoba");
             this.WorldActors.TriggerChaChaEmote(56);
-            this.Monitor.Log("ChaCha Boss Form READY: Boss Energy reached 100.", LogLevel.Info);
+            this.Monitor.Log("ChaCha Boss Form READY: ChaCha Energy reached 100.", LogLevel.Info);
         }
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
     {
-        if (!Context.IsWorldReady || !this.CanAcceptActivationInput())
+        if (!Context.IsWorldReady || !this.IsReady || !this.CanAcceptActivationInput())
             return;
 
         if (e.Button == SButton.MouseLeft)
         {
             Vector2 cursor = this.Helper.Input.GetCursorPosition().ScreenPixels;
-            if (this.GetActivationRect().Contains((int)cursor.X, (int)cursor.Y) && this.IsReady)
+            if (this.GetEnergyHudRect().Contains((int)cursor.X, (int)cursor.Y))
             {
                 this.Helper.Input.Suppress(e.Button);
-                this.TryActivate("virtual button");
+                this.TryActivate("ChaCha Energy HUD click");
             }
             return;
         }
 
-        if (!this.IsSelectViewButton(e.Button) || !this.IsReady)
+        SButton confirm = this.Controller.GetButton(ControllerAction.Confirm);
+        SButton deselect = this.Controller.GetButton(ControllerAction.Deselect);
+        bool controllerCandidate = e.Button == confirm || e.Button == deselect;
+        bool controllerChord = controllerCandidate
+                               && confirm != SButton.None
+                               && deselect != SButton.None
+                               && this.Helper.Input.IsDown(confirm)
+                               && this.Helper.Input.IsDown(deselect);
+
+        if (controllerChord)
+        {
+            this.Helper.Input.Suppress(confirm);
+            this.Helper.Input.Suppress(deselect);
+            this.TryActivate($"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)} controller chord");
             return;
+        }
 
-        this.Helper.Input.Suppress(e.Button);
-        long now = Environment.TickCount64;
-        if (this.LastSelectPressAt <= 0 || now - this.LastSelectPressAt > TripleSelectWindowMs)
-            this.SelectPressCount = 0;
-
-        this.LastSelectPressAt = now;
-        this.SelectPressCount = Math.Min(RequiredSelectPresses, this.SelectPressCount + 1);
-        Game1.playSound(this.SelectPressCount >= RequiredSelectPresses ? "bigSelect" : "smallSelect");
-
-        if (this.SelectPressCount >= RequiredSelectPresses)
-            this.TryActivate("Select/View x3");
+        bool keyboardCandidate = e.Button == SButton.A || e.Button == SButton.LeftShift;
+        bool keyboardChord = keyboardCandidate
+                             && this.Helper.Input.IsDown(SButton.LeftShift)
+                             && this.Helper.Input.IsDown(SButton.A);
+        if (keyboardChord)
+        {
+            this.Helper.Input.Suppress(SButton.LeftShift);
+            this.Helper.Input.Suppress(SButton.A);
+            this.TryActivate("Left Shift+A keyboard chord");
+        }
     }
 
     public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
@@ -135,58 +150,121 @@ internal sealed class ChaChaBossFormService
         if (!Context.IsWorldReady || !this.Save.Data.ChaChaLoaned || Game1.activeClickableMenu is not null)
             return;
 
-        if (!this.IsReady && !this.IsActive)
-            return;
-
-        Rectangle rect = this.GetActivationRect();
+        Rectangle rect = this.GetEnergyHudRect();
         long now = Environment.TickCount64;
         float pulse = 0.5f + 0.5f * (float)Math.Sin(now / 135d);
-        Color fill = this.IsActive
-            ? new Color(61, 35, 92) * 0.93f
-            : new Color(93, 54, 133) * (0.78f + pulse * 0.17f);
-        Color border = this.IsActive
-            ? new Color(210, 176, 255)
-            : Color.Lerp(new Color(225, 196, 255), Color.White, pulse);
 
-        e.SpriteBatch.Draw(Game1.staminaRect, rect, fill);
+        Color stageColor = this.GetStageColor(this.EnergyAuraStage);
+        Color panel = new Color(36, 31, 48) * 0.91f;
+        Color border = this.IsReady
+            ? Color.Lerp(new Color(220, 55, 48), Color.White, pulse * 0.55f)
+            : this.IsActive
+                ? new Color(235, 80, 66)
+                : stageColor * 0.92f;
+
+        e.SpriteBatch.Draw(Game1.staminaRect, rect, panel);
         DrawBorder(e.SpriteBatch, rect, border, this.IsReady ? 3 : 2);
 
         string title = this.IsActive
             ? ModEntry.T("chacha.boss.active")
-            : ModEntry.T("chacha.boss.ready");
-        string detail = this.IsActive
-            ? ModEntry.T("chacha.boss.timer", new { seconds = this.SecondsRemaining.ToString("0.0") })
-            : this.CurrentSelectPressCount > 0
-                ? ModEntry.T("chacha.boss.triple", new { count = this.CurrentSelectPressCount, max = RequiredSelectPresses })
-                : ModEntry.T("chacha.boss.hint");
+            : ModEntry.T("chacha.energy.label");
+        string value = this.IsActive
+            ? $"{this.SecondsRemaining:0.0}s"
+            : $"{this.BossEnergy.CurrentEnergy:0.#}/{BossEnergyService.MaxEnergy:0}";
 
-        Vector2 titleSize = Game1.smallFont.MeasureString(title);
-        float titleScale = Math.Min(1f, (rect.Width - 24f) / Math.Max(1f, titleSize.X));
-        e.SpriteBatch.DrawString(
-            Game1.smallFont,
-            title,
-            new Vector2(rect.Center.X - titleSize.X * titleScale / 2f, rect.Y + 13),
-            Color.White,
-            0f,
-            Vector2.Zero,
-            titleScale,
-            SpriteEffects.None,
-            1f
-        );
+        e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(rect.X + 12, rect.Y + 7), Color.White, 0f, Vector2.Zero, 0.76f, SpriteEffects.None, 1f);
+        Vector2 valueSize = Game1.smallFont.MeasureString(value) * 0.76f;
+        e.SpriteBatch.DrawString(Game1.smallFont, value, new Vector2(rect.Right - 12 - valueSize.X, rect.Y + 7), Color.White, 0f, Vector2.Zero, 0.76f, SpriteEffects.None, 1f);
+
+        Rectangle track = new(rect.X + 12, rect.Y + 29, rect.Width - 24, 12);
+        e.SpriteBatch.Draw(Game1.staminaRect, track, new Color(16, 14, 21) * 0.96f);
+        double ratio = this.IsActive
+            ? Math.Clamp(this.SecondsRemaining / (BossFormDurationMs / 1000d), 0d, 1d)
+            : Math.Clamp(this.BossEnergy.CurrentEnergy / BossEnergyService.MaxEnergy, 0d, 1d);
+        int fillWidth = Math.Clamp((int)Math.Round(track.Width * ratio), 0, track.Width);
+        if (fillWidth > 0)
+        {
+            Color fill = this.IsReady
+                ? stageColor * (0.76f + pulse * 0.24f)
+                : stageColor;
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(track.X, track.Y, fillWidth, track.Height), fill);
+        }
+
+        string detail;
+        if (this.IsActive)
+        {
+            detail = ModEntry.T("chacha.boss.timer", new { seconds = this.SecondsRemaining.ToString("0.0") });
+        }
+        else if (this.IsReady)
+        {
+            string chord = $"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)}";
+            detail = ModEntry.T("chacha.boss.hint.combo", new { controller = chord });
+        }
+        else
+        {
+            detail = ModEntry.T("chacha.energy.charging");
+        }
 
         Vector2 detailSize = Game1.smallFont.MeasureString(detail);
-        float detailScale = Math.Min(0.72f, (rect.Width - 20f) / Math.Max(1f, detailSize.X));
+        float detailScale = Math.Min(0.61f, (rect.Width - 24f) / Math.Max(1f, detailSize.X));
         e.SpriteBatch.DrawString(
             Game1.smallFont,
             detail,
-            new Vector2(rect.Center.X - detailSize.X * detailScale / 2f, rect.Bottom - 27),
-            new Color(238, 225, 255),
+            new Vector2(rect.Center.X - detailSize.X * detailScale / 2f, rect.Bottom - 17),
+            this.IsReady ? Color.White : new Color(220, 213, 230),
             0f,
             Vector2.Zero,
             detailScale,
             SpriteEffects.None,
             1f
         );
+    }
+
+    public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+    {
+        if (!Context.IsWorldReady || !this.Save.Data.ChaChaLoaned)
+            return;
+
+        int stage = this.EnergyAuraStage;
+        if (stage <= 0)
+            return;
+
+        NPC? actor = this.WorldActors.FindChaChaActor();
+        if (actor is null || actor.isInvisible.Value || actor.currentLocation != Game1.currentLocation)
+            return;
+
+        this.EnsureAuraTexture();
+        if (this.AuraTexture is null)
+            return;
+
+        Vector2 center = Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(16f, 17f));
+        long now = Environment.TickCount64;
+        float pulse = stage >= 4
+            ? 0.88f + 0.12f * (float)Math.Sin(now / 105d)
+            : 0.96f + 0.04f * (float)Math.Sin(now / 240d);
+
+        float scale = (stage switch { 1 => 1.18f, 2 => 1.30f, 3 => 1.43f, _ => 1.62f }) * pulse;
+        if (this.IsActive)
+            scale *= 1.10f;
+
+        Color color = this.GetStageColor(stage);
+        float alpha = stage switch { 1 => 0.23f, 2 => 0.30f, 3 => 0.38f, _ => 0.48f };
+        Vector2 origin = new(this.AuraTexture.Width / 2f, this.AuraTexture.Height / 2f);
+
+        e.SpriteBatch.Draw(this.AuraTexture, center, null, color * alpha, 0f, origin, scale, SpriteEffects.None, 0.99f);
+        e.SpriteBatch.Draw(this.AuraTexture, center, null, color * (alpha * 0.52f), 0f, origin, scale * 0.72f, SpriteEffects.None, 0.99f);
+
+        int sparks = stage + (stage >= 4 ? 3 : 1);
+        for (int i = 0; i < sparks; i++)
+        {
+            float phase = (float)(now * (stage >= 4 ? 0.006 : 0.0035) + i * 2.11);
+            float radius = 29f + stage * 4f + i * 2f;
+            Vector2 p = center + new Vector2((float)Math.Cos(phase) * radius, (float)Math.Sin(phase * 1.13f) * radius * 0.62f);
+            int size = stage >= 4 && i % 2 == 0 ? 3 : 2;
+            Color spark = color * (0.45f + 0.18f * (float)Math.Abs(Math.Sin(phase)));
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)p.X - size, (int)p.Y, size * 2 + 1, 1), spark);
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)p.X, (int)p.Y - size, 1, size * 2 + 1), spark);
+        }
     }
 
     public bool TryActivate(string source)
@@ -197,8 +275,6 @@ internal sealed class ChaChaBossFormService
         if (!this.BossEnergy.TrySpend(BossEnergyService.MaxEnergy))
             return false;
 
-        this.SelectPressCount = 0;
-        this.LastSelectPressAt = 0;
         this.ReadyAnnounced = false;
         this.ActiveUntil = Environment.TickCount64 + BossFormDurationMs;
         this.BossEnergy.SetGainSuppressed(true);
@@ -214,8 +290,6 @@ internal sealed class ChaChaBossFormService
     {
         bool wasActive = this.ActiveUntil > 0 || this.WorldActors.IsChaChaBossVisualActive;
         this.ActiveUntil = 0;
-        this.SelectPressCount = 0;
-        this.LastSelectPressAt = 0;
         this.BossEnergy.SetGainSuppressed(false);
         this.WorldActors.SetChaChaBossVisual(false);
 
@@ -233,7 +307,10 @@ internal sealed class ChaChaBossFormService
         => this.ResetRuntime();
 
     public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
-        => this.ResetRuntime();
+    {
+        this.ResetRuntime();
+        this.DisposeAuraTexture();
+    }
 
     public void OnSaving()
         => this.EndBossForm("save");
@@ -248,14 +325,15 @@ internal sealed class ChaChaBossFormService
     }
 
     public string Describe()
-        => $"Ready={this.IsReady} | Active={this.IsActive} | Remaining={this.SecondsRemaining:0.0}s | " +
-           $"Select={this.CurrentSelectPressCount}/{RequiredSelectPresses} | {this.BossEnergy.Describe()}";
+    {
+        string chord = $"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)}";
+        return $"Ready={this.IsReady} | Active={this.IsActive} | Remaining={this.SecondsRemaining:0.0}s | " +
+               $"AuraStage={this.EnergyAuraStage} | ControllerChord={chord} | Keyboard=LeftShift+A | {this.BossEnergy.Describe()}";
+    }
 
     private void ResetRuntime()
     {
         this.ActiveUntil = 0;
-        this.SelectPressCount = 0;
-        this.LastSelectPressAt = 0;
         this.ReadyAnnounced = false;
         this.BossEnergy.SetGainSuppressed(false);
         this.WorldActors.SetChaChaBossVisual(false);
@@ -268,33 +346,55 @@ internal sealed class ChaChaBossFormService
            && !Game1.eventUp
            && !Game1.dialogueUp;
 
-    private bool IsSelectViewButton(SButton button)
+    private Rectangle GetEnergyHudRect()
     {
-        string name = button.ToString();
-        return name.Equals("ControllerBack", StringComparison.OrdinalIgnoreCase)
-               || name.Equals("ControllerSelect", StringComparison.OrdinalIgnoreCase)
-               || name.Equals("ControllerView", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private void ExpireTripleSelectIfNeeded()
-    {
-        if (this.SelectPressCount <= 0 || this.LastSelectPressAt <= 0)
-            return;
-
-        if (Environment.TickCount64 - this.LastSelectPressAt <= TripleSelectWindowMs)
-            return;
-
-        this.SelectPressCount = 0;
-        this.LastSelectPressAt = 0;
-    }
-
-    private Rectangle GetActivationRect()
-    {
-        const int width = 250;
-        const int height = 76;
-        int x = Math.Max(18, Game1.uiViewport.Width - width - 24);
-        int y = Math.Clamp(Game1.uiViewport.Height / 2 + 110, 150, Math.Max(150, Game1.uiViewport.Height - height - 130));
+        const int width = 318;
+        const int height = 58;
+        int x = Math.Max(12, (Game1.uiViewport.Width - width) / 2);
+        int y = Math.Clamp(108, 72, Math.Max(72, Game1.uiViewport.Height - height - 120));
         return new Rectangle(x, y, width, height);
+    }
+
+    private Color GetStageColor(int stage)
+        => stage switch
+        {
+            1 => new Color(242, 244, 255),
+            2 => new Color(255, 226, 82),
+            3 => new Color(255, 145, 45),
+            4 => new Color(232, 54, 48),
+            _ => new Color(126, 116, 145)
+        };
+
+    private void EnsureAuraTexture()
+    {
+        if (this.AuraTexture is not null && !this.AuraTexture.IsDisposed)
+            return;
+
+        const int size = 64;
+        Texture2D texture = new(Game1.staminaRect.GraphicsDevice, size, size);
+        Color[] pixels = new Color[size * size];
+        Vector2 center = new((size - 1) / 2f, (size - 1) / 2f);
+        float radius = size / 2f;
+        for (int y = 0; y < size; y++)
+        {
+            for (int x = 0; x < size; x++)
+            {
+                float distance = Vector2.Distance(new Vector2(x, y), center) / radius;
+                float opacity = Math.Clamp(1f - distance, 0f, 1f);
+                opacity = opacity * opacity * 0.88f;
+                pixels[y * size + x] = Color.White * opacity;
+            }
+        }
+        texture.SetData(pixels);
+        this.AuraTexture = texture;
+    }
+
+    private void DisposeAuraTexture()
+    {
+        if (this.AuraTexture is null)
+            return;
+        try { this.AuraTexture.Dispose(); } catch { }
+        this.AuraTexture = null;
     }
 
     private static void DrawBorder(SpriteBatch batch, Rectangle rect, Color color, int thickness)

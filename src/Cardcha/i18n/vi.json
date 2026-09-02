@@ -930,5 +930,8 @@
   "chacha.boss.triple": "SELECT / VIEW  {{count}}/{{max}}",
   "chacha.boss.active": "CHACHA BOSS FORM • ĐANG KÍCH HOẠT",
   "chacha.boss.timer": "Còn {{seconds}} giây",
-  "chacha.boss.activated": "ChaCha đã hấp thụ đủ cộng hưởng và chuyển sang Boss Form!"
+  "chacha.boss.activated": "ChaCha đã hấp thụ đủ cộng hưởng và chuyển sang Boss Form!",
+  "chacha.energy.label": "NĂNG LƯỢNG CHACHA",
+  "chacha.energy.charging": "Đang tích năng lượng Boss Form",
+  "chacha.boss.hint.combo": "SẴN SÀNG  •  {{controller}} / SHIFT+A / CLICK"
 }

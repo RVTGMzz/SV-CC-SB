@@ -177,21 +177,6 @@ internal sealed class CombatHudRenderer
     {
         List<HudEntry> entries = new();
 
-        if (this.BossEnergy.CurrentEnergy > 0.001d || this.Loadout.IsEquipped("victory_charge"))
-        {
-            entries.Add(new HudEntry(
-                Key: "boss_energy",
-                CardId: "victory_charge",
-                Label: ModEntry.T("hud.boss-energy"),
-                Value: $"{this.BossEnergy.CurrentEnergy:0.#}/{BossEnergyService.MaxEnergy:0}",
-                RemainingSeconds: null,
-                TotalSeconds: null,
-                Timing: HudTiming.None,
-                StackText: "",
-                Kind: HudKind.Ready,
-                Priority: 5
-            ));
-        }
 
         string toast = this.Combat.CurrentHudToast;
         if (!string.IsNullOrWhiteSpace(toast))

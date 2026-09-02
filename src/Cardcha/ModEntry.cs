@@ -94,7 +94,7 @@ internal sealed class ModEntry : Mod
         );
         this.WorldActors = new WorldActorService(this.Monitor);
         this.ChaChaBossForm = new ChaChaBossFormService(
-            helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors
+            helper, this.Monitor, this.Save, this.BossEnergy, this.WorldActors, this.Controller
         );
         this.PortableMachine = new PortableMachineService(
             helper,
@@ -170,6 +170,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.ChaChaBossForm.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
@@ -242,7 +243,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.4 CHACHA BOSS FORM FOUNDATION TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.4.1 CHACHA ENERGY AURA + CHORD TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -1033,7 +1034,7 @@ internal sealed class ModEntry : Mod
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.4 CHACHA BOSS FORM FOUNDATION TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.4.1 CHACHA ENERGY AURA + CHORD TEST",
             LogLevel.Alert
         );
     }
