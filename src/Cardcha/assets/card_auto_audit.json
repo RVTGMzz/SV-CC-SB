@@ -1,0 +1,1076 @@
+[
+  {
+    "baseId": 1,
+    "id": "iron_edge",
+    "name": "Iron Edge",
+    "effectKey": "damage_always",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 2,
+    "id": "quick_hands",
+    "name": "Quick Hands",
+    "effectKey": "attack_speed_passive",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 3,
+    "id": "keen_eye",
+    "name": "Keen Eye",
+    "effectKey": "crit_chance",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 4,
+    "id": "heavy_blow",
+    "name": "Heavy Blow",
+    "effectKey": "knockback",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 5,
+    "id": "first_strike",
+    "name": "First Strike",
+    "effectKey": "first_hit_damage",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 6,
+    "id": "finisher",
+    "name": "Finisher",
+    "effectKey": "target_low_damage",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 7,
+    "id": "hunters_focus",
+    "name": "Hunter's Focus",
+    "effectKey": "target_high_damage",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 8,
+    "id": "steady_grip",
+    "name": "Steady Grip",
+    "effectKey": "damage_variance",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 9,
+    "id": "thick_hide",
+    "name": "Thick Hide",
+    "effectKey": "defense_flat",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 10,
+    "id": "vitality",
+    "name": "Vitality",
+    "effectKey": "max_hp",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 11,
+    "id": "second_breath",
+    "name": "Second Breath",
+    "effectKey": "kill_heal_flat",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 12,
+    "id": "guard_step",
+    "name": "Guard Step",
+    "effectKey": "post_hit_reduction",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 13,
+    "id": "swift_feet",
+    "name": "Swift Feet",
+    "effectKey": "combat_move_speed",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 5,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 14,
+    "id": "backstep",
+    "name": "Backstep",
+    "effectKey": "post_hit_move",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 15,
+    "id": "stalwart",
+    "name": "Stalwart",
+    "effectKey": "stationary_defense",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 16,
+    "id": "last_push",
+    "name": "Last Push",
+    "effectKey": "self_low_damage",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 17,
+    "id": "calm_heart",
+    "name": "Calm Heart",
+    "effectKey": "out_combat_regen",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 18,
+    "id": "scavenger",
+    "name": "Scavenger",
+    "effectKey": "bonus_loot",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 19,
+    "id": "essence_finder",
+    "name": "Essence Finder",
+    "effectKey": "essence_finder",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 20,
+    "id": "victory_charge",
+    "name": "Victory Charge",
+    "effectKey": "boss_energy_kill",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 0,
+    "runtimeFiles": [],
+    "status": "BLOCKED",
+    "reason": "Boss Energy subsystem does not exist yet"
+  },
+  {
+    "baseId": 21,
+    "id": "lucky_pocket",
+    "name": "Lucky Pocket",
+    "effectKey": "bonus_gold",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 22,
+    "id": "treasure_magnet",
+    "name": "Treasure Magnet",
+    "effectKey": "loot_magnet",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 23,
+    "id": "explorer",
+    "name": "Explorer",
+    "effectKey": "kill_move",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 24,
+    "id": "patient_hunter",
+    "name": "Patient Hunter",
+    "effectKey": "patient_crit",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 25,
+    "id": "rhythm",
+    "name": "Rhythm",
+    "effectKey": "rhythm",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 26,
+    "id": "bruiser",
+    "name": "Bruiser",
+    "effectKey": "bruiser",
+    "maxLevel": 5,
+    "starRuleCount": 5,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 27,
+    "id": "resilient",
+    "name": "Resilient",
+    "effectKey": "low_hp_defense",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 28,
+    "id": "momentum",
+    "name": "Momentum",
+    "effectKey": "kill_attack_speed",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 29,
+    "id": "blood_fang",
+    "name": "Blood Fang",
+    "effectKey": "kill_heal_percent",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 30,
+    "id": "executioner",
+    "name": "Executioner",
+    "effectKey": "target_low_damage",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 31,
+    "id": "opening_gambit",
+    "name": "Opening Gambit",
+    "effectKey": "first_hit_damage",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 32,
+    "id": "deadeye",
+    "name": "Deadeye",
+    "effectKey": "crit_damage",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 33,
+    "id": "predator",
+    "name": "Predator",
+    "effectKey": "kill_damage_stacks",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 34,
+    "id": "adrenaline",
+    "name": "Adrenaline",
+    "effectKey": "kill_speed_combo",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 5,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 35,
+    "id": "counterforce",
+    "name": "Counterforce",
+    "effectKey": "counterforce",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 36,
+    "id": "iron_will",
+    "name": "Iron Will",
+    "effectKey": "low_hp_defense",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 37,
+    "id": "field_medic",
+    "name": "Field Medic",
+    "effectKey": "field_medic",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 38,
+    "id": "lifeline",
+    "name": "Lifeline",
+    "effectKey": "lifeline",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 39,
+    "id": "armor_breaker",
+    "name": "Armor Breaker",
+    "effectKey": "same_target_damage",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 40,
+    "id": "crushing_impact",
+    "name": "Crushing Impact",
+    "effectKey": "crit_control",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 41,
+    "id": "fleet_hunter",
+    "name": "Fleet Hunter",
+    "effectKey": "kill_move",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 42,
+    "id": "treasure_eye",
+    "name": "Treasure Eye",
+    "effectKey": "bonus_loot_roll",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 43,
+    "id": "card_seeker",
+    "name": "Card Seeker",
+    "effectKey": "scrap_drop_mult",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 44,
+    "id": "dust_collector",
+    "name": "Dust Collector",
+    "effectKey": "duplicate_dust_bonus",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/GachaService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 45,
+    "id": "fortune_chain",
+    "name": "Fortune Chain",
+    "effectKey": "no_hit_kill_loot",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 46,
+    "id": "battle_trance",
+    "name": "Battle Trance",
+    "effectKey": "hit_combo_speed",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 47,
+    "id": "vanguard",
+    "name": "Vanguard",
+    "effectKey": "encounter_shield",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 48,
+    "id": "marked_prey",
+    "name": "Marked Prey",
+    "effectKey": "marked_prey",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 49,
+    "id": "unyielding",
+    "name": "Unyielding",
+    "effectKey": "hit_damage_cap",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 50,
+    "id": "collectors_instinct",
+    "name": "Collector's Instinct",
+    "effectKey": "elite_gacha_bonus",
+    "maxLevel": 4,
+    "starRuleCount": 4,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 51,
+    "id": "berserker_soul",
+    "name": "Berserker Soul",
+    "effectKey": "missing_hp_damage",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 52,
+    "id": "chain_hunter",
+    "name": "Chain Hunter",
+    "effectKey": "kill_damage_stacks",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 8,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 53,
+    "id": "soul_siphon",
+    "name": "Soul Siphon",
+    "effectKey": "lifesteal",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 54,
+    "id": "phantom_step",
+    "name": "Phantom Step",
+    "effectKey": "dodge_crit_heuristic",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 55,
+    "id": "reapers_mark",
+    "name": "Reaper's Mark",
+    "effectKey": "hit_mark",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 56,
+    "id": "stoneheart",
+    "name": "Stoneheart",
+    "effectKey": "high_hp_reduction",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 57,
+    "id": "last_stand",
+    "name": "Last Stand",
+    "effectKey": "last_stand",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 14,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 58,
+    "id": "war_drum",
+    "name": "War Drum",
+    "effectKey": "kill_speed_stacks",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 5,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 59,
+    "id": "treasure_hunter",
+    "name": "Treasure Hunter",
+    "effectKey": "elite_bonus_loot",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 60,
+    "id": "golden_hand",
+    "name": "Golden Hand",
+    "effectKey": "pull_dust_periodic",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/GachaService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 61,
+    "id": "arcane_recycler",
+    "name": "Arcane Recycler",
+    "effectKey": "duplicate_refund",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/GachaService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 62,
+    "id": "mirror_guard",
+    "name": "Mirror Guard",
+    "effectKey": "next_hit_reduction_after_big",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 63,
+    "id": "relentless",
+    "name": "Relentless",
+    "effectKey": "same_target_damage",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 64,
+    "id": "overclock",
+    "name": "Overclock",
+    "effectKey": "elite_kill_speed",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 3,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 65,
+    "id": "lucky_break",
+    "name": "Lucky Break",
+    "effectKey": "pity_loot",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 66,
+    "id": "battle_scholar",
+    "name": "Battle Scholar",
+    "effectKey": "monster_variety_buff",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 67,
+    "id": "phoenix_heart",
+    "name": "Phoenix Heart",
+    "effectKey": "death_save",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 6,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 68,
+    "id": "void_walker",
+    "name": "Void Walker",
+    "effectKey": "hit_phase",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 8,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 69,
+    "id": "soul_eater",
+    "name": "Soul Eater",
+    "effectKey": "soul_kill",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 8,
+    "runtimeFiles": [
+      "Services/CardUpgradeService.cs",
+      "Services/CombatService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 70,
+    "id": "time_breaker",
+    "name": "Time Breaker",
+    "effectKey": "crit_proc_speed",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 5,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 71,
+    "id": "titans_grip",
+    "name": "Titan's Grip",
+    "effectKey": "damage_speed_tradeoff",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 72,
+    "id": "perfect_hunter",
+    "name": "Perfect Hunter",
+    "effectKey": "no_hit_kill_crit",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 73,
+    "id": "kings_ransom",
+    "name": "King's Ransom",
+    "effectKey": "apex_guaranteed_loot",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/DropService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 74,
+    "id": "cardmaster",
+    "name": "Cardmaster",
+    "effectKey": "standard_pull_bonus",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/GachaService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 75,
+    "id": "guardian_angel",
+    "name": "Guardian Angel",
+    "effectKey": "low_hp_shield",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 2,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  },
+  {
+    "baseId": 76,
+    "id": "apex_predator",
+    "name": "Apex Predator",
+    "effectKey": "elite_damage",
+    "maxLevel": 3,
+    "starRuleCount": 3,
+    "runtimeRefs": 4,
+    "runtimeFiles": [
+      "Services/CoreCardEffectsService.cs"
+    ],
+    "status": "PASS",
+    "reason": "runtime hook/reference + per-level display contract present"
+  }
+]
