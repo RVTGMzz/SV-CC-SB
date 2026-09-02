@@ -1,4 +1,4 @@
-name: Cardcha alpha28.0.4.14.3.2 Card Test Arena
+name: Cardcha alpha28.0.4.14.3.3 Card Test Arena TMX Hotfix
 
 on:
   push:
@@ -32,8 +32,9 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import json, hashlib, struct
+          import xml.etree.ElementTree as ET
           root = Path('src/Cardcha')
-          version = '0.3.0-alpha.28.0.4.14.3.2'
+          version = '0.3.0-alpha.28.0.4.14.3.3'
 
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
           assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
@@ -47,7 +48,7 @@ jobs:
           assert 'MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena)' in entry
           assert 'FarmerDamagePatch.Apply(harmony, this.Combat, this.CardArena)' in entry
           assert 'new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena)' in entry
-          assert 'CARD TEST ARENA TEST' in entry
+          assert f'Cardcha! v{version} CARD TEST ARENA TEST' in entry
 
           arena = (root/'Services/CardTestArenaService.cs').read_text()
           overlay = (root/'Services/CardTestLabOverlayService.cs').read_text()
@@ -70,16 +71,29 @@ jobs:
           assert 'DUMMY 19% [R3/F6]' in menu
           assert 'MINIMIZE [B/Q]' in menu
 
-          test_map = (root/'assets/card_test_arena.tmx').read_text()
-          assert 'width="18" height="12"' in test_map
-          assert 'isolated-combat-test|fixed-damage|frozen-time|auto-respawn' in test_map
+          # TMX runtime parser guard: every CSV layer must contain exactly width*height
+          # unsigned integer tokens, with no trailing comma/blank token.
+          map_path = root/'assets/card_test_arena.tmx'
+          map_xml = ET.parse(map_path).getroot()
+          width = int(map_xml.attrib['width'])
+          height = int(map_xml.attrib['height'])
+          assert (width, height) == (18, 12)
+          for layer in map_xml.findall('layer'):
+              data = layer.find('data')
+              assert data is not None and data.attrib.get('encoding') == 'csv'
+              tokens = [(token or '').strip() for token in (data.text or '').split(',')]
+              assert all(tokens), f"{layer.attrib.get('name')} has empty CSV token (usually a trailing comma)"
+              values = [int(token) for token in tokens]
+              assert len(values) == width * height, f"{layer.attrib.get('name')} has {len(values)} tiles, expected {width*height}"
+              assert all(value >= 0 for value in values)
+          assert 'isolated-combat-test|fixed-damage|frozen-time|auto-respawn' in map_path.read_text()
 
           icons = (root/'assets/card_icons.png').read_bytes()
           assert struct.unpack('>II', icons[16:24]) == (320, 1024)
           assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
           visual = (root/'assets/airship_visual.png').read_bytes()
           assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
-          print('Card Test Arena source acceptance PASS')
+          print('Card Test Arena TMX source acceptance PASS')
           PY
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
@@ -115,7 +129,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No generated Card Test Arena diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.14.3.2 Card Test Arena [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.14.3.3 Card Test Arena TMX hotfix [skip ci]"
             git push origin HEAD:cardcha-alpha28-056-card-test-lab
           fi
 
@@ -133,7 +147,7 @@ jobs:
           grep -q 'Game1.gameTimeInterval = 0' src/Cardcha/Services/CardTestArenaService.cs
           grep -q 'CARD LAB • ARENA' src/Cardcha/Services/CardTestLabOverlayService.cs
           grep -q 'cardcha_card_test_stop' src/Cardcha/ModEntry.cs
-          echo 'alpha28.0.4.14.3.2 regression gate PASS'
+          echo 'alpha28.0.4.14.3.3 regression gate PASS'
 
       - name: Package compiled test build
         shell: bash
@@ -145,12 +159,12 @@ jobs:
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -s stage/Cardcha/Cardcha.dll
-          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.2"
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.2_CardTestArena_TEST.zip Cardcha)
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.3"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.3_CardTestArena_TMXHotfix_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-056-card-test-arena
+          name: cardcha-alpha28-056-card-test-arena-tmx-hotfix
           path: artifact
           if-no-files-found: error
