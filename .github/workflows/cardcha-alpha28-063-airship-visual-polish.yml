@@ -1,0 +1,134 @@
+name: Cardcha alpha28.0.4.14.4.5 Airship Visual Polish
+
+on:
+  push:
+    branches: [ cardcha-alpha28-063-airship-visual-polish ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Airship visual polish
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_063_airship_visual_polish.py
+
+      - name: Visual and regression acceptance
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text()
+
+          airship=(root/'Services/AirshipFoundationService.cs').read_text()
+          for token in [
+              'DrawVerticalGradient(batch, aperture',
+              'DrawPortalClouds(batch, aperture',
+              'DrawEllipticArc(batch, new Vector2(center.X, center.Y - 74f)',
+              'dockedShip',
+              '520f',
+              'Physical boarding arch',
+              'Grand panoramic forward canopy',
+              'Multi-level navigation dais',
+              'DrawFloatingIslands(batch, windowRect, phase)',
+              'DrawCardchaBanner',
+              'Architectural alcove around the existing ChaCha station',
+              'CollisionEdits=NONE'
+          ]:
+              assert token in airship, token
+
+          # Existing gameplay contracts remain untouched.
+          support=(root/'Services/ChaChaSupportCastService.cs').read_text()
+          boss=(root/'Services/ChaChaBossFormService.cs').read_text()
+          mats=(root/'Services/ChaChaSkillMaterialService.cs').read_text()
+          assert 'CooldownSecondsByLevel = { 40, 35, 30, 25, 20 }' in support
+          assert 'LuckyDamageChanceByLevel = { 0.04d, 0.05d, 0.06d, 0.07d, 0.08d }' in support
+          assert 'BossFormDurationMs = 10000' in boss
+          assert 'StationTile = new(19, 5)' in mats
+
+          audit=json.loads((root/'assets/card_auto_audit.json').read_text())
+          assert len(audit)==76 and all(r['status']=='PASS' for r in audit)
+          print('Airship visual polish acceptance PASS; 76/76 card audit preserved')
+          PY
+
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(git hash-object src/Cardcha/assets/chacha_skill_materials.png)" = "421ef435d4d4964a858223b5d2f1589c59602dd2"
+          test "$(git hash-object src/Cardcha/assets/chacha_skill_icons.png)" = "9d6d71ebb2eaf86fc6de9bf65df21c176dd17280"
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize visual source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            docs/alpha28-063-airship-visual-polish.md \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            tools/alpha28_063_airship_visual_polish.py \
+            .github/workflows/cardcha-alpha28-063-airship-visual-polish.yml
+          if git diff --cached --quiet; then
+            echo "No generated source diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5 Airship Visual Polish [skip ci]"
+            git push origin HEAD:cardcha-alpha28-063-airship-visual-polish
+          fi
+
+      - name: Final locked regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          grep -q 'CurrentSchemaVersion = 19' src/Cardcha/Services/SaveService.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'dockedShip' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'Grand panoramic forward canopy' src/Cardcha/Services/AirshipFoundationService.cs
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5_AirshipVisualPolish_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-063-airship-visual-polish
+          path: artifact
+          if-no-files-found: error
