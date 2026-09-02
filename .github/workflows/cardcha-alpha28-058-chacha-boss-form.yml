@@ -1,0 +1,179 @@
+name: Cardcha alpha28.0.4.14.4 ChaCha Boss Form Foundation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-058-chacha-boss-form-foundation ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply ChaCha Boss Form finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_4144_chacha_boss_form.py
+          python3 tools/alpha28_41436_auto_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          form = (root/'Services/ChaChaBossFormService.cs').read_text()
+          energy = (root/'Services/BossEnergyService.cs').read_text()
+          world = (root/'Services/WorldActorService.cs').read_text()
+          entry = (root/'ModEntry.cs').read_text()
+          combat = (root/'Services/CombatService.cs').read_text()
+          save_data = (root/'Models/SaveData.cs').read_text()
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+
+          # Exact UX contract.
+          assert 'BossFormDurationMs = 10000' in form
+          assert 'TripleSelectWindowMs = 1200' in form
+          assert 'RequiredSelectPresses = 3' in form
+          assert 'ControllerBack' in form and 'ControllerSelect' in form and 'ControllerView' in form
+          assert 'e.Button == SButton.MouseLeft' in form
+          assert 'this.GetActivationRect().Contains' in form
+          assert 'this.BossEnergy.TrySpend(BossEnergyService.MaxEnergy)' in form
+          assert 'this.BossEnergy.SetGainSuppressed(true)' in form
+          assert 'this.BossEnergy.SetGainSuppressed(false)' in form
+          assert 'this.Save.Data.ChaChaLoaned' in form
+
+          # Visual foundation uses approved ChaCha sprite, only scale/state changes.
+          assert 'ChaChaBossNativeScale = 0.74f' in world
+          assert 'SetChaChaBossVisual(bool active)' in world
+          assert 'IsChaChaBossVisualActive' in world
+          assert 'this.ChaChaBossVisualActive ? ChaChaBossNativeScale : ChaChaNativeScale' in world
+          assert 'chacha_follow.png' in world
+
+          # Energy cannot refill during active form, and neither resource nor form persists to save.
+          assert 'private bool GainSuppressed;' in energy
+          assert 'amount <= 0d || this.GainSuppressed' in energy
+          assert 'SetGainSuppressed(bool suppressed)' in energy
+          assert 'BossEnergy' not in save_data
+          assert 'BossForm' not in save_data
+
+          # Foundation does not inject combat stat bonuses.
+          forbidden = ['ModifyMonsterDamage(', 'ModifyCriticalChance(', 'ModifyFarmerDamage(', 'CardLevelStats']
+          assert all(token not in form for token in forbidden)
+          assert 'ChaChaBossForm' not in combat
+
+          # Wiring + test hook.
+          assert 'private ChaChaBossFormService ChaChaBossForm = null!;' in entry
+          assert 'this.ChaChaBossForm.OnButtonPressed' in entry
+          assert 'this.ChaChaBossForm.OnRenderedHud' in entry
+          assert 'this.ChaChaBossForm.OnUpdateTicked' in entry
+          assert 'cardcha_chacha_boss_ready' in entry
+          assert 'cardcha_chacha_boss_status' in entry
+          assert f'Cardcha! v{version} CHACHA BOSS FORM FOUNDATION TEST' in entry
+
+          # Translation labels must exist in both languages.
+          for key in ['chacha.boss.ready','chacha.boss.hint','chacha.boss.triple','chacha.boss.active','chacha.boss.timer','chacha.boss.activated']:
+              assert key in en and key in vi
+
+          # Keep the 76-card baseline clean.
+          assert len(audit) == 76
+          assert all(row['status'] == 'PASS' for row in audit)
+
+          # Locked approved visuals survive untouched.
+          icons=(root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320,1024)
+          assert hashlib.sha256(icons).hexdigest() == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          airship=(root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(airship).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          print('ChaCha Boss Form source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize ChaCha Boss Form source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/BossEnergyService.cs \
+            src/Cardcha/Services/ChaChaBossFormService.cs \
+            src/Cardcha/Services/WorldActorService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            tools/alpha28_4144_chacha_boss_form.py \
+            .github/workflows/cardcha-alpha28-058-chacha-boss-form.yml
+          if git diff --cached --quiet; then
+            echo "No generated ChaCha Boss Form diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4 ChaCha Boss Form [skip ci]"
+            git push origin HEAD:cardcha-alpha28-058-chacha-boss-form-foundation
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'RequiredSelectPresses = 3' src/Cardcha/Services/ChaChaBossFormService.cs
+          grep -q 'ChaChaBossNativeScale = 0.74f' src/Cardcha/Services/WorldActorService.cs
+          grep -q 'GainSuppressed' src/Cardcha/Services/BossEnergyService.cs
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('src/Cardcha/assets/card_auto_audit.json', encoding='utf-8'))
+          assert len(rows)==76 and all(r['status']=='PASS' for r in rows)
+          print('76/76 card contract preserved')
+          PY
+          echo 'alpha28.0.4.14.4 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4_ChaChaBossFormFoundation_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-058-chacha-boss-form-foundation
+          path: artifact
+          if-no-files-found: error
