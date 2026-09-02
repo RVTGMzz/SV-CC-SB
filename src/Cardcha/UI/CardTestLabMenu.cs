@@ -170,7 +170,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
         base.gameWindowSizeChanged(oldBounds, newBounds);
     }
 
-    public override void cleanupBeforeExit()
+    protected override void cleanupBeforeExit()
     {
         this.Lab.EndSession();
         base.cleanupBeforeExit();
@@ -178,7 +178,7 @@ internal sealed class CardTestLabMenu : IClickableMenu
 
     public override void draw(SpriteBatch b)
     {
-        b.Draw(Game1.fadeToBlackRect, Game1.uiViewport.Bounds, Color.Black * 0.72f);
+        b.Draw(Game1.fadeToBlackRect, new Microsoft.Xna.Framework.Rectangle(0, 0, Game1.uiViewport.Width, Game1.uiViewport.Height), Color.Black * 0.72f);
 
         Rectangle outer = new(this.xPositionOnScreen, this.yPositionOnScreen, this.width, this.height);
         CardchaUi.DrawRoundedPanel(b, outer, new Color(32, 30, 47), new Color(174, 139, 224), 4, 16);

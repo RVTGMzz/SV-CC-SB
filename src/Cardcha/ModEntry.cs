@@ -42,6 +42,7 @@ internal sealed class ModEntry : Mod
     private WorldActorService WorldActors = null!;
     private PortableMachineService PortableMachine = null!;
     private AirshipFoundationService Airship = null!;
+    private CardTestLabService CardLab = null!;
 
     public override void Entry(IModHelper helper)
     {
@@ -125,6 +126,7 @@ internal sealed class ModEntry : Mod
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
+        this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
 
         helper.Events.Content.AssetRequested += this.Items.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.WorldActors.OnAssetRequested;
@@ -189,6 +191,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_airship_status", "Show alpha.28 Airship foundation state.", this.CommandAirshipStatus);
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
+        helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -206,7 +209,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! v0.3.0-alpha.28.0.4.14.2 CARD RUNTIME AUDIT TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! v0.3.0-alpha.28.0.4.14.3 CARD TEST LAB TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -355,6 +358,7 @@ internal sealed class ModEntry : Mod
         this.Social.OnReturnedToTitle();
         this.Home.OnReturnedToTitle();
         this.Airship.OnReturnedToTitle();
+        this.CardLab.EndSession();
         this.Save.Clear();
     }
 
@@ -917,10 +921,28 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log(this.Airship.DebugReplayFlyby(), LogLevel.Alert);
     }
 
+    private void CommandCardTest(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+        {
+            this.Monitor.Log("Load a save before opening Card Test Lab.", LogLevel.Warn);
+            return;
+        }
+
+        if (Game1.activeClickableMenu is not null)
+        {
+            this.Monitor.Log("Close the current menu first, then run cardcha_card_test again.", LogLevel.Warn);
+            return;
+        }
+
+        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer);
+        this.Monitor.Log("Card Test Lab opened. Temporary test loadout will be restored when the Lab closes.", LogLevel.Alert);
+    }
+
     private void CommandVersion(string command, string[] args)
     {
         this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.2 CARD RUNTIME AUDIT TEST",
+            "Cardcha! v0.3.0-alpha.28.0.4.14.3 CARD TEST LAB TEST",
             LogLevel.Alert
         );
     }
