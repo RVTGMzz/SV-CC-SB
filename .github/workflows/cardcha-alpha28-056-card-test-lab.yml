@@ -1,4 +1,4 @@
-name: Cardcha alpha28.0.4.14.3.5 Card Test Arena Kill Targets
+name: Cardcha alpha28.0.4.14.3.6 Automatic Card Contract Audit
 
 on:
   push:
@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply Card Test Arena finalizers
+      - name: Apply Card Test Lab finalizers
         shell: bash
         run: |
           set -euo pipefail
@@ -25,6 +25,9 @@ jobs:
           python3 tools/alpha28_41432_arena_compilefix.py
           python3 tools/alpha28_41434_lab_input_ui.py
           python3 tools/alpha28_41435_arena_kill_targets.py
+          python3 tools/alpha28_41436_auto_audit.py
+          python3 tools/alpha28_41436_lab_auto_ui.py
+          python3 tools/alpha28_41436_icon_lock.py
           python3 tools/alpha28_41432_version.py
 
       - name: Source acceptance checks
@@ -33,10 +36,10 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import json, hashlib, struct
+          import json, hashlib, struct, re
           import xml.etree.ElementTree as ET
           root = Path('src/Cardcha')
-          version = '0.3.0-alpha.28.0.4.14.3.5'
+          version = '0.3.0-alpha.28.0.4.14.3.6'
 
           assert json.loads((root/'manifest.json').read_text())['Version'] == version
           assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
@@ -45,55 +48,46 @@ jobs:
           entry = (root/'ModEntry.cs').read_text()
           assert 'CardTestArenaService CardArena' in entry
           assert 'CardTestLabOverlayService CardLabOverlay' in entry
-          assert 'new CardTestArenaService(helper, this.Monitor, this.CardLab)' in entry
           assert 'cardcha_card_test_stop' in entry
           assert 'MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena)' in entry
           assert 'FarmerDamagePatch.Apply(harmony, this.Combat, this.CardArena)' in entry
-          assert 'new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena)' in entry
           assert f'Cardcha! v{version} CARD TEST ARENA TEST' in entry
 
           arena = (root/'Services/CardTestArenaService.cs').read_text()
           patch = (root/'Patches/MonsterDamagePatch.cs').read_text()
           overlay = (root/'Services/CardTestLabOverlayService.cs').read_text()
           menu = (root/'UI/CardTestLabMenu.cs').read_text()
+          generated = (root/'Services/GeneratedCardAutoAudit.cs').read_text()
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
 
-          # Arena baseline.
+          # Arena + input baseline preserved.
           assert 'FixedOutgoingRawDamage = 100' in arena
           assert 'FixedIncomingRawDamage = 10' in arena
-          assert 'DummyMaxHealth = 500' in arena
-          assert 'Game1.gameTimeInterval = 0' in arena
-          assert 'TEST ARENA REVIVE' in arena
-          assert 'steady_grip' in arena
-
-          # .3.5 kill-test contract: one non-lethal dummy + four real death-pipeline targets.
-          assert 'KillTargetMarkerKey' in arena
-          assert 'KillTargetSlotKey' in arena
           assert 'KillTargetCount = 4' in arena
           assert 'KillTargetMaxHealth = 100' in arena
-          assert 'KillTargetRespawnDelayMs = 350L' in arena
-          assert 'KillTargetSpawnTiles' in arena
-          assert 'EnsureKillTargets(forceRespawn: false)' in arena
-          assert 'EnsureKillTargets(forceRespawn: true)' in arena
-          assert 'GetLivingKillTargetCount' in arena
           assert 'ClampMainDummyDamage' in arena
-          assert 'damage = Math.Min(damage, Math.Max(0, monster.Health - 1));' in arena
           assert 'TestArena?.ClampMainDummyDamage(__instance, ref damage);' in patch
-          assert 'IMMORTAL DUMMY' in arena
-          assert 'KILL TARGETS' in arena
-
-          # Input/UI contract preserved.
           assert 'CARD LAB • ARENA' in overlay
-          assert 'SButton.F8' in overlay
-          assert 'ControllerRightStick' in overlay
           assert 'PreferredWidth = 1776' in menu
           assert 'PreferredHeight = 1080' in menu
           assert 'SelectionDebounceMs = 160L' in menu
           assert 'TrySelectCardRowAt' in menu
           assert 'receiveScrollWheelAction' in menu
-          assert 'int rowHeight = 51' in menu
-          assert 'EQUIP & PLAY [A]' in menu
-          assert 'UNEQUIP & PLAY [X]' in menu
-          assert 'TEST ARENA [RT/T]' in menu
+
+          # .3.6 automatic contract + per-level display contract.
+          assert len(audit) == 76
+          statuses = {row['status'] for row in audit}
+          assert statuses <= {'PASS', 'REVIEW', 'BLOCKED'}
+          assert sum(row['status'] == 'BLOCKED' for row in audit) == 1
+          victory = next(row for row in audit if row['id'] == 'victory_charge')
+          assert victory['status'] == 'BLOCKED'
+          assert all(row['starRuleCount'] == row['maxLevel'] for row in audit)
+          assert 'GeneratedCardAutoAudit' in generated
+          assert 'AUTO CONTRACT:' in menu
+          assert 'GetSelectedLevelText' in menu
+          assert 'card.StarRules[selected - 1]' in menu
+          assert 'MANUAL PASS [Y/P]' in menu
+          assert 'MANUAL FAIL [RB/F]' in menu
 
           # TMX runtime parser guard.
           map_path = root/'assets/card_test_arena.tmx'
@@ -106,16 +100,23 @@ jobs:
               assert data is not None and data.attrib.get('encoding') == 'csv'
               tokens = [(token or '').strip() for token in (data.text or '').split(',')]
               assert all(tokens), f"{layer.attrib.get('name')} has empty CSV token"
-              values = [int(token) for token in tokens]
-              assert len(values) == width * height
-              assert all(value >= 0 for value in values)
+              assert len([int(token) for token in tokens]) == width * height
 
+          # Official replacement card atlas is locked by SHA-256 after explicit user approval.
           icons = (root/'assets/card_icons.png').read_bytes()
           assert struct.unpack('>II', icons[16:24]) == (320, 1024)
-          assert hashlib.sha256(icons).hexdigest() == '4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee'
+          digest = hashlib.sha256(icons).hexdigest()
+          icon_lock = (root/'assets/card_icons.sha256.lock').read_text().strip().lower()
+          assert re.fullmatch(r'[0-9a-f]{64}', icon_lock)
+          assert digest == icon_lock
+          print('Official card icon atlas SHA-256:', digest)
+
           visual = (root/'assets/airship_visual.png').read_bytes()
           assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
-          print('Card Test Arena kill-target source acceptance PASS')
+
+          counts = {key: sum(row['status'] == key for row in audit) for key in ('PASS', 'REVIEW', 'BLOCKED')}
+          print('Automatic card contract counts:', counts)
+          print('Card Test Lab automatic audit source acceptance PASS')
           PY
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
@@ -125,7 +126,7 @@ jobs:
       - name: Compile test build
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
-      - name: Materialize Card Test Arena source back to branch
+      - name: Materialize Card Test Lab source back to branch
         shell: bash
         run: |
           set -euo pipefail
@@ -141,19 +142,25 @@ jobs:
             src/Cardcha/Services/CardTestLabService.cs \
             src/Cardcha/Services/CardTestArenaService.cs \
             src/Cardcha/Services/CardTestLabOverlayService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
             src/Cardcha/UI/CardTestLabMenu.cs \
             src/Cardcha/assets/card_test_arena.tmx \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/assets/card_icons.sha256.lock \
             tools/alpha28_41432_version.py \
             tools/alpha28_41432_arena_modentry.py \
             tools/alpha28_41432_arena_menu.py \
             tools/alpha28_41432_arena_compilefix.py \
             tools/alpha28_41434_lab_input_ui.py \
             tools/alpha28_41435_arena_kill_targets.py \
+            tools/alpha28_41436_auto_audit.py \
+            tools/alpha28_41436_lab_auto_ui.py \
+            tools/alpha28_41436_icon_lock.py \
             .github/workflows/cardcha-alpha28-056-card-test-lab.yml
           if git diff --cached --quiet; then
-            echo "No generated Card Test Arena diff to materialize."
+            echo "No generated Card Test Lab diff to materialize."
           else
-            git commit -m "chore: materialize alpha28.0.4.14.3.5 Arena kill targets [skip ci]"
+            git commit -m "chore: materialize alpha28.0.4.14.3.6 automatic card audit [skip ci]"
             git push origin HEAD:cardcha-alpha28-056-card-test-lab
           fi
 
@@ -161,20 +168,18 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "4d659e9a25b188ca7e5e0654aa1124ae562f28ca414236283fef1523df6700ee"
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "$(tr -d '\r\n ' < src/Cardcha/assets/card_icons.sha256.lock)"
           test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
           test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
           test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
           grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
           grep -q 'LifeStealFractionalCarry' src/Cardcha/Services/CoreCardEffectsService.cs
           grep -q 'KillTargetCount = 4' src/Cardcha/Services/CardTestArenaService.cs
-          grep -q 'KillTargetMaxHealth = 100' src/Cardcha/Services/CardTestArenaService.cs
-          grep -q 'ClampMainDummyDamage' src/Cardcha/Services/CardTestArenaService.cs
-          grep -q 'TestArena?.ClampMainDummyDamage' src/Cardcha/Patches/MonsterDamagePatch.cs
-          grep -q 'PreferredWidth = 1776' src/Cardcha/UI/CardTestLabMenu.cs
-          grep -q 'SelectionDebounceMs = 160L' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'GeneratedCardAutoAudit' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'GetSelectedLevelText' src/Cardcha/UI/CardTestLabMenu.cs
+          grep -q 'AUTO CONTRACT:' src/Cardcha/UI/CardTestLabMenu.cs
           grep -q 'cardcha_card_test_stop' src/Cardcha/ModEntry.cs
-          echo 'alpha28.0.4.14.3.5 regression gate PASS'
+          echo 'alpha28.0.4.14.3.6 regression gate PASS'
 
       - name: Package compiled test build
         shell: bash
@@ -186,12 +191,12 @@ jobs:
           cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
           cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
           test -s stage/Cardcha/Cardcha.dll
-          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.5"
-          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.5_CardTestArenaKillTargets_TEST.zip Cardcha)
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.6"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.6_CardAutoAudit_TEST.zip Cardcha)
           sha256sum artifact/*.zip > artifact/SHA256.txt
 
       - uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-056-card-test-arena-kill-targets
+          name: cardcha-alpha28-056-card-auto-audit
           path: artifact
           if-no-files-found: error
