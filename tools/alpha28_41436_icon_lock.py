@@ -1,6 +1,7 @@
 from pathlib import Path
 import hashlib
 import struct
+import runpy
 
 ROOT = Path('src/Cardcha')
 ICON = ROOT / 'assets/card_icons.png'
@@ -20,8 +21,14 @@ if LOCK.exists():
             f'expected {expected}, got {digest}. Update the lock only after explicit art approval.'
         )
 else:
-    # One-time adoption for the explicitly approved replacement atlas uploaded by the user.
     LOCK.write_text(digest + '\n', encoding='utf-8')
     print(f'Adopted replacement official card icon atlas SHA-256: {digest}')
 
 print(f'Card icon atlas lock PASS: {digest} ({width}x{height})')
+
+# .4.14.3.7 one-time compatibility pre-hook. The historical Core service has an XML
+# summary between namespace and class, so prepare the debug-snapshot anchor before the
+# Auto Scenario finalizer. The shim is idempotent and does not touch gameplay behavior.
+shim = Path('tools/alpha28_41437_core_anchor.py')
+if shim.exists():
+    runpy.run_path(str(shim), run_name='__main__')
