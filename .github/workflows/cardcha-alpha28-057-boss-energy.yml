@@ -1,0 +1,197 @@
+name: Cardcha alpha28.0.4.14.3.8 Boss Energy Victory Charge
+
+on:
+  push:
+    branches: [ cardcha-alpha28-057-boss-energy-victory-charge ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply Boss Energy finalizer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_41438_boss_energy.py
+          python3 tools/alpha28_41436_auto_audit.py
+
+      - name: Source acceptance checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, hashlib, struct
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.3.8'
+
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          boss = (root/'Services/BossEnergyService.cs').read_text()
+          combat = (root/'Services/CombatService.cs').read_text()
+          core = (root/'Services/CoreCardEffectsService.cs').read_text()
+          upgrades = (root/'Services/CardUpgradeService.cs').read_text()
+          entry = (root/'ModEntry.cs').read_text()
+          hud = (root/'UI/CombatHudRenderer.cs').read_text()
+          lab = (root/'Services/CardTestLabService.cs').read_text()
+          runner = (root/'Services/CardAutoScenarioRunnerService.cs').read_text()
+          save_data = (root/'Models/SaveData.cs').read_text()
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
+          cards = json.loads((root/'assets/cards.json').read_text())
+          default_i18n = json.loads((root/'i18n/default.json').read_text())
+          vi_i18n = json.loads((root/'i18n/vi.json').read_text())
+
+          # Boss Energy foundation is real and deliberately transient.
+          assert 'MaxEnergy = 100d' in boss
+          assert 'RegularKillEnergy = 10d' in boss
+          assert 'BossLikeKillEnergy = 20d' in boss
+          assert 'CritLikeEnergy = 1d' in boss
+          assert 'DamagePerEnergy = 100d' in boss
+          assert 'MaxDamageEnergyPerHit = 2d' in boss
+          assert 'TrySpend(double amount)' in boss
+          assert 'BossEnergy' not in save_data
+
+          # Victory Charge only modifies kill-sourced Energy.
+          assert '"victory_charge" => new CardLevelStats' in upgrades
+          assert 'Pick(level, 0.10, 0.15, 0.20, 0.25, 0.30)' in upgrades
+          assert 'this.BossEnergy.OnKill(bossLike, who);' in combat
+          assert 'this.BossEnergy.OnDamageDealt' in combat
+          assert 'LastProcessedActualDamage' in core
+          assert 'LastProcessedCritLike' in core
+
+          vc = next(c for c in cards if c['Id'] == 'victory_charge')
+          assert vc['StarRules'] == [
+              'Boss Energy nhận từ hạ quái +10%.',
+              'Boss Energy nhận từ hạ quái +15%.',
+              'Boss Energy nhận từ hạ quái +20%.',
+              'Boss Energy nhận từ hạ quái +25%.',
+              'Boss Energy nhận từ hạ quái +30%.',
+          ]
+          assert 'TEMPORARILY INACTIVE' not in default_i18n['card.victory_charge.desc']
+          assert 'TẠM CHƯA HOẠT ĐỘNG' not in vi_i18n['card.victory_charge.desc']
+          assert default_i18n['hud.boss-energy'] == 'Boss Energy'
+          assert vi_i18n['hud.boss-energy'] == 'Năng Lượng Trùm'
+
+          # Visible + testable in normal HUD/Lab and Auto Scenario.
+          assert 'Key: "boss_energy"' in hud
+          assert 'BossEnergyService.MaxEnergy' in hud
+          assert 'defeat a kill target' in lab
+          assert 'private LevelScenarioCheck CheckVictoryCharge' in runner
+          assert '"victory_charge" => this.CheckVictoryCharge(level)' in runner
+          assert 'BLOCKED: Boss Energy subsystem does not exist yet.' not in runner
+          assert 'BossEnergyService CardAutoRunner' not in entry  # guard accidental type drift
+          assert 'private BossEnergyService BossEnergy = null!;' in entry
+          assert f'Cardcha! v{version} BOSS ENERGY + VICTORY CHARGE TEST' in entry
+
+          # Full active-card contract must now be clean: 76 PASS, zero blocked/review.
+          assert len(audit) == 76
+          assert sum(row['status'] == 'PASS' for row in audit) == 76
+          assert sum(row['status'] == 'BLOCKED' for row in audit) == 0
+          assert sum(row['status'] == 'REVIEW' for row in audit) == 0
+          assert next(row for row in audit if row['id'] == 'victory_charge')['status'] == 'PASS'
+
+          # Preserve Test Lab/Arena and locked visuals.
+          arena = (root/'Services/CardTestArenaService.cs').read_text()
+          assert 'KillTargetCount = 4' in arena
+          assert 'FixedOutgoingRawDamage = 100' in arena
+          assert 'PreferredWidth = 1776' in (root/'UI/CardTestLabMenu.cs').read_text()
+
+          icons = (root/'assets/card_icons.png').read_bytes()
+          assert struct.unpack('>II', icons[16:24]) == (320, 1024)
+          assert hashlib.sha256(icons).hexdigest() == 'c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41'
+          visual = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(visual).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          print('Boss Energy + Victory Charge source acceptance PASS')
+          PY
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile test build
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize Boss Energy source back to branch
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/BossEnergyService.cs \
+            src/Cardcha/Services/CardUpgradeService.cs \
+            src/Cardcha/Services/CoreCardEffectsService.cs \
+            src/Cardcha/Services/CombatService.cs \
+            src/Cardcha/Services/CardTestLabService.cs \
+            src/Cardcha/Services/CardAutoScenarioRunnerService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
+            src/Cardcha/UI/CombatHudRenderer.cs \
+            src/Cardcha/assets/cards.json \
+            src/Cardcha/assets/card_auto_audit.json \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            tools/alpha28_41436_auto_audit.py \
+            tools/alpha28_41438_boss_energy.py \
+            .github/workflows/cardcha-alpha28-057-boss-energy.yml
+          if git diff --cached --quiet; then
+            echo "No generated Boss Energy diff to materialize."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.3.8 Boss Energy [skip ci]"
+            git push origin HEAD:cardcha-alpha28-057-boss-energy-victory-charge
+          fi
+
+      - name: Final regression gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum src/Cardcha/assets/card_icons.png | cut -d' ' -f1)" = "c5ff456e9a0a697a10537a391ec5abf2f90966de89299799fd2153356b1e6e41"
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+          test "$(git hash-object src/Cardcha/assets/mimi_broom.png)" = "0410660a8ec2f3190b20882898c1897e67819f9d"
+          test "$(git hash-object src/Cardcha/assets/mimi_profile.png)" = "2cecabf9d4249c0ee5801f32c7d780a0151a17c9"
+          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
+          grep -q 'RegularKillEnergy = 10d' src/Cardcha/Services/BossEnergyService.cs
+          grep -q 'CheckVictoryCharge' src/Cardcha/Services/CardAutoScenarioRunnerService.cs
+          grep -q 'Boss Energy nhận từ hạ quái +30%' src/Cardcha/assets/cards.json
+          python3 - <<'PY'
+          import json
+          rows=json.load(open('src/Cardcha/assets/card_auto_audit.json', encoding='utf-8'))
+          assert len(rows)==76 and all(r['status']=='PASS' for r in rows)
+          print('76/76 static card contract PASS')
+          PY
+          echo 'alpha28.0.4.14.3.8 regression gate PASS'
+
+      - name: Package compiled test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.3.8"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.3.8_BossEnergyVictoryCharge_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-057-boss-energy-victory-charge
+          path: artifact
+          if-no-files-found: error
