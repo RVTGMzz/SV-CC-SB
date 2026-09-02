@@ -3,6 +3,7 @@ import re
 
 p = Path('src/Cardcha/ModEntry.cs')
 s = p.read_text(encoding='utf-8')
+VERSION = '0.3.0-alpha.28.0.4.14.3.3'
 
 def once(old, new):
     global s
@@ -75,8 +76,8 @@ if '    private void OpenCardTestLab()\n' not in s:
 
 s = re.sub(
     r'Cardcha! v0\.3\.0-alpha\.28\.0\.4\.14(?:\.\d+)* [A-Z0-9 ]+ TEST',
-    'Cardcha! v0.3.0-alpha.28.0.4.14.3.2 CARD TEST ARENA TEST',
+    f'Cardcha! v{VERSION} CARD TEST ARENA TEST',
     s
 )
 p.write_text(s, encoding='utf-8')
-print('Applied Card Test Arena ModEntry integration')
+print(f'Applied Card Test Arena ModEntry integration for {VERSION}')
