@@ -1,0 +1,150 @@
+name: Cardcha alpha28.0.4.14.4.5.4 Airship Visual Depth Pass 1
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0635-airship-visual-depth-pass1 ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Finalize visual depth source
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0635_visual_depth_finalize.py
+
+      - name: Install image validator
+        shell: bash
+        run: python3 -m pip install --quiet pillow
+
+      - name: Validate milestone contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.4'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version, manifest['Version']
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          depth = (root/'Patches/AirshipVisualDepthPatch.cs').read_text(encoding='utf-8')
+          assert '[ModuleInitializer]' in depth
+          assert 'BeforeAirshipSprite' in depth
+          assert 'AfterAirshipSprite' in depth
+          assert 'AfterSkyDockInterior' in depth
+          assert 'AfterBridge' in depth
+          assert 'rear silhouette + foreground rigging + dock mooring + bridge ribs' in depth
+
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'RelocatedGateUseDistance = 160f' in gate
+          assert 'BuildAlternateZones' in gate and 'BuildSectorSweep' in gate
+
+          energy = (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in energy
+          assert 'amount *= EnergyGainScale' in energy
+
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+
+          # Official exterior sprite remains locked. Depth is additive runtime rendering only.
+          airship = root/'assets/airship_visual.png'
+          assert hashlib.sha256(airship.read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          with Image.open(airship) as im:
+              im.load()
+              assert im.size == (384, 256)
+
+          # Decode every packaged PNG, not just signature/CRC. This guards the ChaCha asset regression.
+          pngs = sorted((root/'assets').glob('*.png'))
+          assert pngs
+          for path in pngs:
+              with Image.open(path) as im:
+                  im.load()
+          print(f'Visual depth acceptance PASS | decoded PNGs={len(pngs)}')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize finalized source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            src/Cardcha/Patches/AirshipVisualDepthPatch.cs \
+            src/Cardcha/ModEntry.cs \
+            tools/alpha28_0635_visual_depth_finalize.py \
+            .github/workflows/cardcha-alpha28-0635-airship-visual-depth-pass1.yml
+          if git diff --cached --quiet; then
+            echo "No materialized source diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.4 Airship Visual Depth Pass 1 [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0635-airship-visual-depth-pass1
+          fi
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.4"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.4_AirshipVisualDepthPass1_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from PIL import Image
+          from io import BytesIO
+          from pathlib import Path
+          import json
+
+          z = next(Path('artifact').glob('Cardcha_*.zip'))
+          with ZipFile(z) as f:
+              assert 'Cardcha/Cardcha.dll' in f.namelist()
+              manifest = json.loads(f.read('Cardcha/manifest.json'))
+              assert manifest['Version'] == '0.3.0-alpha.28.0.4.14.4.5.4'
+              for name in [n for n in f.namelist() if n.lower().endswith('.png')]:
+                  im = Image.open(BytesIO(f.read(name)))
+                  im.load()
+          print('Artifact ZIP integrity + PNG decode PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0635-airship-visual-depth-pass1
+          path: artifact
+          if-no-files-found: error
