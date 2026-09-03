@@ -20,6 +20,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          # Correct the finalizer's visibility anchor from the first failed CI attempt.
+          # BossEnergy constants are public in source and stay public after materialization.
+          sed -i 's/private const double/public const double/g' tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
           python3 tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
           python3 tools/fix_png_crc.py
           python3 tools/alpha28_41436_auto_audit.py
@@ -54,11 +57,11 @@ jobs:
 
           energy=(root/'Services/BossEnergyService.cs').read_text()
           for token in [
-              'RegularKillEnergy = 5d',
-              'BossLikeKillEnergy = 10d',
-              'CritLikeEnergy = 0.5d',
-              'DamagePerEnergy = 200d',
-              'MaxDamageEnergyPerHit = 1d'
+              'public const double RegularKillEnergy = 5d',
+              'public const double BossLikeKillEnergy = 10d',
+              'public const double CritLikeEnergy = 0.5d',
+              'public const double DamagePerEnergy = 200d',
+              'public const double MaxDamageEnergyPerHit = 1d'
           ]:
               assert token in energy, token
 
@@ -156,7 +159,7 @@ jobs:
           set -euo pipefail
           grep -q 'CurrentSchemaVersion = 19' src/Cardcha/Services/SaveService.cs
           grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
-          grep -q 'RegularKillEnergy = 5d' src/Cardcha/Services/BossEnergyService.cs
+          grep -q 'public const double RegularKillEnergy = 5d' src/Cardcha/Services/BossEnergyService.cs
           grep -q 'ForestGateAutoEnterDistance = 112f' src/Cardcha/Services/AirshipFoundationService.cs
           grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
           test "$(sha256sum src/Cardcha/assets/items.png | cut -d' ' -f1)" = "b64d5e4e2200690eb286cef54f0e666d98bb4af3ef73a5caa41c3a0a27a3b0f8"
