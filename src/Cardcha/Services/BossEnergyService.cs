@@ -18,6 +18,11 @@ internal sealed class BossEnergyService
     public const double DamagePerEnergy = 100d;
     public const double MaxDamageEnergyPerHit = 2d;
 
+    // User tuning: Boss Energy was reaching READY too quickly. Scale every real combat gain to
+    // one third so the time/effort to fill the bar is approximately 3x longer without changing
+    // the 100 Energy activation threshold or Victory Charge's relative bonus behavior.
+    public const double EnergyGainScale = 1d / 3d;
+
     private readonly LoadoutService Loadout;
     private readonly CardRegistry Cards;
     private readonly CardUpgradeService Upgrades;
@@ -107,11 +112,15 @@ internal sealed class BossEnergyService
         => this.Current = Math.Clamp(value, 0d, MaxEnergy);
 
     public string Describe()
-        => $"BossEnergy={this.CurrentEnergy:0.##}/{MaxEnergy:0} | Last={this.LastGain:0.##} from {this.LastSource} " +
+        => $"BossEnergy={this.CurrentEnergy:0.##}/{MaxEnergy:0} | GainRate=x{EnergyGainScale:0.###} | Last={this.LastGain:0.##} from {this.LastSource} " +
            $"(base={this.LastBaseGain:0.##}, VictoryChargeBonus={this.LastVictoryChargeBonus:0.##}) | Events={this.GainEvents} | Suppressed={this.GainSuppressed}";
 
     private void Add(double amount, double baseGain, double victoryBonus, string source)
     {
+        amount *= EnergyGainScale;
+        baseGain *= EnergyGainScale;
+        victoryBonus *= EnergyGainScale;
+
         if (amount <= 0d || this.GainSuppressed)
             return;
 
