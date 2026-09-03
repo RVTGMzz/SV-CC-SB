@@ -749,7 +749,7 @@ internal sealed class AirshipFoundationService
         }
 
         Point dock = this.ResolveSkyDockTile();
-        Point landing = FindClearTileNear(forest, new Point(dock.X + 1, dock.Y + 1));
+        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 2));
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 2);
     }
@@ -1188,7 +1188,7 @@ internal sealed class AirshipFoundationService
     {
         Vector2 center = Game1.GlobalToLocal(
             Game1.viewport,
-            new Vector2(tile.X * 64f + 32f, tile.Y * 64f + 30f)
+            new Vector2(tile.X * 64f + 32f, tile.Y * 64f - 34f)
         );
 
         float phase = (float)(Environment.TickCount64 / 920.0);
@@ -1302,14 +1302,14 @@ internal sealed class AirshipFoundationService
         for (int y = deckRect.Y + 10; y < deckRect.Bottom; y += 24)
             DrawRect(batch, new Rectangle(deckRect.X + 8, y, deckRect.Width - 16, 4), wood * 0.36f);
         DrawRect(batch, new Rectangle(deckRect.X + 10, deckRect.Y + 8, deckRect.Width - 20, 4), gold * 0.44f);
-        DrawRect(batch, new Rectangle(deckRect.X + 10, deckRect.Bottom - 14, deckRect.Width - 20, 4), gold * 0.38f);
+        DrawRect(batch, new Rectangle(deckRect.X + 10, deckRect.Bottom - 14, deckRect.Width - 20, 4), gold * 0.26f);
         DrawRailing(batch, new Vector2(deckRect.X + 16f, deckRect.Y + 12f), new Vector2(deckRect.Right - 16f, deckRect.Y + 12f), brass, cyan * 0.42f);
 
-        DrawManaLane(batch, arrivalCenter, routeCenter, violet * 0.40f, phase);
-        DrawManaLane(batch, arrivalCenter, bayCenter, cyan * 0.46f, -phase * 0.82f);
-        DrawArcaneSigil(batch, arrivalCenter, 72f, violet, phase);
-        DrawArcaneSigil(batch, arrivalCenter, 48f, cyan, -phase * 0.67f);
-        DrawDiamondRune(batch, arrivalCenter, 18f, gold * 0.78f);
+        // .5.6.1 readability: no post-world energy lines or large sigils through the farmer.
+        // Keep magical identification attached to the actual destinations instead.
+        DrawArcaneSigil(batch, routeCenter, 31f, violet * 0.52f, phase * 0.55f);
+        DrawDiamondRune(batch, routeCenter, 10f, cyan * 0.68f);
+        DrawArcaneSigil(batch, bayCenter, 29f, cyan * 0.48f, -phase * 0.48f);
 
         // Brass navigator console.
         Vector2 board = Game1.GlobalToLocal(Game1.viewport, new Vector2((route.X - 1) * 64f, (route.Y - 2) * 64f));
@@ -1321,6 +1321,12 @@ internal sealed class AirshipFoundationService
         DrawDiamondRune(batch, new Vector2(board.X + 78f, board.Y + 43f), 11f, cyan * 0.82f);
         DrawRect(batch, new Rectangle((int)board.X + 22, (int)board.Y + 74, 10, 38), brass);
         DrawRect(batch, new Rectangle((int)board.X + 124, (int)board.Y + 74, 10, 38), brass);
+        string routeBoardLabel = ModEntry.T("airship.arcane.route_board.label");
+        Vector2 routeBoardSize = Game1.smallFont.MeasureString(routeBoardLabel);
+        float routeBoardScale = Math.Min(0.56f, 116f / Math.Max(1f, routeBoardSize.X));
+        batch.DrawString(Game1.smallFont, routeBoardLabel,
+            new Vector2(board.X + 78f - routeBoardSize.X * routeBoardScale / 2f, board.Y + 53f),
+            new Color(236, 211, 151) * 0.84f, 0f, Vector2.Zero, routeBoardScale, SpriteEffects.None, 1f);
         DrawBrassLamp(batch, new Vector2(board.X - 26f, board.Y + 78f), phase, gold, violet);
 
         // Physical boarding arch in front of the ship instead of a second portal chamber.
@@ -1768,12 +1774,12 @@ internal sealed class AirshipFoundationService
         float laneY = Math.Min(laneTop.Y, laneBottom.Y);
         float laneHeight = Math.Max(96f, Math.Abs(laneBottom.Y - laneTop.Y));
         Rectangle runner = new((int)helmCenter.X - 72, (int)laneY, 144, (int)laneHeight);
-        DrawRect(batch, runner, new Color(78, 45, 83) * 0.34f);
-        DrawRect(batch, new Rectangle(runner.X + 11, runner.Y, 4, runner.Height), gold * 0.38f);
+        DrawRect(batch, runner, new Color(78, 45, 83) * 0.18f);
+        DrawRect(batch, new Rectangle(runner.X + 11, runner.Y, 4, runner.Height), gold * 0.26f);
         DrawRect(batch, new Rectangle(runner.Right - 15, runner.Y, 4, runner.Height), gold * 0.38f);
         for (int y = runner.Y + 28; y < runner.Bottom; y += 54)
-            DrawDiamondRune(batch, new Vector2(runner.Center.X, y), 9f, gold * 0.30f);
-        DrawManaLane(batch, exitCenter, helmCenter, cyan * 0.38f, phase);
+            DrawDiamondRune(batch, new Vector2(runner.Center.X, y), 9f, gold * 0.19f);
+        // .5.6.1: removed post-world mana line through the central player lane.
 
         // Multi-level navigation dais and suspended astrolabe core.
         DrawRect(batch, new Rectangle((int)helmCenter.X - 132, (int)helmCenter.Y + 41, 264, 26), new Color(25, 22, 31) * 0.66f);

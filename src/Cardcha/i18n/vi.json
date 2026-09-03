@@ -897,7 +897,7 @@
   "airship.region1.gate.locked": "CỔNG BOSS // Cộng hưởng bài: {{cards}} / {{required}} lá khác nhau. Hãy săn quái lấy Scrap, rồi dùng Máy Cardcha để hoàn thiện Binder.",
   "airship.region1.gate.open": "Cổng Boss đã mở — khu chuẩn bị Khu Vực I đã được kích hoạt.",
   "airship.region1.boss.staging": "KHU CHUẨN BỊ BOSS I // Cổng đã nhận Binder của bạn. Boss I sẽ xuất hiện ở bản chiến đấu kế tiếp; hiện giờ hãy quay lại qua cổng.",
-  "airship.arcane.route_console": "Bàn Điều Tuyến Ma Pháp khẽ ngân lên. Vùng I đã được đồng bộ. Hãy bước qua cổng tím để lên Tàu Bay rồi khởi hành. Số lá bài cộng hưởng: {{cards}}.",
+  "airship.arcane.route_console": "Bảng Trạng Thái Tuyến Bay: đã ghi nhận {{cards}} lá Cardcha. Bảng này chỉ để xem tình trạng tuyến; hãy dùng bánh lái trong Buồng Lái Tàu Bay để khởi hành.",
   "airship.arcane.bridge.unavailable": "Cổng lên tàu chập chờn, nhưng Cầu Điều Khiển Tàu Bay chưa thể ổn định lúc này.",
   "airship.arcane.bridge.entered": "Ánh tím khép lại quanh bạn. Cầu Điều Khiển Tàu Bay dần hiện ra.",
   "airship.arcane.dock.returned": "Cổng trên tàu đưa bạn trở lại Bến Ma Pháp của MiMi.",
@@ -991,5 +991,6 @@
   "resonance.support.rescue.title": "Cứu Nguy Khi Nhận Sát Thương",
   "resonance.support.rescue.body": "Mỗi hit gây mất máu roll {{lucky}}% Lucky Cast. Từ trên 30% tụt xuống ≤30% Máu sẽ chắc chắn Emergency Cast 1 lần. Cả hai bỏ qua cooldown.",
   "resonance.support.modules.title": "Một Cast • Nhiều Module",
-  "resonance.support.modules.body": "Đã học {{learned}}/4 module. Khiên: 20s. Tiếp Sức: 30% hồi thể lực. Phúc Vận: 50% nhận +1 Luck trong 10s. Không có cooldown riêng."
+  "resonance.support.modules.body": "Đã học {{learned}}/4 module. Khiên: 20s. Tiếp Sức: 30% hồi thể lực. Phúc Vận: 50% nhận +1 Luck trong 10s. Không có cooldown riêng.",
+  "airship.arcane.route_board.label": "BẢNG TUYẾN BAY"
 }

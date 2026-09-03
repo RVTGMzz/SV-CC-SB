@@ -7,33 +7,30 @@ using StardewValley;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// Runtime correction for the Forest Arcane Gate placement policy.
-///
-/// The original alpha.28 resolver searched a growing radius around the Farm entrance and paired
-/// that with a 320px action bubble. On heavily edited Forest maps this could leave the gate visually
-/// wedged into a dense pocket while still being activatable from oddly far away.
-///
-/// This patch keeps the Buildings/Front safety rejection, but changes what happens when the local
-/// pocket is bad: search a few compact, clearly separate Forest zones instead. The interaction reach
-/// is then clamped back to a normal nearby distance, so relocation is visible and physical rather
-/// than being hidden behind a giant invisible activation radius.
+/// .5.6.1 canonical Forest Arcane Gate placement.
+/// The gate now belongs to the Wizard-side meadow instead of roaming the Forest. We anchor from
+/// the live WizardHouse warp, search only a tiny local pocket, and keep normal 160px interaction.
+/// No Forest collision/path tiles are ever edited.
 /// </summary>
 internal static class AirshipGateRelocationPatch
 {
     private const float LegacyWideGateUseDistance = 320f;
-    private const float RelocatedGateUseDistance = 160f;
-    private const int LocalSearchRadius = 3;
-    private const int AlternateZoneSearchRadius = 3;
-    private const int MinAlternateZoneDistanceTiles = 8;
-    private const int SectorSpacingTiles = 8;
+    private const float CanonicalGateUseDistance = 160f;
+    private const int LocalSearchRadius = 2;
+    private static readonly Point WizardGateOffset = new(8, -4);
+    private static readonly Point[] WizardGateAlternates =
+    {
+        new(10, -3),
+        new(7, -2),
+    };
 
-    private static bool LoggedRelocation;
+    private static bool LoggedPlacement;
     private static bool LoggedFallback;
 
     [ModuleInitializer]
     internal static void Initialize()
     {
-        Harmony harmony = new("Ronvotri.Cardcha.AirshipGateRelocation");
+        Harmony harmony = new("Ronvotri.Cardcha.AirshipGateCanonicalWizardMeadow");
 
         var resolveGate = AccessTools.Method(typeof(AirshipFoundationService), "ResolveSkyDockTile");
         var resolvePrefix = AccessTools.Method(typeof(AirshipGateRelocationPatch), nameof(ResolveSkyDockTilePrefix));
@@ -52,9 +49,8 @@ internal static class AirshipGateRelocationPatch
 
     private static void PlayerIsNearPrefix(ref float useDistance)
     {
-        // Only replace the old Forest-gate reach. Leave all ordinary 128px Airship interactions alone.
         if (Math.Abs(useDistance - LegacyWideGateUseDistance) < 0.01f)
-            useDistance = RelocatedGateUseDistance;
+            useDistance = CanonicalGateUseDistance;
     }
 
     private static bool ResolveSkyDockTilePrefix(
@@ -79,95 +75,81 @@ internal static class AirshipGateRelocationPatch
 
         int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
         int height = forest.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
-        Point farmWarp = ___CachedForestFarmWarpTile ?? ResolveForestFarmWarpTile(forest, width);
+        Point farmWarp = ___CachedForestFarmWarpTile ?? ResolveWarpTile(forest, "Farm")
+            ?? new Point(Math.Clamp(width / 2, 3, Math.Max(3, width - 4)), 2);
         ___CachedForestFarmWarpTile = farmWarp;
 
-        Point preferred = ClampInsideMap(
-            new Point(farmWarp.X - 7, farmWarp.Y + 2),
-            width,
-            height
-        );
-
-        Point? local = FindSafeInZone(forest, preferred, farmWarp, LocalSearchRadius, width, height);
-        if (local is Point localSafe)
+        Point? wizardWarp = ResolveWarpTile(forest, "WizardHouse") ?? ResolveWarpTile(forest, "Wizard");
+        if (wizardWarp is Point wizard)
         {
-            ___CachedSkyDockTile = localSafe;
-            __result = localSafe;
-            return false;
-        }
+            Point preferred = ClampInsideMap(wizard + WizardGateOffset, width, height);
+            Point? safe = FindSafeInPocket(forest, preferred, farmWarp, width, height);
+            if (safe is Point exact)
+                return Use(exact, ref __result, ref ___CachedSkyDockTile, "Wizard-side meadow");
 
-        foreach (Point zone in BuildAlternateZones(width, height, farmWarp, preferred))
-        {
-            Point? alternate = FindSafeInZone(
-                forest,
-                zone,
-                farmWarp,
-                AlternateZoneSearchRadius,
-                width,
-                height
-            );
-            if (alternate is not Point alternateSafe)
-                continue;
-
-            ___CachedSkyDockTile = alternateSafe;
-            __result = alternateSafe;
-
-            if (!LoggedRelocation)
+            foreach (Point offset in WizardGateAlternates)
             {
-                LoggedRelocation = true;
+                Point alternate = ClampInsideMap(wizard + offset, width, height);
+                safe = FindSafeInPocket(forest, alternate, farmWarp, width, height);
+                if (safe is Point local)
+                    return Use(local, ref __result, ref ___CachedSkyDockTile, "Wizard-side meadow fallback");
+            }
+
+            // Do not wander to unrelated Forest sectors. Keep the requested landmark area even on
+            // hostile map overhauls; interaction stays short and collision remains untouched.
+            ___CachedSkyDockTile = preferred;
+            __result = preferred;
+            if (!LoggedFallback)
+            {
+                LoggedFallback = true;
                 ModEntry.StaticMonitor?.Log(
-                    $"Arcane Gate local Forest pocket is blocked; relocated to ({alternateSafe.X},{alternateSafe.Y}) instead of widening its interaction radius.",
-                    LogLevel.Info
+                    $"Arcane Gate Wizard meadow footprint was not fully clear; retaining canonical anchor ({preferred.X},{preferred.Y}) without map-wide relocation or wide interaction radius.",
+                    LogLevel.Warn
                 );
             }
             return false;
         }
 
-        // Last resort: hop sector-by-sector through the map. Each sector still gets only a tiny
-        // local search. This is relocation, not one enormous expanding circle around the old spot.
-        foreach (Point sector in BuildSectorSweep(width, height, farmWarp, preferred))
-        {
-            Point? alternate = FindSafeInZone(forest, sector, farmWarp, 2, width, height);
-            if (alternate is not Point alternateSafe)
-                continue;
-
-            ___CachedSkyDockTile = alternateSafe;
-            __result = alternateSafe;
-
-            if (!LoggedRelocation)
-            {
-                LoggedRelocation = true;
-                ModEntry.StaticMonitor?.Log(
-                    $"Arcane Gate required a distant Forest relocation; using safe sector ({alternateSafe.X},{alternateSafe.Y}) with normal interaction reach.",
-                    LogLevel.Info
-                );
-            }
-            return false;
-        }
-
-        // Extremely hostile/fully blocked maps may expose no valid 3x3 footprint at all. Keep the
-        // deterministic preferred anchor, but do NOT restore the old 320px invisible activation bubble.
-        ___CachedSkyDockTile = preferred;
-        __result = preferred;
+        // Compatibility fallback only when the map exposes no Wizard warp at all.
+        Point legacy = ClampInsideMap(new Point(farmWarp.X - 7, farmWarp.Y + 2), width, height);
+        Point? legacySafe = FindSafeInPocket(forest, legacy, farmWarp, width, height);
+        Point chosen = legacySafe ?? legacy;
+        ___CachedSkyDockTile = chosen;
+        __result = chosen;
         if (!LoggedFallback)
         {
             LoggedFallback = true;
             ModEntry.StaticMonitor?.Log(
-                "Arcane Gate could not find any fully clear Forest sector. Keeping the preferred anchor with normal interaction reach; no wide-radius fallback was enabled.",
+                $"Arcane Gate couldn't resolve a WizardHouse warp; using compact compatibility anchor ({chosen.X},{chosen.Y}).",
                 LogLevel.Warn
             );
         }
         return false;
     }
 
-    private static Point ResolveForestFarmWarpTile(GameLocation forest, int width)
+    private static bool Use(Point point, ref Point result, ref Point? cache, string reason)
+    {
+        cache = point;
+        result = point;
+        if (!LoggedPlacement)
+        {
+            LoggedPlacement = true;
+            ModEntry.StaticMonitor?.Log(
+                $"Arcane Gate canonical placement: {reason} at ({point.X},{point.Y}); interaction=160px; CollisionEdits=NONE.",
+                LogLevel.Info
+            );
+        }
+        return false;
+    }
+
+    private static Point? ResolveWarpTile(GameLocation location, string targetToken)
     {
         try
         {
-            foreach (Warp warp in forest.warps)
+            foreach (Warp warp in location.warps)
             {
                 if (!string.IsNullOrWhiteSpace(warp.TargetName)
-                    && warp.TargetName.Contains("Farm", StringComparison.OrdinalIgnoreCase))
+                    && warp.TargetName.Contains(targetToken, StringComparison.OrdinalIgnoreCase))
                 {
                     return new Point(warp.X, warp.Y);
                 }
@@ -175,71 +157,20 @@ internal static class AirshipGateRelocationPatch
         }
         catch
         {
-            // A map overhaul may expose warp metadata differently. Use the same deterministic fallback
-            // shape as the foundation service instead of guessing a vanilla-only coordinate.
+            // A map overhaul can hide/replace warp metadata. Caller owns fallback policy.
         }
-
-        return new Point(Math.Clamp(width / 2, 3, Math.Max(3, width - 4)), 2);
+        return null;
     }
 
-    private static IEnumerable<Point> BuildAlternateZones(int width, int height, Point farmWarp, Point preferred)
-    {
-        Point[] raw =
-        {
-            new(farmWarp.X + 9, farmWarp.Y + 3),
-            new(farmWarp.X - 11, farmWarp.Y + 11),
-            new(width / 4, height / 3),
-            new((width * 3) / 4, height / 3),
-            new(width / 4, (height * 2) / 3),
-            new((width * 3) / 4, (height * 2) / 3),
-            new(width / 2, height / 2),
-        };
-
-        HashSet<Point> seen = new();
-        int minDistanceSquared = MinAlternateZoneDistanceTiles * MinAlternateZoneDistanceTiles;
-
-        foreach (Point point in raw)
-        {
-            Point clamped = ClampInsideMap(point, width, height);
-            if (TileDistanceSquared(clamped, preferred) < minDistanceSquared || !seen.Add(clamped))
-                continue;
-            yield return clamped;
-        }
-    }
-
-    private static IEnumerable<Point> BuildSectorSweep(int width, int height, Point farmWarp, Point preferred)
-    {
-        int minDistanceSquared = MinAlternateZoneDistanceTiles * MinAlternateZoneDistanceTiles;
-        List<Point> sectors = new();
-
-        for (int y = 4; y <= Math.Max(4, height - 5); y += SectorSpacingTiles)
-        {
-            for (int x = 4; x <= Math.Max(4, width - 5); x += SectorSpacingTiles)
-            {
-                Point point = ClampInsideMap(new Point(x, y), width, height);
-                if (TileDistanceSquared(point, preferred) < minDistanceSquared)
-                    continue;
-                sectors.Add(point);
-            }
-        }
-
-        return sectors
-            .Distinct()
-            .OrderBy(point => TileDistanceSquared(point, farmWarp))
-            .ThenBy(point => point.Y)
-            .ThenBy(point => point.X);
-    }
-
-    private static Point? FindSafeInZone(
+    private static Point? FindSafeInPocket(
         GameLocation forest,
         Point center,
         Point farmWarp,
-        int radius,
         int width,
         int height
     )
     {
-        for (int ring = 0; ring <= radius; ring++)
+        for (int ring = 0; ring <= LocalSearchRadius; ring++)
         {
             for (int y = center.Y - ring; y <= center.Y + ring; y++)
             {
@@ -247,90 +178,57 @@ internal static class AirshipGateRelocationPatch
                 {
                     if (Math.Max(Math.Abs(x - center.X), Math.Abs(y - center.Y)) != ring)
                         continue;
-
                     Point candidate = ClampInsideMap(new Point(x, y), width, height);
-                    if (IsDockFootprintSafe(forest, candidate, farmWarp, width, height))
+                    if (IsFootprintSafe(forest, candidate, farmWarp, width, height))
                         return candidate;
                 }
             }
         }
-
         return null;
     }
 
-    private static bool IsDockFootprintSafe(
-        GameLocation location,
-        Point anchor,
-        Point farmWarp,
-        int width,
-        int height
-    )
+    private static bool IsFootprintSafe(GameLocation location, Point anchor, Point farmWarp, int width, int height)
     {
         Point[] footprint =
         {
-            new(anchor.X - 1, anchor.Y),
-            anchor,
-            new(anchor.X + 1, anchor.Y),
-            new(anchor.X - 1, anchor.Y + 1),
-            new(anchor.X, anchor.Y + 1),
-            new(anchor.X + 1, anchor.Y + 1),
-            new(anchor.X - 1, anchor.Y + 2),
-            new(anchor.X, anchor.Y + 2),
-            new(anchor.X + 1, anchor.Y + 2),
+            new(anchor.X - 1, anchor.Y), anchor, new(anchor.X + 1, anchor.Y),
+            new(anchor.X - 1, anchor.Y + 1), new(anchor.X, anchor.Y + 1), new(anchor.X + 1, anchor.Y + 1),
+            new(anchor.X - 1, anchor.Y + 2), new(anchor.X, anchor.Y + 2), new(anchor.X + 1, anchor.Y + 2),
         };
+        if (footprint.Any(p => !IsTileClear(location, p, farmWarp, width, height)))
+            return false;
 
-        foreach (Point tile in footprint)
-        {
-            if (!IsMapTileClear(location, tile, farmWarp, width, height))
-                return false;
-        }
-
-        // A clear visual footprint is not enough if the player still cannot stand in front of it.
-        // Require at least one clear approach tile immediately below the 3x3 gate footprint.
+        // Action-driven portal: player must have a clean approach strip below it.
         Point[] approach =
         {
             new(anchor.X - 1, anchor.Y + 3),
             new(anchor.X, anchor.Y + 3),
             new(anchor.X + 1, anchor.Y + 3),
         };
-        return approach.Any(tile => IsMapTileClear(location, tile, farmWarp, width, height));
+        return approach.Any(p => IsTileClear(location, p, farmWarp, width, height));
     }
 
-    private static bool IsMapTileClear(
-        GameLocation location,
-        Point tilePoint,
-        Point farmWarp,
-        int width,
-        int height
-    )
+    private static bool IsTileClear(GameLocation location, Point p, Point farmWarp, int width, int height)
     {
-        if (tilePoint.X < 1 || tilePoint.Y < 1 || tilePoint.X >= width - 1 || tilePoint.Y >= height - 1)
+        if (p.X < 1 || p.Y < 1 || p.X >= width - 1 || p.Y >= height - 1)
             return false;
-
-        if (Math.Abs(tilePoint.X - farmWarp.X) <= 3 && Math.Abs(tilePoint.Y - farmWarp.Y) <= 3)
+        if (Math.Abs(p.X - farmWarp.X) <= 3 && Math.Abs(p.Y - farmWarp.Y) <= 3)
             return false;
 
         try
         {
-            // Static fences, trunks, buildings and canopy from map overhauls may exist only on these
-            // map layers. Reject them as placement geometry, then relocate elsewhere if the zone fails.
             var buildings = location.Map?.GetLayer("Buildings");
             var front = location.Map?.GetLayer("Front");
-            if (buildings?.Tiles[tilePoint.X, tilePoint.Y] is not null
-                || front?.Tiles[tilePoint.X, tilePoint.Y] is not null)
-            {
+            if (buildings?.Tiles[p.X, p.Y] is not null || front?.Tiles[p.X, p.Y] is not null)
                 return false;
-            }
 
-            Vector2 tile = new(tilePoint.X, tilePoint.Y);
+            Vector2 tile = new(p.X, p.Y);
             if (location.IsTileBlockedBy(tile)
                 || location.Objects.ContainsKey(tile)
                 || location.terrainFeatures.ContainsKey(tile))
-            {
                 return false;
-            }
 
-            Rectangle tileBounds = new(tilePoint.X * 64, tilePoint.Y * 64, 64, 64);
+            Rectangle tileBounds = new(p.X * 64, p.Y * 64, 64, 64);
             foreach (var feature in location.largeTerrainFeatures)
             {
                 if (feature.getBoundingBox().Intersects(tileBounds))
@@ -346,15 +244,11 @@ internal static class AirshipGateRelocationPatch
         {
             foreach (Warp warp in location.warps)
             {
-                if (Math.Abs(warp.X - tilePoint.X) <= 2 && Math.Abs(warp.Y - tilePoint.Y) <= 2)
+                if (Math.Abs(warp.X - p.X) <= 2 && Math.Abs(warp.Y - p.Y) <= 2)
                     return false;
             }
         }
-        catch
-        {
-            // Hidden warp metadata should not by itself make a visually clear sector unusable.
-        }
-
+        catch { }
         return true;
     }
 
@@ -363,11 +257,4 @@ internal static class AirshipGateRelocationPatch
             Math.Clamp(point.X, 2, Math.Max(2, width - 3)),
             Math.Clamp(point.Y, 2, Math.Max(2, height - 5))
         );
-
-    private static int TileDistanceSquared(Point a, Point b)
-    {
-        int dx = a.X - b.X;
-        int dy = a.Y - b.Y;
-        return (dx * dx) + (dy * dy);
-    }
 }

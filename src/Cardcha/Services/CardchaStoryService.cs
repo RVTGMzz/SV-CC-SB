@@ -159,6 +159,11 @@ internal sealed class CardchaStoryService
             return;
         }
 
+        // Cardcha may bypass the vanilla Wizard lock only on MiMi's explicitly offered
+        // appointment day. Merely finding/picking a Scrap never satisfies this gate.
+        if (this.Save.Data.MimiMeetupOfferedDay != Game1.Date.TotalDays)
+            return;
+
         GameLocation? location = Game1.currentLocation;
         if (location is null
             || location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
@@ -458,6 +463,11 @@ internal sealed class CardchaStoryService
             return;
 
         if (!this.Progression.ShouldStartMimiMeetup())
+            return;
+
+        // A stale pending quest must not turn WizardHouse into an evergreen Cardcha bypass.
+        // The missed-appointment fallback remains the separate forced doorstep handoff.
+        if (this.Save.Data.MimiMeetupOfferedDay != Game1.Date.TotalDays)
             return;
 
         if (Game1.currentLocation?.NameOrUniqueName.Equals(

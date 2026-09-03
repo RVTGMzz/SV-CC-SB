@@ -105,16 +105,10 @@ internal sealed class ChaChaBossFormService
         if (!Context.IsWorldReady || !this.IsReady || !this.CanAcceptActivationInput())
             return;
 
+        // .5.6.1: the persistent ChaCha Energy panel was removed from gameplay HUD.
+        // Do not leave its former rectangle as an invisible mouse activation hotspot.
         if (e.Button == SButton.MouseLeft)
-        {
-            Vector2 cursor = this.Helper.Input.GetCursorPosition().ScreenPixels;
-            if (this.GetEnergyHudRect().Contains((int)cursor.X, (int)cursor.Y))
-            {
-                this.Helper.Input.Suppress(e.Button);
-                this.TryActivate("ChaCha Energy HUD click");
-            }
             return;
-        }
 
         SButton confirm = this.Controller.GetButton(ControllerAction.Confirm);
         SButton deselect = this.Controller.GetButton(ControllerAction.Deselect);
@@ -147,77 +141,9 @@ internal sealed class ChaChaBossFormService
 
     public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
     {
-        if (!Context.IsWorldReady || !this.Save.Data.ChaChaLoaned || Game1.activeClickableMenu is not null)
-            return;
-
-        Rectangle rect = this.GetEnergyHudRect();
-        long now = Environment.TickCount64;
-        float pulse = 0.5f + 0.5f * (float)Math.Sin(now / 135d);
-
-        Color stageColor = this.GetStageColor(this.EnergyAuraStage);
-        Color panel = new Color(36, 31, 48) * 0.91f;
-        Color border = this.IsReady
-            ? Color.Lerp(new Color(220, 55, 48), Color.White, pulse * 0.55f)
-            : this.IsActive
-                ? new Color(235, 80, 66)
-                : stageColor * 0.92f;
-
-        e.SpriteBatch.Draw(Game1.staminaRect, rect, panel);
-        DrawBorder(e.SpriteBatch, rect, border, this.IsReady ? 3 : 2);
-
-        string title = this.IsActive
-            ? ModEntry.T("chacha.boss.active")
-            : ModEntry.T("chacha.energy.label");
-        string value = this.IsActive
-            ? $"{this.SecondsRemaining:0.0}s"
-            : $"{this.BossEnergy.CurrentEnergy:0.#}/{BossEnergyService.MaxEnergy:0}";
-
-        e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(rect.X + 12, rect.Y + 7), Color.White, 0f, Vector2.Zero, 0.76f, SpriteEffects.None, 1f);
-        Vector2 valueSize = Game1.smallFont.MeasureString(value) * 0.76f;
-        e.SpriteBatch.DrawString(Game1.smallFont, value, new Vector2(rect.Right - 12 - valueSize.X, rect.Y + 7), Color.White, 0f, Vector2.Zero, 0.76f, SpriteEffects.None, 1f);
-
-        Rectangle track = new(rect.X + 12, rect.Y + 29, rect.Width - 24, 12);
-        e.SpriteBatch.Draw(Game1.staminaRect, track, new Color(16, 14, 21) * 0.96f);
-        double ratio = this.IsActive
-            ? Math.Clamp(this.SecondsRemaining / (BossFormDurationMs / 1000d), 0d, 1d)
-            : Math.Clamp(this.BossEnergy.CurrentEnergy / BossEnergyService.MaxEnergy, 0d, 1d);
-        int fillWidth = Math.Clamp((int)Math.Round(track.Width * ratio), 0, track.Width);
-        if (fillWidth > 0)
-        {
-            Color fill = this.IsReady
-                ? stageColor * (0.76f + pulse * 0.24f)
-                : stageColor;
-            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(track.X, track.Y, fillWidth, track.Height), fill);
-        }
-
-        string detail;
-        if (this.IsActive)
-        {
-            detail = ModEntry.T("chacha.boss.timer", new { seconds = this.SecondsRemaining.ToString("0.0") });
-        }
-        else if (this.IsReady)
-        {
-            string chord = $"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)}";
-            detail = ModEntry.T("chacha.boss.hint.combo", new { controller = chord });
-        }
-        else
-        {
-            detail = ModEntry.T("chacha.energy.charging");
-        }
-
-        Vector2 detailSize = Game1.smallFont.MeasureString(detail);
-        float detailScale = Math.Min(0.61f, (rect.Width - 24f) / Math.Max(1f, detailSize.X));
-        e.SpriteBatch.DrawString(
-            Game1.smallFont,
-            detail,
-            new Vector2(rect.Center.X - detailSize.X * detailScale / 2f, rect.Bottom - 17),
-            this.IsReady ? Color.White : new Color(220, 213, 230),
-            0f,
-            Vector2.Zero,
-            detailScale,
-            SpriteEffects.None,
-            1f
-        );
+        // .5.6.1: user-approved HUD cleanup. Boss Energy continues charging internally and
+        // READY still announces through sound/ChaCha emote; activation remains controller chord
+        // or Left Shift+A. The old always-on rectangular meter is intentionally not drawn.
     }
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)

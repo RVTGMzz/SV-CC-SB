@@ -819,7 +819,7 @@
   "airship.region1.boss.staging": "REGION I BOSS STAGING // The gate recognizes your Binder. Boss I arrives in the next combat build; return through the gate for now.",
   "reveal.max-dust": "+{{dust}} Magic Dust",
   "reveal.level-copy": "Duplicate copy +1",
-  "airship.arcane.route_console": "The Arcane Route Console hums softly. Region I is synchronized. Board the Airship through the violet gate to depart. Cards attuned: {{cards}}.",
+  "airship.arcane.route_console": "Route Status Board: {{cards}} Cardcha cards registered. This board only shows route readiness; use the helm inside the Airship Bridge to depart.",
   "airship.arcane.bridge.unavailable": "The boarding gate flickers, but the Airship Bridge cannot stabilize right now.",
   "airship.arcane.bridge.entered": "The violet gate folds around you. The Airship Bridge comes into focus.",
   "airship.arcane.dock.returned": "The Bridge gate returns you to MiMi's Arcane Dock.",
@@ -913,5 +913,6 @@
   "resonance.support.rescue.title": "Damage Rescue",
   "resonance.support.rescue.body": "Every damaging hit rolls {{lucky}}% Lucky Cast. Crossing from above 30% HP to 30% or lower guarantees one Emergency Cast. Both ignore cooldown.",
   "resonance.support.modules.title": "One Cast • Growing Modules",
-  "resonance.support.modules.body": "{{learned}}/4 Region modules learned. Aegis: shield 20s. Spirit Aid: 30% stamina proc. Lucky Echo: 50% chance for +1 Luck for 10s. No separate cooldowns."
+  "resonance.support.modules.body": "{{learned}}/4 Region modules learned. Aegis: shield 20s. Spirit Aid: 30% stamina proc. Lucky Echo: 50% chance for +1 Luck for 10s. No separate cooldowns.",
+  "airship.arcane.route_board.label": "ROUTE STATUS"
 }

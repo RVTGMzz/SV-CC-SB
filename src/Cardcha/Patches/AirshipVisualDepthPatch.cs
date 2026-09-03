@@ -187,81 +187,52 @@ internal static class AirshipVisualDepthPatch
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
-        Point bay = new(Math.Clamp(width - 6, 4, width - 3), Math.Clamp(7, 3, height - 5));
-        Point arrival = FindSimpleClear(interior, new Point(width / 2, Math.Max(2, height - 4)));
+        float phase = (float)(Environment.TickCount64 / 980.0);
+        Color outline = new Color(45, 29, 31) * 0.96f;
+        Color wood = new Color(119, 73, 47) * 0.92f;
+        Color brass = new Color(195, 132, 62) * 0.90f;
+        Color cyan = new Color(88, 211, 230) * 0.34f;
+        Color violet = new Color(163, 98, 220) * 0.30f;
 
-        Vector2 skyOrigin = Game1.GlobalToLocal(Game1.viewport, new Vector2((bay.X - 5) * 64f, (bay.Y - 5) * 64f));
-        Rectangle sky = new((int)skyOrigin.X, (int)skyOrigin.Y, 8 * 64, 6 * 64);
-        Vector2 bayCenter = Game1.GlobalToLocal(Game1.viewport, new Vector2(bay.X * 64f + 32f, bay.Y * 64f + 36f));
-        Vector2 arrivalCenter = Game1.GlobalToLocal(Game1.viewport, new Vector2(arrival.X * 64f + 32f, arrival.Y * 64f + 40f));
+        // Side-wall service props fill the formerly empty room but deliberately stay out of
+        // the center boarding lane, so a post-world overlay never slices across the farmer.
+        Vector2 left = Game1.GlobalToLocal(Game1.viewport, new Vector2(3.2f * 64f, (height - 4.0f) * 64f));
+        Vector2 leftBack = Game1.GlobalToLocal(Game1.viewport, new Vector2(4.4f * 64f, (height - 6.1f) * 64f));
+        Vector2 right = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 3.4f) * 64f, (height - 4.0f) * 64f));
+        DrawDockCrate(batch, left, outline, wood, brass);
+        DrawDockCrate(batch, leftBack, outline, wood * 0.88f, brass * 0.82f);
+        DrawDockCrate(batch, right, outline, wood, brass);
 
-        Color ropeShadow = new Color(29, 21, 24) * 0.66f;
-        Color rope = new Color(147, 99, 54) * 0.58f;
-        Color brass = new Color(204, 145, 72) * 0.70f;
-        Color cyan = new Color(92, 222, 244) * 0.38f;
-
-        // Two mooring cables cross in front of the exterior ship. This is the missing foreground
-        // layer that makes the ship feel physically attached to the Dock rather than floating in a window.
-        Vector2 leftTop = new(sky.X + sky.Width * 0.56f, sky.Y + 24f);
-        Vector2 rightTop = new(sky.X + sky.Width * 0.90f, sky.Y + 42f);
-        Vector2 leftAnchor = bayCenter + new Vector2(-82f, 83f);
-        Vector2 rightAnchor = bayCenter + new Vector2(72f, 86f);
-        DrawLine(batch, leftTop, leftAnchor, 5f, ropeShadow);
-        DrawLine(batch, leftTop, leftAnchor, 2f, rope);
-        DrawLine(batch, rightTop, rightAnchor, 5f, ropeShadow);
-        DrawLine(batch, rightTop, rightAnchor, 2f, rope);
-
-        // Gangplank gets a lower shadow, two perspective rails and small lamp glows. The center stays
-        // open so the player remains readable and the existing auto-transition tile stays untouched.
-        Vector2 plankStart = arrivalCenter + new Vector2(58f, 18f);
-        Vector2 plankEnd = bayCenter + new Vector2(-10f, 58f);
-        DrawLine(batch, plankStart + new Vector2(0f, 12f), plankEnd + new Vector2(0f, 12f), 22f, new Color(31, 24, 25) * 0.30f);
-        DrawLine(batch, plankStart + new Vector2(0f, -16f), plankEnd + new Vector2(0f, -16f), 4f, brass * 0.74f);
-        DrawLine(batch, plankStart + new Vector2(0f, 24f), plankEnd + new Vector2(0f, 24f), 4f, brass * 0.70f);
-        DrawSoftGlow(batch, plankStart + new Vector2(16f, -18f), 14, 7, cyan);
-        DrawSoftGlow(batch, plankEnd + new Vector2(-12f, 22f), 14, 7, cyan * 0.82f);
+        Vector2 lampLeft = Game1.GlobalToLocal(Game1.viewport, new Vector2(2.4f * 64f, (height - 7.0f) * 64f));
+        Vector2 lampRight = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 2.4f) * 64f, (height - 7.0f) * 64f));
+        DrawServiceLamp(batch, lampLeft, phase, outline, brass, violet);
+        DrawServiceLamp(batch, lampRight, -phase, outline, brass, cyan);
     }
 
     private static void AfterBridge(SpriteBatch batch, GameLocation deck)
     {
-        int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
-        int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
-        Color frameDark = new Color(38, 29, 38) * 0.83f;
-        Color brass = new Color(176, 112, 57) * 0.62f;
-        Color violet = new Color(158, 92, 218) * 0.22f;
-        Color cyan = new Color(84, 210, 235) * 0.24f;
+        // .5.6.1: intentionally no post-world foreground ribs, rails or hanging cables.
+        // Those lines looked like transparent UI drawn over the farmer. Structural depth now
+        // comes from the map/window/station masses while the playable center remains clean.
+    }
 
-        // Side ribs are foreground architecture. They intentionally stop before the center lane.
-        float yTopWorld = 1.0f * 64f;
-        float yBottomWorld = Math.Max(8f, height - 2.2f) * 64f;
-        float[] leftXs = { 1.7f, 3.2f, 4.7f };
-        float[] rightXs = { width - 2.7f, width - 4.2f, width - 5.7f };
-        foreach (float x in leftXs.Concat(rightXs))
-        {
-            Vector2 top = Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64f, yTopWorld));
-            Vector2 bottom = Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64f, yBottomWorld));
-            DrawLine(batch, top, bottom, 12f, frameDark);
-            DrawLine(batch, top + new Vector2(3f, 0f), bottom + new Vector2(3f, 0f), 3f, brass);
-        }
+    private static void DrawDockCrate(SpriteBatch batch, Vector2 p, Color outline, Color wood, Color brass)
+    {
+        Rectangle outer = new((int)p.X - 34, (int)p.Y - 34, 68, 52);
+        DrawRect(batch, outer, outline);
+        DrawRect(batch, new Rectangle(outer.X + 4, outer.Y + 4, outer.Width - 8, outer.Height - 8), wood);
+        DrawRect(batch, new Rectangle(outer.X + 9, outer.Y + 9, outer.Width - 18, 5), brass * 0.72f);
+        DrawLine(batch, new Vector2(outer.X + 8, outer.Bottom - 8), new Vector2(outer.Right - 8, outer.Y + 8), 3f, outline * 0.68f);
+        DrawLine(batch, new Vector2(outer.Right - 8, outer.Bottom - 8), new Vector2(outer.X + 8, outer.Y + 8), 3f, outline * 0.68f);
+    }
 
-        // Foreground side rails, leaving the boarding/helm center completely open.
-        float railY = Math.Max(8f, height - 2.15f) * 64f;
-        Vector2 leftA = Game1.GlobalToLocal(Game1.viewport, new Vector2(1.5f * 64f, railY));
-        Vector2 leftB = Game1.GlobalToLocal(Game1.viewport, new Vector2(7.1f * 64f, railY));
-        Vector2 rightA = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 7.1f) * 64f, railY));
-        Vector2 rightB = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 1.5f) * 64f, railY));
-        DrawRail(batch, leftA, leftB, frameDark, brass, violet);
-        DrawRail(batch, rightA, rightB, frameDark, brass, cyan);
-
-        // A pair of hanging cables frames the helm without cluttering the playable center.
-        Vector2 cableLeftTop = Game1.GlobalToLocal(Game1.viewport, new Vector2(6.3f * 64f, 1.1f * 64f));
-        Vector2 cableLeftBottom = Game1.GlobalToLocal(Game1.viewport, new Vector2(7.0f * 64f, 5.0f * 64f));
-        Vector2 cableRightTop = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 6.3f) * 64f, 1.1f * 64f));
-        Vector2 cableRightBottom = Game1.GlobalToLocal(Game1.viewport, new Vector2((width - 7.0f) * 64f, 5.0f * 64f));
-        DrawLine(batch, cableLeftTop, cableLeftBottom, 4f, frameDark * 0.86f);
-        DrawLine(batch, cableLeftTop, cableLeftBottom, 1f, brass * 0.58f);
-        DrawLine(batch, cableRightTop, cableRightBottom, 4f, frameDark * 0.86f);
-        DrawLine(batch, cableRightTop, cableRightBottom, 1f, brass * 0.58f);
+    private static void DrawServiceLamp(SpriteBatch batch, Vector2 p, float phase, Color outline, Color brass, Color glow)
+    {
+        DrawRect(batch, new Rectangle((int)p.X - 5, (int)p.Y - 52, 10, 52), outline);
+        DrawRect(batch, new Rectangle((int)p.X - 2, (int)p.Y - 49, 4, 49), brass);
+        DrawRect(batch, new Rectangle((int)p.X - 13, (int)p.Y - 68, 26, 18), outline);
+        float pulse = 0.58f + 0.14f * MathF.Sin(phase * 2.2f);
+        DrawRect(batch, new Rectangle((int)p.X - 8, (int)p.Y - 64, 16, 10), glow * pulse);
     }
 
     private static Texture2D? GetAirshipTexture()

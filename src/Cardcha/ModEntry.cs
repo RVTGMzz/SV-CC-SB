@@ -277,7 +277,7 @@ internal sealed class ModEntry : Mod
         MimiProfileMenuPatch.Apply(harmony);
 
         this.Monitor.Log(
-            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.5 REAL LAYERED AIRSHIP ASSETS TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.6.1 READABILITY + PROGRESSION + MIMI STYLE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
