@@ -33,6 +33,7 @@ internal sealed class AirshipFoundationService
     private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
     private const string Region1MapPath = "assets/region1_hunting.tmx";
     private const string AirshipVisualPath = "assets/airship_visual.png";
+    private const string AirshipUpgradeVisualPath = "assets/airship_upgrade_visuals.png";
     private const string Region1MonsterMarkerKey = "Ronvotri.Cardcha/Region1Spawn";
     private const int Region1GateCardRequirement = 20;
     private const int Region1Fare = 100;
@@ -77,6 +78,8 @@ internal sealed class AirshipFoundationService
     private Point? CachedForestFarmWarpTile;
     private long WarpGraceUntilMs;
     private Texture2D? AirshipVisual;
+    private Texture2D? AirshipUpgradeVisuals;
+    private bool AirshipUpgradeVisualsLoadFailed;
     private bool AirshipVisualLoadFailed;
     private bool LoggedAirshipVisualFailure;
 
@@ -1634,6 +1637,29 @@ internal sealed class AirshipFoundationService
         );
     }
 
+    private Texture2D? GetAirshipUpgradeVisuals()
+    {
+        if (this.AirshipUpgradeVisuals is not null)
+            return this.AirshipUpgradeVisuals;
+        if (this.AirshipUpgradeVisualsLoadFailed)
+            return null;
+
+        try
+        {
+            this.AirshipUpgradeVisuals = this.Helper.ModContent.Load<Texture2D>(AirshipUpgradeVisualPath);
+            return this.AirshipUpgradeVisuals;
+        }
+        catch (Exception ex)
+        {
+            this.AirshipUpgradeVisualsLoadFailed = true;
+            this.Monitor.Log(
+                $"Couldn't load Airship interior upgrade visuals; procedural sockets remain active. {ex.GetType().Name}: {ex.Message}",
+                LogLevel.Warn
+            );
+            return null;
+        }
+    }
+
     private Texture2D? GetAirshipVisual()
     {
         if (this.AirshipVisual is not null)
@@ -1776,10 +1802,12 @@ internal sealed class AirshipFoundationService
         DrawCardchaBanner(batch, leftBanner, gold, violet);
         DrawCardchaBanner(batch, rightBanner, gold, violet);
 
+        DrawUpgradeConduitNetwork(batch, helmCenter, phase, gold);
+
         foreach ((AirshipUpgradeSystem system, Point socket) in ResolveDeckUpgradeSockets())
         {
             Vector2 s = Game1.GlobalToLocal(Game1.viewport, new Vector2(socket.X * 64f + 32f, socket.Y * 64f + 38f));
-            DrawUpgradeSocket(batch, s, system, this.GetAirshipUpgradeLevel(system), phase, gold);
+            this.DrawUpgradeSocket(batch, s, system, this.GetAirshipUpgradeLevel(system), phase, gold);
         }
 
         // Architectural alcove around the existing ChaCha station. The station runtime remains authoritative.
@@ -1910,7 +1938,40 @@ internal sealed class AirshipFoundationService
         batch.DrawString(Game1.smallFont, text, new Vector2(cloth.Center.X - size.X * 0.36f, cloth.Y + 61f), gold * 0.84f, 0f, Vector2.Zero, 0.72f, SpriteEffects.None, 1f);
     }
 
-    private static void DrawUpgradeSocket(
+    private static void DrawUpgradeConduitNetwork(SpriteBatch batch, Vector2 helmCenter, float phase, Color gold)
+    {
+        // Four independent infrastructure feeds converge beneath the central navigation dais.
+        // These are visual-only conduits: no gameplay bonus is enabled by this pass.
+        (Vector2 Offset, Color Color)[] feeds =
+        {
+            (new Vector2(-448f, 300f), new Color(247, 179, 82)),
+            (new Vector2(384f, 300f), new Color(92, 207, 232)),
+            (new Vector2(-256f, 364f), new Color(127, 151, 220)),
+            (new Vector2(192f, 364f), new Color(205, 113, 232)),
+        };
+
+        foreach ((Vector2 offset, Color color) in feeds)
+        {
+            Vector2 start = helmCenter + offset;
+            Vector2 elbow = new(start.X, helmCenter.Y + 122f);
+            Vector2 end = new(helmCenter.X, helmCenter.Y + 122f);
+            DrawLine(batch, start, elbow, 7f, new Color(41, 31, 42) * 0.80f);
+            DrawLine(batch, elbow, end, 7f, new Color(41, 31, 42) * 0.80f);
+            DrawLine(batch, start, elbow, 3f, color * 0.50f);
+            DrawLine(batch, elbow, end, 3f, color * 0.50f);
+
+            for (int i = 0; i < 4; i++)
+            {
+                float t = (phase * 0.045f + i * 0.25f) % 1f;
+                Vector2 p = Vector2.Lerp(elbow, end, t);
+                DrawDiamondRune(batch, p, 5f, color * 0.46f);
+            }
+        }
+
+        DrawArcaneSigil(batch, new Vector2(helmCenter.X, helmCenter.Y + 122f), 34f, gold * 0.34f, -phase * 0.16f);
+    }
+
+    private void DrawUpgradeSocket(
         SpriteBatch batch,
         Vector2 center,
         AirshipUpgradeSystem system,
@@ -1927,14 +1988,34 @@ internal sealed class AirshipFoundationService
             AirshipUpgradeSystem.Reactor => new Color(205, 113, 232),
             _ => new Color(180, 160, 200),
         };
-        float active = level <= 0 ? 0.28f : 0.48f + level * 0.13f;
+        Texture2D? visual = this.GetAirshipUpgradeVisuals();
+        if (visual is not null)
+        {
+            const int cell = 96;
+            Rectangle source = new((int)system * cell, level * cell, cell, cell);
+            Vector2 origin = new(cell / 2f, 72f);
+            float bob = level <= 0 ? 0f : MathF.Sin(phase * (0.9f + level * 0.08f) + (int)system) * 1.5f;
+            batch.Draw(
+                visual,
+                center + new Vector2(0f, 10f + bob),
+                source,
+                Color.White * (level <= 0 ? 0.76f : 0.96f),
+                0f,
+                origin,
+                1f,
+                SpriteEffects.None,
+                1f
+            );
+        }
+
+        float active = level <= 0 ? 0.18f : 0.34f + level * 0.10f;
         DrawArcaneSigil(batch, center, 28f + level * 3f, systemColor * active, phase * (0.22f + level * 0.09f));
         DrawCrystalPylon(
             batch,
             new Vector2(center.X, center.Y + 18f),
-            24f + level * 5f,
-            systemColor * (0.54f + level * 0.12f),
-            gold * (0.34f + level * 0.14f)
+            14f + level * 3f,
+            systemColor * (0.34f + level * 0.10f),
+            gold * (0.24f + level * 0.10f)
         );
         for (int pip = 0; pip < AirshipUpgradeMenu.MaxLevel; pip++)
         {
