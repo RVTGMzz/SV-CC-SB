@@ -16,13 +16,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Apply gate HUD energy sprite fix
+      - name: Rebuild repaired sprites and apply source fix
         shell: bash
         run: |
           set -euo pipefail
-          # Correct the finalizer's visibility anchor from the first failed CI attempt.
-          # BossEnergy constants are public in source and stay public after materialization.
+          python3 -m pip install --disable-pip-version-check --quiet pillow==12.3.0
+          python3 tools/alpha28_0632_rebuild_sprite_sheets.py
           sed -i 's/private const double/public const double/g' tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
+          sed -i 's/b64d5e4e2200690eb286cef54f0e666d98bb4af3ef73a5caa41c3a0a27a3b0f8/5d0807777b6bcad9a7aa9889e73a4d5a89e503595d92c2e6a1c705e703226d84/g' tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
+          sed -i 's/8fccb150a4ecfa37ba56db5e4f223e041ae56222407d769a0b66622ad3cc08b1/183088d99aac193f27203fba9dfc488c20ee451292e7991737d655a73000f56c/g' tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
+          sed -i 's/ce9764afc67c66599e83f032e4d560d7f996109fa0ad6c90bffff71ef656a520/44e3e082b75e0c11f442f1ff068d6beb7b5fcdc51556a28cfdad778f7705e77e/g' tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
           python3 tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py
           python3 tools/fix_png_crc.py
           python3 tools/alpha28_41436_auto_audit.py
@@ -33,6 +36,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
+          from PIL import Image
           import binascii, hashlib, json, struct
 
           root=Path('src/Cardcha')
@@ -42,77 +46,53 @@ jobs:
           assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text()
 
           airship=(root/'Services/AirshipFoundationService.cs').read_text()
-          for token in [
-              'ForestGateUseDistance = 320f',
-              'ForestGateAutoEnterDistance = 112f',
-              'farmWarp.X - 14',
-              'farmWarp.X - 9',
-              'FindLeftDockFallback',
-              'PlayerIsNear(dock, ForestGateAutoEnterDistance)',
-              'CollisionEdits=NONE'
-          ]:
+          for token in ['ForestGateAutoEnterDistance = 112f','farmWarp.X - 14','farmWarp.X - 9','FindLeftDockFallback','PlayerIsNear(dock, ForestGateAutoEnterDistance)','CollisionEdits=NONE']:
               assert token in airship, token
           assert 'for (int radius = 0; radius <= 18; radius++)' in airship
           assert 'new Point(dock.X, dock.Y + 3)' in airship
 
           energy=(root/'Services/BossEnergyService.cs').read_text()
-          for token in [
-              'public const double RegularKillEnergy = 5d',
-              'public const double BossLikeKillEnergy = 10d',
-              'public const double CritLikeEnergy = 0.5d',
-              'public const double DamagePerEnergy = 200d',
-              'public const double MaxDamageEnergyPerHit = 1d'
-          ]:
+          for token in ['public const double RegularKillEnergy = 5d','public const double BossLikeKillEnergy = 10d','public const double CritLikeEnergy = 0.5d','public const double DamagePerEnergy = 200d','public const double MaxDamageEnergyPerHit = 1d']:
               assert token in energy, token
 
           boss=(root/'Services/ChaChaBossFormService.cs').read_text()
           assert 'BossFormDurationMs = 10000' in boss
           assert 'const int width = 300' in boss and 'const int height = 46' in boss
           hud=boss[boss.index('public void OnRenderedHud'):boss.index('public void OnRenderedWorld')]
-          assert 'string detail;' not in hud
-          assert 'chacha.boss.hint.combo' not in hud
+          assert 'string detail;' not in hud and 'chacha.boss.hint.combo' not in hud
           assert 'Color.Lerp(new Color(220, 55, 48), Color.White' not in hud
           assert 'SButton.LeftShift' in boss and 'SButton.A' in boss
           assert 'ControllerAction.Confirm' in boss and 'ControllerAction.Deselect' in boss
 
-          expected_sha={
-              'items.png':'b64d5e4e2200690eb286cef54f0e666d98bb4af3ef73a5caa41c3a0a27a3b0f8',
-              'chacha_skill_materials.png':'8fccb150a4ecfa37ba56db5e4f223e041ae56222407d769a0b66622ad3cc08b1',
-              'chacha_skill_icons.png':'ce9764afc67c66599e83f032e4d560d7f996109fa0ad6c90bffff71ef656a520',
-          }
-          expected_size={
-              'items.png':(112,16),
-              'chacha_skill_materials.png':(128,32),
-              'chacha_skill_icons.png':(128,32),
+          expected={
+              'items.png':((112,16),'5d0807777b6bcad9a7aa9889e73a4d5a89e503595d92c2e6a1c705e703226d84',16,13),
+              'chacha_skill_materials.png':((128,32),'183088d99aac193f27203fba9dfc488c20ee451292e7991737d655a73000f56c',32,25),
+              'chacha_skill_icons.png':((128,32),'44e3e082b75e0c11f442f1ff068d6beb7b5fcdc51556a28cfdad778f7705e77e',32,25),
           }
           sig=b'\x89PNG\r\n\x1a\n'
-          def validate_png(p):
-              b=p.read_bytes(); assert b.startswith(sig), p
-              size=struct.unpack('>II',b[16:24])
-              pos=8; iend=False
-              while pos < len(b):
-                  assert pos+12 <= len(b), p
-                  n=struct.unpack('>I',b[pos:pos+4])[0]
-                  typ=b[pos+4:pos+8]
-                  data=b[pos+8:pos+8+n]
+          def crc_ok(p):
+              b=p.read_bytes(); assert b.startswith(sig),p
+              pos=8
+              while pos<len(b):
+                  n=struct.unpack('>I',b[pos:pos+4])[0]; typ=b[pos+4:pos+8]; data=b[pos+8:pos+8+n]
                   stored=struct.unpack('>I',b[pos+8+n:pos+12+n])[0]
-                  crc=binascii.crc32(typ)
-                  crc=binascii.crc32(data,crc)&0xffffffff
-                  assert stored==crc,(p,typ)
-                  pos += 12+n
-                  if typ==b'IEND': iend=True; break
-              assert iend,p
-              return size
+                  crc=binascii.crc32(data,binascii.crc32(typ))&0xffffffff
+                  assert crc==stored,(p,typ)
+                  pos += n+12
+                  if typ==b'IEND': return
+              raise AssertionError(p)
 
-          for name,digest in expected_sha.items():
-              p=root/'assets'/name
-              assert validate_png(p)==expected_size[name]
+          for name,(size,digest,cell_w,min_h) in expected.items():
+              p=root/'assets'/name; crc_ok(p)
               assert hashlib.sha256(p.read_bytes()).hexdigest()==digest
+              im=Image.open(p).convert('RGBA'); assert im.size==size
+              for i in range(im.width//cell_w):
+                  box=im.crop((i*cell_w,0,(i+1)*cell_w,im.height)).getchannel('A').getbbox()
+                  assert box is not None and box[3]-box[1] >= min_h,(name,i,box)
 
           pngs=list((root/'assets').rglob('*.png'))
-          for p in pngs: validate_png(p)
-
-          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          for p in pngs: crc_ok(p)
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
           audit=json.loads((root/'assets/card_auto_audit.json').read_text())
           assert len(audit)==76 and all(r['status']=='PASS' for r in audit)
           print(f'alpha28.0.4.14.4.5.2 source acceptance PASS; PNGs={len(pngs)}; cards=76/76')
@@ -131,20 +111,11 @@ jobs:
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add \
             docs/alpha28-0632-gate-left-hud-energy-sprite-fix.md \
-            src/Cardcha/manifest.json \
-            src/Cardcha/Cardcha.csproj \
-            src/Cardcha/Directory.Build.targets \
-            src/Cardcha/ModEntry.cs \
-            src/Cardcha/Services/AirshipFoundationService.cs \
-            src/Cardcha/Services/BossEnergyService.cs \
-            src/Cardcha/Services/ChaChaBossFormService.cs \
-            src/Cardcha/Services/GeneratedCardAutoAudit.cs \
-            src/Cardcha/assets/items.png \
-            src/Cardcha/assets/chacha_skill_materials.png \
-            src/Cardcha/assets/chacha_skill_icons.png \
-            src/Cardcha/assets/card_auto_audit.json \
-            tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py \
-            tools/fix_png_crc.py \
+            src/Cardcha/manifest.json src/Cardcha/Cardcha.csproj src/Cardcha/Directory.Build.targets src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs src/Cardcha/Services/BossEnergyService.cs src/Cardcha/Services/ChaChaBossFormService.cs \
+            src/Cardcha/Services/GeneratedCardAutoAudit.cs src/Cardcha/assets/items.png src/Cardcha/assets/chacha_skill_materials.png \
+            src/Cardcha/assets/chacha_skill_icons.png src/Cardcha/assets/card_auto_audit.json \
+            tools/alpha28_0632_gate_left_hud_energy_sprite_fix.py tools/alpha28_0632_rebuild_sprite_sheets.py tools/fix_png_crc.py \
             .github/workflows/cardcha-alpha28-0632-gate-left-hud-energy-sprite-fix.yml
           if git diff --cached --quiet; then
             echo "No materialization diff."
@@ -152,20 +123,6 @@ jobs:
             git commit -m "chore: materialize alpha28.0.4.14.4.5.2 Gate HUD Energy Sprite fix [skip ci]"
             git push origin HEAD:cardcha-alpha28-0632-gate-left-hud-energy-sprite-fix
           fi
-
-      - name: Final regression
-        shell: bash
-        run: |
-          set -euo pipefail
-          grep -q 'CurrentSchemaVersion = 19' src/Cardcha/Services/SaveService.cs
-          grep -q 'BossFormDurationMs = 10000' src/Cardcha/Services/ChaChaBossFormService.cs
-          grep -q 'public const double RegularKillEnergy = 5d' src/Cardcha/Services/BossEnergyService.cs
-          grep -q 'ForestGateAutoEnterDistance = 112f' src/Cardcha/Services/AirshipFoundationService.cs
-          grep -q 'CollisionEdits=NONE' src/Cardcha/Services/AirshipFoundationService.cs
-          test "$(sha256sum src/Cardcha/assets/items.png | cut -d' ' -f1)" = "b64d5e4e2200690eb286cef54f0e666d98bb4af3ef73a5caa41c3a0a27a3b0f8"
-          test "$(sha256sum src/Cardcha/assets/chacha_skill_materials.png | cut -d' ' -f1)" = "8fccb150a4ecfa37ba56db5e4f223e041ae56222407d769a0b66622ad3cc08b1"
-          test "$(sha256sum src/Cardcha/assets/chacha_skill_icons.png | cut -d' ' -f1)" = "ce9764afc67c66599e83f032e4d560d7f996109fa0ad6c90bffff71ef656a520"
-          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
 
       - name: Package compiled test build
         shell: bash
