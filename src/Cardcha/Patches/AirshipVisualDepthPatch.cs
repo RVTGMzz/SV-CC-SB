@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using HarmonyLib;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -21,16 +22,14 @@ namespace Cardcha.Patches;
 internal static class AirshipVisualDepthPatch
 {
     private const string AirshipVisualPath = "assets/airship_visual.png";
-    private static IModHelper? Helper;
-    private static IMonitor? Monitor;
     private static Texture2D? AirshipTexture;
     private static bool TextureLoadFailed;
     private static bool LoggedApply;
 
-    public static void Apply(Harmony harmony, IModHelper helper, IMonitor monitor)
+    [ModuleInitializer]
+    internal static void Initialize()
     {
-        Helper = helper;
-        Monitor = monitor;
+        Harmony harmony = new("Ronvotri.Cardcha.AirshipVisualDepthPass1");
 
         var spriteMethod = AccessTools.DeclaredMethod(
             typeof(AirshipFoundationService),
@@ -52,30 +51,29 @@ internal static class AirshipVisualDepthPatch
             new[] { typeof(SpriteBatch), typeof(GameLocation) }
         );
 
-        if (spriteMethod is null || skyDockMethod is null || bridgeMethod is null)
+        if (spriteMethod is not null)
         {
-            monitor.Log("Airship Visual Depth pass couldn't resolve one or more render methods; base visual remains active.", LogLevel.Warn);
-            return;
+            harmony.Patch(
+                spriteMethod,
+                prefix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(BeforeAirshipSprite)),
+                postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterAirshipSprite))
+            );
         }
 
-        harmony.Patch(
-            spriteMethod,
-            prefix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(BeforeAirshipSprite)),
-            postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterAirshipSprite))
-        );
-        harmony.Patch(
-            skyDockMethod,
-            postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterSkyDockInterior))
-        );
-        harmony.Patch(
-            bridgeMethod,
-            postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterBridge))
-        );
-
-        if (!LoggedApply)
+        if (skyDockMethod is not null)
         {
-            LoggedApply = true;
-            monitor.Log("Airship Visual Depth Pass 1 active: silhouette depth + foreground rigging + dock mooring + bridge ribs.", LogLevel.Info);
+            harmony.Patch(
+                skyDockMethod,
+                postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterSkyDockInterior))
+            );
+        }
+
+        if (bridgeMethod is not null)
+        {
+            harmony.Patch(
+                bridgeMethod,
+                postfix: new HarmonyMethod(typeof(AirshipVisualDepthPatch), nameof(AfterBridge))
+            );
         }
     }
 
@@ -91,6 +89,8 @@ internal static class AirshipVisualDepthPatch
         Texture2D? sprite = GetAirshipTexture();
         if (sprite is null || targetWidth <= 0f)
             return;
+
+        LogAppliedOnce();
 
         float scale = targetWidth / sprite.Width;
         Vector2 origin = new(sprite.Width / 2f, sprite.Height / 2f);
@@ -262,20 +262,31 @@ internal static class AirshipVisualDepthPatch
     {
         if (AirshipTexture is not null)
             return AirshipTexture;
-        if (TextureLoadFailed || Helper is null)
+        if (TextureLoadFailed || ModEntry.StaticHelper is null)
             return null;
 
         try
         {
-            AirshipTexture = Helper.ModContent.Load<Texture2D>(AirshipVisualPath);
+            AirshipTexture = ModEntry.StaticHelper.ModContent.Load<Texture2D>(AirshipVisualPath);
             return AirshipTexture;
         }
         catch (Exception ex)
         {
             TextureLoadFailed = true;
-            Monitor?.Log($"Airship Visual Depth couldn't load locked exterior texture: {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"Airship Visual Depth couldn't load locked exterior texture: {ex.Message}", LogLevel.Warn);
             return null;
         }
+    }
+
+    private static void LogAppliedOnce()
+    {
+        if (LoggedApply)
+            return;
+        LoggedApply = true;
+        ModEntry.StaticMonitor?.Log(
+            "Airship Visual Depth Pass 1 active: rear silhouette + foreground rigging + dock mooring + bridge ribs.",
+            LogLevel.Info
+        );
     }
 
     private static Vector2 TransformOffset(Vector2 offset, float rotation, float verticalScale, SpriteEffects effects)
