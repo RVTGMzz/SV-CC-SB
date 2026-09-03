@@ -1,0 +1,63 @@
+name: Cardcha alpha28.0.4.14.4.5.6.1.1 Max All Debug Command
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0639-max-all-debug-command ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate max-all debug contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.6.1.1'
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          patch = (root/'Patches/DebugMaxAllCommandPatch.cs').read_text(encoding='utf-8')
+          assert 'cardcha_max_all' in patch
+          assert 'CardRegistry.TargetBaseSetCount' in patch
+          assert 'ChaChaSkillService.SkillIds' in patch
+          assert 'ChaChaSkillService.MaxSkillLevel' in patch
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text(encoding='utf-8')
+          print('max-all debug acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.6.1.1_MaxAllDebug_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0639-max-all-debug-command
+          path: artifact
+          if-no-files-found: error
