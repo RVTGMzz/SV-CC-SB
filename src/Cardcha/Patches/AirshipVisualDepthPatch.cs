@@ -291,7 +291,7 @@ internal static class AirshipVisualDepthPatch
 
     private static Vector2 TransformOffset(Vector2 offset, float rotation, float verticalScale, SpriteEffects effects)
     {
-        if ((effects & SpriteEffects.FlipHorizontally) != 0)
+        if ((effects & SpriteEffects.FlipHorizontally) != SpriteEffects.None)
             offset.X = -offset.X;
         offset.Y *= Math.Max(0.01f, verticalScale);
         float cos = MathF.Cos(rotation);
