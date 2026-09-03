@@ -1,0 +1,66 @@
+name: Cardcha alpha28.0.4.14.4.5.1 ChaCha Assets Binary Fix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0632-assets-fix-clean ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate real PNG streams
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_png_streams.py src/Cardcha/assets
+
+      - name: Acceptance guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+
+          root = Path('src/Cardcha')
+          assert json.loads((root/'manifest.json').read_text())['Version'] == '0.3.0-alpha.28.0.4.14.4.5.1'
+          expected = {
+              'items.png': 'd48b68cb7eaed0e07d88957225a066b168b422c0ef6b613d6af47343b99c5acb',
+              'chacha_skill_icons.png': '45dfd6b14d62492c6abdfb69a40f9186a71ed38595f0ba52122371368c5f0c09',
+              'chacha_skill_materials.png': 'cb65a8b472584eb9ecb1e7ba2fce2ec77f8b3fa6e2e5fbe39578f93b05dec9dd',
+              'mimi_attic_props.png': '97496684f2c775ca157bd7ab2c309d63859e466843c4fffae015bd38d25b481f',
+          }
+          for name, want in expected.items():
+              got = hashlib.sha256((root/'assets'/name).read_bytes()).hexdigest()
+              assert got == want, (name, got, want)
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text())
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+          print('ChaCha binary asset acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          python3 tools/validate_png_streams.py stage/Cardcha/assets
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.1_ChaChaAssetsBinaryFix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0632-chacha-assets-binary-fix
+          path: artifact
+          if-no-files-found: error
