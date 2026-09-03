@@ -1,0 +1,92 @@
+name: Cardcha alpha28.0.4.14.4.5.2 ChaCha Assets Rebuild
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0633-chacha-assets-rebuild ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install image validator
+        run: python3 -m pip install --quiet pillow
+
+      - name: Validate rebuilt ChaCha assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.2'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text()
+
+          expected = {
+              'items.png': ('95029fb703777305b097136f6b12c0eae6f021fde6070f03424943463ea3e3e4', (112,16), 16),
+              'chacha_skill_materials.png': ('76261133b2df191f516af74f4e866bddcf171c1a0739e269579994a40b15dfc7', (128,32), 32),
+              'chacha_skill_icons.png': ('d36f5cef2d409a1b3b1c123bb02957131393473cc7e4a4ea1b326514a6cab036', (128,32), 32),
+          }
+          for name,(sha,size,cell) in expected.items():
+              path = root/'assets'/name
+              raw = path.read_bytes()
+              assert hashlib.sha256(raw).hexdigest() == sha, name
+              im = Image.open(path).convert('RGBA')
+              im.load()
+              assert im.size == size, (name, im.size)
+              for i in range(im.width//cell):
+                  bbox = im.crop((i*cell,0,(i+1)*cell,cell)).getchannel('A').getbbox()
+                  assert bbox is not None, (name,i,'empty')
+                  height = bbox[3]-bbox[1]
+                  if name == 'items.png':
+                      assert height >= 9, (name,i,bbox)
+                  else:
+                      assert height >= 20, (name,i,bbox)
+
+          # The three legacy item sprites are restored pixel-for-pixel from the last known-good
+          # alpha28-060 sheet. This guards Cardboard Scrap, Shiny Scrap and Magic Dust from regressions.
+          items = Image.open(root/'assets/items.png').convert('RGBA')
+          legacy = items.crop((0,0,48,16))
+          assert hashlib.sha256(legacy.tobytes()).hexdigest() == 'c44d262f398b78de260fa2ae615f33e38b8ff7c6be5f9ee5382a1a326cf91ab2'
+
+          audit=json.loads((root/'assets/card_auto_audit.json').read_text())
+          assert len(audit)==76 and all(r['status']=='PASS' for r in audit)
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text()
+          print('ChaCha asset rebuild acceptance PASS')
+          PY
+
+          test "$(sha256sum src/Cardcha/assets/airship_visual.png | cut -d' ' -f1)" = "1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          cp "$(find src/Cardcha/bin -name Cardcha.dll -print -quit)" stage/Cardcha/
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -s stage/Cardcha/Cardcha.dll
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.2"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.2_ChaChaAssetsRebuild_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0633-chacha-assets-rebuild
+          path: artifact
+          if-no-files-found: error
