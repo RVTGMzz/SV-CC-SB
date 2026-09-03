@@ -48,6 +48,8 @@ jobs:
                   height = bbox[3]-bbox[1]
                   if name == 'items.png':
                       assert height >= 9, (name,i,bbox)
+                  elif name == 'chacha_skill_materials.png':
+                      assert height >= 18, (name,i,bbox)
                   else:
                       assert height >= 20, (name,i,bbox)
 
