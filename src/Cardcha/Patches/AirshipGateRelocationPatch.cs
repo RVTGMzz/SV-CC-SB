@@ -7,8 +7,8 @@ using StardewValley;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// .5.6.1 canonical Forest Arcane Gate placement.
-/// The gate now belongs to the Wizard-side meadow instead of roaming the Forest. We anchor from
+/// .5.6.1.2 canonical Forest Arcane Gate placement: lower Wizard-side meadow.
+/// The gate now belongs to the lower Wizard-side meadow instead of the blocked upper pocket. We anchor from
 /// the live WizardHouse warp, search only a tiny local pocket, and keep normal 160px interaction.
 /// No Forest collision/path tiles are ever edited.
 /// </summary>
@@ -17,11 +17,12 @@ internal static class AirshipGateRelocationPatch
     private const float LegacyWideGateUseDistance = 320f;
     private const float CanonicalGateUseDistance = 160f;
     private const int LocalSearchRadius = 2;
-    private static readonly Point WizardGateOffset = new(8, -4);
+    private static readonly Point WizardGateOffset = new(-4, 0);
     private static readonly Point[] WizardGateAlternates =
     {
-        new(10, -3),
-        new(7, -2),
+        new(-5, 1),
+        new(-4, 2),
+        new(-6, 0),
     };
 
     private static bool LoggedPlacement;

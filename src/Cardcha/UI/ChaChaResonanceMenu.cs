@@ -18,6 +18,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
     private const int BackId = 100;
     private const int TabBaseId = 200;
     private const int EntryBaseId = 400;
+    // .5.6.1.2 typography pass: all ChaCha Resonance text caps are 1.50x the previous values.
 
     private readonly CardRegistry Cards;
     private readonly SaveService Save;
@@ -417,7 +418,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
         CardchaUi.DrawRoundedPanel(b, this.OuterPanel, deep, frame, thickness: 4, radius: 18);
         CardchaUi.DrawCornerOrnaments(b, this.OuterPanel, frame * 0.72f);
 
-        CardchaUi.DrawButton(b, this.BackButton, ModEntry.T("resonance.back"), new Color(85, 61, 86), enabled: true, textScale: 1.0f);
+        CardchaUi.DrawButton(b, this.BackButton, ModEntry.T("resonance.back"), new Color(85, 61, 86), enabled: true, textScale: 1.5f);
         CardchaUi.DrawScaledText(
             b,
             Game1.dialogueFont,
@@ -427,7 +428,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             centerX: true,
             centerY: true,
             padding: 114,
-            maxScale: 1.08f
+            maxScale: 1.62f
         );
 
         CardchaUi.DrawRoundedPanel(b, this.LeftPanel, new Color(46, 34, 53), pink * 0.82f, thickness: 3, radius: 14);
@@ -437,7 +438,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
         {
             bool active = tab == this.CurrentTab;
             Color fill = active ? new Color(118, 65, 117) : panel;
-            CardchaUi.DrawButton(b, button, this.GetTabLabel(tab), fill, enabled: true, textScale: 0.93f, textPadding: 7);
+            CardchaUi.DrawButton(b, button, this.GetTabLabel(tab), fill, enabled: true, textScale: 1.395f, textPadding: 7);
             if (active)
                 CardchaUi.DrawBorder(b, button.bounds, pink * 0.92f, 2);
         }
@@ -472,21 +473,21 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             centerX: true,
             centerY: true,
             padding: 2,
-            maxScale: 1.08f
+            maxScale: 1.62f
         );
 
         string hint = this.LastInputWasController
             ? ModEntry.T("resonance.hint.controller", new { confirm = this.Controller.GetLabel(ControllerAction.Confirm), exit = this.Controller.GetLabel(ControllerAction.Exit) })
             : ModEntry.T("resonance.hint.keyboard");
         Rectangle hintRect = new(this.OuterPanel.X + 32, this.OuterPanel.Bottom - 36, this.OuterPanel.Width - 64, 24);
-        CardchaUi.DrawScaledText(b, Game1.smallFont, hint, hintRect, Color.White * 0.76f, centerX: true, centerY: true, padding: 1, maxScale: 1.00f);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, hint, hintRect, Color.White * 0.76f, centerX: true, centerY: true, padding: 1, maxScale: 1.5f);
 
         drawMouse(b);
     }
 
     private void DrawChaChaPanel(SpriteBatch b, Color pink)
     {
-        Rectangle title = new(this.LeftPanel.X + 16, this.LeftPanel.Y + 14, this.LeftPanel.Width - 32, 36);
+        Rectangle title = new(this.LeftPanel.X + 16, this.LeftPanel.Y + 12, this.LeftPanel.Width - 32, 44);
         CardchaUi.DrawScaledText(
             b,
             Game1.dialogueFont,
@@ -496,7 +497,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             centerX: true,
             centerY: true,
             padding: 2,
-            maxScale: 0.90f
+            maxScale: 1.35f
         );
 
         // alpha.26.3+: the upper area is a real ChaCha portrait instead of an oversized
@@ -549,13 +550,13 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             );
         }
 
-        Rectangle formLabel = new(this.LeftPanel.X + 18, portrait.Bottom + 7, this.LeftPanel.Width - 36, 24);
-        CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("resonance.current-echo"), formLabel, new Color(226, 202, 229), centerX: true, centerY: true, padding: 2, maxScale: 0.96f);
+        Rectangle formLabel = new(this.LeftPanel.X + 18, portrait.Bottom + 6, this.LeftPanel.Width - 36, 30);
+        CardchaUi.DrawScaledText(b, Game1.smallFont, ModEntry.T("resonance.current-echo"), formLabel, new Color(226, 202, 229), centerX: true, centerY: true, padding: 2, maxScale: 1.44f);
 
-        Rectangle formValue = new(this.LeftPanel.X + 18, formLabel.Bottom + 1, this.LeftPanel.Width - 36, 30);
-        CardchaUi.DrawScaledText(b, Game1.dialogueFont, ModEntry.T("resonance.current-echo.none"), formValue, pink, centerX: true, centerY: true, padding: 2, maxScale: 0.72f);
+        Rectangle formValue = new(this.LeftPanel.X + 18, formLabel.Bottom, this.LeftPanel.Width - 36, 36);
+        CardchaUi.DrawScaledText(b, Game1.dialogueFont, ModEntry.T("resonance.current-echo.none"), formValue, pink, centerX: true, centerY: true, padding: 2, maxScale: 1.08f);
 
-        Rectangle dustInfo = new(this.LeftPanel.X + 18, formValue.Bottom + 2, this.LeftPanel.Width - 36, 25);
+        Rectangle dustInfo = new(this.LeftPanel.X + 18, formValue.Bottom + 1, this.LeftPanel.Width - 36, 30);
         CardchaUi.DrawScaledText(
             b,
             Game1.smallFont,
@@ -565,7 +566,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             centerX: true,
             centerY: true,
             padding: 2,
-            maxScale: 0.94f
+            maxScale: 1.41f
         );
 
         // The lower strip is intentionally roomy, but ChaCha no longer hovers at one fixed
@@ -642,22 +643,22 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
                 centerX: true,
                 centerY: true,
                 padding: 2,
-                maxScale: 0.95f
+                maxScale: 1.425f
             );
 
             int iconSize = Math.Min(88, Math.Max(58, r.Height / 3));
             Rectangle icon = new(r.Center.X - iconSize / 2, r.Y + 52, iconSize, iconSize);
             CardchaUi.DrawRoundedPanel(b, icon, new Color(27, 23, 34), pink * (reached ? 0.55f : 0.25f), thickness: 2, radius: 18);
-            CardchaUi.DrawScaledText(b, Game1.dialogueFont, "???", icon, reached ? pink : Color.White * 0.38f, centerX: true, centerY: true, padding: 8, maxScale: 0.72f);
+            CardchaUi.DrawScaledText(b, Game1.dialogueFont, "???", icon, reached ? pink : Color.White * 0.38f, centerX: true, centerY: true, padding: 8, maxScale: 1.08f);
 
             Rectangle nameRect = new(r.X + 16, icon.Bottom + 10, r.Width - 32, 32);
-            CardchaUi.DrawScaledText(b, Game1.dialogueFont, ModEntry.T("resonance.echo.unknown"), nameRect, Color.White * 0.88f, centerX: true, centerY: true, padding: 3, maxScale: 0.75f);
+            CardchaUi.DrawScaledText(b, Game1.dialogueFont, ModEntry.T("resonance.echo.unknown"), nameRect, Color.White * 0.88f, centerX: true, centerY: true, padding: 3, maxScale: 1.125f);
 
             Rectangle stateRect = new(r.X + 16, r.Bottom - 46, r.Width - 32, 32);
             string state = reached
                 ? ModEntry.T("resonance.echo.awaiting")
                 : ModEntry.T("resonance.echo.locked");
-            CardchaUi.DrawScaledText(b, Game1.smallFont, state, stateRect, reached ? CardchaUi.Gold : Color.White * 0.48f, centerX: true, centerY: true, padding: 3, maxScale: 0.88f);
+            CardchaUi.DrawScaledText(b, Game1.smallFont, state, stateRect, reached ? CardchaUi.Gold : Color.White * 0.48f, centerX: true, centerY: true, padding: 3, maxScale: 1.32f);
         }
     }
 
@@ -699,7 +700,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
                 centerX: true,
                 centerY: true,
                 padding: 2,
-                maxScale: 0.86f
+                maxScale: 1.29f
             );
 
             int emblemSize = Math.Min(82, Math.Max(58, r.Height / 3));
@@ -712,7 +713,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             }
             else
             {
-                CardchaUi.DrawScaledText(b, Game1.dialogueFont, "?", emblem, accent * (found ? 1f : 0.45f), centerX: true, centerY: true, padding: 7, maxScale: 0.8f);
+                CardchaUi.DrawScaledText(b, Game1.dialogueFont, "?", emblem, accent * (found ? 1f : 0.45f), centerX: true, centerY: true, padding: 7, maxScale: 1.2f);
             }
 
             Rectangle nameRect = new(r.X + 14, emblem.Bottom + 7, r.Width - 28, 31);
@@ -725,7 +726,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
                 centerX: true,
                 centerY: true,
                 padding: 2,
-                maxScale: 0.70f
+                maxScale: 1.05f
             );
 
             Rectangle infoRect = new(r.X + 17, nameRect.Bottom + 2, r.Width - 34, 28);
@@ -741,7 +742,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
                 centerX: true,
                 centerY: true,
                 padding: 2,
-                maxScale: 0.80f
+                maxScale: 1.2f
             );
 
             Rectangle bottomRect = new(r.X + 18, r.Bottom - 48, r.Width - 36, 36);
@@ -757,7 +758,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
                 centerX: true,
                 centerY: true,
                 padding: 3,
-                maxScale: 0.76f
+                maxScale: 1.14f
             );
         }
     }
@@ -832,7 +833,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
         CardchaUi.DrawRoundedPanel(b, component.bounds, fill, focused ? Color.White : accent * 0.58f, thickness: focused ? 4 : 2, radius: 13);
 
         Rectangle titleRect = new(component.bounds.X + 18, component.bounds.Y + 12, component.bounds.Width - 36, 32);
-        CardchaUi.DrawScaledText(b, Game1.dialogueFont, title, titleRect, new Color(255, 222, 170), centerX: false, centerY: true, padding: 2, maxScale: 0.72f);
+        CardchaUi.DrawScaledText(b, Game1.dialogueFont, title, titleRect, new Color(255, 222, 170), centerX: false, centerY: true, padding: 2, maxScale: 1.08f);
 
         Rectangle bodyRect = new(component.bounds.X + 20, titleRect.Bottom + 4, component.bounds.Width - 40, component.bounds.Bottom - titleRect.Bottom - 16);
         CardchaUi.DrawAutoFitWrappedText(
@@ -843,7 +844,7 @@ internal sealed class ChaChaResonanceMenu : IClickableMenu
             Color.White * 0.88f,
             maxLines: 4,
             minScale: 0.62f,
-            maxScale: 0.95f
+            maxScale: 1.425f
         );
     }
 
