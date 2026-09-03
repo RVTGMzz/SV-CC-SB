@@ -1,0 +1,161 @@
+name: Cardcha alpha28.0.4.14.4.5.6 Airship Interior Upgrade Visual Pass
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0637-airship-interior-upgrade-visual ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install visual tools
+        shell: bash
+        run: python3 -m pip install --quiet pillow
+
+      - name: Generate .5.6 interior upgrade visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0637_airship_interior_upgrade_visual.py
+
+      - name: Validate .5.6 visual contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json
+
+          root = Path('src/Cardcha')
+          assets = root/'assets'
+          version = '0.3.0-alpha.28.0.4.14.4.5.6'
+          locked_airship = '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version, manifest['Version']
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          # Exterior art stays locked. .5.6 is an interior-only visual milestone.
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest() == locked_airship
+          for name in [
+              'airship_layer_shadow.png', 'airship_layer_balloon.png', 'airship_layer_hull.png',
+              'airship_layer_rigging.png', 'airship_layer_glow.png'
+          ]:
+              assert (assets/name).is_file(), name
+
+          atlas = assets/'airship_upgrade_visuals.png'
+          assert atlas.is_file() and atlas.stat().st_size > 1000
+          with Image.open(atlas) as im:
+              im.load()
+              assert im.mode == 'RGBA', im.mode
+              assert im.size == (384,384), im.size
+              for row in range(4):
+                  for col in range(4):
+                      cell = im.crop((col*96,row*96,(col+1)*96,(row+1)*96))
+                      assert cell.getchannel('A').getbbox() is not None, (row,col)
+
+          service = (root/'Services/AirshipFoundationService.cs').read_text(encoding='utf-8')
+          assert 'AirshipUpgradeVisualPath = "assets/airship_upgrade_visuals.png"' in service
+          assert 'GetAirshipUpgradeVisuals()' in service
+          assert 'DrawUpgradeConduitNetwork(batch, helmCenter' in service
+          assert 'Rectangle source = new((int)system * cell, level * cell, cell, cell);' in service
+          assert 'private void DrawUpgradeSocket(' in service
+
+          # Existing gameplay/persistence contracts stay fixed.
+          assert 'new AirshipUpgradeMenu(this.Save, this.Controller, system)' in service
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+
+          # Decode every PNG to catch the binary corruption class that hit ChaCha assets earlier.
+          pngs = sorted(assets.glob('*.png'))
+          for path in pngs:
+              with Image.open(path) as im:
+                  im.load()
+          print(f'.5.6 visual acceptance PASS | decoded PNGs={len(pngs)}')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.6 generated source and asset
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/assets/airship_upgrade_visuals.png \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            docs/alpha28-0637-airship-interior-upgrade-visual.md \
+            tools/alpha28_0637_airship_interior_upgrade_visual.py \
+            .github/workflows/cardcha-alpha28-0637-airship-interior-upgrade-visual.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized source diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.6 Airship interior upgrade visuals [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0637-airship-interior-upgrade-visual
+          fi
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.6"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.6_AirshipInteriorUpgradeVisual_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from PIL import Image
+          from io import BytesIO
+          from pathlib import Path
+          import json
+
+          z = next(Path('artifact').glob('Cardcha_*.zip'))
+          with ZipFile(z) as f:
+              names = f.namelist()
+              assert 'Cardcha/Cardcha.dll' in names
+              assert 'Cardcha/assets/airship_upgrade_visuals.png' in names
+              manifest = json.loads(f.read('Cardcha/manifest.json'))
+              assert manifest['Version'] == '0.3.0-alpha.28.0.4.14.4.5.6'
+              for name in [n for n in names if n.lower().endswith('.png')]:
+                  im = Image.open(BytesIO(f.read(name)))
+                  im.load()
+          print('Artifact ZIP .5.6 assets + PNG decode PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0637-airship-interior-upgrade-visual
+          path: artifact
+          if-no-files-found: error
