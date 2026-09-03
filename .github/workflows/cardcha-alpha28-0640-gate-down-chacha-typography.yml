@@ -1,0 +1,129 @@
+name: Cardcha alpha28.0.4.14.4.5.6.1.2 Gate Down ChaCha Typography
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0640-gate-down-chacha-typography ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.6.1.2 source fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0640_gate_down_chacha_typography.py
+
+      - name: Validate gate + 1.5x typography contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, subprocess
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.6.1.2'
+          base_sha = '6deb29704bcd57169a2a52692eb585626a0a2340'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'WizardGateOffset = new(-4, 0)' in gate
+          assert 'new(-5, 1)' in gate and 'new(-4, 2)' in gate and 'new(-6, 0)' in gate
+          assert 'CanonicalGateUseDistance = 160f' in gate
+          assert 'LocalSearchRadius = 2' in gate
+          assert 'CollisionEdits=NONE' in gate
+          assert 'BuildSectorSweep' not in gate and 'BuildAlternateZones' not in gate
+
+          current = (root/'UI/ChaChaResonanceMenu.cs').read_text(encoding='utf-8')
+          baseline = subprocess.check_output(
+              ['git', 'show', f'{base_sha}:src/Cardcha/UI/ChaChaResonanceMenu.cs'],
+              text=True
+          )
+          marker = '.5.6.1.2 typography pass: all ChaCha Resonance text caps are 1.50x the previous values.'
+          assert marker in current
+
+          def scales(text, key):
+              return [float(v) for v in re.findall(rf'{key}:\s*([0-9]+(?:\.[0-9]+)?)f', text)]
+
+          for key in ('maxScale', 'textScale'):
+              old = scales(baseline, key)
+              new = scales(current, key)
+              assert len(old) == len(new) and len(old) > 0, (key, len(old), len(new))
+              for i, (a, b) in enumerate(zip(old, new)):
+                  assert abs(b - a * 1.5) < 0.002, (key, i, a, b)
+
+          assert 'cardcha_max_all' in (root/'Patches/DebugMaxAllCommandPatch.cs').read_text(encoding='utf-8')
+          assert hashlib.sha256((root/'assets/airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text(encoding='utf-8')
+          audit = json.loads((root/'assets/card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+          print('alpha28 .5.6.1.2 acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.6.1.2 generated source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/Patches/AirshipGateRelocationPatch.cs \
+            src/Cardcha/UI/ChaChaResonanceMenu.cs \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            tools/alpha28_0640_gate_down_chacha_typography.py \
+            .github/workflows/cardcha-alpha28-0640-gate-down-chacha-typography.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.6.1.2 gate down typography [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0640-gate-down-chacha-typography
+          fi
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.6.1.2"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.6.1.2_GateDown_ChaChaTypography_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0640-gate-down-chacha-typography
+          path: artifact
+          if-no-files-found: error
