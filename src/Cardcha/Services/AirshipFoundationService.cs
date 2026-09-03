@@ -1500,6 +1500,9 @@ internal sealed class AirshipFoundationService
         float rotation,
         float verticalScale)
     {
+        if (AirshipLayeredRenderer.TryDraw(batch, center, targetWidth, tint, effects, rotation, verticalScale))
+            return true;
+
         Texture2D? sprite = this.GetAirshipVisual();
         if (sprite is null || targetWidth <= 0f)
             return false;

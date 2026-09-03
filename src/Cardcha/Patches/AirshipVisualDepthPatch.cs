@@ -86,6 +86,9 @@ internal static class AirshipVisualDepthPatch
         float rotation,
         float verticalScale)
     {
+        if (AirshipLayeredRenderer.HasLayerAssets())
+            return;
+
         Texture2D? sprite = GetAirshipTexture();
         if (sprite is null || targetWidth <= 0f)
             return;
@@ -125,6 +128,9 @@ internal static class AirshipVisualDepthPatch
         float rotation,
         float verticalScale)
     {
+        if (AirshipLayeredRenderer.HasLayerAssets())
+            return;
+
         Texture2D? sprite = GetAirshipTexture();
         if (!__result || sprite is null || targetWidth <= 0f)
             return;
