@@ -1,0 +1,205 @@
+name: Cardcha alpha28.0.4.14.4.5.6.1 Readability Progression MiMi Style
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0638-airship-readability-progression-mimi-style ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install visual tools
+        shell: bash
+        run: python3 -m pip install --quiet pillow
+
+      - name: Generate .5.6.1 source + visual fixes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0638_readability_progression_mimi_style.py
+
+      - name: Validate .5.6.1 contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json, re
+
+          root = Path('src/Cardcha')
+          assets = root/'assets'
+          version = '0.3.0-alpha.28.0.4.14.4.5.6.1'
+          locked_airship = '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest() == locked_airship
+
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'WizardGateOffset = new(8, -4)' in gate
+          assert 'CanonicalGateUseDistance = 160f' in gate
+          assert 'BuildSectorSweep' not in gate and 'BuildAlternateZones' not in gate
+          assert 'CollisionEdits=NONE' in gate
+
+          boss = (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'persistent ChaCha Energy panel was removed' in boss
+          assert 'GetEnergyHudRect().Contains' not in boss
+          assert 'BossFormDurationMs = 10000' in boss
+          # Mechanics remain, presentation is hidden.
+          assert 'this.BossEnergy.TrySpend(BossEnergyService.MaxEnergy)' in boss
+          assert 'Left Shift+A keyboard chord' in boss
+
+          energy = (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in energy
+          assert 'CurrentSchemaVersion = 19' in (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+
+          story = (root/'Services/CardchaStoryService.cs').read_text(encoding='utf-8')
+          assert story.count('MimiMeetupOfferedDay != Game1.Date.TotalDays') >= 2
+          assert 'ShouldStartMimiMeetup()' in story
+
+          foundation = (root/'Services/AirshipFoundationService.cs').read_text(encoding='utf-8')
+          assert 'tile.Y * 64f - 34f' in foundation
+          assert 'new Point(dock.X, dock.Y + 2)' in foundation
+          assert 'airship.arcane.route_board.label' in foundation
+          assert 'removed post-world mana line through the central player lane' in foundation
+
+          depth = (root/'Patches/AirshipVisualDepthPatch.cs').read_text(encoding='utf-8')
+          assert 'intentionally no post-world foreground ribs, rails or hanging cables' in depth
+          assert 'DrawDockCrate' in depth and 'DrawServiceLamp' in depth
+          assert 'cableLeftTop' not in depth
+
+          for lang in ('default.json','vi.json'):
+              data = json.loads((root/'i18n'/lang).read_text(encoding='utf-8'))
+              assert data['airship.arcane.route_board.label']
+              assert 'route' in data['airship.arcane.route_console'].lower() or 'tuyến' in data['airship.arcane.route_console'].lower()
+
+          portrait_names = [
+              'mimi_portraits.png','mimi_portraits_runtime64.png','mimi_npc_portraits.png',
+              'mimi_profile.png','mimi_social_mugshot.png'
+          ]
+          for name in portrait_names:
+              with Image.open(assets/name) as im:
+                  im.load()
+                  assert im.mode == 'RGBA'
+                  assert im.getchannel('A').getbbox() is not None
+
+          with Image.open(assets/'airship_upgrade_visuals.png') as im:
+              im.load()
+              assert im.size == (384,384)
+              assert im.mode == 'RGBA'
+
+          audit = json.loads((assets/'card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+
+          for path in sorted(assets.glob('*.png')):
+              with Image.open(path) as im:
+                  im.load()
+          print('alpha28 .5.6.1 acceptance PASS')
+          PY
+
+          base_walk_hash="$(git show 3f529eb07ef49c64ca6f93f7433fcb1d6fc2c774:src/Cardcha/assets/mimi_walk.png | sha256sum | cut -d' ' -f1)"
+          current_walk_hash="$(sha256sum src/Cardcha/assets/mimi_walk.png | cut -d' ' -f1)"
+          test "$base_walk_hash" = "$current_walk_hash"
+          echo "MiMi walk lock PASS: $current_walk_hash"
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.6.1 generated source and visuals
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/Services/ChaChaBossFormService.cs \
+            src/Cardcha/Services/CardchaStoryService.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Patches/AirshipGateRelocationPatch.cs \
+            src/Cardcha/Patches/AirshipVisualDepthPatch.cs \
+            src/Cardcha/assets/mimi_portraits.png \
+            src/Cardcha/assets/mimi_portraits_runtime64.png \
+            src/Cardcha/assets/mimi_npc_portraits.png \
+            src/Cardcha/assets/mimi_profile.png \
+            src/Cardcha/assets/mimi_social_mugshot.png \
+            src/Cardcha/assets/airship_upgrade_visuals.png \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            tools/alpha28_0638_readability_progression_mimi_style.py \
+            docs/airship-readability-progression-mimi-style-2026-09-03.md \
+            .github/workflows/cardcha-alpha28-0638-readability-progression-mimi-style.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.6.1 readability progression MiMi style [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0638-airship-readability-progression-mimi-style
+          fi
+
+      - name: Package test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.6.1"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.6.1_ReadabilityProgressionMimiStyle_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+          python3 - <<'PY'
+          from zipfile import ZipFile
+          from PIL import Image
+          from io import BytesIO
+          from pathlib import Path
+          import json
+          z = next(Path('artifact').glob('Cardcha_*.zip'))
+          with ZipFile(z) as f:
+              assert 'Cardcha/Cardcha.dll' in f.namelist()
+              manifest = json.loads(f.read('Cardcha/manifest.json'))
+              assert manifest['Version'] == '0.3.0-alpha.28.0.4.14.4.5.6.1'
+              for required in [
+                  'Cardcha/assets/airship_upgrade_visuals.png',
+                  'Cardcha/assets/mimi_portraits.png',
+                  'Cardcha/assets/mimi_portraits_runtime64.png',
+                  'Cardcha/assets/mimi_npc_portraits.png',
+              ]:
+                  assert required in f.namelist(), required
+              for name in [n for n in f.namelist() if n.lower().endswith('.png')]:
+                  im = Image.open(BytesIO(f.read(name)))
+                  im.load()
+          print('Artifact ZIP + PNG decode PASS')
+          PY
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0638-readability-progression-mimi-style
+          path: artifact
+          if-no-files-found: error
