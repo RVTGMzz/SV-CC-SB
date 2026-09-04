@@ -1,0 +1,163 @@
+name: Cardcha alpha28.0.4.14.4.5.9 MiMi Attic Stardew Rebuild
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0643-mimi-attic-stardew-rebuild ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.9 MiMi Attic Stardew rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0643_mimi_attic_stardew_rebuild.py
+
+      - name: Validate .5.9 MiMi visual + locked gameplay contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          assets = root/'assets'
+          version = '0.3.0-alpha.28.0.4.14.4.5.9'
+          attic_version = 'alpha.28.0.4.14.4.5.9'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          # MiMi Attic is now an actual vanilla-townInterior map with no room-sized concept frame.
+          attic = assets/'mimi_attic.tmx'
+          tree = ET.parse(attic)
+          m = tree.getroot()
+          assert (int(m.attrib['width']), int(m.attrib['height'])) == (22, 14)
+          props = {p.attrib['name']: p.attrib.get('value','') for p in m.find('properties').findall('property')}
+          assert props['CardchaAtticVersion'] == attic_version
+          assert props['CardchaZoneLayout'] == 'landing|research|personal|tv-secret|chacha'
+          assert 'true-stardew-map' in props['CardchaVisualDirection']
+          assert 'vanilla-townInterior' in props['CardchaVisualDirection']
+          assert 'no-room-overlay' in props['CardchaVisualDirection']
+          tilesets = m.findall('tileset')
+          assert len(tilesets) == 1 and tilesets[0].attrib.get('name') == 'townInterior'
+          image = tilesets[0].find('image')
+          assert image is not None and image.attrib.get('source') == '.townInterior.png'
+          for layer_name in ('Back', 'Buildings', 'Front'):
+              layer = next(x for x in m.findall('layer') if x.attrib.get('name') == layer_name)
+              vals = [int(v) for v in layer.find('data').text.replace('\n','').split(',') if v.strip()]
+              assert len(vals) == 22*14, (layer_name, len(vals))
+
+          svc = (root/'Services/MimiAtticVisualService.cs').read_text(encoding='utf-8')
+          assert f'DecorVersion = "{attic_version}"' in svc
+          assert 'RoomFrameSpritePath' not in svc
+          assert 'DrawRoomFrame' not in svc
+          assert 'mimi_attic_room_frame.png' not in svc
+          assert not (assets/'mimi_attic_room_frame.png').exists()
+          assert 'SecretTvHeartRequirement = 6' in svc
+          assert 'SecretTvTime = 1730' in svc
+          # All five zones still have real vanilla furniture anchors.
+          for anchor in [
+              'TryAddFurniture(attic, "(F)1289", 2, 4)',
+              'TryAddFurniture(attic, "(F)2058", 15, 4)',
+              'TryAddFurniture(attic, "(F)1466", 4, 7',
+              'TryAddFurniture(attic, "(F)1132", 16, 9',
+              'TryAddFurniture(attic, "(F)1623", 3, 9)',
+          ]:
+              assert anchor in svc, anchor
+          home = (root/'Services/MimiHomeService.cs').read_text(encoding='utf-8')
+          assert 'AtticLocationName = "Cardcha_MiMiAttic"' in home
+          assert 'AtticMapPath = "Maps/Cardcha_MiMiAttic"' in home
+          assert 'AtticAccessHearts = 2' in home
+
+          # Preserve every locked .5.8 Airship/gameplay contract.
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert (assets/'airship_deck_stardew.png').is_file()
+          assert (assets/'sky_dock_stardew.png').is_file()
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text(encoding='utf-8')
+          assert 'cardcha_max_all' in (root/'Patches/DebugMaxAllCommandPatch.cs').read_text(encoding='utf-8')
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'CollisionEdits=NONE' in gate and 'CanonicalGateUseDistance = 160f' in gate
+          audit = json.loads((assets/'card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+
+          print('alpha28 .5.9 MiMi Attic Stardew rebuild acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.9 generated source and map
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/assets/mimi_attic.tmx \
+            src/Cardcha/assets/mimi_attic_room_frame.png \
+            src/Cardcha/Services/MimiAtticVisualService.cs \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            tools/alpha28_0643_mimi_attic_stardew_rebuild.py \
+            .github/workflows/cardcha-alpha28-0643-mimi-attic-stardew-rebuild.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.9 MiMi Attic Stardew rebuild [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0643-mimi-attic-stardew-rebuild
+          fi
+
+      - name: Package .5.9 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.9"
+          test ! -e stage/Cardcha/assets/mimi_attic_room_frame.png
+          cat > artifact/MiMi_Attic_Stardew_Rebuild_TEST_NOTES.txt <<'EOF'
+          Alpha28 .5.9 MiMi Attic Stardew Rebuild
+          - Stable location: Cardcha_MiMiAttic
+          - Real townInterior TMX shell
+          - Five zones preserved: landing, research, personal, TV secret, ChaCha
+          - Vanilla furniture owns room depth and collision
+          - Room-sized concept overlay removed
+          - 2-heart access and 6-heart / 17:30 TV eligibility preserved
+          - Airship .5.8 and locked gameplay contracts preserved
+          EOF
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.9_MiMiAtticStardewRebuild_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0643-mimi-attic-stardew-rebuild
+          path: artifact
+          if-no-files-found: error
