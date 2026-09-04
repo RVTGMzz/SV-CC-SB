@@ -6,7 +6,7 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.27 home/schedule layer for MiMi.
+/// Alpha28 .5.11 home/schedule layer for MiMi, including her unlocked 17:30 secret-TV routine.
 /// The location ID is intentionally stable from the first TEST so a custom attic map can replace
 /// the temporary vanilla interior later without changing friendship/save references.
 /// </summary>
@@ -17,6 +17,11 @@ internal sealed class MimiHomeService
     private const int AtticAccessHearts = 2;
     private const int WorkStart = 1100;
     private const int WorkEnd = 1700;
+    private const int SecretTvHeartRequirement = 6;
+    private const int SecretTvStart = 1730;
+    private const int SecretTvEnd = 2200;
+    private static readonly Point SecretTvWatchTile = new(6, 10);
+    private static readonly Point SecretLateHomeTile = new(13, 7);
     private const float StairUseDistance = 112f;
 
     private readonly IModHelper Helper;
@@ -141,6 +146,21 @@ internal sealed class MimiHomeService
 
         if (location.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase))
         {
+            // At 6+ hearts MiMi really spends 17:30-22:00 in the TV nook. Talking to her there
+            // gets routine-specific dialogue instead of falling through to the old mystery lines.
+            if (this.IsSecretTvRoutineNow())
+            {
+                NPC? mimi = this.WorldActors.FindMimiActor();
+                if (mimi is not null
+                    && mimi.currentLocation == location
+                    && PlayerIsNearNpc(mimi, 118f))
+                {
+                    this.Helper.Input.Suppress(e.Button);
+                    Game1.drawObjectDialogue(this.T(this.ResolveSecretTvTalkKey()));
+                    return;
+                }
+            }
+
             Point stair = this.ResolveAtticStairTile(location);
             if (!PlayerIsNear(stair))
                 return;
@@ -225,7 +245,8 @@ internal sealed class MimiHomeService
         GameLocation? attic = Game1.getLocationFromName(AtticLocationName);
         Point wizardStair = this.ResolveWizardStairTile(Game1.getLocationFromName("WizardHouse"));
         string route = this.IsRestoredCommunityCenterRoute() ? "CommunityCenter" : this.IsJojaRoute() ? "Joja/Town" : "Town";
-        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00";
+        string secretTv = this.IsSecretTvRoutineNow() ? "ACTIVE" : this.IsSecretTvRoutineUnlocked() ? "unlocked" : "locked";
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00";
     }
 
     private GameLocation? EnsureAtticLocation()
@@ -293,6 +314,24 @@ internal sealed class MimiHomeService
             if (attic is null)
                 return;
 
+            // The secret TV routine is friendship-gated and only owns the evening window.
+            // We resolve against the real furniture collision so a future decor nudge can't strand MiMi.
+            if (this.IsSecretTvRoutineNow())
+            {
+                Point tv = FindClearTileNear(attic, SecretTvWatchTile);
+                PlaceMimi(mimi, attic, tv, 0); // face north toward the TV
+                return;
+            }
+
+            // After the show window, high-friendship MiMi winds down by her personal corner.
+            // Lower friendship preserves the pre-0646 generic home placement exactly.
+            if (this.IsSecretTvRoutineUnlocked() && Game1.timeOfDay >= SecretTvEnd)
+            {
+                Point lateHome = FindClearTileNear(attic, SecretLateHomeTile);
+                PlaceMimi(mimi, attic, lateHome, 1);
+                return;
+            }
+
             Point home = FindClearTileNear(attic, preferUpperHalf: true);
             PlaceMimi(mimi, attic, home, 2);
             return;
@@ -331,12 +370,20 @@ internal sealed class MimiHomeService
         Vector2 world = new(tile.X * 64f, tile.Y * 64f);
         if (mimi.currentLocation == target && !mimi.isInvisible.Value)
         {
-            this.WorldActors.ConfigureMimiActor(mimi, broom: false, visible: true);
-            mimi.displayName = "MiMi";
-            mimi.hideShadow.Value = false;
-            return;
+            int currentX = (int)(mimi.Position.X / 64f);
+            int currentY = (int)(mimi.Position.Y / 64f);
+            if (currentX == tile.X && currentY == tile.Y)
+            {
+                this.WorldActors.ConfigureMimiActor(mimi, broom: false, visible: true);
+                mimi.faceDirection(facing);
+                mimi.displayName = "MiMi";
+                mimi.hideShadow.Value = false;
+                return;
+            }
         }
 
+        // A same-location move is intentional here. Before .5.11 PlaceMimi returned early whenever
+        // MiMi was already in the attic, which meant a timed home routine could never reposition her.
         this.WorldActors.MoveMimiActor(mimi, target, world, facing, broom: false, visible: true);
         mimi.displayName = "MiMi";
         mimi.hideShadow.Value = false;
@@ -472,6 +519,31 @@ internal sealed class MimiHomeService
         Vector2 marker = new(tile.X * 64f + 32f, tile.Y * 64f + 32f);
         Vector2 player = Game1.player.Position + new Vector2(32f, 32f);
         return Vector2.DistanceSquared(marker, player) <= StairUseDistance * StairUseDistance;
+    }
+
+    private bool IsSecretTvRoutineUnlocked()
+        => this.GetMimiHearts() >= SecretTvHeartRequirement;
+
+    private bool IsSecretTvRoutineNow()
+        => Context.IsWorldReady
+           && this.IsSecretTvRoutineUnlocked()
+           && Game1.timeOfDay >= SecretTvStart
+           && Game1.timeOfDay < SecretTvEnd;
+
+    private string ResolveSecretTvTalkKey()
+    {
+        if (this.Save.Data.ChaChaLoaned)
+            return "mimi.attic.routine.tv.talk.chacha-away";
+        if (Game1.timeOfDay >= 2000)
+            return "mimi.attic.routine.tv.talk.late";
+        return "mimi.attic.routine.tv.talk.early";
+    }
+
+    private static bool PlayerIsNearNpc(NPC npc, float distance)
+    {
+        Vector2 npcCenter = npc.Position + new Vector2(32f, 32f);
+        Vector2 playerCenter = Game1.player.Position + new Vector2(32f, 32f);
+        return Vector2.DistanceSquared(npcCenter, playerCenter) <= distance * distance;
     }
 
     private int GetMimiHearts()

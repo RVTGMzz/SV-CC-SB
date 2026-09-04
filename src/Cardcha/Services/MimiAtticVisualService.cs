@@ -8,10 +8,10 @@ using StardewValley.Objects;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha28 .5.10 MiMi Attic living-lore interaction pass with test access.
+/// Alpha28 .5.11 MiMi Attic living-lore + real 17:30 secret-TV routine support.
 /// The TMX provides the vanilla townInterior shell; this service adds real vanilla
 /// Furniture instances for the five locked zones with no room-sized visual overlay. Inspect points now reveal
-/// layered character/environmental lore by friendship, time, and repeat inspection while preserving the future 17:30 / 6-heart TV eligibility hook.
+/// layered character/environmental lore by friendship, time, and repeat inspection; the 17:30 / 6-heart TV hook is now a real home routine.
 /// </summary>
 internal sealed class MimiAtticVisualService
 {
@@ -19,6 +19,7 @@ internal sealed class MimiAtticVisualService
 
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvTime = 1730;
+    private const int SecretTvEndTime = 2200;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
     private const string DecorVersion = "alpha.28.0.4.14.4.5.9";
@@ -130,7 +131,8 @@ internal sealed class MimiAtticVisualService
             "desk" when seen == 0 => "mimi.attic.inspect.desk.first",
             "desk" => "mimi.attic.inspect.desk.repeat",
 
-            "tv" when hearts >= SecretTvHeartRequirement && Game1.timeOfDay >= SecretTvTime => "mimi.attic.inspect.tv.evening",
+            "tv" when this.IsSecretTvRoutineEligible() => "mimi.attic.inspect.tv.routine",
+            "tv" when hearts >= SecretTvHeartRequirement && Game1.timeOfDay >= SecretTvEndTime => "mimi.attic.inspect.tv.after",
             "tv" when hearts >= SecretTvHeartRequirement && seen >= 1 => "mimi.attic.inspect.tv.secret",
             "tv" when seen == 0 => "mimi.attic.inspect.tv.first",
             "tv" => "mimi.attic.inspect.tv.repeat",
@@ -167,13 +169,17 @@ internal sealed class MimiAtticVisualService
     }
 
     /// <summary>
-    /// Still only an eligibility hook in alpha.27.0.7.1. The actual private TV routine remains
-    /// intentionally out of scope until the true Stardew attic passes in-game layout acceptance.
+    /// Shared eligibility rule for the real .5.11 private-TV routine window.
+    /// MimiHomeService owns physical placement; this service mirrors the gate for inspect text.
     /// </summary>
     public bool IsSecretTvRoutineEligible()
     {
-        if (!Context.IsWorldReady || Game1.timeOfDay < SecretTvTime)
+        if (!Context.IsWorldReady
+            || Game1.timeOfDay < SecretTvTime
+            || Game1.timeOfDay >= SecretTvEndTime)
+        {
             return false;
+        }
 
         if (!Game1.player.friendshipData.TryGetValue(MimiMysteryTownService.NpcId, out Friendship? friendship) || friendship is null)
             return false;

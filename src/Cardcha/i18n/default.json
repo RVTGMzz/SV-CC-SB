@@ -929,5 +929,10 @@
   "mimi.attic.inspect.chacha.prototype": "Under the cushion is a prototype sketch linking ChaCha's perch to Magic Dust. The final box is heavily underlined: 'NOT READY. Do not let him press anything.'",
   "mimi.attic.inspect.personal.first": "The bed is a little messy, the dresser is overfull, and a mug sits where a bedside lamp would have been safer. MiMi actually lives here, not just researches here.",
   "mimi.attic.inspect.personal.repeat": "A spare blanket is folded badly but carefully. One corner has several tiny stitch repairs, all in slightly different thread colors.",
-  "mimi.attic.inspect.personal.late": "At this hour the room feels quieter. The research corner is dark, but the bedside mug still smells faintly of tea."
+  "mimi.attic.inspect.personal.late": "At this hour the room feels quieter. The research corner is dark, but the bedside mug still smells faintly of tea.",
+  "mimi.attic.inspect.tv.routine": "MiMi has claimed the TV nook with a blanket and both snack bowls. The drama is running, and she is watching with the concentration usually reserved for unstable magic.",
+  "mimi.attic.inspect.tv.after": "The TV is dark now. The blanket has been folded back onto the couch, but one snack bowl is mysteriously empty.",
+  "mimi.attic.routine.tv.talk.early": "MiMi: Shh. This is private research. My current hypothesis is that those two should have confessed three episodes ago.",
+  "mimi.attic.routine.tv.talk.late": "MiMi: One more episode. That's not procrastinating if I call it a controlled variable.",
+  "mimi.attic.routine.tv.talk.chacha-away": "MiMi: Don't tell ChaCha I watched this without him. He gets weirdly invested in the villains."
 }
