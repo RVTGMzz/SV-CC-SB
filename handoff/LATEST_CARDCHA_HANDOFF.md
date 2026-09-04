@@ -1,31 +1,33 @@
 # Latest Cardcha handoff
 
 Current development branch:
-`cardcha-alpha28-055-card-runtime-audit`
+`cardcha-alpha28-0643-mimi-attic-stardew-rebuild`
 
 Current build:
-`0.3.0-alpha.28.0.4.14.2`
+`0.3.0-alpha.28.0.4.14.4.5.9`
 
 Read this FIRST when resuming from another chat:
-`handoff/ALPHA28_055_CARD_RUNTIME_AUDIT.md`
+`handoff/ALPHA28_0643_MIMI_ATTIC_STARDew_REBUILD.md`
 
-Full per-card audit table:
-`docs/CARD_RUNTIME_AUDIT_ALPHA28_055.md`
+Previous Airship visual handoff:
+`handoff/ALPHA28_0642_AIRSHIP_INTERIOR_STARDew_REWORK.md`
 
-Then read prior Airship transfer context if needed:
-- `handoff/ALPHA28_054_AIRSHIP_UX_HOTFIX.md`
-- `handoff/CURRENT_CHAT_HANDOFF_ALPHA28_053_2026-09-01.md`
+## Current verified state
+- `.5.8` Airship full Stardew interior rework: CI/build/package PASS; in-game visual acceptance still pending screenshots.
+- `.5.9` MiMi Attic Stardew rebuild: CI/build/package PASS; in-game visual acceptance pending screenshots.
+- MiMi Attic no longer uses the room-sized `mimi_attic_room_frame.png` overlay. The actual `townInterior` TMX + vanilla furniture own room presentation.
+- Stable location remains `Cardcha_MiMiAttic`.
+- Five MiMi zones remain: landing, research, personal/bed, TV secret, ChaCha/upgrade.
+- 2-heart attic access and 6-heart / 17:30 secret-TV eligibility remain unchanged.
 
-Current acceptance status:
-- `.4.11`: user reported in-game test OK.
-- `.4.12`: CI/build PASS, no separate explicit full user acceptance recorded.
-- `.4.13`: CI/build PASS, no separate explicit full user acceptance recorded.
-- `.4.14`: first in-game test revealed controller/readability/boarding-point/auto-transition UX issues.
-- `.4.14.1`: Airship UX hotfix compile/regression/package PASS; awaiting full in-game acceptance.
-- `.4.14.2`: user required a full audit of ALL cards. All 76 active Base Set IDs were audited. Initial result was 50 PASS / 12 CLARIFY / 14 BUG. Remediation source acceptance, compile, regression and package all PASS.
+## Locked canon / regression guard
+- Save schema 19.
+- Boss Form duration 10 seconds.
+- Boss Energy gain scale 1/3.
+- 76/76 active card audit PASS.
+- Forest Arcane Gate uses 160px action distance and `CollisionEdits=NONE`.
+- Locked Airship exterior `airship_visual.png` remains unchanged.
+- Airship route, upgrade menu/costs and deferred gameplay bonuses remain unchanged.
 
-`.4.14.2` fixes/aligned every unambiguous card-runtime finding except **#20 Victory Charge**, which depends on a Boss Energy system that does not yet exist. The TEST build explicitly labels Victory Charge inactive instead of inventing a hidden substitute effect.
-
-Legacy Mythic IDs 77–80 remain migration-only/hidden and are not active Binder/gacha cards.
-
-Do not start permanent Airship upgrade effects/balance during this card-runtime validation pass. Preserve `.4.14.1` Airship UX fixes and `CollisionEdits=NONE`.
+## Next action
+Install `.5.9`, screenshot MiMi Attic full room + research/bed/TV/ChaCha zones, and patch only concrete in-game layout/readability issues. Re-test `.5.8` Airship Sky Dock/Bridge and Forest gate when convenient.
