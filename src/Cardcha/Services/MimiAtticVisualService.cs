@@ -8,9 +8,9 @@ using StardewValley.Objects;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha.27.0.7.1 true-Stardew visual layer with test access for MiMi's attic.
-/// The TMX now provides a tile-based vanilla townInterior shell; this service adds real vanilla
-/// Furniture instances for the five locked room zones, keeps inspect points, and preserves the
+/// Alpha28 .5.9 true-Stardew MiMi Attic rebuild with test access.
+/// The TMX provides the vanilla townInterior shell; this service adds real vanilla
+/// Furniture instances for the five locked zones with no room-sized visual overlay, keeps inspect points, and preserves the
 /// future 17:30 / 6-heart TV eligibility hook.
 /// </summary>
 internal sealed class MimiAtticVisualService
@@ -21,8 +21,7 @@ internal sealed class MimiAtticVisualService
     private const int SecretTvTime = 1730;
     private const string DecorMarkerKey = "Ronvotri.Cardcha/MiMiAtticDecor";
     private const string StairSpritePath = "assets/mimi_attic_stairs.png";
-    private const string RoomFrameSpritePath = "assets/mimi_attic_room_frame.png";
-    private const string DecorVersion = "alpha.27.0.7.8.5";
+    private const string DecorVersion = "alpha.28.0.4.14.4.5.9";
 
     private readonly IModHelper Helper;
     private readonly SaveService Save;
@@ -65,7 +64,6 @@ internal sealed class MimiAtticVisualService
         {
             if (this.Save.Data.MimiMeetupCompleted || this.TestAccessActive)
                 EnsureVanillaFurniture(location);
-            this.DrawRoomFrame(e.SpriteBatch);
             return;
         }
 
@@ -244,20 +242,6 @@ internal sealed class MimiAtticVisualService
         catch
         {
             // The actual warp still works if the visual asset can't be loaded.
-        }
-    }
-
-    private void DrawRoomFrame(SpriteBatch batch)
-    {
-        try
-        {
-            Texture2D frame = this.Helper.ModContent.Load<Texture2D>(RoomFrameSpritePath);
-            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, Vector2.Zero);
-            batch.Draw(frame, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.999f);
-        }
-        catch
-        {
-            // The room itself remains fully usable if the cosmetic frame can't be loaded.
         }
     }
 
