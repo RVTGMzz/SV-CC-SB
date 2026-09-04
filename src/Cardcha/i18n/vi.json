@@ -992,5 +992,20 @@
   "resonance.support.rescue.body": "Mỗi hit gây mất máu roll {{lucky}}% Lucky Cast. Từ trên 30% tụt xuống ≤30% Máu sẽ chắc chắn Emergency Cast 1 lần. Cả hai bỏ qua cooldown.",
   "resonance.support.modules.title": "Một Cast • Nhiều Module",
   "resonance.support.modules.body": "Đã học {{learned}}/4 module. Khiên: 20s. Tiếp Sức: 30% hồi thể lực. Phúc Vận: 50% nhận +1 Luck trong 10s. Không có cooldown riêng.",
-  "airship.arcane.route_board.label": "BẢNG TUYẾN BAY"
+  "airship.arcane.route_board.label": "BẢNG TUYẾN BAY",
+  "mimi.attic.inspect.desk.first": "Trên bàn MiMi đang mở cùng lúc ba quyển sổ: cộng hưởng Mảnh Bìa, hiệu chỉnh ChaCha, và một danh sách đi chợ bị sửa còn nhiều hơn cả ghi chú nghiên cứu.",
+  "mimi.attic.inspect.desk.repeat": "Một mảnh Cardboard Scrap đang bị dùng làm dấu trang. Ngoài lề có ghi: 'Nếu nó rung thì đo. Nếu nó cắn thì hỏi ChaCha tại sao.'",
+  "mimi.attic.inspect.desk.personal": "Kẹp giữa đống sơ đồ là một danh sách nhỏ: trà, pin, đồ ăn cho ChaCha, nhớ đi ngủ. Dòng cuối đã bị gạch đi hai lần.",
+  "mimi.attic.inspect.desk.deep": "Một trang được đề tên 'Farmer'. Bên dưới là số liệu cộng hưởng, thói quen chiến đấu và khá nhiều ghi chú đầy lo lắng. Dòng cuối: 'Vẫn liều. Vẫn sống. Tốt.'",
+  "mimi.attic.inspect.tv.first": "Góc TV thoải mái một cách đáng ngờ. Chăn, hai bát đồ ăn vặt và lịch phim tình cảm được xếp ngay ngắn chẳng khác gì dụng cụ thí nghiệm.",
+  "mimi.attic.inspect.tv.repeat": "Một tờ giấy gấp ghi kín các cặp nhân vật, mũi tên và dấu hỏi. Cuối trang có một dòng viết thật to: 'KHÔNG. TUYỆT ĐỐI KHÔNG.'",
+  "mimi.attic.inspect.tv.secret": "Một khung giờ bị khoanh đi khoanh lại: 17:30. Bên cạnh MiMi ghi 'nghiên cứu riêng'... rồi chèn thêm: 'xét cho cùng cảm xúc cũng là nghiên cứu.'",
+  "mimi.attic.inspect.tv.evening": "Remote vẫn còn ấm và bộ phim đang dừng đúng giữa một cảnh tỏ tình. Ai đó rời đi rất vội, nhưng vẫn nhớ đậy bát đồ ăn vặt trước.",
+  "mimi.attic.inspect.chacha.first": "Đệm của ChaCha có giá đỡ tí hon, một lọ Bụi Ma Thuật và ba núm chỉnh. Xem ra độ thoải mái tối đa cũng cần kỹ thuật.",
+  "mimi.attic.inspect.chacha.repeat": "Một tấm thẻ bảo trì tí hon ghi: 'Độ căng đệm: hoàn hảo. Khả năng tiếp cận đồ ăn: không thể chấp nhận. MiMi từ chối sửa.'",
+  "mimi.attic.inspect.chacha.away": "Chiếc đệm đang trống khi ChaCha đi cùng bạn. Bên dưới có mẩu giấy: 'Mang cậu ta về nguyên vẹn. Tốt nhất là đừng kèm thêm thói hư mới.'",
+  "mimi.attic.inspect.chacha.prototype": "Dưới đệm là bản phác thảo nguyên mẫu nối chỗ nằm của ChaCha với Bụi Ma Thuật. Ô cuối bị gạch chân rất đậm: 'CHƯA SẴN SÀNG. Đừng để cậu ta bấm bất cứ thứ gì.'",
+  "mimi.attic.inspect.personal.first": "Giường hơi bừa, tủ đồ chật cứng và một chiếc cốc được đặt ở vị trí mà đáng lẽ đèn ngủ sẽ an toàn hơn. MiMi thật sự sống ở đây, chứ không chỉ nghiên cứu ở đây.",
+  "mimi.attic.inspect.personal.repeat": "Một chiếc chăn dự phòng được gấp hơi vụng nhưng khá cẩn thận. Một góc có vài đường vá nhỏ, mỗi đường lại dùng một màu chỉ khác nhau.",
+  "mimi.attic.inspect.personal.late": "Giờ này căn phòng yên hẳn. Góc nghiên cứu đã tối, nhưng chiếc cốc cạnh giường vẫn còn phảng phất mùi trà."
 }

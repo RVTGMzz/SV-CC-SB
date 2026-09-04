@@ -8,10 +8,10 @@ using StardewValley.Objects;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha28 .5.9 true-Stardew MiMi Attic rebuild with test access.
+/// Alpha28 .5.10 MiMi Attic living-lore interaction pass with test access.
 /// The TMX provides the vanilla townInterior shell; this service adds real vanilla
-/// Furniture instances for the five locked zones with no room-sized visual overlay, keeps inspect points, and preserves the
-/// future 17:30 / 6-heart TV eligibility hook.
+/// Furniture instances for the five locked zones with no room-sized visual overlay. Inspect points now reveal
+/// layered character/environmental lore by friendship, time, and repeat inspection while preserving the future 17:30 / 6-heart TV eligibility hook.
 /// </summary>
 internal sealed class MimiAtticVisualService
 {
@@ -27,6 +27,8 @@ internal sealed class MimiAtticVisualService
     private readonly SaveService Save;
     private bool TestAccessActive;
     private GameLocation? DecorAppliedLocation;
+    private readonly Dictionary<string, int> InspectCountsToday = new(StringComparer.OrdinalIgnoreCase);
+    private int InspectMemoryDay = -1;
 
     public MimiAtticVisualService(IModHelper helper, SaveService save)
     {
@@ -95,19 +97,73 @@ internal sealed class MimiAtticVisualService
         AtticLayout layout = GetLayout(Game1.currentLocation);
         Point actionTile = GetActionTile();
 
-        string? key = null;
+        string? target = null;
         if (Touches(actionTile, layout.DeskLeft) || Touches(actionTile, layout.DeskRight) || Touches(actionTile, layout.Notes))
-            key = "mimi.attic.inspect.desk";
+            target = "desk";
         else if (Touches(actionTile, layout.Television) || Touches(actionTile, layout.TvChair))
-            key = "mimi.attic.inspect.tv";
+            target = "tv";
         else if (Touches(actionTile, layout.ChaChaCushion) || Touches(actionTile, layout.Prototype))
-            key = "mimi.attic.inspect.chacha";
+            target = "chacha";
+        else if (Touches(actionTile, layout.Bed) || Touches(actionTile, layout.Bedside) || Touches(actionTile, layout.Dresser))
+            target = "personal";
 
-        if (key is null)
+        if (target is null)
             return;
 
+        string key = this.ResolveInspectKey(target);
         this.Helper.Input.Suppress(e.Button);
         Game1.drawObjectDialogue(this.Helper.Translation.Get(key).ToString());
+    }
+
+    private string ResolveInspectKey(string target)
+    {
+        this.ResetInspectMemoryIfNeeded();
+
+        int hearts = GetMimiHeartLevel();
+        int seen = this.InspectCountsToday.TryGetValue(target, out int count) ? count : 0;
+        this.InspectCountsToday[target] = seen + 1;
+
+        return target switch
+        {
+            "desk" when hearts >= 8 && seen >= 1 => "mimi.attic.inspect.desk.deep",
+            "desk" when hearts >= 4 && seen >= 1 => "mimi.attic.inspect.desk.personal",
+            "desk" when seen == 0 => "mimi.attic.inspect.desk.first",
+            "desk" => "mimi.attic.inspect.desk.repeat",
+
+            "tv" when hearts >= SecretTvHeartRequirement && Game1.timeOfDay >= SecretTvTime => "mimi.attic.inspect.tv.evening",
+            "tv" when hearts >= SecretTvHeartRequirement && seen >= 1 => "mimi.attic.inspect.tv.secret",
+            "tv" when seen == 0 => "mimi.attic.inspect.tv.first",
+            "tv" => "mimi.attic.inspect.tv.repeat",
+
+            "chacha" when hearts >= 8 && seen >= 1 => "mimi.attic.inspect.chacha.prototype",
+            "chacha" when this.Save.Data.ChaChaLoaned => "mimi.attic.inspect.chacha.away",
+            "chacha" when seen == 0 => "mimi.attic.inspect.chacha.first",
+            "chacha" => "mimi.attic.inspect.chacha.repeat",
+
+            "personal" when Game1.timeOfDay >= 2200 => "mimi.attic.inspect.personal.late",
+            "personal" when seen == 0 => "mimi.attic.inspect.personal.first",
+            "personal" => "mimi.attic.inspect.personal.repeat",
+
+            _ => "mimi.attic.inspect.desk.repeat",
+        };
+    }
+
+    private void ResetInspectMemoryIfNeeded()
+    {
+        int day = (int)Game1.stats.DaysPlayed;
+        if (this.InspectMemoryDay == day)
+            return;
+
+        this.InspectMemoryDay = day;
+        this.InspectCountsToday.Clear();
+    }
+
+    private static int GetMimiHeartLevel()
+    {
+        if (!Game1.player.friendshipData.TryGetValue(MimiMysteryTownService.NpcId, out Friendship? friendship) || friendship is null)
+            return 0;
+
+        return Math.Clamp(friendship.Points / 250, 0, 10);
     }
 
     /// <summary>
@@ -268,7 +324,12 @@ internal sealed class MimiAtticVisualService
 
             // ChaCha / future upgrade corner on the lower-right.
             ChaChaCushion: P(17, 10),
-            Prototype: P(16, 9)
+            Prototype: P(16, 9),
+
+            // Personal corner. These are environmental-storytelling inspect anchors only.
+            Bed: P(15, 4),
+            Bedside: P(14, 5),
+            Dresser: P(19, 4)
         );
     }
 
@@ -332,6 +393,9 @@ internal sealed class MimiAtticVisualService
         Point Television,
         Point TvChair,
         Point ChaChaCushion,
-        Point Prototype
+        Point Prototype,
+        Point Bed,
+        Point Bedside,
+        Point Dresser
     );
 }

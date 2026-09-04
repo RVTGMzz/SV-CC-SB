@@ -914,5 +914,20 @@
   "resonance.support.rescue.body": "Every damaging hit rolls {{lucky}}% Lucky Cast. Crossing from above 30% HP to 30% or lower guarantees one Emergency Cast. Both ignore cooldown.",
   "resonance.support.modules.title": "One Cast • Growing Modules",
   "resonance.support.modules.body": "{{learned}}/4 Region modules learned. Aegis: shield 20s. Spirit Aid: 30% stamina proc. Lucky Echo: 50% chance for +1 Luck for 10s. No separate cooldowns.",
-  "airship.arcane.route_board.label": "ROUTE STATUS"
+  "airship.arcane.route_board.label": "ROUTE STATUS",
+  "mimi.attic.inspect.desk.first": "Three notebooks are open across MiMi's desk: scrap resonance, ChaCha calibration, and a grocery list that somehow has more corrections than the research notes.",
+  "mimi.attic.inspect.desk.repeat": "A loose Cardboard Scrap is being used as a bookmark. In the margin: 'If it hums, measure it. If it bites, ask ChaCha why.'",
+  "mimi.attic.inspect.desk.personal": "Between the diagrams is a tiny list: tea, batteries, ChaCha treats, remember to sleep. The last item has been crossed out twice.",
+  "mimi.attic.inspect.desk.deep": "One page is labeled 'Farmer'. It tracks scrap resonance, combat habits, and several worried notes. The last line reads: 'Still reckless. Still alive. Good.'",
+  "mimi.attic.inspect.tv.first": "The TV nook is suspiciously comfortable. A blanket, two snack bowls, and a romance-drama schedule are arranged with the precision of laboratory equipment.",
+  "mimi.attic.inspect.tv.repeat": "A folded page lists character pairings with arrows, question marks, and one furious 'NO, ABSOLUTELY NOT' written across the bottom.",
+  "mimi.attic.inspect.tv.secret": "One time slot is circled over and over: 17:30. Beside it, MiMi wrote 'private research'... then added 'technically emotions are research.'",
+  "mimi.attic.inspect.tv.evening": "The remote is warm and a drama is paused mid-confession. Someone left in a hurry, but carefully covered the snack bowl first.",
+  "mimi.attic.inspect.chacha.first": "ChaCha's cushion has tiny brackets, a dust jar, and three adjustment knobs. Apparently maximum comfort requires engineering.",
+  "mimi.attic.inspect.chacha.repeat": "A tiny maintenance card reads: 'Cushion tension: perfect. Snack access: unacceptable. MiMi refuses to revise this.'",
+  "mimi.attic.inspect.chacha.away": "The cushion is empty while ChaCha travels with you. A note is tucked underneath: 'Bring him back in one piece. Preferably with fewer new bad habits.'",
+  "mimi.attic.inspect.chacha.prototype": "Under the cushion is a prototype sketch linking ChaCha's perch to Magic Dust. The final box is heavily underlined: 'NOT READY. Do not let him press anything.'",
+  "mimi.attic.inspect.personal.first": "The bed is a little messy, the dresser is overfull, and a mug sits where a bedside lamp would have been safer. MiMi actually lives here, not just researches here.",
+  "mimi.attic.inspect.personal.repeat": "A spare blanket is folded badly but carefully. One corner has several tiny stitch repairs, all in slightly different thread colors.",
+  "mimi.attic.inspect.personal.late": "At this hour the room feels quieter. The research corner is dark, but the bedside mug still smells faintly of tea."
 }
