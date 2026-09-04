@@ -1244,6 +1244,10 @@ internal sealed class AirshipFoundationService
 
     private void DrawSkyDockInteriorDetails(SpriteBatch batch, GameLocation interior)
     {
+        // .5.8 Stardew interior renderer owns Sky Dock visual staging.
+        if (AirshipInteriorStardewRenderer.TryDrawSkyDock(batch, interior))
+            return;
+
         Point route = ResolveSkyDockInteriorRouteTile(interior);
         Point exit = ResolveSkyDockInteriorExitTile(interior);
         Point bay = ResolveSkyDockInteriorBayTile(interior);
@@ -1717,6 +1721,10 @@ internal sealed class AirshipFoundationService
 
     private void DrawDeckMarkers(SpriteBatch batch, GameLocation deck)
     {
+        // .5.8 Stardew interior renderer owns Bridge visual staging.
+        if (AirshipInteriorStardewRenderer.TryDrawDeck(batch, deck, this.Save))
+            return;
+
         Point helm = ResolveDeckHelmTile(deck);
         Point exit = ResolveDeckExitTile(deck);
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;

@@ -185,6 +185,9 @@ internal static class AirshipVisualDepthPatch
 
     private static void AfterSkyDockInterior(SpriteBatch batch, GameLocation interior)
     {
+        // .5.8: Sky Dock props are baked into the pixel backdrop; do not post-render furniture over the farmer.
+        return;
+
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
         float phase = (float)(Environment.TickCount64 / 980.0);
