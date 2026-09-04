@@ -3,13 +3,14 @@
 ## Canonical branch
 `cardcha-alpha28-0642-airship-interior-stardew-rework`
 
-## Current materialized head
-`025393be0292eb83ab9a6e32ff1fa6c0fbf5bbcc`
+## Current branch head
+`b0fa64450dcd0e3df786c9afcbccb6d93240e5a6`
 
-Commit message: `chore: materialize alpha28.0.4.14.4.5.8 Airship Stardew interior [skip ci]`
+Latest materialization commit message:
+`chore: materialize alpha28.0.4.14.4.5.8 Airship Stardew interior [skip ci]`
 
 ## CI
-Workflow run: `33849662671`
+Latest verified workflow run: `33853178719`
 Conclusion: SUCCESS
 
 Build, asset generation, validation, compile, materialization, packaging and artifact upload all passed.
@@ -17,8 +18,8 @@ Build, asset generation, validation, compile, materialization, packaging and art
 ## TEST package
 `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.8_AirshipInteriorStardewRework_TEST.zip`
 
-SHA-256:
-`eda4186126849600934f68ccf48a0a72f75d293b3eb0525de1dd02bfe9d57130`
+Latest verified SHA-256:
+`286216b031fd601921ef3e58ac070b2f532dc30d3c169c71791a3b54495bfcc2`
 
 ## Materialized visual assets
 - `src/Cardcha/assets/airship_deck_stardew.png`
@@ -61,7 +62,7 @@ Required qualities:
 - User repeatedly reported old gate placement did not visibly move. `.5.6.1.3` added a hard relocation patch based on the actual rendered gate location. Re-test from the current `.5.8` build before touching it again.
 
 ### MiMi Attic
-A local-only `.5.7` visual experiment exists outside this branch. It used a richer room-frame concept and was NOT merged into `.5.8` because user requested Airship work next. Do not assume MiMi visual rebuild is present in this branch. Future milestone can materialize a real Stardew-style MiMi Attic rebuild using actual tile/prop assets rather than a flat concept-room background.
+A local-only `.5.7` visual experiment exists outside this branch. It used a richer room-frame concept and was NOT merged into `.5.8` because user requested Airship work next. Do not assume MiMi visual rebuild is present in this branch. Future milestone should materialize a real Stardew-style MiMi Attic rebuild using actual tile/prop assets rather than a flat concept-room background.
 
 ## Immediate next-session checklist
 1. User installs and screenshots `.5.8` Sky Dock and Airship Bridge.
