@@ -1,34 +1,41 @@
 # Latest Cardcha handoff
 
 Current development branch:
-`cardcha-alpha28-0645-mimi-attic-living-lore`
+`cardcha-alpha28-0646-mimi-secret-tv-routine`
 
 Current build:
-`0.3.0-alpha.28.0.4.14.4.5.10`
+`0.3.0-alpha.28.0.4.14.4.5.11`
 
 Read this FIRST when resuming from another chat:
-`handoff/ALPHA28_0645_MIMI_ATTIC_LIVING_LORE.md`
+`handoff/ALPHA28_0646_MIMI_SECRET_TV_ROUTINE.md`
 
-Previous visual handoffs:
+Previous MiMi handoffs:
+- `handoff/ALPHA28_0645_MIMI_ATTIC_LIVING_LORE.md`
 - `handoff/ALPHA28_0643_MIMI_ATTIC_STARDew_REBUILD.md`
+
+Previous Airship visual handoff:
 - `handoff/ALPHA28_0642_AIRSHIP_INTERIOR_STARDew_REWORK.md`
 
 ## Current verified state
 - `.5.8` Airship full Stardew interior rework: CI/build/package PASS; in-game visual acceptance still pending screenshots.
 - `.5.9` MiMi Attic Stardew rebuild: CI/build/package PASS; room-sized overlay removed; true `townInterior` TMX + vanilla furniture own the room.
-- `.5.10` MiMi Attic Living Lore: CI/build/materialization/package/upload PASS.
-- Research desk, TV nook and ChaCha corner now use layered inspect dialogue instead of one fixed line.
-- Inspect dialogue can vary by friendship, time, repeated inspection and ChaCha loan state.
-- Personal bed/dresser corner gained lightweight environmental storytelling.
-- Inspect repetition memory is day-local only; no SaveData field or schema bump.
+- `.5.10` MiMi Attic Living Lore: layered research/TV/ChaCha/personal inspect dialogue active.
+- `.5.11` MiMi Secret TV Routine: CI/build/materialization/package/upload PASS.
+- At 6+ hearts, MiMi now physically uses the TV nook from 17:30 until 22:00 and faces the TV.
+- At 22:00+, high-friendship MiMi winds down by her personal/bed corner.
+- Routine-specific talk text exists for early/late evening and when ChaCha is loaned.
+- TV inspect text distinguishes active routine vs post-routine state.
+- HomeService same-location repositioning bug was fixed so time-based movement inside the attic actually occurs.
 - Stable location remains `Cardcha_MiMiAttic`.
-- 2-heart attic access and 6-heart / 17:30 secret-TV eligibility remain unchanged.
-- Actual 17:30 private TV routine is still deferred.
+- 2-heart attic access unchanged.
+- No SaveData field/schema bump for the routine.
 
 ## Verified build
-- workflow run: `33860738098` SUCCESS
-- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.10_MiMiAtticLivingLore_TEST.zip`
-- package SHA-256: `117ba6168d2d0149e2257ed419604c16dd46031b43728c3855fc1cfdd174b8e3`
+- workflow run: `33861687099` SUCCESS
+- materialization commit: `a1b022c3f0cf1dce0fe1a87d155837fcba849732`
+- artifact ID: `9932363536`
+- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.11_MiMiSecretTvRoutine_TEST.zip`
+- package SHA-256: `aca4128a84df63d09259158c0307b53076ecb22fdaaac225b131948d884f8b11`
 
 ## Locked canon / regression guard
 - Save schema 19.
@@ -40,4 +47,4 @@ Previous visual handoffs:
 - Airship route, upgrade menu/costs and deferred gameplay bonuses remain unchanged.
 
 ## Next action
-Test `.5.10` MiMi Attic interactions in-game: desk repeated / 4+ / 8+ hearts, TV before and after 17:30 at 6+ hearts, ChaCha corner while ChaCha is loaned, and personal corner after 22:00. Patch only concrete hitbox/dialogue issues. After acceptance, the next larger milestone can implement the real MiMi 17:30 / 6-heart private TV routine.
+Test `.5.11` in-game at 6+ hearts around 17:20, 17:30, 20:00 and 22:00. Confirm MiMi moves to the TV nook, faces the TV, gives routine-specific talk, then leaves for the personal corner at 22:00. Also test below 6 hearts to confirm no routine. Patch only concrete positioning/hitbox/dialogue issues from screenshots or logs.
