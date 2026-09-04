@@ -1,0 +1,167 @@
+name: Cardcha alpha28.0.4.14.4.5.8 Airship Interior Full Stardew Rework
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0642-airship-interior-stardew-rework ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install pixel-art tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --quiet pillow
+
+      - name: Generate .5.8 Stardew Airship room assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0642_airship_interior_stardew_rework.py
+
+      - name: Validate .5.8 visual + gameplay contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, xml.etree.ElementTree as ET
+          from PIL import Image
+
+          root = Path('src/Cardcha')
+          assets = root/'assets'
+          version = '0.3.0-alpha.28.0.4.14.4.5.8'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          # Actual room assets, not only runtime rectangles.
+          for name, size in [
+              ('airship_deck_stardew.png', (384,224)),
+              ('sky_dock_stardew.png', (480,288)),
+              ('airship_upgrade_visuals.png', (384,384)),
+          ]:
+              p = assets/name
+              assert p.is_file() and p.stat().st_size > 500
+              im = Image.open(p); im.load()
+              assert im.size == size, (name, im.size)
+
+          for name, dims in [('airship_deck.tmx',(24,14)), ('sky_dock_interior.tmx',(30,18))]:
+              tree = ET.parse(assets/name)
+              m = tree.getroot()
+              assert (int(m.attrib['width']), int(m.attrib['height'])) == dims
+              ts = [t for t in m.findall('tileset') if t.attrib.get('name','').startswith('cardchaStardewBackdrop')]
+              assert len(ts) == 1
+              image = ts[0].find('image')
+              assert image is not None and image.attrib['source'].endswith('_stardew.png')
+              back = next(x for x in m.findall('layer') if x.attrib.get('name') == 'Back')
+              values = [int(v) for v in back.find('data').text.replace('\n','').split(',') if v.strip()]
+              assert len(values) == dims[0]*dims[1]
+              assert min(values) >= 4096
+
+          svc = (root/'Services/AirshipFoundationService.cs').read_text(encoding='utf-8')
+          assert '.5.8 Stardew interior renderer owns Bridge visual staging.' in svc
+          assert 'AirshipInteriorStardewRenderer.TryDrawDeck(batch, deck, this.Save)' in svc
+          assert 'AirshipInteriorStardewRenderer.TryDrawSkyDock(batch, interior)' in svc
+          renderer = (root/'Services/AirshipInteriorStardewRenderer.cs').read_text(encoding='utf-8')
+          assert 'new Point(5, 9)' in renderer and 'new Point(18, 9)' in renderer
+          assert 'new Point(8, 10)' in renderer and 'new Point(15, 10)' in renderer
+          assert 'new Point(19' not in renderer or 'ChaCha' in renderer
+          depth = (root/'Patches/AirshipVisualDepthPatch.cs').read_text(encoding='utf-8')
+          assert '.5.8: Sky Dock props are baked into the pixel backdrop' in depth
+
+          # Locked gameplay/canon.
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text(encoding='utf-8')
+          assert 'cardcha_max_all' in (root/'Patches/DebugMaxAllCommandPatch.cs').read_text(encoding='utf-8')
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'CollisionEdits=NONE' in gate and 'CanonicalGateUseDistance = 160f' in gate
+          audit = json.loads((assets/'card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+          print('alpha28 .5.8 Airship Stardew rework acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.8 generated source and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/assets/airship_deck_stardew.png \
+            src/Cardcha/assets/sky_dock_stardew.png \
+            src/Cardcha/assets/airship_upgrade_visuals.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/Patches/AirshipVisualDepthPatch.cs \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            tools/alpha28_0642_airship_interior_stardew_rework.py \
+            .github/workflows/cardcha-alpha28-0642-airship-interior-stardew-rework.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.8 Airship Stardew interior [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0642-airship-interior-stardew-rework
+          fi
+
+      - name: Package test build and preview
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.8"
+          python3 - <<'PY'
+          from PIL import Image, ImageDraw
+          from pathlib import Path
+          a=Image.open('src/Cardcha/assets/sky_dock_stardew.png').convert('RGBA')
+          b=Image.open('src/Cardcha/assets/airship_deck_stardew.png').convert('RGBA')
+          scale=2
+          a=a.resize((a.width*scale,a.height*scale),Image.Resampling.NEAREST)
+          b=b.resize((b.width*scale,b.height*scale),Image.Resampling.NEAREST)
+          w=max(a.width,b.width); h=a.height+b.height+24
+          out=Image.new('RGBA',(w,h),(25,17,25,255))
+          out.alpha_composite(a,((w-a.width)//2,0))
+          out.alpha_composite(b,((w-b.width)//2,a.height+24))
+          out.save('artifact/Airship_Interior_Stardew_Rework_PREVIEW.png')
+          PY
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.8_AirshipInteriorStardewRework_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0642-airship-interior-stardew-rework
+          path: artifact
+          if-no-files-found: error
