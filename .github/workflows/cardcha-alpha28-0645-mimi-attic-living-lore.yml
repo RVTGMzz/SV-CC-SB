@@ -1,0 +1,157 @@
+name: Cardcha alpha28.0.4.14.4.5.10 MiMi Attic Living Lore
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0645-mimi-attic-living-lore ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.10 MiMi Attic living-lore pass
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0645_mimi_attic_living_lore.py
+
+      - name: Validate .5.10 interaction + locked gameplay contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          assets = root/'assets'
+          version = '0.3.0-alpha.28.0.4.14.4.5.10'
+
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert f'<Version>{version}</Version>' in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert f'<Version>{version}</Version>' in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          svc = (root/'Services/MimiAtticVisualService.cs').read_text(encoding='utf-8')
+          for token in [
+              'ResolveInspectKey(target)',
+              'InspectCountsToday',
+              'GetMimiHeartLevel()',
+              '"desk"',
+              '"tv"',
+              '"chacha"',
+              '"personal"',
+              'Game1.timeOfDay >= SecretTvTime',
+              'mimi.attic.inspect.tv.secret',
+              'mimi.attic.inspect.tv.evening',
+              'mimi.attic.inspect.chacha.away',
+              'mimi.attic.inspect.chacha.prototype',
+              'mimi.attic.inspect.personal.late',
+              'IsSecretTvRoutineEligible()',
+          ]:
+              assert token in svc, token
+          assert 'mimi_attic_room_frame.png' not in svc
+          assert 'DrawRoomFrame' not in svc
+
+          # The room remains the same true-Stardew .5.9 shell; .5.10 adds life through interaction,
+          # not another room-sized art layer.
+          attic = ET.parse(assets/'mimi_attic.tmx').getroot()
+          assert (int(attic.attrib['width']), int(attic.attrib['height'])) == (22, 14)
+          props = {p.attrib['name']: p.attrib.get('value','') for p in attic.find('properties')}
+          assert 'no-room-overlay' in props['CardchaVisualDirection']
+          assert not (assets/'mimi_attic_room_frame.png').exists()
+
+          required_keys = [
+              'mimi.attic.inspect.desk.first',
+              'mimi.attic.inspect.desk.personal',
+              'mimi.attic.inspect.desk.deep',
+              'mimi.attic.inspect.tv.first',
+              'mimi.attic.inspect.tv.secret',
+              'mimi.attic.inspect.tv.evening',
+              'mimi.attic.inspect.chacha.first',
+              'mimi.attic.inspect.chacha.away',
+              'mimi.attic.inspect.chacha.prototype',
+              'mimi.attic.inspect.personal.first',
+              'mimi.attic.inspect.personal.late',
+          ]
+          for lang in ['default.json', 'vi.json']:
+              data = json.loads((root/'i18n'/lang).read_text(encoding='utf-8'))
+              for key in required_keys:
+                  assert key in data and len(data[key].strip()) >= 12, (lang, key)
+
+          # No persistence/schema expansion for inspect memory. This pass stays lightweight.
+          save = (root/'Models/SaveData.cs').read_text(encoding='utf-8')
+          assert 'SchemaVersion { get; set; } = 19' in save
+          assert 'Inspect' not in save
+
+          # Locked Cardcha contracts carried from 0642/0643.
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text(encoding='utf-8')
+          gate = (root/'Patches/AirshipGateRelocationPatch.cs').read_text(encoding='utf-8')
+          assert 'CollisionEdits=NONE' in gate and 'CanonicalGateUseDistance = 160f' in gate
+          audit = json.loads((assets/'card_auto_audit.json').read_text(encoding='utf-8'))
+          assert len(audit) == 76 and all(row['status'] == 'PASS' for row in audit)
+
+          print('alpha28 0645 MiMi Attic living-lore acceptance PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Materialize .5.10 living-lore source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A \
+            src/Cardcha/Services/MimiAtticVisualService.cs \
+            src/Cardcha/i18n/default.json \
+            src/Cardcha/i18n/vi.json \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            tools/alpha28_0645_mimi_attic_living_lore.py \
+            .github/workflows/cardcha-alpha28-0645-mimi-attic-living-lore.yml || true
+
+          if git diff --cached --quiet; then
+            echo "No materialized diff."
+          else
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.10 MiMi living lore [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0645-mimi-attic-living-lore
+          fi
+
+      - name: Package .5.10 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test "$(python3 -c "import json; print(json.load(open('stage/Cardcha/manifest.json'))['Version'])")" = "0.3.0-alpha.28.0.4.14.4.5.10"
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.10_MiMiAtticLivingLore_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0645-mimi-attic-living-lore
+          path: artifact
+          if-no-files-found: error
