@@ -39,9 +39,9 @@ for obsolete in [
     if obsolete.exists():
         obsolete.unlink()
 
-# Shared nearest-neighbour compatibility routine. Stardew's vanilla DialogueBox still expects
-# 64x64 portrait frames, so Cardcha derives that sheet in memory from the 128px master without
-# averaging/blur. The only on-disk source remains assets/mimi_portraits.png.
+# Stardew's vanilla DialogueBox still expects 64x64 portrait frames. Cardcha derives that
+# compatibility sheet in memory from the 128px master with nearest-neighbour sampling, so hard
+# pixel edges stay sharp and assets/mimi_portraits.png remains the only on-disk portrait source.
 nearest_method = r'''    private static Texture2D CreateRuntimePortraitSheet(Texture2D master)
     {
         const int frameCount = 6;
@@ -90,12 +90,13 @@ mystery = mystery.replace(
     '    private const string MimiNativePortraitsPath = "assets/mimi_portraits_runtime64.png";\n',
     '',
 )
-mystery = replace_once(
-    mystery,
-    '            e.LoadFromModFile<Texture2D>(MimiNativePortraitsPath, AssetLoadPriority.Medium);',
-    '            e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);',
-    'MiMi native portrait asset loader',
-)
+old_loader = '            e.LoadFromModFile<Texture2D>(MimiNativePortraitsPath, AssetLoadPriority.Medium);'
+bad_loader = '            e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);'
+good_loader = '            e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);'
+if bad_loader in mystery:
+    mystery = mystery.replace(bad_loader, good_loader, 1)
+elif good_loader not in mystery:
+    mystery = replace_once(mystery, old_loader, good_loader, 'MiMi native portrait asset loader')
 
 prepare_anchor = '''    internal void PrepareCrispPortrait(NPC speaker)\n    {\n        this.EnsureTextures();\n        AssignPortraitTexture(speaker, this.RuntimePortraitSheet);\n    }\n\n'''
 prepare_insert = prepare_anchor + '''    private Texture2D GetNativePortraitCompatibilitySheet()\n    {\n        this.EnsureTextures();\n        return this.RuntimePortraitSheet\n            ?? throw new InvalidOperationException("MiMi runtime portrait sheet was not initialized from mimi_portraits.png.");\n    }\n\n'''
@@ -140,12 +141,10 @@ anchor_replacement = '''        Point anchor = state switch\n        {\n        
 if 'if (!IsTileClear(attic, anchor))' not in home:
     home = replace_once(home, anchor_block, anchor_replacement, 'safe home routine anchor')
 
-home = replace_once(
-    home,
-    '        return pool[0];\n    }\n\n    private void ResetHomeWanderRuntime()',
-    '        return FindClearTileNear(attic, pool[0]);\n    }\n\n    private void ResetHomeWanderRuntime()',
-    'home wander fallback',
-)
+old_fallback = '        return pool[0];\n    }\n\n    private void ResetHomeWanderRuntime()'
+new_fallback = '        return FindClearTileNear(attic, pool[0]);\n    }\n\n    private void ResetHomeWanderRuntime()'
+if new_fallback not in home:
+    home = replace_once(home, old_fallback, new_fallback, 'home wander fallback')
 
 # Add useful live diagnostics to cardcha_story_status / Home.Describe without touching save data.
 old_describe = '        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | Actor={actorTile}";'
