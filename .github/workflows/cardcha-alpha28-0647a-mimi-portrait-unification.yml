@@ -51,7 +51,7 @@ jobs:
           assert 'MimiNativePortraitsPath' not in mystery
           assert 'mimi_portraits_runtime64.png' not in mystery
           assert 'mimi_npc_portraits.png' not in mystery
-          assert 'GetNativePortraitCompatibilitySheet' in mystery
+          assert 'private Texture2D GetNativePortraitCompatibilitySheet()' in mystery
           assert 'e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet()' in mystery
           assert 'e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet()' not in mystery
 
