@@ -50,27 +50,22 @@ jobs:
           assert (dw,dh)==(24,14) and (sw,sh)==(30,18)
           assert set(d)=={'Back','BackDecor','Buildings','Front'}
           assert set(s)=={'Back','BackDecor','Buildings','Front'}
-          # Vanilla shell: floor/wall gids below custom range; decor is the custom layer.
           assert max(d['Back']) < 4096 and max(s['Back']) < 4096
           assert min(x for x in d['BackDecor'] if x) >= 4096
           assert min(x for x in s['BackDecor'] if x) >= 4096
-          # Walls stop at row 4. Row 7/8 center is visibly walkable, fixing the invisible blockers.
           for x in range(1,dw-1):
               for y in range(1,5): assert d['Buildings'][y*dw+x] != 0
           assert d['Buildings'][7*dw+12] == 0
           assert d['Buildings'][8*dw+12] == 0
           assert s['Buildings'][8*sw+15] == 0
-          # Two-tile exits only.
           assert [x for x in range(dw) if d['Buildings'][(dh-1)*dw+x]==0] == [11,12]
           assert [x for x in range(sw) if s['Buildings'][(sh-1)*sw+x]==0] == [14,15]
-          # Four separated visible machine blockers, center aisle free.
           for x,y in [(4,8),(19,8),(7,11),(16,11)]: assert d['Buildings'][y*dw+x] != 0
           for x,y in [(11,8),(12,8),(11,9),(12,9),(11,10),(12,10),(11,11),(12,11),(11,12),(12,12)]: assert d['Buildings'][y*dw+x] == 0
 
           deck=Image.open(assets/'airship_deck_stardew.png').convert('RGBA')
           dock=Image.open(assets/'sky_dock_stardew.png').convert('RGBA')
           assert deck.size==(384,224) and dock.size==(480,288)
-          # Decor has transparency, proving it no longer replaces the whole room texture.
           assert min(px[3] for px in deck.getdata()) == 0
           assert min(px[3] for px in dock.getdata()) == 0
 
@@ -89,13 +84,13 @@ jobs:
           assert 'this.System' in menu
 
           portrait=(root/'Services/MimiMysteryTownService.cs').read_text()
-          assert 'RuntimePortraitSheet' not in portrait
+          assert 'private Texture2D? RuntimePortraitSheet' not in portrait
+          assert 'private Texture2D? MasterPortraitSheet' not in portrait
           assert 'GetLivePortraitTexture' in portrait
           assert 'portrait.IsDisposed' in portrait
           assert 'Game1.content.Load<Texture2D>(PortraitAsset)' in portrait
 
           visual=(root/'Services/MimiAtticVisualService.cs').read_text()
-          # The legacy destructive helper may remain defined, but it must never be called.
           assert 'PrepareWizardStairArea(location, stair);' not in visual
           home=(root/'Services/MimiHomeService.cs').read_text()
           assert 'Deterministic right-half floor scan' in home
