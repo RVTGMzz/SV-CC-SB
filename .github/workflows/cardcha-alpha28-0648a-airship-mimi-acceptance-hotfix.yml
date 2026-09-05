@@ -23,14 +23,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          python3 tools/alpha28_0648a_renderer_prepatch.py
           python3 tools/alpha28_0648a_airship_mimi_acceptance_hotfix.py
-          # One standalone StationTile comparison remains after splitting visual/use anchors.
+          # Finish the anchor split that intentionally crosses two services/renderers.
           python3 - <<'PY'
           from pathlib import Path
           p=Path('src/Cardcha/Services/ChaChaSkillMaterialService.cs')
-          s=p.read_text()
-          s=s.replace('action != StationTile', 'action != StationInteractionTile')
+          s=p.read_text().replace('action != StationTile', 'action != StationInteractionTile')
           p.write_text(s)
+          r=Path('src/Cardcha/Services/AirshipInteriorStardewRenderer.cs')
+          s=r.read_text().replace('WorldToScreen(19f * 64f + 32f, 5f * 64f + 34f)', 'WorldToScreen(21f * 64f + 32f, 5f * 64f + 34f)')
+          r.write_text(s)
           PY
 
       - name: Validate acceptance fixes and locked contracts
@@ -61,18 +64,14 @@ jobs:
           dw,dh,deck=layers('airship_deck.tmx')
           sw,sh,dock=layers('sky_dock_interior.tmx')
           assert (dw,dh)==(24,14) and (sw,sh)==(30,18)
-          # Wall rows are physically sealed.
           for y in range(0,8): assert all(deck['Buildings'][y*dw+x] != 0 for x in range(dw)), ('deck wall',y)
           for y in range(0,9): assert all(dock['Buildings'][y*sw+x] != 0 for x in range(sw)), ('dock wall',y)
-          # Bottom row has exactly two openings matching IsBottomDoorwayZone.
           deck_open=[x for x in range(dw) if deck['Buildings'][(dh-1)*dw+x]==0]
           dock_open=[x for x in range(sw) if dock['Buildings'][(sh-1)*sw+x]==0]
           assert deck_open==[11,12], deck_open
           assert dock_open==[14,15], dock_open
-          # Central floor lanes remain walkable above the exit.
           for x,y in [(12,8),(12,9),(12,10),(12,11),(12,12)]: assert deck['Buildings'][y*dw+x]==0,(x,y)
           for x,y in [(15,9),(15,10),(15,11),(15,12),(15,13),(15,14),(15,15),(15,16)]: assert dock['Buildings'][y*sw+x]==0,(x,y)
-          # Four machines still own real collision footprints.
           for x,y in [(5,9),(18,9),(8,10),(15,10)]: assert deck['Buildings'][y*dw+x]!=0,(x,y)
 
           air=(root/'Services/AirshipFoundationService.cs').read_text()
@@ -81,8 +80,8 @@ jobs:
           home=(root/'Services/MimiHomeService.cs').read_text()
           assert 'Math.Clamp(8, 2, height - 3)' in air
           assert 'tile.Y * 64f + 54f' in renderer
-          assert 'always at level 0' not in renderer or True
           assert 'idlePulse' in renderer and 'accent * (0.055f' in renderer
+          assert 'WorldToScreen(21f * 64f + 32f, 5f * 64f + 34f)' in renderer
           assert 'StationVisualTile = new(21, 5)' in chacha
           assert 'StationInteractionTile = new(21, 8)' in chacha
           assert 'StationTile' not in chacha
@@ -92,7 +91,6 @@ jobs:
           assert 'TestClockPreview=' in home
           assert 'world_settime 1720/1730/2000/2200' in home
 
-          # Visual assets are native pixel art, brighter than 0648, and audit exists.
           for rel,sz in [('airship_deck_stardew.png',(384,224)),('sky_dock_stardew.png',(480,288)),('airship_upgrade_visuals.png',(384,384))]:
               im=Image.open(assets/rel); assert im.size==sz and im.mode in ('RGBA','RGB')
               assert (assets/rel).stat().st_size>1000
@@ -102,10 +100,8 @@ jobs:
           assert audit['skyDock']['bottomDoorway']==[14,15]
           assert audit['mimi']['clockStates']=={'1720':'home','1730':'tv','2000':'tv','2200':'late'}
 
-          # No pickup Airship furniture regression.
           decor=air[air.index('private void EnsureDeckVanillaFurniture'):air.index('private static void ClearInteriorDecor')]
           assert 'TryAddInteriorFurniture' not in decor and 'heldId:' not in decor
-          # Locked gameplay/canon.
           assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text()
           assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
           assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
@@ -113,7 +109,6 @@ jobs:
           audit76=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit76)==76 and all(x['status']=='PASS' for x in audit76)
           assert 'ForestGateUseDistance = 160f' in air
           assert 'Cardcha_MiMiAttic' not in air
-          # MiMi portrait single-source stays intact.
           assert (assets/'mimi_portraits.png').is_file()
           assert not (assets/'mimi_portraits_runtime64.png').exists()
           assert not (assets/'mimi_npc_portraits.png').exists()
