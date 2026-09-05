@@ -115,7 +115,7 @@ internal sealed class MimiMysteryTownService
 
         if (e.Name.IsEquivalentTo(PortraitAsset))
         {
-            e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);
+            e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);
             return;
         }
 
