@@ -49,7 +49,7 @@ internal sealed class AirshipFoundationService
     private const float BoardingUseDistance = 160f;
     private const float ForestGateUseDistance = 160f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
-    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.5";
+    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.6";
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -1275,13 +1275,13 @@ internal sealed class AirshipFoundationService
         );
 
         float phase = (float)(Environment.TickCount64 / 920.0);
-        float pulse = 0.62f + 0.16f * (float)Math.Sin(Environment.TickCount64 / 260.0);
-        Color violet = new Color(176, 105, 255) * pulse;
-        Color cyan = new Color(87, 222, 246) * (pulse * 0.94f);
-        Color gold = new Color(224, 171, 82) * 0.96f;
-        Color stoneDark = new Color(47, 43, 56) * 0.98f;
-        Color stone = new Color(82, 76, 91) * 0.98f;
-        Color stoneLight = new Color(118, 108, 119) * 0.88f;
+        float pulse = 0.52f + 0.08f * (float)Math.Sin(Environment.TickCount64 / 300.0);
+        Color violet = new Color(148, 112, 166) * pulse;
+        Color cyan = new Color(110, 181, 188) * (pulse * 0.86f);
+        Color gold = new Color(199, 151, 78) * 0.94f;
+        Color stoneDark = new Color(57, 48, 51) * 0.98f;
+        Color stone = new Color(90, 77, 74) * 0.98f;
+        Color stoneLight = new Color(126, 111, 102) * 0.86f;
 
         // Ground shadow and three-step dais. Presentation only, never Forest collision.
         DrawRect(batch, new Rectangle((int)center.X - 104, (int)center.Y + 63, 208, 18), new Color(20, 20, 27) * 0.50f);
@@ -1294,10 +1294,10 @@ internal sealed class AirshipFoundationService
         Rectangle aperture = new((int)center.X - 57, (int)center.Y - 105, 114, 143);
         DrawRect(batch, new Rectangle(aperture.X - 7, aperture.Y - 7, aperture.Width + 14, aperture.Height + 14), new Color(48, 27, 72) * 0.94f);
         DrawVerticalGradient(batch, aperture,
-            new Color(84, 72, 171) * 0.92f,
-            new Color(85, 159, 218) * 0.90f,
-            new Color(226, 175, 197) * 0.78f);
-        DrawPortalClouds(batch, aperture, phase, Color.White * 0.48f);
+            new Color(77, 82, 129) * 0.90f,
+            new Color(105, 151, 174) * 0.88f,
+            new Color(190, 161, 163) * 0.72f);
+        DrawPortalClouds(batch, aperture, phase, new Color(235, 222, 201) * 0.40f);
         DrawRect(batch, new Rectangle(aperture.X + 9, aperture.Y + 8, aperture.Width - 18, aperture.Height - 16), violet * 0.18f);
         DrawRect(batch, new Rectangle(aperture.X + 18, aperture.Y + 15, aperture.Width - 36, aperture.Height - 30), cyan * 0.10f);
 
@@ -1313,11 +1313,11 @@ internal sealed class AirshipFoundationService
 
         DrawArcaneSigil(batch, new Vector2(center.X, center.Y - 25f), 56f, violet * 0.78f, phase);
         DrawArcaneSigil(batch, new Vector2(center.X, center.Y - 25f), 42f, cyan * 0.70f, -phase * 0.74f);
-        DrawArcaneSparkles(batch, new Vector2(center.X, center.Y - 24f), 73f, 14, phase, Color.White * 0.62f);
+        DrawArcaneSparkles(batch, new Vector2(center.X, center.Y - 24f), 70f, 10, phase, new Color(235, 222, 201) * 0.42f);
 
         DrawDiamondRune(batch, new Vector2(center.X, center.Y - 147f), 18f, gold);
-        DrawCrystalPylon(batch, new Vector2(center.X - 104f, center.Y + 48f), 58f, cyan, gold);
-        DrawCrystalPylon(batch, new Vector2(center.X + 104f, center.Y + 48f), 58f, violet, gold);
+        DrawCrystalPylon(batch, new Vector2(center.X - 102f, center.Y + 48f), 48f, cyan, gold);
+        DrawCrystalPylon(batch, new Vector2(center.X + 102f, center.Y + 48f), 48f, violet, gold);
         DrawBrassLamp(batch, new Vector2(center.X - 137f, center.Y + 55f), phase, gold, cyan);
         DrawBrassLamp(batch, new Vector2(center.X + 137f, center.Y + 55f), -phase, gold, violet);
 

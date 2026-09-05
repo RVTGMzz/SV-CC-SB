@@ -1,0 +1,15 @@
+{
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.6",
+  "profile": "0648-stardew-visual-pass1",
+  "deck_sha256": "b0fbe6046a2555c8c2a1ccf69e40bcd91592a38dd334162ed3c454b348e889f5",
+  "dock_sha256": "9a261a09f633cbe37a5d2bf333b0d806fcff5cf777ce98e7da86258c63ad03d1",
+  "upgrade_sha256": "f86b7b69f6a8305189eb9049a78fba115f6c508917dd914695b851426723a16f",
+  "visual_contract": [
+    "gate-warm-muted-palette",
+    "sky-dock-transit-station",
+    "deck-cozy-control-room",
+    "four-readable-upgrade-stations",
+    "no-pickup-props",
+    "physical-collision-preserved"
+  ]
+}

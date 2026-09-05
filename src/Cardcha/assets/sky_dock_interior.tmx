@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="30" height="18" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
-  <property name="CardchaAirshipVersion" value="alpha.28.0.4.14.4.5.12.5"/>
+  <property name="CardchaAirshipVersion" value="alpha.28.0.4.14.4.5.12.6"/>
   <property name="CardchaAirshipRole" value="arcane-dock|route-console|boarding-bay|forest-return"/>
-  <property name="CardchaVisualProfile" value="stardew-airship-dock|service-platform|physical-console|boarding-aperture"/>
-  <property name="CardchaArchitecture" value="cardcha-backdrop|physical-buildings-collision|dynamic-machines|no-pickup-props"/>
+  <property name="CardchaVisualProfile" value="stardew-airship-dock|service-platform|physical-console|boarding-aperture|transit-station"/>
+  <property name="CardchaArchitecture" value="cardcha-backdrop|physical-buildings-collision|dynamic-machines|no-pickup-props|stardew-visual-pass1"/>
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088"/>
