@@ -16,15 +16,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate or reuse .5.12.1 MiMi portrait unification
+      - name: Generate or repair .5.12.1 MiMi portrait unification
         shell: bash
         run: |
           set -euo pipefail
-          if grep -q '0.3.0-alpha.28.0.4.14.4.5.12.1' src/Cardcha/manifest.json; then
-            echo '0647A source already materialized.'
-          else
-            python3 tools/alpha28_0647a_mimi_portrait_unification.py
-          fi
+          python3 tools/alpha28_0647a_mimi_portrait_unification.py
 
       - name: Validate portrait source, home movement, and locked contracts
         shell: bash
@@ -56,7 +52,8 @@ jobs:
           assert 'mimi_portraits_runtime64.png' not in mystery
           assert 'mimi_npc_portraits.png' not in mystery
           assert 'GetNativePortraitCompatibilitySheet' in mystery
-          assert 'e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet()' in mystery
+          assert 'e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet()' in mystery
+          assert 'e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet()' not in mystery
 
           # No box/alpha averaging blur remains. Both story and world dialogue derive their
           # vanilla 64-frame compatibility sheet from the 128 master with nearest-neighbour picks.
