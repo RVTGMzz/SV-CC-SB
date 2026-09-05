@@ -280,6 +280,7 @@ internal sealed class ModEntry : Mod
         MachineInteractionPatch.Apply(harmony, this.OpenMachineMenu);
         BookNavigationPatch.Apply(harmony, this.BookTab);
         MimiProfileMenuPatch.Apply(harmony);
+        AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
             $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.6.1 READABILITY + PROGRESSION + MIMI STYLE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",

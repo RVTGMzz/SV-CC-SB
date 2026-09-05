@@ -24,8 +24,6 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawBridgeWallPanel(batch, new Point(4, 4), new Color(89, 205, 218), phase);
-        DrawBridgeWallPanel(batch, new Point(19, 4), new Color(177, 106, 225), -phase);
         DrawHelmAccent(batch, phase);
         DrawUpgradeStations(batch, save, phase);
         DrawChaChaPedestalAccent(batch, phase);
@@ -42,9 +40,6 @@ internal static class AirshipInteriorStardewRenderer
 
         // Transit-station silhouette: route board left, boarding gantry right, dock beacon center.
         // These stay on the upper wall and never cover the farmer's walking lane.
-        DrawDockWallPanel(batch, new Point(6, 4), 7, new Color(170, 105, 223), phase);
-        DrawDockWallPanel(batch, new Point(20, 4), 7, new Color(78, 193, 211), -phase);
-        DrawDockBeacon(batch, new Point(15, 4), phase);
         DrawConsoleLamp(batch, new Point(10, 6), new Color(194, 132, 70), new Color(170, 105, 223), phase);
         DrawConsoleLamp(batch, new Point(24, 6), new Color(194, 132, 70), new Color(78, 193, 211), -phase);
         DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);
@@ -103,10 +98,10 @@ internal static class AirshipInteriorStardewRenderer
         {
             Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 34f);
             Rectangle src = new(column * CellSize, level * CellSize, CellSize, CellSize);
-            Rectangle shadow = new((int)center.X - 48, (int)center.Y + 26, 96, 14);
+            Rectangle shadow = new((int)center.X - 56, (int)center.Y + 31, 112, 15);
             DrawRect(batch, shadow, new Color(28, 21, 28) * 0.42f);
 
-            Rectangle dst = new((int)center.X - 48, (int)center.Y - 61, 96, 96);
+            Rectangle dst = new((int)center.X - 56, (int)center.Y - 76, 112, 112);
             batch.Draw(atlas, dst, src, Color.White);
 
             if (level > 0)

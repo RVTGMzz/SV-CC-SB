@@ -49,7 +49,7 @@ internal sealed class AirshipFoundationService
     private const float BoardingUseDistance = 160f;
     private const float ForestGateUseDistance = 160f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
-    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12";
+    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.5";
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -209,9 +209,6 @@ internal sealed class AirshipFoundationService
             this.DrawFlyby(e.SpriteBatch);
 
         GameLocation? location = Game1.currentLocation;
-        if ((this.Save.Data.AirshipUnlocked || this.TestGateAccessActive) && IsSkyDockLocation(location))
-            this.DrawSkyDock(e.SpriteBatch, this.ResolveSkyDockTile());
-
         if (location?.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase) == true)
         {
             this.EnsureSkyDockVanillaFurniture(location);
@@ -279,7 +276,7 @@ internal sealed class AirshipFoundationService
             Point bay = ResolveSkyDockInteriorBayTile(location);
             Point interiorExit = ResolveSkyDockInteriorExitTile(location);
 
-            if (Touches(interiorAction, route) || PlayerIsNear(route))
+            if (Touches(interiorAction, route) || PlayerIsNear(route, 176f))
             {
                 this.Helper.Input.Suppress(e.Button);
                 int owned = this.Save.Data.OwnedCards?.Count ?? 0;
@@ -287,7 +284,7 @@ internal sealed class AirshipFoundationService
                 return;
             }
 
-            if (Touches(interiorAction, bay) || PlayerIsNear(bay))
+            if (Touches(interiorAction, bay) || PlayerIsNear(bay, 176f))
             {
                 this.Helper.Input.Suppress(e.Button);
                 if (this.WarpToAirshipBridge())
@@ -318,7 +315,7 @@ internal sealed class AirshipFoundationService
         Point helm = ResolveDeckHelmTile(location);
         Point exit = ResolveDeckExitTile(location);
 
-        if (Touches(action, helm) || PlayerIsNear(helm))
+        if (Touches(action, helm) || PlayerIsNear(helm, 160f))
         {
             this.Helper.Input.Suppress(e.Button);
             this.HandleRegion1DepartureRequest();
@@ -327,7 +324,7 @@ internal sealed class AirshipFoundationService
 
         foreach ((AirshipUpgradeSystem system, Point tile) in ResolveDeckUpgradeSockets())
         {
-            if (!Touches(action, tile) && !PlayerIsNear(tile))
+            if (!Touches(action, tile) && !PlayerIsNear(tile, 176f))
                 continue;
 
             this.Helper.Input.Suppress(e.Button);
@@ -369,7 +366,7 @@ internal sealed class AirshipFoundationService
 
         this.TestGateAccessActive = true;
         Point dock = this.ResolveSkyDockTile();
-        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 3));
+        Point landing = ResolveForestGateLandingTile(forest, dock);
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 0);
         return $"Arcane Gate TEST: warped near Forest gate at ({dock.X},{dock.Y}). Runtime-only gate access is enabled until title reload; save/story unlock state was not changed.";
@@ -780,7 +777,7 @@ internal sealed class AirshipFoundationService
         }
 
         Point dock = this.ResolveSkyDockTile();
-        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 2));
+        Point landing = ResolveForestGateLandingTile(forest, dock);
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 2);
     }
@@ -1130,13 +1127,7 @@ internal sealed class AirshipFoundationService
             return;
         this.DeckDecorAppliedLocation = deck;
         ClearInteriorDecor(deck);
-
-        TryAddInteriorFurniture(deck, "(F)1614", 5, 1);
-        TryAddInteriorFurniture(deck, "(F)1614", 11, 1);
-        TryAddInteriorFurniture(deck, "(F)1614", 17, 1);
-        TryAddInteriorFurniture(deck, "(F)1120", 3, 5, heldId: "(F)1368");
-        TryAddInteriorFurniture(deck, "(F)1120", 19, 5, heldId: "(F)1362");
-        deck.modData[InteriorDecorMarkerKey] = "alpha.28.0.4.14.4.5.12.4-bridge";
+        deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-physical-bridge-no-pickups";
     }
 
     private void EnsureSkyDockVanillaFurniture(GameLocation dock)
@@ -1145,13 +1136,7 @@ internal sealed class AirshipFoundationService
             return;
         this.SkyDockDecorAppliedLocation = dock;
         ClearInteriorDecor(dock);
-
-        TryAddInteriorFurniture(dock, "(F)1614", 5, 1);
-        TryAddInteriorFurniture(dock, "(F)1614", 14, 1);
-        TryAddInteriorFurniture(dock, "(F)1614", 23, 1);
-        TryAddInteriorFurniture(dock, "(F)1120", 4, 6, heldId: "(F)1368");
-        TryAddInteriorFurniture(dock, "(F)1120", 24, 6, heldId: "(F)1362");
-        dock.modData[InteriorDecorMarkerKey] = "alpha.28.0.4.14.4.5.12.4-dock";
+        dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-physical-dock-no-pickups";
     }
 
     private static void ClearInteriorDecor(GameLocation location)
@@ -2285,6 +2270,55 @@ internal sealed class AirshipFoundationService
             3 => new Point(p.X - 1, p.Y),
             _ => p
         };
+    }
+
+    internal bool CanDrawForestGateForLocalPlayer()
+    {
+        if (!Context.IsWorldReady || Game1.currentLocation is null)
+            return false;
+        return (this.Save.Data.AirshipUnlocked || this.TestGateAccessActive)
+            && IsSkyDockLocation(Game1.currentLocation);
+    }
+
+    internal bool ShouldDrawForestGateAfterPlayer(Farmer farmer)
+    {
+        if (!this.CanDrawForestGateForLocalPlayer() || farmer is null)
+            return false;
+        Point dock = this.ResolveSkyDockTile();
+        int playerTileY = (int)(farmer.Position.Y / 64f);
+        // Above/behind the threshold: arch is foreground. At or below the threshold: farmer is
+        // physically in front, so the gate must be queued before the farmer draw call.
+        return playerTileY <= dock.Y + 1;
+    }
+
+    internal void DrawForestGateAtFarmerDepth(SpriteBatch batch)
+    {
+        if (!this.CanDrawForestGateForLocalPlayer())
+            return;
+        this.DrawSkyDock(batch, this.ResolveSkyDockTile());
+    }
+
+    private static Point ResolveForestGateLandingTile(GameLocation forest, Point dock)
+    {
+        Point[] candidates =
+        {
+            new(dock.X, dock.Y + 4), new(dock.X - 1, dock.Y + 4), new(dock.X + 1, dock.Y + 4),
+            new(dock.X, dock.Y + 3), new(dock.X - 1, dock.Y + 3), new(dock.X + 1, dock.Y + 3),
+            new(dock.X - 2, dock.Y + 3), new(dock.X + 2, dock.Y + 3),
+        };
+        foreach (Point p in candidates)
+        {
+            try
+            {
+                Vector2 v = new(p.X, p.Y);
+                if (!forest.IsTileBlockedBy(v)
+                    && !forest.Objects.ContainsKey(v)
+                    && !forest.terrainFeatures.ContainsKey(v))
+                    return p;
+            }
+            catch { }
+        }
+        return FindClearTileNear(forest, new Point(dock.X, dock.Y + 4));
     }
 
     private static bool IsSkyDockLocation(GameLocation? location)

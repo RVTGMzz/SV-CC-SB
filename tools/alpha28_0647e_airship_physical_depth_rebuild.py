@@ -28,7 +28,7 @@ def csv_layer(values, width):
     rows = []
     for y in range(len(values) // width):
         rows.append(",".join(str(v) for v in values[y*width:(y+1)*width]))
-    return "\n".join(rows)
+    return ",\n".join(rows)
 
 
 def build_backdrop_tmx(width: int, height: int, image_name: str, role: str, profile: str, blocked: set[tuple[int,int]], bottom_open: set[int]) -> str:
