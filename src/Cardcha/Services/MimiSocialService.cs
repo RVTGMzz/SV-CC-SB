@@ -24,6 +24,8 @@ internal sealed class MimiSocialService
     private readonly SaveService Save;
     private readonly WorldActorService WorldActors;
     private readonly Action OpenMimiShop;
+    private readonly Action<NPC> PrepareMimiPortrait;
+    private readonly Func<bool> DeferToHomeDialogue;
 
     private bool LastUnlocked;
     private bool CacheInitialized;
@@ -33,13 +35,17 @@ internal sealed class MimiSocialService
         IMonitor monitor,
         SaveService save,
         WorldActorService worldActors,
-        Action openMimiShop)
+        Action openMimiShop,
+        Action<NPC> prepareMimiPortrait,
+        Func<bool> deferToHomeDialogue)
     {
         this.Helper = helper;
         this.Monitor = monitor;
         this.Save = save;
         this.WorldActors = worldActors;
         this.OpenMimiShop = openMimiShop;
+        this.PrepareMimiPortrait = prepareMimiPortrait;
+        this.DeferToHomeDialogue = deferToHomeDialogue;
     }
 
     private bool IsUnlocked
@@ -161,6 +167,12 @@ internal sealed class MimiSocialService
         if (!Game1.player.friendshipData.TryGetValue(NpcId, out Friendship? friendship) || friendship is null)
             return;
 
+        // Empty-hand TV-nook interaction belongs to MimiHomeService so its routine-specific
+        // dialogue can use the same crisp runtime portrait as MiMi's story scenes. Gifts still
+        // flow through Stardew's native NPC handling.
+        if (Game1.player.ActiveObject is null && this.DeferToHomeDialogue())
+            return;
+
         this.Helper.Input.Suppress(e.Button);
         Game1.player.Halt();
         mimi.faceTowardFarmerForPeriod(1200, 3, false, Game1.player);
@@ -171,6 +183,9 @@ internal sealed class MimiSocialService
         {
             try
             {
+                // Vanilla social dialogue previously fell back to the coarse runtime64 PNG.
+                // Point the NPC at the same in-memory portrait sheet used by Cardcha story dialogue.
+                this.PrepareMimiPortrait(mimi);
                 mimi.checkAction(Game1.player, Game1.currentLocation);
             }
             catch (Exception ex)

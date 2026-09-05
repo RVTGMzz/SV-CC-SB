@@ -82,6 +82,7 @@ internal sealed class AirshipFoundationService
     private bool AirshipUpgradeVisualsLoadFailed;
     private bool AirshipVisualLoadFailed;
     private bool LoggedAirshipVisualFailure;
+    private bool TestGateAccessActive;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
@@ -201,7 +202,7 @@ internal sealed class AirshipFoundationService
             this.DrawFlyby(e.SpriteBatch);
 
         GameLocation? location = Game1.currentLocation;
-        if (this.Save.Data.AirshipUnlocked && IsSkyDockLocation(location))
+        if ((this.Save.Data.AirshipUnlocked || this.TestGateAccessActive) && IsSkyDockLocation(location))
             this.DrawSkyDock(e.SpriteBatch, this.ResolveSkyDockTile());
 
         if (location?.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase) == true)
@@ -235,7 +236,7 @@ internal sealed class AirshipFoundationService
             return;
 
         // The Arcane Gate is the normal gameplay entrance. It never edits Forest collision/pathing.
-        if (IsSkyDockLocation(location) && this.Save.Data.AirshipUnlocked)
+        if (IsSkyDockLocation(location) && (this.Save.Data.AirshipUnlocked || this.TestGateAccessActive))
         {
             Point dock = this.ResolveSkyDockTile();
             // The Forest gate never edits collision. A wider action-only radius lets the player
@@ -343,6 +344,25 @@ internal sealed class AirshipFoundationService
         this.PopulateRegion1(e.NewLocation);
     }
 
+    /// <summary>TEST-only warp to the Forest Arcane Gate; runtime access only, no save/story mutation.</summary>
+    public string DebugWarpToGate()
+    {
+        if (!Context.IsWorldReady)
+            return "Arcane Gate TEST unavailable: load a save first.";
+
+        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
+        if (forest is null)
+            return "Arcane Gate TEST couldn't find Forest.";
+
+        this.TestGateAccessActive = true;
+        this.CachedSkyDockTile = null;
+        Point dock = this.ResolveSkyDockTile();
+        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 2));
+        this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+        Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 0);
+        return $"Arcane Gate TEST: warped near Forest gate at ({dock.X},{dock.Y}). Runtime-only gate access is enabled until title reload; save/story unlock state was not changed.";
+    }
+
     /// <summary>TEST-only direct deck access; does not unlock the Airship or alter story flags.</summary>
     public string DebugToggleDeck()
     {
@@ -388,7 +408,8 @@ internal sealed class AirshipFoundationService
         bool deckExists = Game1.getLocationFromName(DeckLocationName) is not null;
         bool interiorExists = Game1.getLocationFromName(SkyDockInteriorLocationName) is not null;
         bool region1Exists = Game1.getLocationFromName(Region1LocationName) is not null;
-        return $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
+        return $"GateTest={this.TestGateAccessActive} | " +
+               $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
                $"FlybyActive={this.FlybyActive} | " +
                $"Unlocked={this.Save.Data.AirshipUnlocked} | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +

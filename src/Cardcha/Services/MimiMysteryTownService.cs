@@ -1156,6 +1156,15 @@ internal sealed class MimiMysteryTownService
             : rawLine.Trim();
     }
 
+    internal void PrepareCrispPortrait(NPC speaker)
+    {
+        this.EnsureTextures();
+        AssignPortraitTexture(speaker, this.RuntimePortraitSheet);
+    }
+
+    internal bool TryShowCrispPortraitDialogue(NPC speaker, string text)
+        => this.TryShowDialogueWithPortrait(speaker, text);
+
     private bool TryShowDialogueWithPortrait(NPC speaker, string text)
     {
         try

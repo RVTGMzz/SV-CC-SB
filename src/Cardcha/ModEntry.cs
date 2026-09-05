@@ -129,20 +129,23 @@ internal sealed class ModEntry : Mod
             this.WorldActors,
             () => this.Story.OwnsMimiWorldActor
         );
-        this.Social = new MimiSocialService(
-            helper,
-            this.Monitor,
-            this.Save,
-            this.WorldActors,
-            this.OpenMimiShop
-        );
         this.Home = new MimiHomeService(
             helper,
             this.Monitor,
             this.Save,
             this.WorldActors,
             () => this.Story.OwnsMimiWorldActor,
-            () => this.Mystery.OwnsMimiWorldActor
+            () => this.Mystery.OwnsMimiWorldActor,
+            (npc, text) => this.Mystery.TryShowCrispPortraitDialogue(npc, text)
+        );
+        this.Social = new MimiSocialService(
+            helper,
+            this.Monitor,
+            this.Save,
+            this.WorldActors,
+            this.OpenMimiShop,
+            npc => this.Mystery.PrepareCrispPortrait(npc),
+            () => this.Home.OwnsSecretTvDialogueNow()
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
@@ -239,6 +242,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
         helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
         helper.ConsoleCommands.Add("cardcha_airship_status", "Show alpha.28 Airship foundation state.", this.CommandAirshipStatus);
+        helper.ConsoleCommands.Add("cardcha_test_gate", "TEST ONLY: warp directly beside the Forest Arcane Gate with runtime-only access.", this.CommandTestGate);
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
@@ -980,6 +984,11 @@ internal sealed class ModEntry : Mod
     private void CommandAirshipStatus(string command, string[] args)
     {
         this.Monitor.Log("===== CARDCHA AIRSHIP STATUS =====\n" + this.Airship.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandTestGate(string command, string[] args)
+    {
+        this.Monitor.Log(this.Airship.DebugWarpToGate(), LogLevel.Alert);
     }
 
     private void CommandTestAirship(string command, string[] args)
