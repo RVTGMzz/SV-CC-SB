@@ -1,0 +1,139 @@
+name: Cardcha alpha28.0.4.14.4.5.12 Airship Room Architecture
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0647-airship-room-architecture ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate or reuse .5.12 room architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q '0.3.0-alpha.28.0.4.14.4.5.12' src/Cardcha/manifest.json; then
+            echo '0647 source already materialized.'
+          else
+            python3 tools/alpha28_0647_airship_room_architecture.py
+          fi
+
+      - name: Validate .5.12 architecture, collision, warps, and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+
+          for name,w,h in [('airship_deck.tmx',24,14),('sky_dock_interior.tmx',30,18)]:
+              p=assets/name
+              text=p.read_text()
+              assert 'cardchaStardewBackdrop' not in text, name
+              assert 'no-room-sized-backdrop' in text, name
+              tree=ET.parse(p); m=tree.getroot()
+              assert int(m.attrib['width'])==w and int(m.attrib['height'])==h
+              layers={x.attrib['name']:x.find('data').text for x in m.findall('layer')}
+              assert set(['Back','Buildings','Front']).issubset(layers)
+              def rows(s):
+                  out=[]
+                  for line in s.strip().splitlines():
+                      vals=[int(v) for v in line.strip().split(',') if v!='']
+                      if vals: out.append(vals)
+                  return out
+              b=rows(layers['Buildings']); back=rows(layers['Back'])
+              assert len(b)==h and all(len(r)==w for r in b)
+              center=w//2
+              boundary=h-2
+              # Only two center tiles are open in the bottom wall.
+              for x in range(1,w-1):
+                  if x in (center-1,center): assert b[boundary][x]==0
+                  else: assert b[boundary][x]!=0
+              # Top wall and side walls are real collision, not painted Back-only art.
+              assert all(b[3][x]!=0 for x in range(1,w-1))
+              assert all(b[y][1]!=0 and b[y][w-2]!=0 for y in range(4,h-1))
+              assert back[h-1][center-1]!=0 and back[h-1][center]!=0
+
+          svc=(root/'Services/AirshipFoundationService.cs').read_text()
+          for t in ['IsPortalZone(playerTile, bay, radiusX: 1, radiusY: 1)',
+                    'IsBottomDoorwayZone(location, playerTile)',
+                    'EnsureDeckVanillaFurniture', 'EnsureSkyDockVanillaFurniture',
+                    'InteriorDecorVersion = "alpha.28.0.4.14.4.5.12"',
+                    'BoardingUseDistance = 160f']:
+              assert t in svc, t
+          assert 'if (playerTile == bay)' not in svc
+          assert 'if (playerTile == exit)' not in svc
+
+          rend=(root/'Services/AirshipInteriorStardewRenderer.cs').read_text()
+          assert 'DrawDoorwayThreshold' in rend
+          assert 'DrawFloorMarker' not in rend
+          assert 'DrawDeckWindowLife(batch, phase);' not in rend
+
+          # MiMi 0646C fixes must survive this room-only pass.
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          assert 'UpdateHomeWander' in home and 'OwnsAnyAtticDialogueNow' in home
+          mod=(root/'ModEntry.cs').read_text()
+          assert '() => this.Home.OwnsAnyAtticDialogueNow()' in mod
+
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+          gate=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
+          assert 'CanonicalGateUseDistance = 160f' in gate and 'CollisionEdits=NONE' in gate
+          print('0647 validation PASS')
+          PY
+
+      - name: Materialize .5.12 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12 Airship room architecture [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0647-airship-room-architecture
+          fi
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package .5.12 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12_AirshipRoomArchitecture_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0647-airship-room-architecture
+          path: artifact
+          if-no-files-found: error
