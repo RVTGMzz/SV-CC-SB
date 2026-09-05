@@ -5,6 +5,7 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Monsters;
+using StardewValley.Objects;
 
 namespace Cardcha.Services;
 
@@ -45,8 +46,10 @@ internal sealed class AirshipFoundationService
     private const long FlightWarpAtMs = 1650L;
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
-    private const float BoardingUseDistance = 128f;
+    private const float BoardingUseDistance = 160f;
     private const float ForestGateUseDistance = 320f;
+    private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
+    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12";
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -83,6 +86,8 @@ internal sealed class AirshipFoundationService
     private bool AirshipVisualLoadFailed;
     private bool LoggedAirshipVisualFailure;
     private bool TestGateAccessActive;
+    private GameLocation? DeckDecorAppliedLocation;
+    private GameLocation? SkyDockDecorAppliedLocation;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
@@ -145,6 +150,8 @@ internal sealed class AirshipFoundationService
         this.LoggedDeckCreation = false;
         this.LoggedSkyDockInteriorCreation = false;
         this.LoggedRegion1Creation = false;
+        this.DeckDecorAppliedLocation = null;
+        this.SkyDockDecorAppliedLocation = null;
     }
 
     public void OnUpdateTicked(UpdateTickedEventArgs e)
@@ -206,10 +213,16 @@ internal sealed class AirshipFoundationService
             this.DrawSkyDock(e.SpriteBatch, this.ResolveSkyDockTile());
 
         if (location?.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            this.EnsureSkyDockVanillaFurniture(location);
             this.DrawSkyDockInteriorDetails(e.SpriteBatch, location);
+        }
 
         if (location?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
+        {
+            this.EnsureDeckVanillaFurniture(location);
             this.DrawDeckMarkers(e.SpriteBatch, location);
+        }
 
         if (location?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawRegion1Details(e.SpriteBatch, location);
@@ -706,11 +719,10 @@ internal sealed class AirshipFoundationService
         if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
         {
             Point bay = ResolveSkyDockInteriorBayTile(location);
-            Point exit = ResolveSkyDockInteriorExitTile(location);
-            if (playerTile == bay)
+            if (IsPortalZone(playerTile, bay, radiusX: 1, radiusY: 1))
                 return this.WarpToAirshipBridge();
 
-            if (playerTile == exit)
+            if (IsBottomDoorwayZone(location, playerTile))
             {
                 this.ReturnToSkyDockExterior();
                 return true;
@@ -721,8 +733,7 @@ internal sealed class AirshipFoundationService
 
         if (location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
         {
-            Point exit = ResolveDeckExitTile(location);
-            if (playerTile == exit)
+            if (IsBottomDoorwayZone(location, playerTile))
                 return this.WarpToSkyDockInterior();
         }
 
@@ -1046,7 +1057,7 @@ internal sealed class AirshipFoundationService
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
-        return FindClearTileNear(interior, new Point(width / 2, Math.Max(2, height - 4)));
+        return new Point(width / 2, Math.Max(5, height - 4));
     }
 
     private static Point ResolveSkyDockInteriorExitTile(GameLocation interior)
@@ -1108,6 +1119,94 @@ internal sealed class AirshipFoundationService
         return new Point(width / 2, 2);
     }
 
+    private static bool IsPortalZone(Point playerTile, Point center, int radiusX, int radiusY)
+        => Math.Abs(playerTile.X - center.X) <= radiusX
+           && Math.Abs(playerTile.Y - center.Y) <= radiusY;
+
+    private static bool IsBottomDoorwayZone(GameLocation location, Point playerTile)
+    {
+        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
+        int center = width / 2;
+        return playerTile.Y >= height - 2
+            && (playerTile.X == center - 1 || playerTile.X == center);
+    }
+
+    private void EnsureDeckVanillaFurniture(GameLocation deck)
+    {
+        if (ReferenceEquals(this.DeckDecorAppliedLocation, deck))
+            return;
+        this.DeckDecorAppliedLocation = deck;
+        ClearInteriorDecor(deck);
+
+        // Vanilla furniture provides authentic Stardew scale, collision, shadows, and depth.
+        // Cardcha-only machinery remains a small overlay rather than a room-sized illustration.
+        TryAddInteriorFurniture(deck, "(F)1614", 5, 1);   // windows
+        TryAddInteriorFurniture(deck, "(F)1614", 11, 1);
+        TryAddInteriorFurniture(deck, "(F)1614", 17, 1);
+        TryAddInteriorFurniture(deck, "(F)1289", 2, 5);   // service shelves
+        TryAddInteriorFurniture(deck, "(F)704", 20, 5);   // storage cabinet
+        TryAddInteriorFurniture(deck, "(F)1443", 4, 5);   // warm lamps
+        TryAddInteriorFurniture(deck, "(F)1443", 19, 5);
+        TryAddInteriorFurniture(deck, "(F)1456", 9, 5);   // helm rug
+        TryAddInteriorFurniture(deck, "(F)1120", 7, 6, heldId: "(F)1368");
+        TryAddInteriorFurniture(deck, "(F)1120", 15, 6, heldId: "(F)1362");
+        deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+    }
+
+    private void EnsureSkyDockVanillaFurniture(GameLocation dock)
+    {
+        if (ReferenceEquals(this.SkyDockDecorAppliedLocation, dock))
+            return;
+        this.SkyDockDecorAppliedLocation = dock;
+        ClearInteriorDecor(dock);
+
+        TryAddInteriorFurniture(dock, "(F)1614", 5, 1);
+        TryAddInteriorFurniture(dock, "(F)1614", 14, 1);
+        TryAddInteriorFurniture(dock, "(F)1614", 23, 1);
+        TryAddInteriorFurniture(dock, "(F)1289", 2, 5);
+        TryAddInteriorFurniture(dock, "(F)704", 26, 5);
+        TryAddInteriorFurniture(dock, "(F)1443", 11, 5);
+        TryAddInteriorFurniture(dock, "(F)1443", 19, 5);
+        TryAddInteriorFurniture(dock, "(F)1120", 7, 6, heldId: "(F)1368");
+        TryAddInteriorFurniture(dock, "(F)1623", 4, 11);
+        TryAddInteriorFurniture(dock, "(F)432", 3, 13, rotation: 2);
+        TryAddInteriorFurniture(dock, "(F)1461", 12, 11);
+        dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+    }
+
+    private static void ClearInteriorDecor(GameLocation location)
+    {
+        foreach (Furniture old in location.furniture
+                     .Where(f => f.modData.ContainsKey(InteriorDecorMarkerKey))
+                     .ToList())
+        {
+            location.furniture.Remove(old);
+        }
+    }
+
+    private static void TryAddInteriorFurniture(
+        GameLocation location,
+        string itemId,
+        int x,
+        int y,
+        int rotation = 0,
+        string? heldId = null)
+    {
+        try
+        {
+            Furniture item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
+            item.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+            if (heldId is not null)
+                item.SetHeldObject(ItemRegistry.Create<Furniture>(heldId));
+            location.furniture.Add(item);
+        }
+        catch
+        {
+            // A changed vanilla furniture ID should never make a Cardcha room unloadable.
+        }
+    }
+
     private static (AirshipUpgradeSystem System, Point Tile)[] ResolveDeckUpgradeSockets()
         => new[]
         {
@@ -1131,8 +1230,7 @@ internal sealed class AirshipFoundationService
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
-        Point preferred = new(width / 2, Math.Max(2, height - 4));
-        return FindClearTileNear(deck, preferred);
+        return new Point(width / 2, Math.Max(5, height - 4));
     }
 
     private static Point ResolveDeckExitTile(GameLocation deck)

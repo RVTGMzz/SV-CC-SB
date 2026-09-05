@@ -24,11 +24,10 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawDeckWindowLife(batch, phase);
         DrawHelmAccent(batch, phase);
         DrawUpgradeStations(batch, save, phase);
         DrawChaChaPedestalAccent(batch, phase);
-        DrawFloorMarker(batch, new Point(12, 12), new Color(89, 210, 226) * 0.48f, phase * 0.7f);
+        DrawDoorwayThreshold(batch, new Point(12, 12), new Color(89, 210, 226) * 0.42f);
         return true;
     }
 
@@ -39,10 +38,11 @@ internal static class AirshipInteriorStardewRenderer
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
 
-        // Route console, boarding arch, and return tile get tiny pixel-like accents only.
+        // Route console and boarding bay keep small Cardcha accents; the exit is a fixed
+        // two-tile threshold instead of a pulsing dot the farmer must stand on exactly.
         DrawConsoleLamp(batch, new Point(10, 7), new Color(194, 132, 70), new Color(170, 105, 223), phase);
         DrawConsoleLamp(batch, new Point(24, 7), new Color(194, 132, 70), new Color(78, 193, 211), -phase);
-        DrawFloorMarker(batch, new Point(15, 16), new Color(88, 208, 224) * 0.48f, phase * 0.7f);
+        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);
         return true;
     }
 
@@ -138,11 +138,13 @@ internal static class AirshipInteriorStardewRenderer
         DrawRect(batch, new Rectangle((int)c.X - 2, (int)c.Y - 10, 4, 4), glow * pulse);
     }
 
-    private static void DrawFloorMarker(SpriteBatch batch, Point tile, Color color, float phase)
+    private static void DrawDoorwayThreshold(SpriteBatch batch, Point tile, Color color)
     {
-        Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 43f);
-        int s = 7 + (int)MathF.Round((MathF.Sin(phase * 2f) + 1f) * 1.5f);
-        DrawDiamond(batch, c, s, color);
+        // Static geometry: approaching the doorway must never make the marker appear to slide.
+        Vector2 c = WorldToScreen(tile.X * 64f, tile.Y * 64f + 54f);
+        DrawRect(batch, new Rectangle((int)c.X - 64, (int)c.Y, 128, 3), color);
+        DrawDiamond(batch, new Vector2(c.X - 54f, c.Y + 1f), 4, color * 0.82f);
+        DrawDiamond(batch, new Vector2(c.X + 54f, c.Y + 1f), 4, color * 0.82f);
     }
 
     private static Texture2D? GetUpgradeAtlas()
