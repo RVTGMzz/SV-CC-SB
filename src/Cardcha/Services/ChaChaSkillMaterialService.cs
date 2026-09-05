@@ -31,7 +31,8 @@ internal sealed class ChaChaSkillMaterialService
 
     private const double RegularRegionMaterialChance = 0.18d;
     private const double BossRegionMaterialChance = 1.00d;
-    private static readonly Point StationTile = new(19, 5);
+    private static readonly Point StationVisualTile = new(21, 5);
+    private static readonly Point StationInteractionTile = new(21, 8);
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -254,8 +255,8 @@ internal sealed class ChaChaSkillMaterialService
 
         Point player = new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
         Point action = GetActionTile(player);
-        bool near = Math.Abs(player.X - StationTile.X) <= 1 && Math.Abs(player.Y - StationTile.Y) <= 1;
-        if (!near && action != StationTile)
+        bool near = Math.Abs(player.X - StationInteractionTile.X) <= 1 && Math.Abs(player.Y - StationInteractionTile.Y) <= 1;
+        if (!near && action != StationInteractionTile)
             return;
 
         this.Helper.Input.Suppress(e.Button);
@@ -266,7 +267,7 @@ internal sealed class ChaChaSkillMaterialService
     public string Describe()
     {
         string counts = string.Join(", ", MaterialIds.Select(id => $"{id}={this.CountMaterial(id)}"));
-        return $"AirshipStation={StationTile.X},{StationTile.Y} | RegionDropRegular={RegularRegionMaterialChance:P0} | " +
+        return $"AirshipStationVisual={StationVisualTile.X},{StationVisualTile.Y} | AirshipStationUse={StationInteractionTile.X},{StationInteractionTile.Y} | RegionDropRegular={RegularRegionMaterialChance:P0} | " +
                $"RegionDropBoss={BossRegionMaterialChance:P0} | Materials[{counts}]";
     }
 
@@ -292,7 +293,7 @@ internal sealed class ChaChaSkillMaterialService
 
         Vector2 center = Game1.GlobalToLocal(
             Game1.viewport,
-            new Vector2(StationTile.X * 64f + 32f, StationTile.Y * 64f + 34f)
+            new Vector2(StationVisualTile.X * 64f + 32f, StationVisualTile.Y * 64f + 34f)
         );
         double seconds = Game1.currentGameTime.TotalGameTime.TotalSeconds;
         float pulse = 0.55f + 0.20f * (float)Math.Sin(seconds * 2.4);
@@ -329,7 +330,7 @@ internal sealed class ChaChaSkillMaterialService
         }
 
         Point player = new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
-        if (Math.Abs(player.X - StationTile.X) <= 2 && Math.Abs(player.Y - StationTile.Y) <= 2)
+        if (Math.Abs(player.X - StationInteractionTile.X) <= 2 && Math.Abs(player.Y - StationInteractionTile.Y) <= 2)
         {
             string text = ModEntry.T("chacha.station.world-label");
             Vector2 size = Game1.smallFont.MeasureString(text);

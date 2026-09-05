@@ -20,10 +20,10 @@ internal sealed class MimiHomeService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvStart = 1730;
     private const int SecretTvEnd = 2200;
-    private static readonly Point DefaultHomeTile = new(10, 6);
+    private static readonly Point DefaultHomeTile = new(9, 8);
     private static readonly Point SecretTvWatchTile = new(5, 9);
     private static readonly Point SecretLateHomeTile = new(13, 7);
-    private static readonly Point[] HomeIdleTiles = { new(10, 6), new(9, 7), new(10, 7), new(11, 7), new(10, 8) };
+    private static readonly Point[] HomeIdleTiles = { new(9, 8), new(8, 8), new(10, 8), new(9, 9), new(10, 9) };
     private static readonly Point[] TvIdleTiles = { new(5, 9), new(6, 9), new(6, 10), new(7, 9) };
     private static readonly Point[] LateIdleTiles = { new(13, 7), new(14, 7), new(13, 8), new(14, 8) };
     private const float HomeWalkSpeedPixelsPerSecond = 34f;
@@ -46,6 +46,8 @@ internal sealed class MimiHomeService
     private bool LoggedAtticFailure;
     private long AtticAutoExitBlockedUntilMs;
     private string? DebugRoutineOverride;
+    private bool TestAtticRoutinePreview;
+    private int LastObservedRoutineTime = -1;
     private string? ActiveHomeRoutineState;
     private Vector2 HomeWanderTarget;
     private int HomeWanderIndex;
@@ -110,7 +112,7 @@ internal sealed class MimiHomeService
             return;
         }
 
-        if (!this.Save.Data.MimiMeetupCompleted)
+        if (!this.Save.Data.MimiMeetupCompleted && !this.TestAtticRoutinePreview)
             return;
 
         // Run after MimiMysteryTownService every tick. Home movement is continuous but state
@@ -127,6 +129,8 @@ internal sealed class MimiHomeService
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
         this.DebugRoutineOverride = null;
+        this.TestAtticRoutinePreview = false;
+        this.LastObservedRoutineTime = -1;
         this.ResetHomeWanderRuntime();
     }
 
@@ -225,8 +229,12 @@ internal sealed class MimiHomeService
 
             Point target = this.ResolveWizardStairTile(wizard);
             Point landing = ResolveWizardLandingTile(wizard, target);
+            this.TestAtticRoutinePreview = false;
+            this.LastObservedRoutineTime = -1;
+            this.ResetHomeWanderRuntime();
             Game1.warpFarmer("WizardHouse", landing.X, landing.Y, 2);
-            return "Attic TEST bypass: returned to WizardHouse. Normal progression was not changed.";
+            this.EnforceSchedule();
+            return "Attic TEST bypass: returned to WizardHouse. Runtime clock preview disabled; normal progression was not changed.";
         }
 
         GameLocation? attic = this.EnsureAtticLocation();
@@ -234,9 +242,13 @@ internal sealed class MimiHomeService
             return "Attic TEST bypass couldn't create Cardcha_MiMiAttic.";
 
         Point arrival = this.ResolveAtticStairTile(attic);
+        this.TestAtticRoutinePreview = true;
+        this.LastObservedRoutineTime = -1;
+        this.ResetHomeWanderRuntime();
         this.AtticAutoExitBlockedUntilMs = Environment.TickCount64 + 850;
+        this.EnforceSchedule();
         Game1.warpFarmer(AtticLocationName, arrival.X, Math.Max(1, arrival.Y - 1), 0);
-        return "Attic TEST bypass: warped to Cardcha_MiMiAttic. Run cardcha_test_attic again to leave. Normal progression was not changed.";
+        return "Attic TEST bypass: warped to Cardcha_MiMiAttic. Runtime clock preview ON, so world_settime 1720/1730/2000/2200 tests HOME/TV/TV/LATE without changing hearts/story. Run cardcha_test_attic again to leave.";
     }
 
     private void TryAutoExitAttic()
@@ -282,7 +294,7 @@ internal sealed class MimiHomeService
         NPC? actor = this.WorldActors.FindMimiActor();
         string actorTile = actor is null ? "<missing>" : $"{(int)(actor.Position.X / 64f)},{(int)(actor.Position.Y / 64f)}@{actor.currentLocation?.NameOrUniqueName}";
         Point wanderTile = new((int)(this.HomeWanderTarget.X / 64f), (int)(this.HomeWanderTarget.Y / 64f));
-        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | RoutineState={this.ActiveHomeRoutineState ?? "<none>"} | WanderTarget={wanderTile.X},{wanderTile.Y} | Actor={actorTile}";
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | TestClockPreview={this.TestAtticRoutinePreview} | Clock={Game1.timeOfDay} | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | RoutineState={this.ActiveHomeRoutineState ?? "<none>"} | WanderTarget={wanderTile.X},{wanderTile.Y} | Actor={actorTile}";
     }
 
     private GameLocation? EnsureAtticLocation()
@@ -343,7 +355,7 @@ internal sealed class MimiHomeService
             return;
         }
 
-        if (!this.Save.Data.MimiMeetupCompleted
+        if ((!this.Save.Data.MimiMeetupCompleted && !this.TestAtticRoutinePreview)
             || this.StoryOwnsMimiActor()
             || this.MysteryOwnsMimiActor())
         {
@@ -352,7 +364,7 @@ internal sealed class MimiHomeService
         }
 
         bool weekday = IsWeekday();
-        bool workHours = weekday && Game1.timeOfDay >= WorkStart && Game1.timeOfDay < WorkEnd;
+        bool workHours = !this.TestAtticRoutinePreview && weekday && Game1.timeOfDay >= WorkStart && Game1.timeOfDay < WorkEnd;
 
         if (!workHours)
         {
@@ -360,11 +372,17 @@ internal sealed class MimiHomeService
             if (attic is null)
                 return;
 
-            string state = this.IsSecretTvRoutineNow()
+            bool routineUnlocked = this.IsSecretTvRoutineUnlocked() || this.TestAtticRoutinePreview;
+            string state = routineUnlocked && Game1.timeOfDay >= SecretTvStart && Game1.timeOfDay < SecretTvEnd
                 ? "tv"
-                : this.IsSecretTvRoutineUnlocked() && Game1.timeOfDay >= SecretTvEnd
+                : routineUnlocked && Game1.timeOfDay >= SecretTvEnd
                     ? "late"
                     : "home";
+            if (this.LastObservedRoutineTime != Game1.timeOfDay)
+            {
+                this.LastObservedRoutineTime = Game1.timeOfDay;
+                this.NextHomeWanderDecisionAtMs = 0;
+            }
             this.EnsureLivingAtticState(mimi, attic, state);
             return;
         }
@@ -415,6 +433,8 @@ internal sealed class MimiHomeService
         bool actorNeedsRecovery = mimi.currentLocation != attic || mimi.isInvisible.Value;
         if (stateChanged || actorNeedsRecovery)
         {
+            if (stateChanged)
+                this.Monitor.Log($"MiMi attic routine -> {state.ToUpperInvariant()} at {Game1.timeOfDay} (preview={this.TestAtticRoutinePreview}, hearts={this.GetMimiHearts()}).", LogLevel.Trace);
             PlaceMimi(mimi, attic, anchor, anchorFacing);
             this.ActiveHomeRoutineState = state;
             this.HomeWanderIndex = 0;

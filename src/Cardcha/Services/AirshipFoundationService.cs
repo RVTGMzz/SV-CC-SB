@@ -49,7 +49,7 @@ internal sealed class AirshipFoundationService
     private const float BoardingUseDistance = 160f;
     private const float ForestGateUseDistance = 160f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
-    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.6";
+    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.7";
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -1208,7 +1208,7 @@ internal sealed class AirshipFoundationService
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
-        return new Point(Math.Clamp(width / 2, 2, width - 3), Math.Clamp(4, 2, height - 3));
+        return new Point(Math.Clamp(width / 2, 2, width - 3), Math.Clamp(8, 2, height - 3));
     }
 
     private void DrawFlyby(SpriteBatch batch)

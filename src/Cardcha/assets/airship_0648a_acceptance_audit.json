@@ -1,0 +1,71 @@
+{
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.7",
+  "scope": "0648A acceptance hotfix",
+  "airship": {
+    "wallCollisionRows": "0-7",
+    "bottomDoorway": [
+      11,
+      12
+    ],
+    "helmUseTile": [
+      12,
+      8
+    ],
+    "machinePadCentersNative": [
+      [
+        88,
+        152
+      ],
+      [
+        296,
+        152
+      ],
+      [
+        136,
+        168
+      ],
+      [
+        248,
+        168
+      ]
+    ],
+    "machineGlow": "always-on-soft-pixel",
+    "machineVerticalMountOffset": 54
+  },
+  "skyDock": {
+    "wallCollisionRows": "0-8",
+    "bottomDoorway": [
+      14,
+      15
+    ]
+  },
+  "chacha": {
+    "visualTile": [
+      21,
+      5
+    ],
+    "interactionTile": [
+      21,
+      8
+    ]
+  },
+  "mimi": {
+    "homeAnchor": [
+      9,
+      8
+    ],
+    "testClockPreview": true,
+    "clockStates": {
+      "1720": "home",
+      "1730": "tv",
+      "2000": "tv",
+      "2200": "late"
+    },
+    "normalTvHeartRequirement": 6
+  },
+  "hashes": {
+    "airship_deck_stardew.png": "59b44c565074ca296269900c039234ccd09982c9a5e0ec4812af7566625642c5",
+    "sky_dock_stardew.png": "5da83b825c779a929f811ead5b1ad06b489852631774b4a23ae52a2a14f2ba6f",
+    "airship_upgrade_visuals.png": "54e685feb0e8611c69c5e07f840ad8f43282c7edb53f04ec0ffb8931ed64b861"
+  }
+}

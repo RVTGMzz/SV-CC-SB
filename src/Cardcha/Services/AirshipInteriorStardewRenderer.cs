@@ -118,30 +118,37 @@ internal static class AirshipInteriorStardewRenderer
 
         foreach ((Point tile, int column, int level, Color accent) in stations)
         {
-            Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 34f);
+            Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 54f);
             Rectangle src = new(column * CellSize, level * CellSize, CellSize, CellSize);
-            Rectangle shadow = new((int)center.X - 55, (int)center.Y + 30, 110, 13);
-            DrawRect(batch, shadow, new Color(34, 25, 25) * 0.34f);
+            float idlePulse = 0.52f + 0.12f * MathF.Sin(phase * 1.65f + column * 1.1f);
+            // A soft pixel glow exists even at level 0 so every machine reads as powered equipment.
+            DrawRect(batch, new Rectangle((int)center.X - 43, (int)center.Y - 48, 86, 58), accent * (0.055f + idlePulse * 0.035f));
+            DrawRect(batch, new Rectangle((int)center.X - 31, (int)center.Y - 37, 62, 39), accent * (0.060f + idlePulse * 0.040f));
+
+            Rectangle shadow = new((int)center.X - 56, (int)center.Y + 31, 112, 15);
+            DrawRect(batch, shadow, new Color(28, 21, 28) * 0.42f);
 
             Rectangle dst = new((int)center.X - 56, (int)center.Y - 76, 112, 112);
             batch.Draw(atlas, dst, src, Color.White);
+            DrawRect(batch, new Rectangle((int)center.X - 15, (int)center.Y - 25, 30, 3), accent * (0.34f + idlePulse * 0.18f));
 
-            float pulse = 0.40f + 0.12f * MathF.Sin(phase * 1.7f + column * 1.2f);
-            DrawRect(batch, new Rectangle((int)center.X - 15, (int)center.Y + 28, 30, 3), new Color(199, 148, 78) * 0.48f);
             if (level > 0)
-                DrawRect(batch, new Rectangle((int)center.X - 9, (int)center.Y + 24, 18, 2), accent * pulse);
-            if (level >= 3)
             {
-                DrawRect(batch, new Rectangle((int)center.X - 2, (int)center.Y - 54, 4, 6), accent * (pulse + 0.08f));
-                DrawRect(batch, new Rectangle((int)center.X - 12, (int)center.Y - 45, 3, 3), accent * pulse);
-                DrawRect(batch, new Rectangle((int)center.X + 9, (int)center.Y - 40, 3, 3), accent * pulse);
+                float pulse = 0.55f + 0.20f * MathF.Sin(phase * 2.0f + column * 1.3f);
+                DrawRect(batch, new Rectangle((int)center.X - 16, (int)center.Y + 28, 32, 3), accent * pulse);
+                if (level >= 3)
+                {
+                    DrawRect(batch, new Rectangle((int)center.X - 2, (int)center.Y - 54, 4, 7), accent * (pulse + 0.12f));
+                    DrawRect(batch, new Rectangle((int)center.X - 13, (int)center.Y - 46, 3, 3), accent * pulse);
+                    DrawRect(batch, new Rectangle((int)center.X + 10, (int)center.Y - 40, 3, 3), accent * pulse);
+                }
             }
         }
     }
 
     private static void DrawChaChaPedestalAccent(SpriteBatch batch, float phase)
     {
-        Vector2 c = WorldToScreen(19f * 64f + 32f, 5f * 64f + 34f);
+        Vector2 c = WorldToScreen(21f * 64f + 32f, 5f * 64f + 34f);
         Color violet = new Color(145, 112, 156) * (0.34f + 0.08f * MathF.Sin(phase * 1.8f));
         Color teal = new Color(99, 173, 175) * (0.32f + 0.08f * MathF.Sin(phase * 1.5f + 1f));
         Color brass = new Color(197, 145, 76) * 0.48f;
