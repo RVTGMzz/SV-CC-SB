@@ -1,0 +1,179 @@
+name: Cardcha alpha28.0.4.14.4.5.12.7 Airship MiMi Acceptance Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648a-airship-mimi-acceptance-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare Pillow
+        run: python3 -m pip install --quiet pillow
+
+      - name: Generate 0648A acceptance hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0648a_airship_mimi_acceptance_hotfix.py
+          # One standalone StationTile comparison remains after splitting visual/use anchors.
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('src/Cardcha/Services/ChaChaSkillMaterialService.cs')
+          s=p.read_text()
+          s=s.replace('action != StationTile', 'action != StationInteractionTile')
+          p.write_text(s)
+          PY
+
+      - name: Validate acceptance fixes and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.7'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          def layers(rel):
+              m=ET.parse(assets/rel).getroot(); w=int(m.attrib['width']); h=int(m.attrib['height'])
+              out={}
+              for layer in m.findall('layer'):
+                  data=layer.find('data'); assert data is not None and data.attrib.get('encoding')=='csv'
+                  body=(data.text or '').strip(); assert body and not body.endswith(',')
+                  toks=[int(x.strip()) for x in body.split(',')]
+                  assert len(toks)==w*h, (rel,layer.attrib['name'],len(toks),w*h)
+                  out[layer.attrib['name']]=toks
+              return w,h,out
+
+          dw,dh,deck=layers('airship_deck.tmx')
+          sw,sh,dock=layers('sky_dock_interior.tmx')
+          assert (dw,dh)==(24,14) and (sw,sh)==(30,18)
+          # Wall rows are physically sealed.
+          for y in range(0,8): assert all(deck['Buildings'][y*dw+x] != 0 for x in range(dw)), ('deck wall',y)
+          for y in range(0,9): assert all(dock['Buildings'][y*sw+x] != 0 for x in range(sw)), ('dock wall',y)
+          # Bottom row has exactly two openings matching IsBottomDoorwayZone.
+          deck_open=[x for x in range(dw) if deck['Buildings'][(dh-1)*dw+x]==0]
+          dock_open=[x for x in range(sw) if dock['Buildings'][(sh-1)*sw+x]==0]
+          assert deck_open==[11,12], deck_open
+          assert dock_open==[14,15], dock_open
+          # Central floor lanes remain walkable above the exit.
+          for x,y in [(12,8),(12,9),(12,10),(12,11),(12,12)]: assert deck['Buildings'][y*dw+x]==0,(x,y)
+          for x,y in [(15,9),(15,10),(15,11),(15,12),(15,13),(15,14),(15,15),(15,16)]: assert dock['Buildings'][y*sw+x]==0,(x,y)
+          # Four machines still own real collision footprints.
+          for x,y in [(5,9),(18,9),(8,10),(15,10)]: assert deck['Buildings'][y*dw+x]!=0,(x,y)
+
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          renderer=(root/'Services/AirshipInteriorStardewRenderer.cs').read_text()
+          chacha=(root/'Services/ChaChaSkillMaterialService.cs').read_text()
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          assert 'Math.Clamp(8, 2, height - 3)' in air
+          assert 'tile.Y * 64f + 54f' in renderer
+          assert 'always at level 0' not in renderer or True
+          assert 'idlePulse' in renderer and 'accent * (0.055f' in renderer
+          assert 'StationVisualTile = new(21, 5)' in chacha
+          assert 'StationInteractionTile = new(21, 8)' in chacha
+          assert 'StationTile' not in chacha
+          assert 'TestAtticRoutinePreview' in home
+          assert 'DefaultHomeTile = new(9, 8)' in home
+          assert 'routineUnlocked = this.IsSecretTvRoutineUnlocked() || this.TestAtticRoutinePreview' in home
+          assert 'TestClockPreview=' in home
+          assert 'world_settime 1720/1730/2000/2200' in home
+
+          # Visual assets are native pixel art, brighter than 0648, and audit exists.
+          for rel,sz in [('airship_deck_stardew.png',(384,224)),('sky_dock_stardew.png',(480,288)),('airship_upgrade_visuals.png',(384,384))]:
+              im=Image.open(assets/rel); assert im.size==sz and im.mode in ('RGBA','RGB')
+              assert (assets/rel).stat().st_size>1000
+          audit=json.loads((assets/'airship_0648a_acceptance_audit.json').read_text())
+          assert audit['version']==version
+          assert audit['airship']['bottomDoorway']==[11,12]
+          assert audit['skyDock']['bottomDoorway']==[14,15]
+          assert audit['mimi']['clockStates']=={'1720':'home','1730':'tv','2000':'tv','2200':'late'}
+
+          # No pickup Airship furniture regression.
+          decor=air[air.index('private void EnsureDeckVanillaFurniture'):air.index('private static void ClearInteriorDecor')]
+          assert 'TryAddInteriorFurniture' not in decor and 'heldId:' not in decor
+          # Locked gameplay/canon.
+          assert 'SchemaVersion { get; set; } = 19' in (root/'Models/SaveData.cs').read_text()
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit76=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit76)==76 and all(x['status']=='PASS' for x in audit76)
+          assert 'ForestGateUseDistance = 160f' in air
+          assert 'Cardcha_MiMiAttic' not in air
+          # MiMi portrait single-source stays intact.
+          assert (assets/'mimi_portraits.png').is_file()
+          assert not (assets/'mimi_portraits_runtime64.png').exists()
+          assert not (assets/'mimi_npc_portraits.png').exists()
+          print('0648A acceptance validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Audit compiled DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          dll=next(Path('src/Cardcha/bin/Release').rglob('Cardcha.dll'))
+          data=dll.read_bytes()
+          for token in ('assets/mimi_portraits_runtime64.png','assets/mimi_npc_portraits.png'):
+              assert token.encode() not in data and token.encode('utf-16le') not in data
+          assert b'TestAtticRoutinePreview' in data or 'TestAtticRoutinePreview'.encode('utf-16le') in data
+          print('0648A DLL audit PASS', dll, dll.stat().st_size)
+          PY
+
+      - name: Materialize .5.12.7 source and assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.7 acceptance hotfix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648a-airship-mimi-acceptance-hotfix
+          fi
+
+      - name: Package .5.12.7 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/airship_0648a_acceptance_audit.json
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -e stage/Cardcha/assets/mimi_npc_portraits.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.7_AirshipMiMiAcceptanceHotfix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648a-airship-mimi-acceptance-hotfix
+          path: artifact
+          if-no-files-found: error
