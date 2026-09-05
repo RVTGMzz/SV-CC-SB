@@ -1,0 +1,187 @@
+name: Cardcha alpha28.0.4.14.4.5.12.5 Airship Physical Depth Rebuild
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0647e-airship-physical-depth-rebuild ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.12.5 physical Airship rebuild
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0647e_airship_physical_depth_rebuild.py
+
+      - name: Validate physical rooms, no-pickup props, gate depth and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.5'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          def parse(rel):
+              p=assets/rel
+              m=ET.parse(p).getroot(); w=int(m.attrib['width']); h=int(m.attrib['height'])
+              layers={}
+              for layer in m.findall('layer'):
+                  data=layer.find('data'); body=(data.text or '').strip()
+                  assert data is not None and data.attrib.get('encoding')=='csv'
+                  assert body and not body.endswith(','), f'{rel}:{layer.attrib.get("name")} trailing comma'
+                  toks=[t.strip() for t in body.split(',')]
+                  assert len(toks)==w*h, f'{rel}:{layer.attrib.get("name")} {len(toks)} != {w*h}'
+                  assert all(t.isdigit() and 0 <= int(t) <= 0xFFFFFFFF for t in toks)
+                  layers[layer.attrib['name']]=[int(t) for t in toks]
+              images=[x.find('image').attrib['source'] for x in m.findall('tileset') if x.find('image') is not None]
+              return w,h,layers,images
+
+          dw,dh,deck,deck_images=parse('airship_deck.tmx')
+          sw,sh,dock,dock_images=parse('sky_dock_interior.tmx')
+          assert (dw,dh)==(24,14) and (sw,sh)==(30,18)
+          assert 'airship_deck_stardew.png' in deck_images
+          assert 'sky_dock_stardew.png' in dock_images
+          assert (assets/'airship_deck_stardew.png').stat().st_size > 1000
+          assert (assets/'sky_dock_stardew.png').stat().st_size > 1000
+          # Full Cardcha backdrop restored, not the empty vanilla floor shell.
+          assert all(v >= 4096 for v in deck['Back'])
+          assert all(v >= 4096 for v in dock['Back'])
+
+          def blocked(layer,w,x,y): return layer[y*w+x] != 0
+          # Four upgrade stations + helm have real Buildings collision.
+          for x,y in [(5,9),(18,9),(8,10),(15,10),(12,4),(19,5)]:
+              assert blocked(deck['Buildings'],dw,x,y), ('deck collision',x,y)
+          # Central deck approach/exit lane stays walkable.
+          for x,y in [(12,7),(12,8),(12,9),(12,10),(12,11),(12,12),(11,12),(13,12)]:
+              assert not blocked(deck['Buildings'],dw,x,y), ('deck lane blocked',x,y)
+          # Route console is physical; boarding center and bottom exit stay open.
+          assert blocked(dock['Buildings'],sw,10,7)
+          for x,y in [(24,7),(24,8),(15,14),(15,15),(15,16),(15,17)]:
+              assert not blocked(dock['Buildings'],sw,x,y), ('dock lane blocked',x,y)
+
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          render=(root/'Services/AirshipInteriorStardewRenderer.cs').read_text()
+          mod=(root/'ModEntry.cs').read_text()
+          patch=(root/'Patches/AirshipGateDepthPatch.cs').read_text()
+
+          # No runtime pickup furniture in either Cardcha-owned Airship room.
+          decor=air[air.index('private void EnsureDeckVanillaFurniture'):air.index('private static void ClearInteriorDecor')]
+          assert 'TryAddInteriorFurniture' not in decor
+          assert 'heldId:' not in decor
+          assert 'physical-bridge-no-pickups' in decor and 'physical-dock-no-pickups' in decor
+          # 0647D giant post-world wall panels are no longer called.
+          deck_method=render[render.index('public static bool TryDrawDeck'):render.index('public static bool TryDrawSkyDock')]
+          dock_method=render[render.index('public static bool TryDrawSkyDock'):render.index('private static void DrawDeckWindowLife')]
+          assert 'DrawBridgeWallPanel(' not in deck_method
+          assert 'DrawDockWallPanel(' not in dock_method and 'DrawDockBeacon(' not in dock_method
+          assert '112, 112' in render
+
+          # Gate is removed from RenderedWorld and depth-sorted around the local Farmer draw.
+          rendered=air[air.index('public void OnRenderedWorld'):air.index('public void OnButtonPressed')]
+          assert 'this.DrawSkyDock(' not in rendered
+          assert 'ShouldDrawForestGateAfterPlayer' in air and 'DrawForestGateAtFarmerDepth' in air
+          assert 'ResolveForestGateLandingTile' in air
+          assert 'AccessTools.Method(typeof(Farmer), "draw", new[] { typeof(SpriteBatch) })' in patch
+          assert 'BeforeFarmerDraw' in patch and 'AfterFarmerDraw' in patch
+          assert 'AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor)' in mod
+
+          # Deterministic gate owner + locked route/canon remain intact.
+          resolver=air[air.index('private Point ResolveSkyDockTile()'):air.index('private Point ResolveForestFarmWarpTile()')]
+          assert 'farmWarp.X - 23' in resolver and 'farmWarp.Y + 10' in resolver
+          assert 'FindSafeDockTile' not in resolver
+          assert 'ForestGateUseDistance = 160f' in air
+          assert 'SkyDockInteriorLocationName = "Cardcha_SkyDockInterior"' in air
+          assert 'DeckLocationName = "Cardcha_AirshipDeck"' in air
+          assert 'Cardcha_MiMiAttic' not in air
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+
+          # MiMi regressions stay fixed.
+          assert (assets/'mimi_portraits.png').is_file()
+          assert not (assets/'mimi_portraits_runtime64.png').exists()
+          assert not (assets/'mimi_npc_portraits.png').exists()
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          assert 'DefaultHomeTile = new(10, 6)' in home
+          assert 'SecretTvWatchTile = new(5, 9)' in home
+          assert 'SecretLateHomeTile = new(13, 7)' in home
+          print('0647E source/TMX validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Audit compiled DLL
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          dll=next(Path('src/Cardcha/bin/Release').rglob('Cardcha.dll'))
+          data=dll.read_bytes()
+          for token in ('assets/mimi_portraits_runtime64.png','assets/mimi_npc_portraits.png'):
+              assert token.encode() not in data and token.encode('utf-16le') not in data, token
+          canonical='assets/mimi_portraits.png'
+          assert canonical.encode() in data or canonical.encode('utf-16le') in data
+          print(f'0647E DLL audit PASS: {dll} size={dll.stat().st_size}')
+          PY
+
+      - name: Materialize .5.12.5 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.5 Airship physical depth rebuild [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0647e-airship-physical-depth-rebuild
+          fi
+
+      - name: Package .5.12.5 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/airship_deck_stardew.png
+          test -f stage/Cardcha/assets/sky_dock_stardew.png
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -e stage/Cardcha/assets/mimi_npc_portraits.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.5_AirshipPhysicalDepthRebuild_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0647e-airship-physical-depth-rebuild
+          path: artifact
+          if-no-files-found: error
