@@ -71,14 +71,12 @@ def patch_home_service() -> None:
     elif "showMimiPortraitDialogue" not in text:
         raise RuntimeError("Could not patch HomeService constructor")
 
-    # Reset stable anchor cache whenever the home layer resets its location cache.
     reset_needle = "        this.CachedAtticStairTile = null;\n"
     reset_repl = (
         "        this.CachedAtticStairTile = null;\n"
         "        this.CachedAtticRoutineKey = null;\n"
         "        this.CachedAtticRoutineTile = null;\n"
     )
-    # SaveLoaded, DayStarted, ReturnedToTitle each contain this exact statement.
     if text.count("this.CachedAtticRoutineKey = null;") < 3:
         text = text.replace(reset_needle, reset_repl, 3)
 
@@ -107,7 +105,7 @@ def patch_home_service() -> None:
 
     method_anchor = "    private void PlaceMimi(NPC mimi, GameLocation target, Point tile, int facing)\n"
     stable_method = '''    private Point ResolveStableAtticRoutineTile(GameLocation attic, string routineKey, Point? preferred = null)\n    {\n        if (this.CachedAtticRoutineKey == routineKey && this.CachedAtticRoutineTile is Point cached)\n            return cached;\n\n        Point resolved = preferred is Point target\n            ? FindClearTileNear(attic, target)\n            : FindClearTileNear(attic, preferUpperHalf: true);\n\n        this.CachedAtticRoutineKey = routineKey;\n        this.CachedAtticRoutineTile = resolved;\n        return resolved;\n    }\n\n    internal bool OwnsSecretTvDialogueNow()\n        => this.IsSecretTvRoutineNow()\n           && Game1.currentLocation?.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase) == true;\n\n'''
-    if "ResolveStableAtticRoutineTile" not in text:
+    if "private Point ResolveStableAtticRoutineTile" not in text:
         if method_anchor not in text:
             raise RuntimeError("Could not find PlaceMimi anchor")
         text = text.replace(method_anchor, stable_method + method_anchor, 1)
