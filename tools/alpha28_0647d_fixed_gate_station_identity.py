@@ -20,7 +20,6 @@ def replace_region(text: str, start_token: str, end_token: str, replacement: str
     return text[:start] + replacement + "\n\n" + text[end:]
 
 
-# Version bump.
 for rel in ("manifest.json", "Cardcha.csproj", "Directory.Build.targets"):
     p = CARDCHA / rel
     text = read(p)
@@ -29,9 +28,6 @@ for rel in ("manifest.json", "Cardcha.csproj", "Directory.Build.targets"):
             raise RuntimeError(f"missing version anchor in {rel}")
         write(p, text.replace(OLD_VERSION, NEW_VERSION))
 
-# -----------------------------------------------------------------------------
-# Forest gate: one deterministic owner, one deterministic tile.
-# -----------------------------------------------------------------------------
 service_path = CARDCHA / "Services" / "AirshipFoundationService.cs"
 service = read(service_path)
 service = service.replace(
@@ -65,15 +61,11 @@ service = replace_region(
     "    private Point ResolveForestFarmWarpTile()",
     resolver,
 )
-
-# The TEST command may warp the farmer, but it must never invalidate/re-roll gate placement.
 service = service.replace(
     "        this.TestGateAccessActive = true;\n        this.CachedSkyDockTile = null;\n        Point dock = this.ResolveSkyDockTile();",
     "        this.TestGateAccessActive = true;\n        Point dock = this.ResolveSkyDockTile();",
 )
 
-# Remove the living-room vocabulary from both Airship-owned rooms. The bridge keeps only
-# windows + two instrument tables; the station keeps a clear central transit lane.
 furniture = r'''    private void EnsureDeckVanillaFurniture(GameLocation deck)
     {
         if (ReferenceEquals(this.DeckDecorAppliedLocation, deck))
@@ -111,16 +103,12 @@ service = replace_region(
 )
 write(service_path, service)
 
-# The old Harmony relocation patch was a second placement brain. Retire it entirely.
 patch_path = CARDCHA / "Patches" / "AirshipGateRelocationPatch.cs"
 write(
     patch_path,
-    '''namespace Cardcha.Patches;\n\n/// <summary>\n/// .5.12.4 regression marker only. Forest gate placement is owned exclusively by\n/// AirshipFoundationService.ResolveSkyDockTile. No Harmony relocation/flood-fill is installed.\n/// </summary>\ninternal static class AirshipGateRelocationPatch\n{\n    internal const float CanonicalGateUseDistance = 160f;\n    internal const string CollisionPolicy = "CollisionEdits=NONE";\n}\n''',
+    '''namespace Cardcha.Patches;\n\n/// <summary>\n/// .5.12.4 regression marker only. Forest gate placement is owned exclusively by\n/// AirshipFoundationService.ResolveSkyDockTile. No runtime relocation/flood-fill hook is installed.\n/// </summary>\ninternal static class AirshipGateRelocationPatch\n{\n    internal const float CanonicalGateUseDistance = 160f;\n    internal const string CollisionPolicy = "CollisionEdits=NONE";\n}\n''',
 )
 
-# -----------------------------------------------------------------------------
-# Airship room identity: station != home, bridge != home.
-# -----------------------------------------------------------------------------
 renderer_path = CARDCHA / "Services" / "AirshipInteriorStardewRenderer.cs"
 renderer = read(renderer_path)
 
@@ -148,7 +136,6 @@ renderer = replace_region(
     sky_method,
 )
 
-# Strengthen Airship Bridge identity without drawing a room-sized custom backdrop.
 deck_start = renderer.index("    public static bool TryDrawDeck(SpriteBatch batch, GameLocation deck, SaveService save)")
 deck_end = renderer.index("    public static bool TryDrawSkyDock", deck_start)
 deck = renderer[deck_start:deck_end]
