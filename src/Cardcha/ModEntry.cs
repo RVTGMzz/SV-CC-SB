@@ -145,7 +145,7 @@ internal sealed class ModEntry : Mod
             this.WorldActors,
             this.OpenMimiShop,
             npc => this.Mystery.PrepareCrispPortrait(npc),
-            () => this.Home.OwnsSecretTvDialogueNow()
+            () => this.Home.OwnsAnyAtticDialogueNow()
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);

@@ -934,5 +934,7 @@
   "mimi.attic.inspect.tv.after": "The TV is dark now. The blanket has been folded back onto the couch, but one snack bowl is mysteriously empty.",
   "mimi.attic.routine.tv.talk.early": "MiMi: Shh. This is private research. My current hypothesis is that those two should have confessed three episodes ago.",
   "mimi.attic.routine.tv.talk.late": "MiMi: One more episode. That's not procrastinating if I call it a controlled variable.",
-  "mimi.attic.routine.tv.talk.chacha-away": "MiMi: Don't tell ChaCha I watched this without him. He gets weirdly invested in the villains."
+  "mimi.attic.routine.tv.talk.chacha-away": "MiMi: Don't tell ChaCha I watched this without him. He gets weirdly invested in the villains.",
+  "mimi.attic.routine.home.talk": "Up here I'm off the clock. Give me five minutes and I'll probably remember where I left the sensible notes.$1",
+  "mimi.attic.routine.late.talk": "I'm winding down. Tea, one last note, then I am absolutely going to sleep this time.$1"
 }
