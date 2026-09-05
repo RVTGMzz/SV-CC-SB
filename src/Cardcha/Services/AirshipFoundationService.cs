@@ -47,7 +47,7 @@ internal sealed class AirshipFoundationService
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
     private const float BoardingUseDistance = 160f;
-    private const float ForestGateUseDistance = 320f;
+    private const float ForestGateUseDistance = 160f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
     private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12";
     private const float FlybyTiltRadians = 0.028f;
@@ -368,7 +368,6 @@ internal sealed class AirshipFoundationService
             return "Arcane Gate TEST couldn't find Forest.";
 
         this.TestGateAccessActive = true;
-        this.CachedSkyDockTile = null;
         Point dock = this.ResolveSkyDockTile();
         Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 3));
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
@@ -903,29 +902,22 @@ internal sealed class AirshipFoundationService
 
     private Point ResolveSkyDockTile()
     {
+        // .5.12.4: one authoritative, deterministic Forest gate anchor.
+        // No runtime safe-tile search, flood-fill, or farmer/NPC occupancy is allowed to move it.
+        // The -23,+10 offset preserves the accepted farm-side meadow placement immediately
+        // right of the pink blossom tree.
         if (this.CachedSkyDockTile is Point cached)
             return cached;
 
         GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
-        if (forest is null)
-        {
-            this.CachedSkyDockTile = new Point(6, 6);
-            return this.CachedSkyDockTile.Value;
-        }
-
         Point farmWarp = this.ResolveForestFarmWarpTile();
-        int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
-        int height = forest.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
+        int width = forest?.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
+        int height = forest?.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
 
-        // Player exits the Farm into Forest; the dock should be visible immediately to the left.
-        // Search a compact left-side band instead of claiming a fixed vanilla tile.
-        Point preferred = new(
-            Math.Clamp(farmWarp.X - 7, 2, Math.Max(2, width - 3)),
-            Math.Clamp(farmWarp.Y + 2, 2, Math.Max(2, height - 3))
+        this.CachedSkyDockTile = new Point(
+            Math.Clamp(farmWarp.X - 23, 2, Math.Max(2, width - 3)),
+            Math.Clamp(farmWarp.Y + 10, 2, Math.Max(2, height - 4))
         );
-
-        Point? safe = FindSafeDockTile(forest, preferred, farmWarp);
-        this.CachedSkyDockTile = safe ?? preferred;
         return this.CachedSkyDockTile.Value;
     }
 
@@ -1139,19 +1131,12 @@ internal sealed class AirshipFoundationService
         this.DeckDecorAppliedLocation = deck;
         ClearInteriorDecor(deck);
 
-        // Vanilla furniture provides authentic Stardew scale, collision, shadows, and depth.
-        // Cardcha-only machinery remains a small overlay rather than a room-sized illustration.
-        TryAddInteriorFurniture(deck, "(F)1614", 5, 1);   // windows
+        TryAddInteriorFurniture(deck, "(F)1614", 5, 1);
         TryAddInteriorFurniture(deck, "(F)1614", 11, 1);
         TryAddInteriorFurniture(deck, "(F)1614", 17, 1);
-        TryAddInteriorFurniture(deck, "(F)1289", 2, 5);   // service shelves
-        TryAddInteriorFurniture(deck, "(F)704", 20, 5);   // storage cabinet
-        TryAddInteriorFurniture(deck, "(F)1443", 4, 5);   // warm lamps
-        TryAddInteriorFurniture(deck, "(F)1443", 19, 5);
-        TryAddInteriorFurniture(deck, "(F)1456", 9, 5);   // helm rug
-        TryAddInteriorFurniture(deck, "(F)1120", 7, 6, heldId: "(F)1368");
-        TryAddInteriorFurniture(deck, "(F)1120", 15, 6, heldId: "(F)1362");
-        deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+        TryAddInteriorFurniture(deck, "(F)1120", 3, 5, heldId: "(F)1368");
+        TryAddInteriorFurniture(deck, "(F)1120", 19, 5, heldId: "(F)1362");
+        deck.modData[InteriorDecorMarkerKey] = "alpha.28.0.4.14.4.5.12.4-bridge";
     }
 
     private void EnsureSkyDockVanillaFurniture(GameLocation dock)
@@ -1164,15 +1149,9 @@ internal sealed class AirshipFoundationService
         TryAddInteriorFurniture(dock, "(F)1614", 5, 1);
         TryAddInteriorFurniture(dock, "(F)1614", 14, 1);
         TryAddInteriorFurniture(dock, "(F)1614", 23, 1);
-        TryAddInteriorFurniture(dock, "(F)1289", 2, 5);
-        TryAddInteriorFurniture(dock, "(F)704", 26, 5);
-        TryAddInteriorFurniture(dock, "(F)1443", 11, 5);
-        TryAddInteriorFurniture(dock, "(F)1443", 19, 5);
-        TryAddInteriorFurniture(dock, "(F)1120", 7, 6, heldId: "(F)1368");
-        TryAddInteriorFurniture(dock, "(F)1623", 4, 11);
-        TryAddInteriorFurniture(dock, "(F)432", 3, 13, rotation: 2);
-        TryAddInteriorFurniture(dock, "(F)1461", 12, 11);
-        dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+        TryAddInteriorFurniture(dock, "(F)1120", 4, 6, heldId: "(F)1368");
+        TryAddInteriorFurniture(dock, "(F)1120", 24, 6, heldId: "(F)1362");
+        dock.modData[InteriorDecorMarkerKey] = "alpha.28.0.4.14.4.5.12.4-dock";
     }
 
     private static void ClearInteriorDecor(GameLocation location)

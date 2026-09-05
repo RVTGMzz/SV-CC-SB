@@ -24,6 +24,8 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
+        DrawBridgeWallPanel(batch, new Point(4, 4), new Color(89, 205, 218), phase);
+        DrawBridgeWallPanel(batch, new Point(19, 4), new Color(177, 106, 225), -phase);
         DrawHelmAccent(batch, phase);
         DrawUpgradeStations(batch, save, phase);
         DrawChaChaPedestalAccent(batch, phase);
@@ -38,10 +40,13 @@ internal static class AirshipInteriorStardewRenderer
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
 
-        // Route console and boarding bay keep small Cardcha accents; the exit is a fixed
-        // two-tile threshold instead of a pulsing dot the farmer must stand on exactly.
-        DrawConsoleLamp(batch, new Point(10, 7), new Color(194, 132, 70), new Color(170, 105, 223), phase);
-        DrawConsoleLamp(batch, new Point(24, 7), new Color(194, 132, 70), new Color(78, 193, 211), -phase);
+        // Transit-station silhouette: route board left, boarding gantry right, dock beacon center.
+        // These stay on the upper wall and never cover the farmer's walking lane.
+        DrawDockWallPanel(batch, new Point(6, 4), 7, new Color(170, 105, 223), phase);
+        DrawDockWallPanel(batch, new Point(20, 4), 7, new Color(78, 193, 211), -phase);
+        DrawDockBeacon(batch, new Point(15, 4), phase);
+        DrawConsoleLamp(batch, new Point(10, 6), new Color(194, 132, 70), new Color(170, 105, 223), phase);
+        DrawConsoleLamp(batch, new Point(24, 6), new Color(194, 132, 70), new Color(78, 193, 211), -phase);
         DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);
         return true;
     }
@@ -127,6 +132,43 @@ internal static class AirshipInteriorStardewRenderer
         DrawRect(batch, new Rectangle((int)c.X + 6, (int)c.Y + 19, 16, 3), cyan);
         DrawDiamond(batch, c + new Vector2(-19f, 9f), 4, violet);
         DrawDiamond(batch, c + new Vector2(19f, 9f), 4, cyan);
+    }
+
+    private static void DrawDockWallPanel(SpriteBatch batch, Point centerTile, int widthTiles, Color accent, float phase)
+    {
+        Vector2 c = WorldToScreen(centerTile.X * 64f + 32f, centerTile.Y * 64f + 10f);
+        int w = Math.Max(3, widthTiles) * 44;
+        Rectangle outer = new((int)c.X - w / 2, (int)c.Y - 34, w, 54);
+        DrawRect(batch, outer, new Color(47, 34, 37) * 0.96f);
+        DrawRect(batch, new Rectangle(outer.X + 5, outer.Y + 5, outer.Width - 10, outer.Height - 10), new Color(104, 63, 47) * 0.94f);
+        DrawRect(batch, new Rectangle(outer.X + 12, outer.Y + 12, outer.Width - 24, 7), new Color(194, 132, 70) * 0.82f);
+        float glow = 0.55f + 0.12f * MathF.Sin(phase * 1.8f);
+        for (int i = 0; i < 4; i++)
+        {
+            int x = outer.X + 20 + i * Math.Max(28, (outer.Width - 44) / 4);
+            DrawRect(batch, new Rectangle(x, outer.Y + 28, 18, 6), (i % 2 == 0 ? accent : new Color(88, 208, 224)) * glow);
+        }
+    }
+
+    private static void DrawDockBeacon(SpriteBatch batch, Point tile, float phase)
+    {
+        Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f - 2f);
+        Color brass = new Color(205, 148, 73) * 0.88f;
+        Color cyan = new Color(90, 214, 226) * (0.52f + 0.10f * MathF.Sin(phase * 2f));
+        DrawRect(batch, new Rectangle((int)c.X - 20, (int)c.Y - 24, 40, 8), new Color(48, 31, 36) * 0.95f);
+        DrawRect(batch, new Rectangle((int)c.X - 14, (int)c.Y - 20, 28, 3), brass);
+        DrawDiamond(batch, c + new Vector2(0f, -31f), 6, cyan);
+    }
+
+    private static void DrawBridgeWallPanel(SpriteBatch batch, Point tile, Color accent, float phase)
+    {
+        Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 8f);
+        Rectangle body = new((int)c.X - 56, (int)c.Y - 30, 112, 46);
+        DrawRect(batch, body, new Color(49, 33, 37) * 0.96f);
+        DrawRect(batch, new Rectangle(body.X + 5, body.Y + 5, body.Width - 10, body.Height - 10), new Color(113, 68, 49) * 0.92f);
+        DrawRect(batch, new Rectangle(body.X + 14, body.Y + 12, 36, 7), new Color(86, 177, 192) * 0.72f);
+        DrawRect(batch, new Rectangle(body.X + 58, body.Y + 12, 36, 7), accent * (0.58f + 0.10f * MathF.Sin(phase * 1.7f)));
+        DrawRect(batch, new Rectangle(body.X + 18, body.Y + 27, 76, 3), new Color(205, 148, 73) * 0.78f);
     }
 
     private static void DrawConsoleLamp(SpriteBatch batch, Point tile, Color brass, Color glow, float phase)
