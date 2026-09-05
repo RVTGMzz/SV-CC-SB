@@ -1,0 +1,150 @@
+name: Cardcha alpha28.0.4.14.4.5.12.3 Airship TMX CSV Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0647c-airship-tmx-csv-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.12.3 Airship TMX hotfix
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0647c_airship_tmx_csv_hotfix.py
+
+      - name: Validate TMX CSV and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.3'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          # Reproduce TMXTile's essential assumption: every comma-separated token must be
+          # a valid UInt32, with exactly width*height tokens and no terminal empty token.
+          for name in ('airship_deck.tmx','sky_dock_interior.tmx'):
+              path=assets/name
+              doc=ET.parse(path).getroot()
+              layers=doc.findall('layer')
+              assert len(layers)==3, (name, len(layers))
+              for layer in layers:
+                  data=layer.find('data')
+                  assert data is not None and data.attrib.get('encoding')=='csv', (name, layer.attrib.get('name'))
+                  body=(data.text or '').strip()
+                  assert body and not body.endswith(','), f'{name}:{layer.attrib.get("name")} terminal comma'
+                  tokens=[x.strip() for x in body.split(',')]
+                  assert all(tokens), f'{name}:{layer.attrib.get("name")} empty token'
+                  expected=int(layer.attrib['width'])*int(layer.attrib['height'])
+                  assert len(tokens)==expected, (name, layer.attrib.get('name'), len(tokens), expected)
+                  vals=[int(x,10) for x in tokens]
+                  assert all(0 <= v <= 0xFFFFFFFF for v in vals)
+              print(f'TMX CSV PASS: {name}')
+
+          arch=(Path('tools')/'alpha28_0647_airship_room_architecture.py').read_text()
+          assert "return ',\\n'.join(','.join(str(v) for v in row) for row in rows)" in arch
+          assert "+ ',' for row in rows" not in arch
+
+          # Preserve 0647B portrait runtime fix.
+          forbidden=('mimi_portraits_runtime64.png','mimi_npc_portraits.png')
+          assert (assets/'mimi_portraits.png').is_file()
+          for token in forbidden:
+              assert not (assets/token).exists(), token
+              for p in root.rglob('*.cs'):
+                  assert token not in p.read_text(), f'{token} survives in {p}'
+          world=(root/'Services/WorldActorService.cs').read_text()
+          mystery=(root/'Services/MimiMysteryTownService.cs').read_text()
+          assert 'e.Name.IsEquivalentTo(MimiPortraitAsset)' not in world
+          assert 'MimiPortraitSheetPath' not in world
+          assert 'e.Name.IsEquivalentTo(PortraitAsset)' in mystery
+          assert 'e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet()' in mystery
+
+          # Preserve 0647 Airship room architecture and locked gameplay/canon.
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'InteriorDecorVersion = "alpha.28.0.4.14.4.5.12"' in air
+          assert 'IsPortalZone(playerTile, bay, radiusX: 1, radiusY: 1)' in air
+          assert 'IsBottomDoorwayZone(location, playerTile)' in air
+          assert 'BoardingUseDistance = 160f' in air
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+          gate=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
+          assert 'CanonicalGateUseDistance = 160f' in gate and 'CollisionEdits=NONE' in gate
+          print('0647C source validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Audit compiled DLL portrait paths
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          dll=next(Path('src/Cardcha/bin/Release').rglob('Cardcha.dll'))
+          data=dll.read_bytes()
+          for token in ('assets/mimi_portraits_runtime64.png','assets/mimi_npc_portraits.png'):
+              assert token.encode('utf-8') not in data
+              assert token.encode('utf-16le') not in data
+          print(f'COMPILED DLL AUDIT PASS: {dll}')
+          PY
+
+      - name: Materialize .5.12.3 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.3 Airship TMX CSV hotfix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0647c-airship-tmx-csv-hotfix
+          fi
+
+      - name: Package .5.12.3 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/airship_deck.tmx
+          test -f stage/Cardcha/assets/sky_dock_interior.tmx
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.3_AirshipTmxCsvHotfix_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0647c-airship-tmx-csv-hotfix
+          path: artifact
+          if-no-files-found: error
