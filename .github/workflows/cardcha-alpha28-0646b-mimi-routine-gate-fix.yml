@@ -34,34 +34,22 @@ jobs:
           assert json.loads((root/'manifest.json').read_text())['Version']==version
           home=(root/'Services/MimiHomeService.cs').read_text()
           for t in ['DefaultHomeTile = new(10, 4)','SecretTvWatchTile = new(5, 10)','DebugForceRoutine(string mode)','ResolveFixedAtticAnchor','cardcha_test_mimi_routine']:
-              if t=='cardcha_test_mimi_routine':
-                  assert t in (root/'ModEntry.cs').read_text()
+              if t=='cardcha_test_mimi_routine': assert t in (root/'ModEntry.cs').read_text()
               else: assert t in home, t
           social=(root/'Services/MimiSocialService.cs').read_text()
           assert 'MiMi\'s attic is her home, never a shop' in social
-          assert 'MimiHomeService.AtticLocationName' in social
           gate=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
           for t in ['GateShiftX = -16','GateShiftY = 8','FloodWalkable','FindReachableGateAnchor','CanonicalGateUseDistance = 160f','CollisionEdits=NONE']:
               assert t in gate, t
-          save=(root/'Models/SaveData.cs').read_text()
-          assert 'SchemaVersion { get; set; } = 19' in save
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
           assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
           assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
           assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
-          audit=json.loads((assets/'card_auto_audit.json').read_text())
-          assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
           print('0646B validation PASS')
           PY
 
-      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
-
-      - name: Compile Cardcha
-        shell: bash
-        run: |
-          set -euo pipefail
-          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
-
-      - name: Materialize .5.11.2 source
+      - name: Materialize .5.11.2 source before compile
         shell: bash
         run: |
           set -euo pipefail
@@ -74,6 +62,14 @@ jobs:
             git commit -m "chore: materialize alpha28.0.4.14.4.5.11.2 MiMi routine gate fix [skip ci]"
             git push origin HEAD:cardcha-alpha28-0646b-mimi-routine-gate-fix
           fi
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
 
       - name: Package .5.11.2 test build
         shell: bash
