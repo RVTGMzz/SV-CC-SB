@@ -179,5 +179,4 @@ internal static class AirshipGateRelocationPatch
         }
         catch { return false; }
     }
-
-}}
+}
