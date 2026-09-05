@@ -1161,6 +1161,13 @@ internal sealed class MimiMysteryTownService
         AssignPortraitTexture(speaker, this.RuntimePortraitSheet);
     }
 
+    private Texture2D GetNativePortraitCompatibilitySheet()
+    {
+        this.EnsureTextures();
+        return this.RuntimePortraitSheet
+            ?? throw new InvalidOperationException("MiMi runtime portrait sheet was not initialized from mimi_portraits.png.");
+    }
+
     internal bool TryShowCrispPortraitDialogue(NPC speaker, string text)
         => this.TryShowDialogueWithPortrait(speaker, text);
 
