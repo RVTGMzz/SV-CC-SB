@@ -76,7 +76,6 @@ internal sealed class MimiAtticVisualService
         if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
         {
             Point stair = MimiHomeService.ResolvePreferredWizardStairTile(location);
-            PrepareWizardStairArea(location, stair);
             this.DrawStairMarker(e.SpriteBatch, stair);
         }
     }

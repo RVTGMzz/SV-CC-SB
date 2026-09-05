@@ -1,0 +1,29 @@
+{
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.8",
+  "scope": "0648B visual architecture + portrait lifecycle",
+  "gate": "stable geometry; no rotating sigil/cloud animation",
+  "deckShell": "vanilla townInterior + transparent Cardcha decor",
+  "dockShell": "vanilla townInterior + visible boarding pad",
+  "deckStations": {
+    "engine": [
+      4,
+      8
+    ],
+    "navigation": [
+      19,
+      8
+    ],
+    "hull": [
+      7,
+      11
+    ],
+    "reactor": [
+      16,
+      11
+    ]
+  },
+  "upgradeUi": "one station -> one system only",
+  "flight": "time/weather palette + rain/snow/lightning/debris + clear night stars",
+  "mimiPortrait": "GameContent-owned runtime compatibility texture generated from mimi_portraits.png",
+  "wizardHouse": "zero tile deletion"
+}

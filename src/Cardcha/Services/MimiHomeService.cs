@@ -634,14 +634,26 @@ internal sealed class MimiHomeService
     {
         int width = wizard.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
         int height = wizard.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
-        Point preferred = new(
-            Math.Clamp(width - 2, 2, Math.Max(2, width - 2)),
-            Math.Clamp((int)Math.Round(height * 0.20f), 2, Math.Max(2, height - 3))
-        );
-        // Keep the entrance visually fixed and one tile farther right / higher than 0.7.7.5,
-        // separating the ladder from the fireplace while preserving the safe landing resolver.
-        // Never re-run a nearest-clear search here, or the ladder can visually move as tiles change.
-        return preferred;
+
+        // Deterministic right-half floor scan. We never erase WizardHouse tiles to force a spot.
+        // Cached by the caller, so the marker cannot "run" as NPCs or temporary objects move.
+        int startY = Math.Clamp((int)Math.Round(height * 0.58f), 3, Math.Max(3, height - 3));
+        for (int dy = 0; dy < Math.Max(2, height / 3); dy++)
+        {
+            int y = Math.Clamp(startY + dy, 2, Math.Max(2, height - 3));
+            for (int x = Math.Max(2, width - 4); x >= Math.Max(2, width / 2); x--)
+            {
+                Point p = new(x, y);
+                if (!IsTileClear(wizard, p))
+                    continue;
+                // Keep the landing tile below clear too, so the stair never pins the farmer to decor.
+                Point below = new(x, Math.Min(height - 2, y + 1));
+                if (IsTileClear(wizard, below))
+                    return p;
+            }
+        }
+
+        return FindClearTileNear(wizard, new Point(Math.Max(2, width - 4), Math.Max(2, height / 2)));
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)

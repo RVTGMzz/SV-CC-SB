@@ -49,7 +49,7 @@ internal sealed class AirshipFoundationService
     private const float BoardingUseDistance = 160f;
     private const float ForestGateUseDistance = 160f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
-    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.7";
+    private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.8";
     private const float FlybyTiltRadians = 0.028f;
     private const float CutsceneTiltRadians = 0.045f;
     private const float CutsceneScalePulse = 0.018f;
@@ -276,7 +276,7 @@ internal sealed class AirshipFoundationService
             Point bay = ResolveSkyDockInteriorBayTile(location);
             Point interiorExit = ResolveSkyDockInteriorExitTile(location);
 
-            if (Touches(interiorAction, route) || PlayerIsNear(route, 176f))
+            if (interiorAction == route)
             {
                 this.Helper.Input.Suppress(e.Button);
                 int owned = this.Save.Data.OwnedCards?.Count ?? 0;
@@ -284,7 +284,7 @@ internal sealed class AirshipFoundationService
                 return;
             }
 
-            if (Touches(interiorAction, bay) || PlayerIsNear(bay, 176f))
+            if (interiorAction == bay)
             {
                 this.Helper.Input.Suppress(e.Button);
                 if (this.WarpToAirshipBridge())
@@ -294,7 +294,7 @@ internal sealed class AirshipFoundationService
                 return;
             }
 
-            if (Touches(interiorAction, interiorExit) || PlayerIsNear(interiorExit))
+            if (interiorAction == interiorExit)
             {
                 this.Helper.Input.Suppress(e.Button);
                 this.ReturnToSkyDockExterior();
@@ -315,7 +315,7 @@ internal sealed class AirshipFoundationService
         Point helm = ResolveDeckHelmTile(location);
         Point exit = ResolveDeckExitTile(location);
 
-        if (Touches(action, helm) || PlayerIsNear(helm, 160f))
+        if (action == helm)
         {
             this.Helper.Input.Suppress(e.Button);
             this.HandleRegion1DepartureRequest();
@@ -324,7 +324,7 @@ internal sealed class AirshipFoundationService
 
         foreach ((AirshipUpgradeSystem system, Point tile) in ResolveDeckUpgradeSockets())
         {
-            if (!Touches(action, tile) && !PlayerIsNear(tile, 176f))
+            if (!ActionTouchesStation(action, tile))
                 continue;
 
             this.Helper.Input.Suppress(e.Button);
@@ -333,7 +333,7 @@ internal sealed class AirshipFoundationService
             return;
         }
 
-        if (!Touches(action, exit) && !PlayerIsNear(exit))
+        if (action != exit)
             return;
 
         this.Helper.Input.Suppress(e.Button);
@@ -715,7 +715,7 @@ internal sealed class AirshipFoundationService
         if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
         {
             Point bay = ResolveSkyDockInteriorBayTile(location);
-            if (IsPortalZone(playerTile, bay, radiusX: 1, radiusY: 1))
+            if (playerTile == bay)
                 return this.WarpToAirshipBridge();
 
             if (IsBottomDoorwayZone(location, playerTile))
@@ -1060,14 +1060,14 @@ internal sealed class AirshipFoundationService
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
-        return new Point(Math.Clamp(width / 3, 3, width - 4), Math.Clamp(7, 3, height - 5));
+        return new Point(Math.Clamp(width / 4, 3, width - 4), Math.Clamp(7, 3, height - 5));
     }
 
     private static Point ResolveSkyDockInteriorBayTile(GameLocation interior)
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
-        return new Point(Math.Clamp(width - 6, 4, width - 3), Math.Clamp(7, 3, height - 5));
+        return new Point(Math.Clamp(width - 7, 4, width - 3), Math.Clamp(8, 3, height - 5));
     }
 
     private static Point ResolveRegion1ArrivalTile(GameLocation region)
@@ -1174,11 +1174,14 @@ internal sealed class AirshipFoundationService
     private static (AirshipUpgradeSystem System, Point Tile)[] ResolveDeckUpgradeSockets()
         => new[]
         {
-            (AirshipUpgradeSystem.Engine, new Point(5, 9)),
-            (AirshipUpgradeSystem.Navigation, new Point(18, 9)),
-            (AirshipUpgradeSystem.Hull, new Point(8, 10)),
-            (AirshipUpgradeSystem.Reactor, new Point(15, 10)),
+            (AirshipUpgradeSystem.Engine, new Point(4, 8)),
+            (AirshipUpgradeSystem.Navigation, new Point(19, 8)),
+            (AirshipUpgradeSystem.Hull, new Point(7, 11)),
+            (AirshipUpgradeSystem.Reactor, new Point(16, 11)),
         };
+
+    private static bool ActionTouchesStation(Point action, Point station)
+        => action.Y == station.Y && Math.Abs(action.X - station.X) <= 1;
 
     private int GetAirshipUpgradeLevel(AirshipUpgradeSystem system)
         => system switch
@@ -1208,7 +1211,7 @@ internal sealed class AirshipFoundationService
     {
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
-        return new Point(Math.Clamp(width / 2, 2, width - 3), Math.Clamp(8, 2, height - 3));
+        return new Point(Math.Clamp(width / 2, 2, width - 3), Math.Clamp(6, 2, height - 3));
     }
 
     private void DrawFlyby(SpriteBatch batch)
@@ -1274,34 +1277,30 @@ internal sealed class AirshipFoundationService
             new Vector2(tile.X * 64f + 32f, tile.Y * 64f - 34f)
         );
 
-        float phase = (float)(Environment.TickCount64 / 920.0);
-        float pulse = 0.52f + 0.08f * (float)Math.Sin(Environment.TickCount64 / 300.0);
-        Color violet = new Color(148, 112, 166) * pulse;
-        Color cyan = new Color(110, 181, 188) * (pulse * 0.86f);
+        (Color skyTop, Color skyMid, Color skyLow) = ResolveOutdoorSkyPalette();
         Color gold = new Color(199, 151, 78) * 0.94f;
         Color stoneDark = new Color(57, 48, 51) * 0.98f;
         Color stone = new Color(90, 77, 74) * 0.98f;
         Color stoneLight = new Color(126, 111, 102) * 0.86f;
+        Color violet = new Color(148, 112, 166) * 0.62f;
+        Color cyan = new Color(110, 181, 188) * 0.58f;
 
-        // Ground shadow and three-step dais. Presentation only, never Forest collision.
-        DrawRect(batch, new Rectangle((int)center.X - 104, (int)center.Y + 63, 208, 18), new Color(20, 20, 27) * 0.50f);
+        // Stable presentation: the portal no longer rotates/rebuilds its sigil while the farmer moves.
+        DrawRect(batch, new Rectangle((int)center.X - 104, (int)center.Y + 63, 208, 18), new Color(20, 20, 27) * 0.48f);
         DrawRect(batch, new Rectangle((int)center.X - 92, (int)center.Y + 49, 184, 18), stoneDark * 0.84f);
         DrawRect(batch, new Rectangle((int)center.X - 82, (int)center.Y + 40, 164, 13), stone * 0.86f);
         DrawRect(batch, new Rectangle((int)center.X - 70, (int)center.Y + 32, 140, 10), stoneLight * 0.72f);
-        DrawRect(batch, new Rectangle((int)center.X - 76, (int)center.Y + 41, 152, 3), gold * 0.58f);
 
-        // Deep portal vista: violet edge, cyan depth, then moving sky/cloud parallax.
         Rectangle aperture = new((int)center.X - 57, (int)center.Y - 105, 114, 143);
-        DrawRect(batch, new Rectangle(aperture.X - 7, aperture.Y - 7, aperture.Width + 14, aperture.Height + 14), new Color(48, 27, 72) * 0.94f);
-        DrawVerticalGradient(batch, aperture,
-            new Color(77, 82, 129) * 0.90f,
-            new Color(105, 151, 174) * 0.88f,
-            new Color(190, 161, 163) * 0.72f);
-        DrawPortalClouds(batch, aperture, phase, new Color(235, 222, 201) * 0.40f);
-        DrawRect(batch, new Rectangle(aperture.X + 9, aperture.Y + 8, aperture.Width - 18, aperture.Height - 16), violet * 0.18f);
-        DrawRect(batch, new Rectangle(aperture.X + 18, aperture.Y + 15, aperture.Width - 36, aperture.Height - 30), cyan * 0.10f);
+        DrawRect(batch, new Rectangle(aperture.X - 7, aperture.Y - 7, aperture.Width + 14, aperture.Height + 14), new Color(48, 27, 54) * 0.94f);
+        DrawVerticalGradient(batch, aperture, skyTop * 0.94f, skyMid * 0.92f, skyLow * 0.88f);
+        // Fixed magical glass lines. Only brightness gently pulses; geometry never moves.
+        DrawRect(batch, new Rectangle(aperture.X + 13, aperture.Y + 28, aperture.Width - 26, 2), cyan * 0.26f);
+        DrawRect(batch, new Rectangle(aperture.X + 21, aperture.Y + 73, aperture.Width - 42, 2), violet * 0.24f);
+        DrawDiamondRune(batch, new Vector2(aperture.Center.X, aperture.Center.Y), 9f, cyan * 0.42f);
+        DrawDiamondRune(batch, new Vector2(aperture.Center.X - 27f, aperture.Center.Y + 31f), 4f, violet * 0.34f);
+        DrawDiamondRune(batch, new Vector2(aperture.Center.X + 29f, aperture.Center.Y - 35f), 4f, gold * 0.32f);
 
-        // Heavy stone arch with brass inlay.
         DrawRect(batch, new Rectangle((int)center.X - 81, (int)center.Y - 77, 24, 127), stoneDark);
         DrawRect(batch, new Rectangle((int)center.X + 57, (int)center.Y - 77, 24, 127), stoneDark);
         DrawRect(batch, new Rectangle((int)center.X - 74, (int)center.Y - 73, 14, 119), stone);
@@ -1311,18 +1310,11 @@ internal sealed class AirshipFoundationService
         DrawEllipticArc(batch, new Vector2(center.X, center.Y - 74f), 53f, 51f, MathHelper.Pi, MathHelper.TwoPi, 18, 4f, gold * 0.82f);
         DrawRect(batch, new Rectangle((int)center.X - 72, (int)center.Y + 43, 144, 6), gold * 0.72f);
 
-        DrawArcaneSigil(batch, new Vector2(center.X, center.Y - 25f), 56f, violet * 0.78f, phase);
-        DrawArcaneSigil(batch, new Vector2(center.X, center.Y - 25f), 42f, cyan * 0.70f, -phase * 0.74f);
-        DrawArcaneSparkles(batch, new Vector2(center.X, center.Y - 24f), 70f, 10, phase, new Color(235, 222, 201) * 0.42f);
-
         DrawDiamondRune(batch, new Vector2(center.X, center.Y - 147f), 18f, gold);
         DrawCrystalPylon(batch, new Vector2(center.X - 102f, center.Y + 48f), 48f, cyan, gold);
         DrawCrystalPylon(batch, new Vector2(center.X + 102f, center.Y + 48f), 48f, violet, gold);
-        DrawBrassLamp(batch, new Vector2(center.X - 137f, center.Y + 55f), phase, gold, cyan);
-        DrawBrassLamp(batch, new Vector2(center.X + 137f, center.Y + 55f), -phase, gold, violet);
-
-        DrawArcaneSigil(batch, new Vector2(center.X, center.Y + 59f), 47f, violet * 0.55f, phase * 0.44f);
-        DrawDiamondRune(batch, new Vector2(center.X, center.Y + 59f), 12f, cyan * 0.74f);
+        DrawBrassLamp(batch, new Vector2(center.X - 137f, center.Y + 55f), 0f, gold, cyan);
+        DrawBrassLamp(batch, new Vector2(center.X + 137f, center.Y + 55f), 0f, gold, violet);
     }
 
     private void DrawSkyDockInteriorDetails(SpriteBatch batch, GameLocation interior)
@@ -1494,6 +1486,95 @@ internal sealed class AirshipFoundationService
         DrawWorldMarker(batch, bossSigil, new Color(223, 112, 86) * 0.62f);
     }
 
+    private static (Color Top, Color Mid, Color Low) ResolveOutdoorSkyPalette()
+    {
+        int time = Game1.timeOfDay;
+        bool night = time >= 2000 || time < 600;
+        bool dusk = time >= 1700 && time < 2000;
+        bool dawn = time >= 600 && time < 800;
+
+        Color top;
+        Color mid;
+        Color low;
+        if (night)
+        {
+            top = new Color(18, 30, 65);
+            mid = new Color(37, 49, 92);
+            low = new Color(67, 64, 108);
+        }
+        else if (dusk)
+        {
+            top = new Color(72, 101, 160);
+            mid = new Color(190, 118, 132);
+            low = new Color(244, 176, 119);
+        }
+        else if (dawn)
+        {
+            top = new Color(94, 132, 181);
+            mid = new Color(209, 156, 160);
+            low = new Color(247, 204, 149);
+        }
+        else
+        {
+            top = new Color(78, 145, 207);
+            mid = new Color(126, 190, 224);
+            low = new Color(214, 225, 226);
+        }
+
+        if (Game1.isLightning)
+            return (new Color(41, 49, 69), new Color(62, 68, 85), new Color(94, 96, 108));
+        if (Game1.isRaining)
+            return (new Color(48, 66, 91), new Color(70, 85, 105), new Color(101, 111, 120));
+        if (Game1.isSnowing)
+            return (new Color(95, 112, 139), new Color(141, 154, 174), new Color(201, 207, 211));
+        if (Game1.isDebrisWeather)
+            return (new Color(97, 127, 144), new Color(141, 160, 154), new Color(192, 190, 164));
+        return (top, mid, low);
+    }
+
+    private static void DrawFlightWeather(SpriteBatch batch, Rectangle sky, float phase)
+    {
+        if (Game1.isRaining || Game1.isLightning)
+        {
+            Color rain = new Color(183, 204, 221) * 0.50f;
+            for (int i = 0; i < 34; i++)
+            {
+                int x = sky.X + (int)((i * 73 + phase * 210f) % Math.Max(1, sky.Width));
+                int y = sky.Y + (int)((i * 41 + phase * 330f) % Math.Max(1, sky.Height));
+                DrawRect(batch, new Rectangle(x, y, 2, 10), rain);
+            }
+            if (Game1.isLightning)
+            {
+                float flash = Math.Max(0f, (float)Math.Sin(phase * 7.5f) - 0.86f) * 2.4f;
+                if (flash > 0f)
+                    DrawRect(batch, sky, Color.White * Math.Min(0.22f, flash));
+            }
+            return;
+        }
+        if (Game1.isSnowing)
+        {
+            Color snow = new Color(244, 245, 238) * 0.72f;
+            for (int i = 0; i < 30; i++)
+            {
+                int x = sky.X + (int)((i * 83 + phase * 34f) % Math.Max(1, sky.Width));
+                int y = sky.Y + (int)((i * 47 + phase * 58f) % Math.Max(1, sky.Height));
+                int s = 2 + (i % 3);
+                DrawRect(batch, new Rectangle(x, y, s, s), snow);
+            }
+            return;
+        }
+        if (Game1.isDebrisWeather)
+        {
+            Color leaf = new Color(164, 133, 73) * 0.62f;
+            for (int i = 0; i < 22; i++)
+            {
+                int x = sky.X + (int)((i * 91 + phase * 120f) % Math.Max(1, sky.Width));
+                int y = sky.Y + (int)((i * 53 + phase * 46f) % Math.Max(1, sky.Height));
+                DrawRect(batch, new Rectangle(x, y, 4, 2), leaf);
+            }
+        }
+    }
+
     private void DrawFlightCutscene(SpriteBatch batch)
     {
         float p = Math.Clamp(
@@ -1504,59 +1585,48 @@ internal sealed class AirshipFoundationService
         float eased = MathHelper.SmoothStep(0f, 1f, p);
         int w = Game1.viewport.Width;
         int h = Game1.viewport.Height;
+        Rectangle sky = new(0, 0, w, h);
+        float phase = (float)(Environment.TickCount64 / 1000.0);
+        (Color top, Color mid, Color low) = ResolveOutdoorSkyPalette();
+        DrawVerticalGradient(batch, sky, top, mid, low);
 
-        DrawRect(batch, new Rectangle(0, 0, w, h), new Color(21, 31, 51) * 0.94f);
+        bool night = Game1.timeOfDay >= 2000 || Game1.timeOfDay < 600;
+        if (!Game1.isRaining && !Game1.isLightning && !Game1.isSnowing && !Game1.isDebrisWeather)
+        {
+            if (night)
+                DrawStarfield(batch, sky, 54, phase, new Color(247, 235, 204) * 0.78f);
+            else
+            {
+                DrawCloudBand(batch, sky, h / 5, phase * 16f, Color.White * 0.48f);
+                DrawCloudBand(batch, sky, h * 2 / 5, -phase * 10f, Color.White * 0.30f);
+            }
+        }
+        DrawFlightWeather(batch, sky, phase);
 
-        // Dock frame.
-        Color woodDark = new Color(69, 46, 31) * 0.95f;
-        Color wood = new Color(132, 87, 50) * 0.96f;
-        DrawRect(batch, new Rectangle(0, h - 145, w, 145), woodDark);
-        for (int x = 0; x < w; x += 72)
-            DrawRect(batch, new Rectangle(x, h - 137, 66, 72), wood);
-        DrawRect(batch, new Rectangle(70, 0, 16, h - 80), woodDark);
-        DrawRect(batch, new Rectangle(w - 86, 0, 16, h - 80), woodDark);
-
-        // Clouds make the scene read as an elevated dock even before bespoke Cardcha art exists.
-        Color cloud = new Color(222, 236, 241) * 0.66f;
-        DrawRect(batch, new Rectangle(w / 8, h / 4, w / 5, 18), cloud);
-        DrawRect(batch, new Rectangle(w * 5 / 8, h / 3, w / 4, 20), cloud * 0.82f);
+        // Thin lower haze only. The old fake wooden stage / straight cloud bars are gone.
+        DrawRect(batch, new Rectangle(0, h - 52, w, 52), low * 0.24f);
 
         float crest = (float)Math.Sin(p * Math.PI);
         float travel = this.FlightCutsceneReturning ? 1f - eased : eased;
-        float shipX = MathHelper.Lerp(w * 0.28f, w * 0.78f, travel);
+        float shipX = MathHelper.Lerp(w * 0.24f, w * 0.76f, travel);
         float bob = (float)Math.Sin(p * MathHelper.TwoPi * 1.25f) * (3f + crest * 8f);
         float lift = crest * 24f;
-        float shipY = h * 0.40f - lift + bob;
+        float shipY = h * 0.43f - lift + bob;
         float direction = this.FlightCutsceneReturning ? -1f : 1f;
         float rotation = -direction * CutsceneTiltRadians * (0.30f + crest * 0.70f);
         float verticalScale = 1f + (float)Math.Sin(p * MathHelper.TwoPi * 1.75f) * CutsceneScalePulse;
-        SpriteEffects directionEffect = this.FlightCutsceneReturning
-            ? SpriteEffects.FlipHorizontally
-            : SpriteEffects.None;
+        SpriteEffects directionEffect = this.FlightCutsceneReturning ? SpriteEffects.FlipHorizontally : SpriteEffects.None;
         float targetWidth = Math.Min(720f, w * 0.62f);
 
-        // The eased travel, bob, tilt and tiny breathing scale make departure and return feel
-        // like a suspended vessel instead of a static overlay. The same motion runs on both
-        // directions; only the travel direction and sprite flip are reversed.
         bool spriteDrawn = this.TryDrawAirshipSprite(
-            batch,
-            new Vector2(shipX, shipY),
-            targetWidth,
-            Color.White * 0.98f,
-            directionEffect,
-            rotation,
-            verticalScale
+            batch, new Vector2(shipX, shipY), targetWidth, Color.White * 0.98f,
+            directionEffect, rotation, verticalScale
         );
         if (spriteDrawn)
         {
             this.DrawAirshipPropellerMotion(
-                batch,
-                new Vector2(shipX, shipY),
-                targetWidth,
-                directionEffect,
-                rotation,
-                verticalScale,
-                spinDirection: direction
+                batch, new Vector2(shipX, shipY), targetWidth,
+                directionEffect, rotation, verticalScale, spinDirection: direction
             );
         }
         else

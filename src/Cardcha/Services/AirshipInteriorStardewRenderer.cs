@@ -5,15 +5,13 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0648 Stardew Visual Pass 1.
-/// Heavy architecture lives in TMX/backdrop assets with real Buildings collision.
-/// This renderer owns only small animated accents and the four level-aware upgrade machines.
+/// 0648B. Vanilla townInterior owns the room shell. This renderer only adds magical light,
+/// weather-aware glass ambience and four independent level-aware machine sprites.
 /// </summary>
 internal static class AirshipInteriorStardewRenderer
 {
     private const string UpgradeAtlasPath = "assets/airship_upgrade_visuals.png";
     private const int CellSize = 96;
-
     private static Texture2D? UpgradeAtlas;
     private static bool AtlasLoadFailed;
 
@@ -23,14 +21,12 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawDeckWindowLife(batch, phase);
-        DrawWarmDeckAmbient(batch, phase);
-        DrawHelmAccent(batch, phase);
-        DrawSideConsoleAccent(batch, new Point(5, 7), new Color(100, 174, 176), phase);
-        DrawSideConsoleAccent(batch, new Point(18, 7), new Color(101, 139, 164), -phase);
+        DrawWindowMagic(batch, phase);
+        DrawAmbientLamps(batch, phase);
+        DrawHelmMagic(batch, phase);
         DrawUpgradeStations(batch, save, phase);
-        DrawChaChaPedestalAccent(batch, phase);
-        DrawDoorwayThreshold(batch, new Point(12, 12), new Color(173, 133, 72) * 0.48f);
+        DrawChaChaMagic(batch, phase);
+        DrawDoorwayThreshold(batch, new Point(12, 12), new Color(210, 161, 79) * 0.60f);
         return true;
     }
 
@@ -38,68 +34,65 @@ internal static class AirshipInteriorStardewRenderer
     {
         if (batch is null || dock is null)
             return false;
-
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawRouteBoardAccent(batch, phase);
-        DrawBoardingGantryAccent(batch, phase);
-        DrawServiceCornerAccent(batch, phase);
-        DrawConsoleLamp(batch, new Point(10, 6), new Color(188, 132, 70), new Color(145, 112, 156), phase);
-        DrawConsoleLamp(batch, new Point(24, 6), new Color(188, 132, 70), new Color(96, 168, 174), -phase);
-        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(173, 133, 72) * 0.46f);
+        DrawDockMagic(batch, phase);
+        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(210, 161, 79) * 0.54f);
         return true;
     }
 
-    private static void DrawDeckWindowLife(SpriteBatch batch, float phase)
+    private static void DrawWindowMagic(SpriteBatch batch, float phase)
     {
-        Color star = new Color(238, 225, 194) * 0.48f;
-        Color blue = new Color(103, 158, 181) * 0.28f;
-        for (int i = 0; i < 12; i++)
+        bool night = Game1.timeOfDay >= 2000 || Game1.timeOfDay < 600;
+        Color warm = new Color(244, 209, 138) * 0.35f;
+        Color teal = new Color(103, 205, 207) * 0.30f;
+        for (int i = 0; i < 14; i++)
         {
-            int tx = 3 + ((i * 7 + 2) % 18);
-            int ty = 1 + ((i * 5 + 1) % 3);
-            Vector2 p = WorldToScreen(tx * 64f + 13f + (i % 3) * 12f, ty * 64f + 9f + (i % 2) * 13f);
-            float pulse = 0.38f + 0.12f * MathF.Sin(phase * 1.35f + i * 0.9f);
-            DrawRect(batch, new Rectangle((int)p.X, (int)p.Y, 3, 3), (i % 4 == 0 ? blue : star) * pulse);
+            int x = 2 + ((i * 7) % 20);
+            Vector2 p = WorldToScreen(x * 64f + 26f, 2f * 64f + 24f + (i % 3) * 13f);
+            float pulse = 0.45f + 0.18f * MathF.Sin(phase * 1.4f + i * 0.85f);
+            DrawRect(batch, new Rectangle((int)p.X, (int)p.Y, night ? 4 : 3, night ? 4 : 3), (i % 4 == 0 ? teal : warm) * pulse);
         }
     }
 
-    private static void DrawWarmDeckAmbient(SpriteBatch batch, float phase)
+    private static void DrawAmbientLamps(SpriteBatch batch, float phase)
     {
-        Color brass = new Color(199, 148, 78) * 0.54f;
-        Color warm = new Color(230, 196, 126) * (0.34f + 0.05f * MathF.Sin(phase * 1.6f));
-        foreach (Point tile in new[] { new Point(2, 4), new Point(21, 4) })
+        foreach ((Point tile, Color glow) in new[]
         {
-            Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 18f);
-            DrawRect(batch, new Rectangle((int)c.X - 8, (int)c.Y - 3, 16, 3), brass);
-            DrawRect(batch, new Rectangle((int)c.X - 3, (int)c.Y - 8, 6, 5), warm);
+            (new Point(2,6), new Color(248, 211, 132)),
+            (new Point(21,6), new Color(248, 211, 132)),
+            (new Point(10,7), new Color(116, 219, 215)),
+            (new Point(14,7), new Color(179, 132, 211)),
+        })
+        {
+            Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 25f);
+            float pulse = 0.58f + 0.08f * MathF.Sin(phase * 1.55f + tile.X);
+            // Pixel halo, intentionally chunky instead of smooth neon.
+            DrawRect(batch, new Rectangle((int)c.X - 30, (int)c.Y - 20, 60, 40), glow * (0.055f * pulse));
+            DrawRect(batch, new Rectangle((int)c.X - 18, (int)c.Y - 12, 36, 24), glow * (0.085f * pulse));
+            DrawDiamond(batch, c, 5, glow * (0.52f + pulse * 0.12f));
+            DrawRect(batch, new Rectangle((int)c.X - 2, (int)c.Y + 7, 4, 6), new Color(190, 135, 60) * 0.82f);
         }
     }
 
-    private static void DrawHelmAccent(SpriteBatch batch, float phase)
+    private static void DrawHelmMagic(SpriteBatch batch, float phase)
     {
-        Vector2 c = WorldToScreen(12f * 64f + 32f, 4f * 64f + 18f);
-        Color dark = new Color(48, 33, 34) * 0.90f;
-        Color brass = new Color(199, 148, 78) * 0.82f;
-        Color teal = new Color(100, 174, 176) * 0.58f;
-        Color violet = new Color(145, 112, 156) * 0.42f;
-
-        DrawPixelRing(batch, c, 22, dark);
-        DrawPixelRing(batch, c, 18, brass);
-        DrawPixelRing(batch, c, 12, violet);
-        int needle = (int)(MathF.Sin(phase * 1.1f) * 7f);
-        DrawRect(batch, new Rectangle((int)c.X - 2, (int)c.Y - 14 + needle / 4, 4, 28), teal);
-        DrawRect(batch, new Rectangle((int)c.X - 13, (int)c.Y - 2, 26, 4), brass * 0.70f);
-        DrawDiamond(batch, c, 7, teal);
-    }
-
-    private static void DrawSideConsoleAccent(SpriteBatch batch, Point tile, Color accent, float phase)
-    {
-        Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 24f);
-        Color brass = new Color(197, 145, 76) * 0.58f;
-        float blink = 0.36f + 0.10f * MathF.Sin(phase * 1.9f + tile.X * 0.3f);
-        DrawRect(batch, new Rectangle((int)c.X - 18, (int)c.Y - 5, 9, 4), accent * blink);
-        DrawRect(batch, new Rectangle((int)c.X - 4, (int)c.Y - 5, 8, 4), brass);
-        DrawRect(batch, new Rectangle((int)c.X + 9, (int)c.Y - 5, 9, 4), accent * (blink * 0.85f));
+        Vector2 c = WorldToScreen(12f * 64f + 32f, 6f * 64f + 10f);
+        Color brass = new Color(218, 163, 79) * 0.82f;
+        Color teal = new Color(109, 220, 216) * 0.72f;
+        Color violet = new Color(184, 133, 216) * 0.58f;
+        float pulse = 0.58f + 0.10f * MathF.Sin(phase * 1.8f);
+        DrawRect(batch, new Rectangle((int)c.X - 46, (int)c.Y - 32, 92, 64), teal * (0.045f + pulse * 0.035f));
+        DrawPixelRing(batch, c, 23, brass);
+        DrawPixelRing(batch, c, 16, violet);
+        DrawDiamond(batch, c, 7, teal * pulse);
+        int needle = (int)(MathF.Sin(phase * 0.9f) * 7f);
+        DrawRect(batch, new Rectangle((int)c.X + needle - 1, (int)c.Y - 14, 3, 28), teal * 0.62f);
+        for (int i = 0; i < 4; i++)
+        {
+            float a = phase * 0.45f + i * MathHelper.PiOver2;
+            Vector2 s = c + new Vector2(MathF.Cos(a) * 35f, MathF.Sin(a) * 22f);
+            DrawRect(batch, new Rectangle((int)s.X, (int)s.Y, 3, 3), (i % 2 == 0 ? teal : violet) * 0.60f);
+        }
     }
 
     private static void DrawUpgradeStations(SpriteBatch batch, SaveService save, float phase)
@@ -107,103 +100,61 @@ internal static class AirshipInteriorStardewRenderer
         Texture2D? atlas = GetUpgradeAtlas();
         if (atlas is null)
             return;
-
         (Point Tile, int Column, int Level, Color Accent)[] stations =
         {
-            (new Point(5, 9), 0, Math.Clamp(save.Data.AirshipEngineLevel, 0, 3), new Color(98, 171, 174)),
-            (new Point(18, 9), 1, Math.Clamp(save.Data.AirshipNavigationLevel, 0, 3), new Color(94, 145, 171)),
-            (new Point(8, 10), 2, Math.Clamp(save.Data.AirshipHullLevel, 0, 3), new Color(132, 126, 169)),
-            (new Point(15, 10), 3, Math.Clamp(save.Data.AirshipReactorLevel, 0, 3), new Color(151, 111, 157)),
+            (new Point(4,8), 0, Math.Clamp(save.Data.AirshipEngineLevel,0,3), new Color(104,205,200)),
+            (new Point(19,8), 1, Math.Clamp(save.Data.AirshipNavigationLevel,0,3), new Color(98,166,211)),
+            (new Point(7,11), 2, Math.Clamp(save.Data.AirshipHullLevel,0,3), new Color(151,151,210)),
+            (new Point(16,11), 3, Math.Clamp(save.Data.AirshipReactorLevel,0,3), new Color(190,133,207)),
         };
-
         foreach ((Point tile, int column, int level, Color accent) in stations)
         {
-            Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 54f);
+            Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 52f);
             Rectangle src = new(column * CellSize, level * CellSize, CellSize, CellSize);
-            float idlePulse = 0.52f + 0.12f * MathF.Sin(phase * 1.65f + column * 1.1f);
-            // A soft pixel glow exists even at level 0 so every machine reads as powered equipment.
-            DrawRect(batch, new Rectangle((int)center.X - 43, (int)center.Y - 48, 86, 58), accent * (0.055f + idlePulse * 0.035f));
-            DrawRect(batch, new Rectangle((int)center.X - 31, (int)center.Y - 37, 62, 39), accent * (0.060f + idlePulse * 0.040f));
-
-            Rectangle shadow = new((int)center.X - 56, (int)center.Y + 31, 112, 15);
-            DrawRect(batch, shadow, new Color(28, 21, 28) * 0.42f);
-
+            float pulse = 0.62f + 0.16f * MathF.Sin(phase * 2.05f + column * 1.1f);
+            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y - 55, 108, 72), accent * (0.075f + pulse * 0.045f));
+            DrawRect(batch, new Rectangle((int)center.X - 38, (int)center.Y - 42, 76, 52), accent * (0.085f + pulse * 0.055f));
             Rectangle dst = new((int)center.X - 56, (int)center.Y - 76, 112, 112);
             batch.Draw(atlas, dst, src, Color.White);
-            DrawRect(batch, new Rectangle((int)center.X - 15, (int)center.Y - 25, 30, 3), accent * (0.34f + idlePulse * 0.18f));
-
-            if (level > 0)
+            DrawRect(batch, new Rectangle((int)center.X - 19, (int)center.Y - 26, 38, 4), accent * (0.42f + pulse * 0.22f));
+            DrawDiamond(batch, new Vector2(center.X, center.Y - 44), 4 + level, accent * (0.58f + pulse * 0.22f));
+            for (int i = 0; i < 3 + level; i++)
             {
-                float pulse = 0.55f + 0.20f * MathF.Sin(phase * 2.0f + column * 1.3f);
-                DrawRect(batch, new Rectangle((int)center.X - 16, (int)center.Y + 28, 32, 3), accent * pulse);
-                if (level >= 3)
-                {
-                    DrawRect(batch, new Rectangle((int)center.X - 2, (int)center.Y - 54, 4, 7), accent * (pulse + 0.12f));
-                    DrawRect(batch, new Rectangle((int)center.X - 13, (int)center.Y - 46, 3, 3), accent * pulse);
-                    DrawRect(batch, new Rectangle((int)center.X + 10, (int)center.Y - 40, 3, 3), accent * pulse);
-                }
+                float a = phase * (0.5f + column * 0.05f) + i * 2.1f;
+                Vector2 s = center + new Vector2(MathF.Cos(a) * 31f, -31f + MathF.Sin(a) * 17f);
+                DrawRect(batch, new Rectangle((int)s.X, (int)s.Y, 3, 3), accent * 0.56f);
             }
         }
     }
 
-    private static void DrawChaChaPedestalAccent(SpriteBatch batch, float phase)
+    private static void DrawChaChaMagic(SpriteBatch batch, float phase)
     {
         Vector2 c = WorldToScreen(21f * 64f + 32f, 5f * 64f + 34f);
-        Color violet = new Color(145, 112, 156) * (0.34f + 0.08f * MathF.Sin(phase * 1.8f));
-        Color teal = new Color(99, 173, 175) * (0.32f + 0.08f * MathF.Sin(phase * 1.5f + 1f));
-        Color brass = new Color(197, 145, 76) * 0.48f;
-        DrawRect(batch, new Rectangle((int)c.X - 23, (int)c.Y + 19, 17, 3), brass);
-        DrawRect(batch, new Rectangle((int)c.X + 6, (int)c.Y + 19, 17, 3), brass);
-        DrawDiamond(batch, c + new Vector2(-19f, 9f), 4, violet);
-        DrawDiamond(batch, c + new Vector2(19f, 9f), 4, teal);
+        Color violet = new Color(190, 132, 218) * (0.50f + 0.10f * MathF.Sin(phase * 1.8f));
+        Color teal = new Color(111, 218, 209) * (0.46f + 0.10f * MathF.Sin(phase * 1.5f + 1f));
+        DrawRect(batch, new Rectangle((int)c.X - 38, (int)c.Y - 30, 76, 60), violet * 0.055f);
+        DrawDiamond(batch, c + new Vector2(-18f, 4f), 5, violet);
+        DrawDiamond(batch, c + new Vector2(18f, 4f), 5, teal);
+        DrawDiamond(batch, c + new Vector2(0f, -15f), 4, Color.White * 0.46f);
     }
 
-    private static void DrawRouteBoardAccent(SpriteBatch batch, float phase)
+    private static void DrawDockMagic(SpriteBatch batch, float phase)
     {
-        Vector2 c = WorldToScreen(10f * 64f + 32f, 6f * 64f + 16f);
-        Color brass = new Color(198, 145, 76) * 0.56f;
-        Color[] chips =
+        // Route board indicator.
+        Vector2 route = WorldToScreen(7f * 64f + 32f, 7f * 64f + 10f);
+        DrawDiamond(batch, route, 5, new Color(109,210,204) * (0.58f + 0.10f*MathF.Sin(phase*1.6f)));
+        // Boarding pad is deliberately bright so the warp trigger is never invisible.
+        Vector2 bay = WorldToScreen(23f * 64f + 32f, 8f * 64f + 34f);
+        Color teal = new Color(103,221,214);
+        DrawRect(batch, new Rectangle((int)bay.X - 38, (int)bay.Y - 18, 76, 36), teal * 0.08f);
+        DrawPixelRing(batch, bay, 20, teal * 0.56f);
+        DrawDiamond(batch, bay, 8, teal * 0.70f);
+        for (int i=0;i<5;i++)
         {
-            new Color(98, 171, 174),
-            new Color(210, 158, 83),
-            new Color(145, 112, 156),
-            new Color(94, 145, 171),
-        };
-        for (int i = 0; i < chips.Length; i++)
-        {
-            float pulse = 0.32f + 0.07f * MathF.Sin(phase * 1.4f + i * 0.8f);
-            DrawRect(batch, new Rectangle((int)c.X - 26 + i * 17, (int)c.Y - 5, 9, 4), chips[i] * pulse);
+            float a=phase*0.55f+i*MathHelper.TwoPi/5f;
+            Vector2 s=bay+new Vector2(MathF.Cos(a)*31f,MathF.Sin(a)*14f);
+            DrawRect(batch,new Rectangle((int)s.X,(int)s.Y,3,3),Color.White*0.52f);
         }
-        DrawRect(batch, new Rectangle((int)c.X - 30, (int)c.Y + 4, 60, 2), brass);
-    }
-
-    private static void DrawBoardingGantryAccent(SpriteBatch batch, float phase)
-    {
-        Vector2 c = WorldToScreen(24f * 64f + 32f, 6f * 64f + 24f);
-        Color brass = new Color(198, 145, 76) * 0.54f;
-        Color teal = new Color(99, 173, 175) * (0.30f + 0.08f * MathF.Sin(phase * 1.6f));
-        DrawRect(batch, new Rectangle((int)c.X - 34, (int)c.Y - 12, 68, 3), brass);
-        DrawDiamond(batch, c + new Vector2(-28f, -15f), 3, teal);
-        DrawDiamond(batch, c + new Vector2(28f, -15f), 3, teal);
-    }
-
-    private static void DrawServiceCornerAccent(SpriteBatch batch, float phase)
-    {
-        Color warm = new Color(220, 184, 111) * (0.28f + 0.05f * MathF.Sin(phase * 1.3f));
-        foreach (Point tile in new[] { new Point(4, 10), new Point(26, 10) })
-        {
-            Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 22f);
-            DrawRect(batch, new Rectangle((int)c.X - 3, (int)c.Y - 8, 6, 5), warm);
-        }
-    }
-
-    private static void DrawConsoleLamp(SpriteBatch batch, Point tile, Color brass, Color glow, float phase)
-    {
-        Vector2 c = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 20f);
-        DrawRect(batch, new Rectangle((int)c.X - 9, (int)c.Y - 3, 18, 6), new Color(48, 34, 34) * 0.78f);
-        DrawRect(batch, new Rectangle((int)c.X - 6, (int)c.Y - 1, 12, 2), brass * 0.72f);
-        float pulse = 0.38f + 0.10f * MathF.Sin(phase * 1.8f + tile.X * 0.2f);
-        DrawRect(batch, new Rectangle((int)c.X - 2, (int)c.Y - 10, 4, 4), glow * pulse);
     }
 
     private static void DrawDoorwayThreshold(SpriteBatch batch, Point tile, Color color)
@@ -216,11 +167,11 @@ internal static class AirshipInteriorStardewRenderer
 
     private static Texture2D? GetUpgradeAtlas()
     {
-        if (UpgradeAtlas is not null)
+        if (UpgradeAtlas is not null && !UpgradeAtlas.IsDisposed)
             return UpgradeAtlas;
+        UpgradeAtlas = null;
         if (AtlasLoadFailed || ModEntry.StaticHelper is null)
             return null;
-
         try
         {
             UpgradeAtlas = ModEntry.StaticHelper.ModContent.Load<Texture2D>(UpgradeAtlasPath);
@@ -234,35 +185,28 @@ internal static class AirshipInteriorStardewRenderer
     }
 
     private static Vector2 WorldToScreen(float x, float y)
-        => Game1.GlobalToLocal(Game1.viewport, new Vector2(x, y));
+        => Game1.GlobalToLocal(Game1.viewport, new Vector2(x,y));
 
-    private static void DrawPixelRing(SpriteBatch batch, Vector2 center, int radius, Color color)
+    private static void DrawPixelRing(SpriteBatch batch, Vector2 c, int r, Color color)
     {
-        int x = (int)center.X;
-        int y = (int)center.Y;
-        DrawRect(batch, new Rectangle(x - radius, y - 2, radius * 2 + 1, 4), color);
-        DrawRect(batch, new Rectangle(x - 2, y - radius, 4, radius * 2 + 1), color);
-        int d = Math.Max(2, radius / 2);
-        DrawRect(batch, new Rectangle(x - radius + 3, y - d, 3, d * 2), color * 0.78f);
-        DrawRect(batch, new Rectangle(x + radius - 5, y - d, 3, d * 2), color * 0.78f);
-        DrawRect(batch, new Rectangle(x - d, y - radius + 3, d * 2, 3), color * 0.78f);
-        DrawRect(batch, new Rectangle(x - d, y + radius - 5, d * 2, 3), color * 0.78f);
+        DrawRect(batch,new Rectangle((int)c.X-r,(int)c.Y-r,r*2+1,3),color);
+        DrawRect(batch,new Rectangle((int)c.X-r,(int)c.Y+r-2,r*2+1,3),color);
+        DrawRect(batch,new Rectangle((int)c.X-r,(int)c.Y-r,3,r*2+1),color);
+        DrawRect(batch,new Rectangle((int)c.X+r-2,(int)c.Y-r,3,r*2+1),color);
     }
 
-    private static void DrawDiamond(SpriteBatch batch, Vector2 center, int radius, Color color)
+    private static void DrawDiamond(SpriteBatch batch, Vector2 c, int r, Color color)
     {
-        radius = Math.Max(2, radius);
-        for (int y = -radius; y <= radius; y++)
+        for (int y=-r;y<=r;y++)
         {
-            int half = radius - Math.Abs(y);
-            DrawRect(batch, new Rectangle((int)center.X - half, (int)center.Y + y, half * 2 + 1, 1), color);
+            int half=r-Math.Abs(y);
+            DrawRect(batch,new Rectangle((int)c.X-half,(int)c.Y+y,half*2+1,1),color);
         }
     }
 
     private static void DrawRect(SpriteBatch batch, Rectangle rect, Color color)
     {
-        if (rect.Width <= 0 || rect.Height <= 0)
-            return;
-        batch.Draw(Game1.staminaRect, rect, color);
+        if (rect.Width<=0 || rect.Height<=0 || color.A==0) return;
+        batch.Draw(Game1.staminaRect,rect,color);
     }
 }

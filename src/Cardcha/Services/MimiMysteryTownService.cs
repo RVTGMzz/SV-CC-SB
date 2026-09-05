@@ -69,8 +69,6 @@ internal sealed class MimiMysteryTownService
     private readonly WorldActorService WorldActors;
     private readonly Func<bool> StoryOwnsMimiActor;
 
-    private Texture2D? MasterPortraitSheet;
-    private Texture2D? RuntimePortraitSheet;
     private int TalkIndex;
     private bool LoggedNativeFound;
     private bool ArrivedToday;
@@ -234,7 +232,6 @@ internal sealed class MimiMysteryTownService
     {
         this.ResetRuntimeForDay();
         this.KnownNameAssetRefreshed = false;
-        this.EnsureTextures();
         this.WorldActors.EnsureMimiActor();
         this.EnsureKnownIdentityState();
         this.EnforcePhaseState();
@@ -1157,29 +1154,45 @@ internal sealed class MimiMysteryTownService
 
     internal void PrepareCrispPortrait(NPC speaker)
     {
-        this.EnsureTextures();
-        AssignPortraitTexture(speaker, this.RuntimePortraitSheet);
+        Texture2D portrait = this.GetLivePortraitTexture();
+        AssignPortraitTexture(speaker, portrait);
     }
 
     private Texture2D GetNativePortraitCompatibilitySheet()
     {
-        this.EnsureTextures();
-        return this.RuntimePortraitSheet
-            ?? throw new InvalidOperationException("MiMi runtime portrait sheet was not initialized from mimi_portraits.png.");
+        // IMPORTANT: this texture is returned to GameContent, which owns/disposes it.
+        // Never store this instance in a service field.
+        Texture2D master = this.Helper.ModContent.Load<Texture2D>(MimiPortraitsPath);
+        return CreateRuntimePortraitSheet(master);
     }
 
     internal bool TryShowCrispPortraitDialogue(NPC speaker, string text)
         => this.TryShowDialogueWithPortrait(speaker, text);
 
+    private Texture2D GetLivePortraitTexture()
+    {
+        Texture2D portrait = Game1.content.Load<Texture2D>(PortraitAsset);
+        if (!portrait.IsDisposed)
+            return portrait;
+
+        // A Content Patcher / portrait mod can invalidate the asset while a Cardcha NPC object
+        // still exists. Force a fresh GameContent-owned instance rather than drawing a stale pointer.
+        this.Helper.GameContent.InvalidateCache(PortraitAsset);
+        portrait = Game1.content.Load<Texture2D>(PortraitAsset);
+        if (portrait.IsDisposed)
+            throw new ObjectDisposedException(PortraitAsset, "MiMi portrait reloaded as disposed.");
+        return portrait;
+    }
+
     private bool TryShowDialogueWithPortrait(NPC speaker, string text)
     {
         try
         {
-            this.EnsureTextures();
-            AssignPortraitTexture(speaker, this.RuntimePortraitSheet);
+            Texture2D portrait = this.GetLivePortraitTexture();
+            AssignPortraitTexture(speaker, portrait);
             Dialogue dialogue = new Dialogue(speaker, "Mods/Ronvotri.Cardcha:RuntimeDialogue", text)
             {
-                overridePortrait = this.RuntimePortraitSheet,
+                overridePortrait = portrait,
                 showPortrait = true
             };
             Game1.activeClickableMenu = new DialogueBox(dialogue);
@@ -1303,12 +1316,6 @@ internal sealed class MimiMysteryTownService
             {
             }
         }
-    }
-
-    private void EnsureTextures()
-    {
-        this.MasterPortraitSheet ??= this.Helper.ModContent.Load<Texture2D>(MimiPortraitsPath);
-        this.RuntimePortraitSheet ??= CreateRuntimePortraitSheet(this.MasterPortraitSheet);
     }
 
     private void SyncChaChaWithMimi()
