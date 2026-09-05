@@ -1,58 +1,86 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-CARDCHA = ROOT / 'src' / 'Cardcha'
-OLD_VERSION = '0.3.0-alpha.28.0.4.14.4.5.12.3'
-NEW_VERSION = '0.3.0-alpha.28.0.4.14.4.5.12.4'
+CARDCHA = ROOT / "src" / "Cardcha"
+OLD_VERSION = "0.3.0-alpha.28.0.4.14.4.5.12.3"
+NEW_VERSION = "0.3.0-alpha.28.0.4.14.4.5.12.4"
 
 
 def read(path: Path) -> str:
-    return path.read_text(encoding='utf-8')
+    return path.read_text(encoding="utf-8")
 
 
 def write(path: Path, text: str) -> None:
-    path.write_text(text, encoding='utf-8')
+    path.write_text(text, encoding="utf-8")
+
+
+def replace_region(text: str, start_token: str, end_token: str, replacement: str) -> str:
+    start = text.index(start_token)
+    end = text.index(end_token, start)
+    return text[:start] + replacement + "\n\n" + text[end:]
 
 
 # Version bump.
-for rel in ('manifest.json', 'Cardcha.csproj', 'Directory.Build.targets'):
+for rel in ("manifest.json", "Cardcha.csproj", "Directory.Build.targets"):
     p = CARDCHA / rel
     text = read(p)
     if NEW_VERSION not in text:
         if OLD_VERSION not in text:
-            raise RuntimeError(f'missing version anchor in {rel}')
-        text = text.replace(OLD_VERSION, NEW_VERSION)
-        write(p, text)
+            raise RuntimeError(f"missing version anchor in {rel}")
+        write(p, text.replace(OLD_VERSION, NEW_VERSION))
 
-# Gate: one deterministic owner, no runtime safe-tile search. Keep the user-approved
-# farm-side placement near the blossom tree and restore the canonical 160px use distance.
-service_path = CARDCHA / 'Services' / 'AirshipFoundationService.cs'
+# -----------------------------------------------------------------------------
+# Forest gate: one deterministic owner, one deterministic tile.
+# -----------------------------------------------------------------------------
+service_path = CARDCHA / "Services" / "AirshipFoundationService.cs"
 service = read(service_path)
-service = service.replace('private const float ForestGateUseDistance = 320f;', 'private const float ForestGateUseDistance = 160f;')
+service = service.replace(
+    "private const float ForestGateUseDistance = 320f;",
+    "private const float ForestGateUseDistance = 160f;",
+)
 
-old_resolver = '''    private Point ResolveSkyDockTile()\n    {\n        if (this.CachedSkyDockTile is Point cached)\n            return cached;\n\n        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);\n        if (forest is null)\n        {\n            this.CachedSkyDockTile = new Point(6, 6);\n            return this.CachedSkyDockTile.Value;\n        }\n\n        Point farmWarp = this.ResolveForestFarmWarpTile();\n        int width = forest.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;\n        int height = forest.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;\n\n        Point preferred = new(\n            Math.Clamp(farmWarp.X - 7, 2, Math.Max(2, width - 3)),\n            Math.Clamp(farmWarp.Y + 2, 2, Math.Max(2, height - 3))\n        );\n\n        Point? safe = FindSafeDockTile(forest, preferred, farmWarp);\n        this.CachedSkyDockTile = safe ?? preferred;\n        return this.CachedSkyDockTile.Value;\n    }'''
-new_resolver = '''    private Point ResolveSkyDockTile()\n    {\n        // .5.12.4: the Forest gate has exactly one owner and one deterministic anchor.\n        // Never search around transient objects/NPCs/farmer position here; that was the source\n        // of the visible gate "running" between nearby tiles. The -23,+10 offset preserves\n        // the accepted farm-side meadow placement immediately right of the blossom tree.\n        if (this.CachedSkyDockTile is Point cached)\n            return cached;\n\n        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);\n        Point farmWarp = this.ResolveForestFarmWarpTile();\n        int width = forest?.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;\n        int height = forest?.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;\n\n        this.CachedSkyDockTile = new Point(\n            Math.Clamp(farmWarp.X - 23, 2, Math.Max(2, width - 3)),\n            Math.Clamp(farmWarp.Y + 10, 2, Math.Max(2, height - 4))\n        );\n        return this.CachedSkyDockTile.Value;\n    }'''
-if old_resolver not in service:
-    raise RuntimeError('ResolveSkyDockTile anchor block not found')
-service = service.replace(old_resolver, new_resolver, 1)
+resolver = r'''    private Point ResolveSkyDockTile()
+    {
+        // .5.12.4: one authoritative, deterministic Forest gate anchor.
+        // No runtime safe-tile search, flood-fill, or farmer/NPC occupancy is allowed to move it.
+        // The -23,+10 offset preserves the accepted farm-side meadow placement immediately
+        // right of the pink blossom tree.
+        if (this.CachedSkyDockTile is Point cached)
+            return cached;
 
-# Debug warp must not invalidate/re-resolve the gate immediately before moving the farmer.
-service = service.replace('        this.TestGateAccessActive = true;\n        this.CachedSkyDockTile = null;\n        Point dock = this.ResolveSkyDockTile();',
-                          '        this.TestGateAccessActive = true;\n        Point dock = this.ResolveSkyDockTile();', 1)
+        GameLocation? forest = Game1.getLocationFromName(SkyDockLocationName);
+        Point farmWarp = this.ResolveForestFarmWarpTile();
+        int width = forest?.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 120;
+        int height = forest?.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 120;
 
-# Replace the domestic furniture passes with station/bridge-only utility furniture. No couch,
-# dresser, plant, bookcase, or home rug language. Wall-mounted/console mass remains sparse so
-# the Cardcha machinery renderer defines the room identity rather than home decor.
-start = service.index('    private void EnsureDeckVanillaFurniture(GameLocation deck)')
-end = service.index('    private static void ClearInteriorDecor(GameLocation location)', start)
-new_furniture = r'''    private void EnsureDeckVanillaFurniture(GameLocation deck)
+        this.CachedSkyDockTile = new Point(
+            Math.Clamp(farmWarp.X - 23, 2, Math.Max(2, width - 3)),
+            Math.Clamp(farmWarp.Y + 10, 2, Math.Max(2, height - 4))
+        );
+        return this.CachedSkyDockTile.Value;
+    }'''
+service = replace_region(
+    service,
+    "    private Point ResolveSkyDockTile()",
+    "    private Point ResolveForestFarmWarpTile()",
+    resolver,
+)
+
+# The TEST command may warp the farmer, but it must never invalidate/re-roll gate placement.
+service = service.replace(
+    "        this.TestGateAccessActive = true;\n        this.CachedSkyDockTile = null;\n        Point dock = this.ResolveSkyDockTile();",
+    "        this.TestGateAccessActive = true;\n        Point dock = this.ResolveSkyDockTile();",
+)
+
+# Remove the living-room vocabulary from both Airship-owned rooms. The bridge keeps only
+# windows + two instrument tables; the station keeps a clear central transit lane.
+furniture = r'''    private void EnsureDeckVanillaFurniture(GameLocation deck)
     {
         if (ReferenceEquals(this.DeckDecorAppliedLocation, deck))
             return;
         this.DeckDecorAppliedLocation = deck;
         ClearInteriorDecor(deck);
 
-        // Bridge only: windows + two compact instrument tables. No domestic storage/seating.
         TryAddInteriorFurniture(deck, "(F)1614", 5, 1);
         TryAddInteriorFurniture(deck, "(F)1614", 11, 1);
         TryAddInteriorFurniture(deck, "(F)1614", 17, 1);
@@ -68,44 +96,73 @@ new_furniture = r'''    private void EnsureDeckVanillaFurniture(GameLocation dec
         this.SkyDockDecorAppliedLocation = dock;
         ClearInteriorDecor(dock);
 
-        // Transit/workshop station only. Keep the central boarding lane clear and remove every
-        // living-room cue that made this room resemble MiMi's attic.
         TryAddInteriorFurniture(dock, "(F)1614", 5, 1);
         TryAddInteriorFurniture(dock, "(F)1614", 14, 1);
         TryAddInteriorFurniture(dock, "(F)1614", 23, 1);
         TryAddInteriorFurniture(dock, "(F)1120", 4, 6, heldId: "(F)1368");
         TryAddInteriorFurniture(dock, "(F)1120", 24, 6, heldId: "(F)1362");
         dock.modData[InteriorDecorMarkerKey] = "alpha.28.0.4.14.4.5.12.4-dock";
-    }
-
-'''
-service = service[:start] + new_furniture + service[end:]
+    }'''
+service = replace_region(
+    service,
+    "    private void EnsureDeckVanillaFurniture(GameLocation deck)",
+    "    private static void ClearInteriorDecor(GameLocation location)",
+    furniture,
+)
 write(service_path, service)
 
-# Retire the old Harmony relocation brain entirely. Keep a tiny regression marker so CI and
-# future readers know the 160px/no-collision contract without installing any runtime patch.
-patch_path = CARDCHA / 'Patches' / 'AirshipGateRelocationPatch.cs'
-write(patch_path, '''namespace Cardcha.Patches;\n\n/// <summary>\n/// .5.12.4 regression marker only. Forest gate placement is owned exclusively by\n/// AirshipFoundationService.ResolveSkyDockTile. No Harmony relocation/flood-fill is installed.\n/// </summary>\ninternal static class AirshipGateRelocationPatch\n{\n    internal const float CanonicalGateUseDistance = 160f;\n    internal const string CollisionPolicy = "CollisionEdits=NONE";\n}\n''')
+# The old Harmony relocation patch was a second placement brain. Retire it entirely.
+patch_path = CARDCHA / "Patches" / "AirshipGateRelocationPatch.cs"
+write(
+    patch_path,
+    '''namespace Cardcha.Patches;\n\n/// <summary>\n/// .5.12.4 regression marker only. Forest gate placement is owned exclusively by\n/// AirshipFoundationService.ResolveSkyDockTile. No Harmony relocation/flood-fill is installed.\n/// </summary>\ninternal static class AirshipGateRelocationPatch\n{\n    internal const float CanonicalGateUseDistance = 160f;\n    internal const string CollisionPolicy = "CollisionEdits=NONE";\n}\n''',
+)
 
-# Renderer: make Sky Dock read as a transit bay and Airship Deck as a bridge, while staying
-# hard-edged/pixel aligned and avoiding floor overlays that would paint over the farmer.
-renderer_path = CARDCHA / 'Services' / 'AirshipInteriorStardewRenderer.cs'
+# -----------------------------------------------------------------------------
+# Airship room identity: station != home, bridge != home.
+# -----------------------------------------------------------------------------
+renderer_path = CARDCHA / "Services" / "AirshipInteriorStardewRenderer.cs"
 renderer = read(renderer_path)
 
-old_sky = '''    public static bool TryDrawSkyDock(SpriteBatch batch, GameLocation dock)\n    {\n        if (batch is null || dock is null)\n            return false;\n\n        float phase = (float)(Environment.TickCount64 / 1000.0);\n\n        // Route console and boarding bay keep small Cardcha accents; the exit is a fixed\n        // two-tile threshold instead of a pulsing dot the farmer must stand on exactly.\n        DrawConsoleLamp(batch, new Point(10, 7), new Color(194, 132, 70), new Color(170, 105, 223), phase);\n        DrawConsoleLamp(batch, new Point(24, 7), new Color(194, 132, 70), new Color(78, 193, 211), -phase);\n        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);\n        return true;\n    }'''
-new_sky = '''    public static bool TryDrawSkyDock(SpriteBatch batch, GameLocation dock)\n    {\n        if (batch is null || dock is null)\n            return false;\n\n        float phase = (float)(Environment.TickCount64 / 1000.0);\n\n        // Distinct transit-station silhouette: route board on the left, boarding gantry on the\n        // right, and a central overhead dock beacon. All pieces live against the upper wall so\n        // they cannot paint over the farmer's walking lane.\n        DrawDockWallPanel(batch, new Point(6, 4), widthTiles: 7, new Color(170, 105, 223), phase);\n        DrawDockWallPanel(batch, new Point(20, 4), widthTiles: 7, new Color(78, 193, 211), -phase);\n        DrawDockBeacon(batch, new Point(15, 4), phase);\n        DrawConsoleLamp(batch, new Point(10, 6), new Color(194, 132, 70), new Color(170, 105, 223), phase);\n        DrawConsoleLamp(batch, new Point(24, 6), new Color(194, 132, 70), new Color(78, 193, 211), -phase);\n        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);\n        return true;\n    }'''
-if old_sky not in renderer:
-    raise RuntimeError('TryDrawSkyDock block not found')
-renderer = renderer.replace(old_sky, new_sky, 1)
+sky_method = r'''    public static bool TryDrawSkyDock(SpriteBatch batch, GameLocation dock)
+    {
+        if (batch is null || dock is null)
+            return false;
 
-# Strengthen bridge identity with two wall panels flanking the helm.
-old_deck_tail = '''        DrawHelmAccent(batch, phase);\n        DrawUpgradeStations(batch, save, phase);\n        DrawChaChaPedestalAccent(batch, phase);\n        DrawDoorwayThreshold(batch, new Point(12, 12), new Color(89, 210, 226) * 0.42f);'''
-new_deck_tail = '''        DrawBridgeWallPanel(batch, new Point(4, 4), new Color(89, 205, 218), phase);\n        DrawBridgeWallPanel(batch, new Point(19, 4), new Color(177, 106, 225), -phase);\n        DrawHelmAccent(batch, phase);\n        DrawUpgradeStations(batch, save, phase);\n        DrawChaChaPedestalAccent(batch, phase);\n        DrawDoorwayThreshold(batch, new Point(12, 12), new Color(89, 210, 226) * 0.42f);'''
-if old_deck_tail not in renderer:
-    raise RuntimeError('deck render tail not found')
-renderer = renderer.replace(old_deck_tail, new_deck_tail, 1)
+        float phase = (float)(Environment.TickCount64 / 1000.0);
 
-insert_at = renderer.index('    private static void DrawConsoleLamp(')
+        // Transit-station silhouette: route board left, boarding gantry right, dock beacon center.
+        // These stay on the upper wall and never cover the farmer's walking lane.
+        DrawDockWallPanel(batch, new Point(6, 4), 7, new Color(170, 105, 223), phase);
+        DrawDockWallPanel(batch, new Point(20, 4), 7, new Color(78, 193, 211), -phase);
+        DrawDockBeacon(batch, new Point(15, 4), phase);
+        DrawConsoleLamp(batch, new Point(10, 6), new Color(194, 132, 70), new Color(170, 105, 223), phase);
+        DrawConsoleLamp(batch, new Point(24, 6), new Color(194, 132, 70), new Color(78, 193, 211), -phase);
+        DrawDoorwayThreshold(batch, new Point(15, 16), new Color(88, 208, 224) * 0.42f);
+        return true;
+    }'''
+renderer = replace_region(
+    renderer,
+    "    public static bool TryDrawSkyDock(SpriteBatch batch, GameLocation dock)",
+    "    private static void DrawDeckWindowLife(SpriteBatch batch, float phase)",
+    sky_method,
+)
+
+# Strengthen Airship Bridge identity without drawing a room-sized custom backdrop.
+deck_start = renderer.index("    public static bool TryDrawDeck(SpriteBatch batch, GameLocation deck, SaveService save)")
+deck_end = renderer.index("    public static bool TryDrawSkyDock", deck_start)
+deck = renderer[deck_start:deck_end]
+needle = "        DrawHelmAccent(batch, phase);"
+if "DrawBridgeWallPanel(batch" not in deck:
+    deck = deck.replace(
+        needle,
+        "        DrawBridgeWallPanel(batch, new Point(4, 4), new Color(89, 205, 218), phase);\n"
+        "        DrawBridgeWallPanel(batch, new Point(19, 4), new Color(177, 106, 225), -phase);\n"
+        + needle,
+        1,
+    )
+renderer = renderer[:deck_start] + deck + renderer[deck_end:]
+
 helpers = r'''    private static void DrawDockWallPanel(SpriteBatch batch, Point centerTile, int widthTiles, Color accent, float phase)
     {
         Vector2 c = WorldToScreen(centerTile.X * 64f + 32f, centerTile.Y * 64f + 10f);
@@ -141,10 +198,10 @@ helpers = r'''    private static void DrawDockWallPanel(SpriteBatch batch, Point
         DrawRect(batch, new Rectangle(body.X + 14, body.Y + 12, 36, 7), new Color(86, 177, 192) * 0.72f);
         DrawRect(batch, new Rectangle(body.X + 58, body.Y + 12, 36, 7), accent * (0.58f + 0.10f * MathF.Sin(phase * 1.7f)));
         DrawRect(batch, new Rectangle(body.X + 18, body.Y + 27, 76, 3), new Color(205, 148, 73) * 0.78f);
-    }
-
-'''
-renderer = renderer[:insert_at] + helpers + renderer[insert_at:]
+    }'''
+if "private static void DrawDockWallPanel" not in renderer:
+    insert = renderer.index("    private static void DrawConsoleLamp(")
+    renderer = renderer[:insert] + helpers + "\n\n" + renderer[insert:]
 write(renderer_path, renderer)
 
-print(f'Prepared Cardcha {NEW_VERSION}: fixed deterministic Forest gate and separated Airship/Sky Dock visual identity from MiMi attic.')
+print(f"Prepared Cardcha {NEW_VERSION}: deterministic Forest gate + distinct Sky Dock/Airship identity.")
