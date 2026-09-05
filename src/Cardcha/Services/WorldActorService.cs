@@ -26,7 +26,6 @@ internal sealed class WorldActorService
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
     private const string MimiProfileSheetPath = "assets/mimi_profile.png";
     private const string MimiPortraitAsset = "Portraits/Ronvotri.Cardcha_MiMi";
-    private const string MimiPortraitSheetPath = "assets/mimi_portraits_runtime64.png";
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
     private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
 
@@ -64,12 +63,6 @@ internal sealed class WorldActorService
         if (e.Name.IsEquivalentTo(MimiBroomCharacterAsset))
         {
             e.LoadFromModFile<Texture2D>(MimiBroomSheetPath, AssetLoadPriority.Medium);
-            return;
-        }
-
-        if (e.Name.IsEquivalentTo(MimiPortraitAsset))
-        {
-            e.LoadFromModFile<Texture2D>(MimiPortraitSheetPath, AssetLoadPriority.Medium);
             return;
         }
 
