@@ -100,7 +100,7 @@ elif good_loader not in mystery:
 
 prepare_anchor = '''    internal void PrepareCrispPortrait(NPC speaker)\n    {\n        this.EnsureTextures();\n        AssignPortraitTexture(speaker, this.RuntimePortraitSheet);\n    }\n\n'''
 prepare_insert = prepare_anchor + '''    private Texture2D GetNativePortraitCompatibilitySheet()\n    {\n        this.EnsureTextures();\n        return this.RuntimePortraitSheet\n            ?? throw new InvalidOperationException("MiMi runtime portrait sheet was not initialized from mimi_portraits.png.");\n    }\n\n'''
-if 'GetNativePortraitCompatibilitySheet()' not in mystery:
+if 'private Texture2D GetNativePortraitCompatibilitySheet()' not in mystery:
     mystery = replace_once(mystery, prepare_anchor, prepare_insert, 'native portrait compatibility helper')
 
 mystery, count = method_pattern.subn(nearest_method + "\n", mystery, count=1)
