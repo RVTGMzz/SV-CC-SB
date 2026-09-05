@@ -34,7 +34,6 @@ internal sealed class MimiMysteryTownService
     private const string DialogueAsset = "Characters/Dialogue/Ronvotri.Cardcha_MiMi";
 
     // Engine-compatible 64x64 portrait fallback only. Runtime dialogue portraits are generated in memory from MimiPortraitsPath.
-    private const string MimiNativePortraitsPath = "assets/mimi_portraits_runtime64.png";
     private const string MimiPortraitsPath = "assets/mimi_portraits.png";
     private const string MimiWalkSheetPath = "assets/mimi_walk_runtime.png";
     private const string MimiSchedulePath = "assets/mimi_schedule.json";
@@ -116,7 +115,7 @@ internal sealed class MimiMysteryTownService
 
         if (e.Name.IsEquivalentTo(PortraitAsset))
         {
-            e.LoadFromModFile<Texture2D>(MimiNativePortraitsPath, AssetLoadPriority.Medium);
+            e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);
             return;
         }
 
@@ -1199,44 +1198,19 @@ internal sealed class MimiMysteryTownService
         master.GetData(source);
         Color[] output = new Color[frameCount * targetSize * targetSize];
 
-        // Downsample the official mimi_portraits.png in memory only. This preserves the
-        // user's master asset while giving vanilla DialogueBox the 64x64 frames it requires.
+        // Preserve hard pixel edges. Do NOT average multiple master pixels into one output pixel.
+        // This is a vanilla-dialogue compatibility texture generated in memory only.
         for (int frame = 0; frame < frameCount; frame++)
         {
             int frameX = frame * sourceFrameWidth;
             for (int ty = 0; ty < targetSize; ty++)
             {
-                int sy0 = ty * sourceFrameHeight / targetSize;
-                int sy1 = Math.Max(sy0 + 1, (ty + 1) * sourceFrameHeight / targetSize);
-                sy1 = Math.Min(sourceFrameHeight, sy1);
+                int sy = Math.Min(sourceFrameHeight - 1, ty * sourceFrameHeight / targetSize);
                 for (int tx = 0; tx < targetSize; tx++)
                 {
-                    int sx0 = tx * sourceFrameWidth / targetSize;
-                    int sx1 = Math.Max(sx0 + 1, (tx + 1) * sourceFrameWidth / targetSize);
-                    sx1 = Math.Min(sourceFrameWidth, sx1);
-
-                    double sumA = 0, sumRA = 0, sumGA = 0, sumBA = 0;
-                    int samples = 0;
-                    for (int sy = sy0; sy < sy1; sy++)
-                    {
-                        for (int sx = sx0; sx < sx1; sx++)
-                        {
-                            Color c = source[sy * master.Width + frameX + sx];
-                            double a = c.A / 255.0;
-                            sumA += c.A;
-                            sumRA += c.R * a;
-                            sumGA += c.G * a;
-                            sumBA += c.B * a;
-                            samples++;
-                        }
-                    }
-
-                    byte outA = (byte)Math.Clamp((int)Math.Round(sumA / Math.Max(1, samples)), 0, 255);
-                    double alphaWeight = sumA / 255.0;
-                    byte outR = alphaWeight > 0 ? (byte)Math.Clamp((int)Math.Round(sumRA / alphaWeight), 0, 255) : (byte)0;
-                    byte outG = alphaWeight > 0 ? (byte)Math.Clamp((int)Math.Round(sumGA / alphaWeight), 0, 255) : (byte)0;
-                    byte outB = alphaWeight > 0 ? (byte)Math.Clamp((int)Math.Round(sumBA / alphaWeight), 0, 255) : (byte)0;
-                    output[ty * (frameCount * targetSize) + frame * targetSize + tx] = new Color(outR, outG, outB, outA);
+                    int sx = Math.Min(sourceFrameWidth - 1, tx * sourceFrameWidth / targetSize);
+                    output[ty * (frameCount * targetSize) + frame * targetSize + tx]
+                        = source[sy * master.Width + frameX + sx];
                 }
             }
         }

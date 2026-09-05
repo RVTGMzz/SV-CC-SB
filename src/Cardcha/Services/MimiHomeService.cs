@@ -20,12 +20,12 @@ internal sealed class MimiHomeService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvStart = 1730;
     private const int SecretTvEnd = 2200;
-    private static readonly Point DefaultHomeTile = new(10, 4);
-    private static readonly Point SecretTvWatchTile = new(5, 10);
+    private static readonly Point DefaultHomeTile = new(10, 6);
+    private static readonly Point SecretTvWatchTile = new(5, 9);
     private static readonly Point SecretLateHomeTile = new(13, 7);
-    private static readonly Point[] HomeIdleTiles = { new(10, 4), new(9, 5), new(11, 5), new(10, 6) };
-    private static readonly Point[] TvIdleTiles = { new(5, 10), new(4, 10), new(6, 10), new(5, 9) };
-    private static readonly Point[] LateIdleTiles = { new(13, 7), new(13, 6), new(14, 7), new(12, 7) };
+    private static readonly Point[] HomeIdleTiles = { new(10, 6), new(9, 7), new(10, 7), new(11, 7), new(10, 8) };
+    private static readonly Point[] TvIdleTiles = { new(5, 9), new(6, 9), new(6, 10), new(7, 9) };
+    private static readonly Point[] LateIdleTiles = { new(13, 7), new(14, 7), new(13, 8), new(14, 8) };
     private const float HomeWalkSpeedPixelsPerSecond = 34f;
     private const int HomePauseMinMs = 2200;
     private const int HomePauseMaxMs = 4800;
@@ -281,7 +281,8 @@ internal sealed class MimiHomeService
         string secretTv = this.IsSecretTvRoutineNow() ? "ACTIVE" : this.IsSecretTvRoutineUnlocked() ? "unlocked" : "locked";
         NPC? actor = this.WorldActors.FindMimiActor();
         string actorTile = actor is null ? "<missing>" : $"{(int)(actor.Position.X / 64f)},{(int)(actor.Position.Y / 64f)}@{actor.currentLocation?.NameOrUniqueName}";
-        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | Actor={actorTile}";
+        Point wanderTile = new((int)(this.HomeWanderTarget.X / 64f), (int)(this.HomeWanderTarget.Y / 64f));
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | RoutineState={this.ActiveHomeRoutineState ?? "<none>"} | WanderTarget={wanderTile.X},{wanderTile.Y} | Actor={actorTile}";
     }
 
     private GameLocation? EnsureAtticLocation()
@@ -406,6 +407,8 @@ internal sealed class MimiHomeService
             "late" => SecretLateHomeTile,
             _ => DefaultHomeTile
         };
+        if (!IsTileClear(attic, anchor))
+            anchor = FindClearTileNear(attic, anchor);
         int anchorFacing = state == "tv" ? 0 : state == "late" ? 1 : 2;
 
         bool stateChanged = !string.Equals(this.ActiveHomeRoutineState, state, StringComparison.OrdinalIgnoreCase);
@@ -495,7 +498,7 @@ internal sealed class MimiHomeService
             if (IsTileClear(attic, candidate))
                 return candidate;
         }
-        return pool[0];
+        return FindClearTileNear(attic, pool[0]);
     }
 
     private void ResetHomeWanderRuntime()
