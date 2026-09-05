@@ -1,0 +1,153 @@
+name: Cardcha alpha28.0.4.14.4.5.12.1 MiMi Portrait Unification
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0647a-mimi-portrait-unification ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate or reuse .5.12.1 MiMi portrait unification
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q '0.3.0-alpha.28.0.4.14.4.5.12.1' src/Cardcha/manifest.json; then
+            echo '0647A source already materialized.'
+          else
+            python3 tools/alpha28_0647a_mimi_portrait_unification.py
+          fi
+
+      - name: Validate portrait source, home movement, and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.1'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          # Exactly one on-disk MiMi portrait source survives.
+          assert (assets/'mimi_portraits.png').exists()
+          assert not (assets/'mimi_portraits_runtime64.png').exists()
+          assert not (assets/'mimi_npc_portraits.png').exists()
+          portrait_files=sorted(p.name for p in assets.glob('mimi*portrait*.png'))
+          assert portrait_files == ['mimi_portraits.png'], portrait_files
+
+          mystery=(root/'Services/MimiMysteryTownService.cs').read_text()
+          story=(root/'Services/CardchaStoryService.cs').read_text()
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          social=(root/'Services/MimiSocialService.cs').read_text()
+          mod=(root/'ModEntry.cs').read_text()
+
+          assert 'MimiNativePortraitsPath' not in mystery
+          assert 'mimi_portraits_runtime64.png' not in mystery
+          assert 'mimi_npc_portraits.png' not in mystery
+          assert 'GetNativePortraitCompatibilitySheet' in mystery
+          assert 'e.LoadFrom<Texture2D>(() => this.GetNativePortraitCompatibilitySheet()' in mystery
+
+          # No box/alpha averaging blur remains. Both story and world dialogue derive their
+          # vanilla 64-frame compatibility sheet from the 128 master with nearest-neighbour picks.
+          for name,text in [('mystery',mystery),('story',story)]:
+              assert 'private static Texture2D CreateRuntimePortraitSheet(Texture2D master)' in text, name
+              assert 'sumRA' not in text and 'sumGA' not in text and 'sumBA' not in text, name
+              assert 'ty * sourceFrameHeight / targetSize' in text, name
+              assert 'tx * sourceFrameWidth / targetSize' in text, name
+              assert 'assets/mimi_portraits.png' in text, name
+
+          # Home empty-hand dialogue is still routed through Mystery's crisp portrait path,
+          # while Social defers all attic empty-hand interactions to Home.
+          assert 'this.Mystery.TryShowCrispPortraitDialogue' in mod
+          assert '() => this.Home.OwnsAnyAtticDialogueNow()' in mod
+          assert 'this.DeferToHomeDialogue()' in social
+          assert 'this.ShowMimiPortraitDialogue(mimi, line)' in home
+
+          # Movement acceptance: anchors are off the upper wall/window row and each state has
+          # a real open-floor wander pool + safe fallback.
+          for token in [
+              'DefaultHomeTile = new(10, 6)',
+              'SecretTvWatchTile = new(5, 9)',
+              'new(9, 7), new(10, 7), new(11, 7)',
+              'new(6, 9), new(6, 10), new(7, 9)',
+              'new(14, 7), new(13, 8), new(14, 8)',
+              'if (!IsTileClear(attic, anchor))',
+              'return FindClearTileNear(attic, pool[0]);',
+              'RoutineState=',
+              'UpdateHomeWander'
+          ]:
+              assert token in home, token
+
+          # Preserve 0647 room architecture pass.
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'InteriorDecorVersion = "alpha.28.0.4.14.4.5.12"' in air
+          assert 'IsPortalZone(playerTile, bay, radiusX: 1, radiusY: 1)' in air
+          assert 'IsBottomDoorwayZone(location, playerTile)' in air
+          assert 'BoardingUseDistance = 160f' in air
+
+          # Locked gameplay/canon.
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+          gate=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
+          assert 'CanonicalGateUseDistance = 160f' in gate and 'CollisionEdits=NONE' in gate
+          print('0647A validation PASS')
+          PY
+
+      - name: Materialize .5.12.1 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.1 MiMi portrait unification [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0647a-mimi-portrait-unification
+          fi
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Package .5.12.1 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -e stage/Cardcha/assets/mimi_npc_portraits.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.1_MiMiPortraitUnified_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0647a-mimi-portrait-unification
+          path: artifact
+          if-no-files-found: error
