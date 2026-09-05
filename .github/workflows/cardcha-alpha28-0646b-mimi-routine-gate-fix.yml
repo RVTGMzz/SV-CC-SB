@@ -16,11 +16,16 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Generate .5.11.2 MiMi routine + gate fix
+      - name: Generate/finalize .5.11.2 MiMi routine + gate fix
         shell: bash
         run: |
           set -euo pipefail
-          python3 tools/alpha28_0646b_mimi_routine_gate_fix.py
+          if grep -q '0.3.0-alpha.28.0.4.14.4.5.11.1' src/Cardcha/manifest.json; then
+            python3 tools/alpha28_0646b_mimi_routine_gate_fix.py
+          else
+            echo '0646B source already materialized; skipping base generator.'
+          fi
+          python3 tools/alpha28_0646b_finalize.py
 
       - name: Validate .5.11.2 behavior + locked contracts
         shell: bash
@@ -41,6 +46,7 @@ jobs:
           gate=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
           for t in ['GateShiftX = -16','GateShiftY = 8','FloodWalkable','FindReachableGateAnchor','CanonicalGateUseDistance = 160f','CollisionEdits=NONE']:
               assert t in gate, t
+          assert not gate.rstrip().endswith('}}')
           save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
           assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
           assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
@@ -59,7 +65,7 @@ jobs:
           if git diff --cached --quiet; then
             echo "No materialized diff."
           else
-            git commit -m "chore: materialize alpha28.0.4.14.4.5.11.2 MiMi routine gate fix [skip ci]"
+            git commit -m "chore: finalize alpha28.0.4.14.4.5.11.2 MiMi routine gate fix [skip ci]"
             git push origin HEAD:cardcha-alpha28-0646b-mimi-routine-gate-fix
           fi
 
