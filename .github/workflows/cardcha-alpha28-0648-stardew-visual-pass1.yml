@@ -1,0 +1,213 @@
+name: Cardcha alpha28.0.4.14.4.5.12.6 Stardew Visual Pass 1
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648-stardew-visual-pass1 ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Prepare pixel-art generator environment
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m pip install --disable-pip-version-check --quiet pillow
+
+      - name: Generate 0648 Stardew visual pass 1
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0648_stardew_visual_pass1.py
+
+      - name: Validate visual hierarchy, collision and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import hashlib, json, xml.etree.ElementTree as ET
+
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.6'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          audit=json.loads((assets/'airship_visual_0648_audit.json').read_text())
+          assert audit['version']==version
+          assert audit['profile']=='0648-stardew-visual-pass1'
+          assert set(audit['visual_contract']) >= {
+              'gate-warm-muted-palette','sky-dock-transit-station','deck-cozy-control-room',
+              'four-readable-upgrade-stations','no-pickup-props','physical-collision-preserved'
+          }
+
+          deck=Image.open(assets/'airship_deck_stardew.png').convert('RGBA')
+          dock=Image.open(assets/'sky_dock_stardew.png').convert('RGBA')
+          atlas=Image.open(assets/'airship_upgrade_visuals.png').convert('RGBA')
+          assert deck.size==(384,224)
+          assert dock.size==(480,288)
+          assert atlas.size==(384,384)
+
+          # Visual acceptance fingerprints: warm brass/wood details and four service pads exist.
+          dp=deck.load(); sp=dock.load(); ap=atlas.load()
+          assert dp[192,56] in {(224,173,98,255),(192,136,69,255)}
+          assert dp[80,154] in {(192,136,69,255),(224,173,98,255)}
+          assert dp[288,154] in {(192,136,69,255),(224,173,98,255)}
+          assert sp[130,94]==(221,194,151,255)  # route-board header
+          assert sp[240,53]==(97,171,177,255)  # dock beacon
+          assert sp[240,140] in {(192,136,69,255),(76,53,53,255)}  # boarding lane
+
+          # Upgrade cells no longer carry a giant opaque purple rectangle to their edges.
+          old_bg=(47,15,47,255)
+          for cy in range(4):
+              for cx in range(4):
+                  x0,y0=cx*96,cy*96
+                  border=[]
+                  border += [ap[x,y0] for x in range(x0,x0+96)]
+                  border += [ap[x,y0+95] for x in range(x0,x0+96)]
+                  border += [ap[x0,y] for y in range(y0,y0+96)]
+                  border += [ap[x0+95,y] for y in range(y0,y0+96)]
+                  assert old_bg not in border
+
+          # Neon gate palette was deliberately muted, but gate geometry/depth ownership stays locked.
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          renderer=(root/'Services/AirshipInteriorStardewRenderer.cs').read_text()
+          assert 'Color violet = new Color(148, 112, 166) * pulse;' in air
+          assert 'Color cyan = new Color(110, 181, 188) * (pulse * 0.86f);' in air
+          assert 'new Color(176, 105, 255)' not in air
+          assert 'ForestGateUseDistance = 160f' in air
+          resolver=air[air.index('private Point ResolveSkyDockTile()'):air.index('private Point ResolveForestFarmWarpTile()')]
+          assert 'farmWarp.X - 23' in resolver and 'farmWarp.Y + 10' in resolver
+          assert 'FindSafeDockTile' not in resolver
+          assert 'ShouldDrawForestGateAfterPlayer' in air
+          assert 'DrawForestGateAtFarmerDepth' in air
+          assert 'Cardcha_MiMiAttic' not in air
+
+          # Runtime visual zones are explicit and do not reintroduce giant post-world wall panels.
+          for token in ['DrawWarmDeckAmbient','DrawSideConsoleAccent','DrawRouteBoardAccent','DrawBoardingGantryAccent','DrawServiceCornerAccent']:
+              assert token in renderer, token
+          assert 'DrawDockWallPanel(' not in renderer
+          assert 'DrawBridgeWallPanel(' not in renderer
+          assert 'Rectangle dst = new((int)center.X - 56, (int)center.Y - 76, 112, 112);' in renderer
+
+          # No pickup furniture in either Cardcha-owned Airship room.
+          decor=air[air.index('private void EnsureDeckVanillaFurniture'):air.index('private static void ClearInteriorDecor')]
+          assert 'TryAddInteriorFurniture' not in decor
+          assert 'heldId:' not in decor
+          assert 'physical-bridge-no-pickups' in decor and 'physical-dock-no-pickups' in decor
+
+          # TMX regression guard + physical collision from 0647E stays exact.
+          def parse(rel):
+              p=assets/rel; m=ET.parse(p).getroot(); w=int(m.attrib['width']); h=int(m.attrib['height'])
+              layers={}
+              for layer in m.findall('layer'):
+                  data=layer.find('data'); assert data is not None and data.attrib.get('encoding')=='csv'
+                  body=(data.text or '').strip(); assert body and not body.endswith(',')
+                  toks=[t.strip() for t in body.split(',')]
+                  assert len(toks)==w*h, (rel,layer.attrib.get('name'),len(toks),w*h)
+                  assert all(t and t.isdigit() and 0 <= int(t) <= 0xFFFFFFFF for t in toks)
+                  layers[layer.attrib['name']]=[int(t) for t in toks]
+              return w,h,layers
+          dw,dh,dm=parse('airship_deck.tmx'); sw,sh,sm=parse('sky_dock_interior.tmx')
+          assert (dw,dh)==(24,14) and (sw,sh)==(30,18)
+          blocked=lambda layer,w,x,y: layer[y*w+x] != 0
+          for x,y in [(5,9),(18,9),(8,10),(15,10),(12,4),(19,5)]:
+              assert blocked(dm['Buildings'],dw,x,y), ('deck collision',x,y)
+          for x,y in [(12,7),(12,8),(12,9),(12,10),(12,11),(12,12),(11,12),(13,12)]:
+              assert not blocked(dm['Buildings'],dw,x,y), ('deck lane blocked',x,y)
+          assert blocked(sm['Buildings'],sw,10,7)
+          for x,y in [(24,7),(24,8),(15,14),(15,15),(15,16),(15,17)]:
+              assert not blocked(sm['Buildings'],sw,x,y), ('dock lane blocked',x,y)
+
+          # MiMi portrait/movement fixes remain intact.
+          assert (assets/'mimi_portraits.png').is_file()
+          assert not (assets/'mimi_portraits_runtime64.png').exists()
+          assert not (assets/'mimi_npc_portraits.png').exists()
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          assert 'DefaultHomeTile = new(10, 6)' in home
+          assert 'SecretTvWatchTile = new(5, 9)' in home
+          assert 'SecretLateHomeTile = new(13, 7)' in home
+
+          # Locked gameplay/canon.
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          cards=json.loads((assets/'card_auto_audit.json').read_text()); assert len(cards)==76 and all(x['status']=='PASS' for x in cards)
+
+          print('0648 visual/collision/canon validation PASS')
+          print('deck',audit['deck_sha256'])
+          print('dock',audit['dock_sha256'])
+          print('upgrade',audit['upgrade_sha256'])
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Audit compiled DLL regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          dll=next(Path('src/Cardcha/bin/Release').rglob('Cardcha.dll'))
+          data=dll.read_bytes()
+          for token in ('assets/mimi_portraits_runtime64.png','assets/mimi_npc_portraits.png'):
+              assert token.encode() not in data and token.encode('utf-16le') not in data, token
+          canonical='assets/mimi_portraits.png'
+          assert canonical.encode() in data or canonical.encode('utf-16le') in data
+          print(f'0648 DLL audit PASS: {dll}')
+          PY
+
+      - name: Materialize .5.12.6 source and visual assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.6 Stardew visual pass 1 [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648-stardew-visual-pass1
+          fi
+
+      - name: Package .5.12.6 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/airship_visual_0648_audit.json
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -e stage/Cardcha/assets/mimi_npc_portraits.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.6_StardewVisualPass1_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648-stardew-visual-pass1
+          path: artifact
+          if-no-files-found: error
