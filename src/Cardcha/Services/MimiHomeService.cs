@@ -6,7 +6,7 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// Alpha28 .5.11.1 home/schedule hotfix: stable attic anchors + crisp portrait dialogue.
+/// Alpha28 .5.11.2 home routine fix: fixed anchors, no home shop, direct routine TEST states.
 /// The location ID is intentionally stable from the first TEST so a custom attic map can replace
 /// the temporary vanilla interior later without changing friendship/save references.
 /// </summary>
@@ -20,7 +20,8 @@ internal sealed class MimiHomeService
     private const int SecretTvHeartRequirement = 6;
     private const int SecretTvStart = 1730;
     private const int SecretTvEnd = 2200;
-    private static readonly Point SecretTvWatchTile = new(6, 10);
+    private static readonly Point DefaultHomeTile = new(10, 4);
+    private static readonly Point SecretTvWatchTile = new(5, 10);
     private static readonly Point SecretLateHomeTile = new(13, 7);
     private const float StairUseDistance = 112f;
 
@@ -38,8 +39,7 @@ internal sealed class MimiHomeService
     private bool AtticCreationFailed;
     private bool LoggedAtticFailure;
     private long AtticAutoExitBlockedUntilMs;
-    private string? CachedAtticRoutineKey;
-    private Point? CachedAtticRoutineTile;
+    private string? DebugRoutineOverride;
 
     public MimiHomeService(
         IModHelper helper,
@@ -63,8 +63,6 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
-        this.CachedAtticRoutineKey = null;
-        this.CachedAtticRoutineTile = null;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
@@ -75,8 +73,6 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
-        this.CachedAtticRoutineKey = null;
-        this.CachedAtticRoutineTile = null;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
@@ -105,11 +101,10 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
-        this.CachedAtticRoutineKey = null;
-        this.CachedAtticRoutineTile = null;
         this.LoggedAtticCreation = false;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
+        this.DebugRoutineOverride = null;
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -259,7 +254,9 @@ internal sealed class MimiHomeService
         Point wizardStair = this.ResolveWizardStairTile(Game1.getLocationFromName("WizardHouse"));
         string route = this.IsRestoredCommunityCenterRoute() ? "CommunityCenter" : this.IsJojaRoute() ? "Joja/Town" : "Town";
         string secretTv = this.IsSecretTvRoutineNow() ? "ACTIVE" : this.IsSecretTvRoutineUnlocked() ? "unlocked" : "locked";
-        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00";
+        NPC? actor = this.WorldActors.FindMimiActor();
+        string actorTile = actor is null ? "<missing>" : $"{(int)(actor.Position.X / 64f)},{(int)(actor.Position.Y / 64f)}@{actor.currentLocation?.NameOrUniqueName}";
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | Actor={actorTile}";
     }
 
     private GameLocation? EnsureAtticLocation()
@@ -303,18 +300,28 @@ internal sealed class MimiHomeService
 
     private void EnforceSchedule()
     {
-        if (!Context.IsWorldReady
-            || !this.Save.Data.MimiMeetupCompleted
-            || this.StoryOwnsMimiActor()
-            || this.MysteryOwnsMimiActor()
-            || Game1.eventUp)
-        {
+        if (!Context.IsWorldReady || Game1.eventUp)
             return;
-        }
 
         NPC? mimi = this.WorldActors.FindMimiActor() ?? this.WorldActors.EnsureMimiActor();
         if (mimi is null)
             return;
+
+        if (this.DebugRoutineOverride is not null)
+        {
+            GameLocation? debugAttic = this.EnsureAtticLocation();
+            if (debugAttic is null)
+                return;
+            this.ApplyFixedAtticState(mimi, debugAttic, this.DebugRoutineOverride);
+            return;
+        }
+
+        if (!this.Save.Data.MimiMeetupCompleted
+            || this.StoryOwnsMimiActor()
+            || this.MysteryOwnsMimiActor())
+        {
+            return;
+        }
 
         bool weekday = IsWeekday();
         bool workHours = weekday && Game1.timeOfDay >= WorkStart && Game1.timeOfDay < WorkEnd;
@@ -331,7 +338,7 @@ internal sealed class MimiHomeService
             // We resolve against the real furniture collision so a future decor nudge can't strand MiMi.
             if (this.IsSecretTvRoutineNow())
             {
-                Point tv = this.ResolveStableAtticRoutineTile(attic, "tv", SecretTvWatchTile);
+                Point tv = ResolveFixedAtticAnchor(attic, SecretTvWatchTile);
                 PlaceMimi(mimi, attic, tv, 0); // face north toward the TV
                 return;
             }
@@ -340,12 +347,12 @@ internal sealed class MimiHomeService
             // Lower friendship preserves the pre-0646 generic home placement exactly.
             if (this.IsSecretTvRoutineUnlocked() && Game1.timeOfDay >= SecretTvEnd)
             {
-                Point lateHome = this.ResolveStableAtticRoutineTile(attic, "late", SecretLateHomeTile);
+                Point lateHome = ResolveFixedAtticAnchor(attic, SecretLateHomeTile);
                 PlaceMimi(mimi, attic, lateHome, 1);
                 return;
             }
 
-            Point home = this.ResolveStableAtticRoutineTile(attic, "home");
+            Point home = ResolveFixedAtticAnchor(attic, DefaultHomeTile);
             PlaceMimi(mimi, attic, home, 2);
             return;
         }
@@ -378,22 +385,60 @@ internal sealed class MimiHomeService
         PlaceMimi(mimi, center, work, 2);
     }
 
-    private Point ResolveStableAtticRoutineTile(GameLocation attic, string routineKey, Point? preferred = null)
+    private static Point ResolveFixedAtticAnchor(GameLocation attic, Point desired)
     {
-        if (this.CachedAtticRoutineKey == routineKey && this.CachedAtticRoutineTile is Point cached)
-            return cached;
+        int width = attic.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 22;
+        int height = attic.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
+        return new Point(
+            Math.Clamp(desired.X, 1, Math.Max(1, width - 2)),
+            Math.Clamp(desired.Y, 1, Math.Max(1, height - 2))
+        );
+    }
 
-        Point resolved = preferred is Point target
-            ? FindClearTileNear(attic, target)
-            : FindClearTileNear(attic, preferUpperHalf: true);
+    private void ApplyFixedAtticState(NPC mimi, GameLocation attic, string state)
+    {
+        switch (state)
+        {
+            case "tv":
+                PlaceMimi(mimi, attic, ResolveFixedAtticAnchor(attic, SecretTvWatchTile), 0);
+                break;
+            case "late":
+                PlaceMimi(mimi, attic, ResolveFixedAtticAnchor(attic, SecretLateHomeTile), 1);
+                break;
+            default:
+                PlaceMimi(mimi, attic, ResolveFixedAtticAnchor(attic, DefaultHomeTile), 2);
+                break;
+        }
+    }
 
-        this.CachedAtticRoutineKey = routineKey;
-        this.CachedAtticRoutineTile = resolved;
-        return resolved;
+    public string DebugForceRoutine(string mode)
+    {
+        if (!Context.IsWorldReady)
+            return "MiMi routine TEST unavailable: load a save first.";
+
+        mode = (mode ?? "auto").Trim().ToLowerInvariant();
+        if (mode == "auto")
+        {
+            this.DebugRoutineOverride = null;
+            this.EnforceSchedule();
+            return "MiMi routine TEST: AUTO restored. Friendship/time rules own MiMi again.";
+        }
+        if (mode is not ("home" or "tv" or "late"))
+            return "Usage: cardcha_test_mimi_routine <home|tv|late|auto>";
+
+        GameLocation? attic = this.EnsureAtticLocation();
+        NPC? mimi = this.WorldActors.FindMimiActor() ?? this.WorldActors.EnsureMimiActor();
+        if (attic is null || mimi is null)
+            return "MiMi routine TEST couldn't resolve the attic/NPC.";
+
+        this.DebugRoutineOverride = mode;
+        this.ApplyFixedAtticState(mimi, attic, mode);
+        Point tile = new((int)(mimi.Position.X / 64f), (int)(mimi.Position.Y / 64f));
+        return $"MiMi routine TEST: forced {mode.ToUpperInvariant()} at ({tile.X},{tile.Y}). Runtime-only; use auto to release.";
     }
 
     internal bool OwnsSecretTvDialogueNow()
-        => this.IsSecretTvRoutineNow()
+        => (this.DebugRoutineOverride == "tv" || this.IsSecretTvRoutineNow())
            && Game1.currentLocation?.NameOrUniqueName.Equals(AtticLocationName, StringComparison.OrdinalIgnoreCase) == true;
 
     private void PlaceMimi(NPC mimi, GameLocation target, Point tile, int facing)

@@ -195,8 +195,12 @@ internal sealed class MimiSocialService
             return;
         }
 
-        // Once today's normal greeting is complete, the same simple action button becomes the
-        // merchant interaction. This keeps controller UX one-button and doesn't steal gifting.
+        // MiMi's attic is her home, never a shop. After today's greeting, empty-hand
+        // interactions at home simply stop here; gifting above still uses Stardew normally.
+        if (Game1.currentLocation?.NameOrUniqueName.Equals(MimiHomeService.AtticLocationName, StringComparison.OrdinalIgnoreCase) == true)
+            return;
+
+        // Outside the attic, retain the established post-greeting merchant interaction.
         this.OpenMimiShop();
     }
 

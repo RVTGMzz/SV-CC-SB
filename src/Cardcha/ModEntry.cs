@@ -241,6 +241,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
         helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
         helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
+        helper.ConsoleCommands.Add("cardcha_test_mimi_routine", "TEST ONLY: force MiMi attic state: home|tv|late|auto.", this.CommandTestMimiRoutine);
         helper.ConsoleCommands.Add("cardcha_airship_status", "Show alpha.28 Airship foundation state.", this.CommandAirshipStatus);
         helper.ConsoleCommands.Add("cardcha_test_gate", "TEST ONLY: warp directly beside the Forest Arcane Gate with runtime-only access.", this.CommandTestGate);
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
@@ -981,6 +982,12 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log(result, LogLevel.Alert);
     }
 
+    private void CommandTestMimiRoutine(string command, string[] args)
+    {
+        string mode = args.FirstOrDefault() ?? "auto";
+        this.Monitor.Log(this.Home.DebugForceRoutine(mode), LogLevel.Alert);
+    }
+
     private void CommandAirshipStatus(string command, string[] args)
     {
         this.Monitor.Log("===== CARDCHA AIRSHIP STATUS =====\n" + this.Airship.Describe(), LogLevel.Alert);
@@ -1170,10 +1177,7 @@ internal sealed class ModEntry : Mod
 
     private void CommandVersion(string command, string[] args)
     {
-        this.Monitor.Log(
-            "Cardcha! v0.3.0-alpha.28.0.4.14.4.5.1 CHACHA SUPPORT CAST RUNTIME TEST",
-            LogLevel.Alert
-        );
+        this.Monitor.Log($"Cardcha! v{this.ModManifest.Version}", LogLevel.Alert);
     }
 
     private void CommandDropStatus(string command, string[] args)

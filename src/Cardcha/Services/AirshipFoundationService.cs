@@ -357,7 +357,7 @@ internal sealed class AirshipFoundationService
         this.TestGateAccessActive = true;
         this.CachedSkyDockTile = null;
         Point dock = this.ResolveSkyDockTile();
-        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 2));
+        Point landing = FindClearTileNear(forest, new Point(dock.X, dock.Y + 3));
         this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
         Game1.warpFarmer(forest.NameOrUniqueName, landing.X, landing.Y, 0);
         return $"Arcane Gate TEST: warped near Forest gate at ({dock.X},{dock.Y}). Runtime-only gate access is enabled until title reload; save/story unlock state was not changed.";
