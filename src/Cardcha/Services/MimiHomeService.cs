@@ -332,6 +332,24 @@ internal sealed class MimiHomeService
                 return;
             }
 
+            // The secret TV routine is friendship-gated and only owns the evening window.
+            // We resolve against the real furniture collision so a future decor nudge can't strand MiMi.
+            if (this.IsSecretTvRoutineNow())
+            {
+                Point tv = FindClearTileNear(attic, SecretTvWatchTile);
+                PlaceMimi(mimi, attic, tv, 0); // face north toward the TV
+                return;
+            }
+
+            // After the show window, high-friendship MiMi winds down by her personal corner.
+            // Lower friendship preserves the pre-0646 generic home placement exactly.
+            if (this.IsSecretTvRoutineUnlocked() && Game1.timeOfDay >= SecretTvEnd)
+            {
+                Point lateHome = FindClearTileNear(attic, SecretLateHomeTile);
+                PlaceMimi(mimi, attic, lateHome, 1);
+                return;
+            }
+
             Point home = FindClearTileNear(attic, preferUpperHalf: true);
             PlaceMimi(mimi, attic, home, 2);
             return;
