@@ -1,0 +1,159 @@
+name: Cardcha alpha28.0.4.14.4.5.12.4 Fixed Gate Station Identity
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0647d-fixed-gate-station-identity ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate .5.12.4 fixed gate and station identity
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/alpha28_0647d_fixed_gate_station_identity.py
+
+      - name: Validate gate ownership, station identity, TMX and locked contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); assets=root/'assets'
+          version='0.3.0-alpha.28.0.4.14.4.5.12.4'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          air=(root/'Services/AirshipFoundationService.cs').read_text()
+          patch=(root/'Patches/AirshipGateRelocationPatch.cs').read_text()
+          render=(root/'Services/AirshipInteriorStardewRenderer.cs').read_text()
+
+          # Gate has one deterministic owner. No safe-tile/flood-fill relocation may touch the result.
+          resolver=air[air.index('private Point ResolveSkyDockTile()'):air.index('private Point ResolveForestFarmWarpTile()')]
+          assert 'farmWarp.X - 23' in resolver and 'farmWarp.Y + 10' in resolver
+          assert 'FindSafeDockTile' not in resolver
+          assert 'ForestGateUseDistance = 160f' in air
+          assert 'CachedSkyDockTile = null;\n        Point dock = this.ResolveSkyDockTile();' not in air
+          assert 'Harmony' not in patch and 'ModuleInitializer' not in patch
+          assert 'CanonicalGateUseDistance = 160f' in patch
+          assert 'CollisionEdits=NONE' in patch
+
+          # Locked route remains Forest -> Sky Dock -> Airship Deck, never MiMi attic.
+          assert 'SkyDockInteriorLocationName = "Cardcha_SkyDockInterior"' in air
+          assert 'DeckLocationName = "Cardcha_AirshipDeck"' in air
+          gate_block=air[air.index('if (IsSkyDockLocation(location)'):air.index('if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName', air.index('if (IsSkyDockLocation(location)'))]
+          assert 'Game1.warpFarmer(SkyDockInteriorLocationName' in gate_block
+          assert 'Cardcha_MiMiAttic' not in air
+
+          # Station/bridge identity: remove domestic living-room furniture and add dedicated wall machinery.
+          sky_block=air[air.index('private void EnsureSkyDockVanillaFurniture'):air.index('private static void ClearInteriorDecor')]
+          for domestic in ['(F)432','(F)704','(F)1289','(F)1443','(F)1456','(F)1461','(F)1623']:
+              assert domestic not in sky_block, domestic
+          assert 'DrawDockWallPanel' in render and 'DrawDockBeacon' in render
+          assert 'DrawBridgeWallPanel' in render
+          assert 'radiusX: 1, radiusY: 1' in air
+          assert 'IsBottomDoorwayZone(location, playerTile)' in air
+
+          # 0647C TMX regression guard: every CSV token is a uint and exactly width*height.
+          for rel in ['airship_deck.tmx','sky_dock_interior.tmx']:
+              p=assets/rel
+              tree=ET.parse(p); m=tree.getroot(); w=int(m.attrib['width']); h=int(m.attrib['height'])
+              for layer in m.findall('layer'):
+                  data=layer.find('data'); assert data is not None and data.attrib.get('encoding')=='csv'
+                  body=(data.text or '').strip(); assert body and not body.endswith(','), f'{rel}:{layer.attrib.get("name")} trailing comma'
+                  tokens=[t.strip() for t in body.split(',')]
+                  assert len(tokens)==w*h, f'{rel}:{layer.attrib.get("name")} {len(tokens)} != {w*h}'
+                  assert all(t and t.isdigit() and 0 <= int(t) <= 0xFFFFFFFF for t in tokens)
+
+          # MiMi portrait + movement regressions stay fixed.
+          forbidden=('mimi_portraits_runtime64.png','mimi_npc_portraits.png')
+          assert (assets/'mimi_portraits.png').is_file()
+          for token in forbidden:
+              assert not (assets/token).exists()
+              for p in root.rglob('*.cs'):
+                  assert token not in p.read_text(), f'{token} in {p}'
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          assert 'DefaultHomeTile = new(10, 6)' in home
+          assert 'SecretTvWatchTile = new(5, 9)' in home
+          assert 'SecretLateHomeTile = new(13, 7)' in home
+          assert 'RoutineState=' in home and 'WanderTarget=' in home
+
+          # Locked gameplay/canon.
+          save=(root/'Models/SaveData.cs').read_text(); assert 'SchemaVersion { get; set; } = 19' in save
+          assert hashlib.sha256((assets/'airship_visual.png').read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+          assert 'BossFormDurationMs = 10000' in (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'EnergyGainScale = 1d / 3d' in (root/'Services/BossEnergyService.cs').read_text()
+          audit=json.loads((assets/'card_auto_audit.json').read_text()); assert len(audit)==76 and all(x['status']=='PASS' for x in audit)
+          print('0647D source/TMX validation PASS')
+          PY
+
+      - uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        shell: bash
+        run: |
+          set -euo pipefail
+          dotnet build src/Cardcha/Cardcha.csproj -c Release -p:EnableModDeploy=false -p:EnableModZip=false
+
+      - name: Audit compiled DLL regressions
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          dll=next(Path('src/Cardcha/bin/Release').rglob('Cardcha.dll'))
+          data=dll.read_bytes()
+          for token in ('assets/mimi_portraits_runtime64.png','assets/mimi_npc_portraits.png'):
+              assert token.encode() not in data and token.encode('utf-16le') not in data, token
+          canonical='assets/mimi_portraits.png'
+          assert canonical.encode() in data or canonical.encode('utf-16le') in data
+          print(f'0647D DLL audit PASS: {dll}')
+          PY
+
+      - name: Materialize .5.12.4 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo 'No materialized diff.'
+          else
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.4 fixed gate station identity [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0647d-fixed-gate-station-identity
+          fi
+
+      - name: Package .5.12.4 test build
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf artifact stage
+          mkdir -p artifact stage/Cardcha
+          dll="$(find src/Cardcha/bin/Release -name Cardcha.dll -print -quit)"
+          test -n "$dll" && test -s "$dll"
+          cp "$dll" stage/Cardcha/Cardcha.dll
+          cp src/Cardcha/manifest.json src/Cardcha/config.json stage/Cardcha/
+          cp -a src/Cardcha/assets src/Cardcha/i18n stage/Cardcha/
+          test -f stage/Cardcha/assets/mimi_portraits.png
+          test ! -e stage/Cardcha/assets/mimi_portraits_runtime64.png
+          test ! -e stage/Cardcha/assets/mimi_npc_portraits.png
+          (cd stage && zip -qr ../artifact/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.4_FixedGateStationIdentity_TEST.zip Cardcha)
+          sha256sum artifact/*.zip > artifact/SHA256.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0647d-fixed-gate-station-identity
+          path: artifact
+          if-no-files-found: error
