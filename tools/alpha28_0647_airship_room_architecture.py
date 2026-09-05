@@ -14,7 +14,8 @@ def replace_once(path: Path, old: str, new: str):
 
 
 def csv_layer(rows):
-    return '\n'.join(','.join(str(v) for v in row) + ',' for row in rows)
+    # Keep commas between rows, but never emit a terminal comma: TMXTile parses every split token as UInt32.
+    return ',\n'.join(','.join(str(v) for v in row) for row in rows)
 
 
 def build_room_tmx(width: int, height: int, role: str, profile: str, version_property: str) -> str:
