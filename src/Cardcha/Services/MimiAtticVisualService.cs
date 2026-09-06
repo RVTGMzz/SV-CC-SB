@@ -296,9 +296,21 @@ internal sealed class MimiAtticVisualService
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
-            Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);
-            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-            batch.Draw(staircase, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.995f);
+
+            // The 16x64 staircase is four world tiles tall at 4x scale. Its foot ends at tile.Y.
+            // Split it so both pieces participate in normal world-Y depth sorting with the farmer.
+            Rectangle upperSource = new(0, 0, staircase.Width, 48);
+            Rectangle lowerSource = new(0, 48, staircase.Width, 16);
+            Vector2 upperWorld = new(tile.X * 64f, (tile.Y - 4) * 64f);
+            Vector2 lowerWorld = new(tile.X * 64f, (tile.Y - 1) * 64f);
+            Vector2 upperScreen = Game1.GlobalToLocal(Game1.viewport, upperWorld);
+            Vector2 lowerScreen = Game1.GlobalToLocal(Game1.viewport, lowerWorld);
+
+            float upperDepth = Math.Clamp(((tile.Y - 1) * 64f - 8f) / 10000f, 0.001f, 0.90f);
+            float lowerDepth = Math.Clamp((tile.Y * 64f - 8f) / 10000f, 0.001f, 0.90f);
+
+            batch.Draw(staircase, upperScreen, upperSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, upperDepth);
+            batch.Draw(staircase, lowerScreen, lowerSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, lowerDepth);
         }
         catch
         {

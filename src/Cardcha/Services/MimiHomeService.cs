@@ -632,16 +632,9 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        int width = wizard.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
-        int height = wizard.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
-
-        // WIZ-01/WIZ-02/WIZ-03 candidate: one fixed landmark-relative anchor only.
-        // The accepted screenshot target is the recessed floor tile between the two plants,
-        // higher than the previous open-floor placement. This deliberately ignores NPCs,
-        // temporary objects, time, and player movement, so the staircase cannot "run".
-        int x = Math.Clamp(width - 4, 2, Math.Max(2, width - 2));
-        int y = Math.Clamp((int)Math.Round(height * 0.42f), 2, Math.Max(2, height - 3));
-        return new Point(x, y);
+        // WIZ-02 candidate: exact screenshot-approved upper niche between the two plants.
+        // Absolute world tile by design. No map-size math, safety scan, NPC/object check, or relocation.
+        return new Point(19, 5);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
