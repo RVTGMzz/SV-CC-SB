@@ -1,0 +1,113 @@
+name: Cardcha alpha28.0.4.14.4.5.12.10 Wizard Stair Placement
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648d-wizard-stair-placement ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0648D candidate
+        run: python3 tools/alpha28_0648d_wizard_stair_placement.py
+
+      - name: Validate WIZ-only scope and placement contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, subprocess
+          root=Path('src/Cardcha')
+          v='0.3.0-alpha.28.0.4.14.4.5.12.10'
+          assert json.loads((root/'manifest.json').read_text())['Version']==v
+          assert v in (root/'Cardcha.csproj').read_text()
+          assert v in (root/'Directory.Build.targets').read_text()
+
+          src=(root/'Services/MimiHomeService.cs').read_text()
+          a=src.index('internal static Point ResolvePreferredWizardStairTile')
+          b=src.index('private static Point ResolveWizardLandingTile', a)
+          body=src[a:b]
+          assert 'width - 4' in body
+          assert 'height * 0.42f' in body
+          assert 'return new Point(x, y);' in body
+          assert 'IsTileClear' not in body
+          assert 'FindClearTileNear' not in body
+          assert 'for (' not in body
+          assert 'foreach' not in body
+
+          visual=(root/'Services/MimiAtticVisualService.cs').read_text()
+          assert 'PrepareWizardStairArea(location, stair);' not in visual
+          assert 'Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);' in visual
+
+          # Regression firewall: only Wizard stair placement/draw plus version metadata may change.
+          base='c1175c6cb2fc7b849bf685be5994c21ae6aa3dec'
+          changed=subprocess.check_output(['git','diff','--name-only',base], text=True).splitlines()
+          allowed={
+              'tools/alpha28_0648d_wizard_stair_placement.py',
+              '.github/workflows/cardcha-alpha28-0648d-wizard-stair-placement.yml',
+              'src/Cardcha/Services/MimiHomeService.cs',
+              'src/Cardcha/Services/MimiAtticVisualService.cs',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+          }
+          unexpected=[p for p in changed if p not in allowed]
+          assert not unexpected, f'0648D touched unrelated files: {unexpected}'
+          print('WIZ-02/WIZ-03 candidate validator PASS')
+          print('Changed files:', changed)
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.10 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/Cardcha
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.10 Wizard stair placement [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648d-wizard-stair-placement
+          fi
+
+      - name: Package .5.12.10 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.10_WizardStairPlacement_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648d-wizard-stair-placement
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.10_WizardStairPlacement_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.10_WizardStairPlacement_TEST.zip.sha256
+          if-no-files-found: error
