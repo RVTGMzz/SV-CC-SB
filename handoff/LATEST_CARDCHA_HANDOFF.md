@@ -1,41 +1,40 @@
 # Latest Cardcha handoff
 
 Current development branch:
-`cardcha-alpha28-0648g-mimi-profile-stair-occlusion`
+`cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap`
 
 Current build:
-`0.3.0-alpha.28.0.4.14.4.5.12.13`
+`0.3.0-alpha.28.0.4.14.4.5.12.14`
 
 Read this FIRST when resuming from another chat:
-`handoff/ALPHA28_0648G_MIMI_PROFILE_STAIR_OCCLUSION.md`
+`handoff/ALPHA28_0648H_MIMI_GIFT_SCALE_STAIR_OVERLAP.md`
 
-## Session transition status — 2026-09-07
-- Current chat is being closed immediately after producing the verified `.5.12.13` test build.
-- GitHub source, workflow, materialized source, package metadata and handoff are all committed on the branch above.
-- CI is green. Packaging acceptance is complete.
-- In-game acceptance is still pending for exactly three screenshot-driven items: WizardHouse stair position/occlusion, MiMi small Social/Gift avatar, and MiMi Profile/Gift Log full-body sprite.
-- When the next chat starts, do NOT branch from an older 0648/0648F handoff. Resume from this 0648G branch and this file.
-- If the three visual checks pass, keep 0648G as the canonical base for the next feature. If one fails, patch only that visual issue first and preserve the locked systems below.
+## Session status — 2026-09-07
+- 0648H is the current verified TEST candidate, branched directly from accepted 0648G source/handoff.
+- CI compile, static scope validation and package audit are green.
+- In-game acceptance is pending only for the two screenshot-driven follow-ups reported after 0648G: MiMi Profile/Gift Log 50% menu scale and WizardHouse stair overlap behavior.
+- Do NOT return to older 0648/0648F/0648G branches for new work unless explicitly debugging lineage.
+- If these two visual checks pass, keep 0648H as the canonical base for the next Cardcha feature.
 
 ## Current verified state
-- Screenshot-driven WizardHouse stair placement is fixed at `(8,15)`, three tiles left of 0648F.
-- Stair rendering is split into four tile-sized segments with character-body occlusion so the post-world custom draw cannot paint over the farmer/NPC body.
-- MiMi Profile/Gift Log animated sprite keeps the existing 32x48 menu scaling but now loads the canonical `assets/mimi_walk.png` directly.
-- `assets/mimi_profile.png` is deleted and absent from the package.
-- MiMi small Social/Gift avatar restores `MugShotSourceRect=(0,192,16,24)`, using the dedicated UI slot already appended to `mimi_walk_runtime.png`.
-- User-provided `mimi_walk.png` is byte-identical to repo canonical SHA-256 `04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7`.
-- Portrait dialogue architecture from 0648F remains unchanged.
+- WizardHouse stair position remains fixed at `(8,15)`.
+- Per-rung stair slicing from 0648G is removed. The full stair is drawn as one sprite when clear, and the whole cosmetic stair is hidden for a frame if a visible character overlaps it.
+- MiMi Profile/Gift Log still uses canonical `assets/mimi_walk.png` with native 32x48 frames, but only the active MiMi ProfileMenu draw scale is multiplied by `0.5f` in code.
+- No new animation/image asset was created for that scale change.
+- `assets/mimi_profile.png` remains deleted.
+- MiMi small Social/Gift avatar remains `MugShotSourceRect=(0,192,16,24)` using the dedicated UI slot in `mimi_walk_runtime.png`.
+- Canonical `mimi_walk.png` SHA-256 remains `04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7`.
 - Airship, Forest Gate, MiMi HOME/TV/LATE routine, attic layout, progression, save schema and card canon are untouched.
 
 ## Verified build
-- workflow run: `34052689066` SUCCESS
-- job: `101539006175` SUCCESS
-- materialization commit: `211356f01ef78f39bfaa59b90e967157bd5f70ff`
-- artifact ID: `9995030329`
-- outer artifact digest: `sha256:c3e164c111d4439ec0a188dd2a5f99f6fae46fec31c3e7ee0ab2ca4014c73c36`
-- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.13_MiMiProfileStair_TEST.zip`
-- package SHA-256: `b662b98e0f2f0b09c6e54545b661960bb182cc599e16848df940ba36208985e7`
-- compiled DLL size: `761344` bytes
+- workflow run: `34056026351` SUCCESS
+- job: `101547965770` SUCCESS
+- materialized source commit: `59eab2ff14eb40d5df7ec7836265ed2879842dcd`
+- artifact ID: `9995980744`
+- outer artifact digest: `sha256:a911200bef7d7db14a5df9a0e65b29ad3c87660b313512f7a291dce6a3110429`
+- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.14_MiMiGiftScaleStair_TEST.zip`
+- package SHA-256: `547950a9c8a9ddb3e662b742843a1098d1a80a175aa7ad8752e174f54261a959`
+- compiled DLL size: `762880` bytes
 
 ## Locked canon / regression guard
 - Save schema 19.
@@ -49,4 +48,4 @@ Read this FIRST when resuming from another chat:
 - MiMi HOME/TV/LATE routine test preview remains intact.
 
 ## Next acceptance
-Replace the old Cardcha folder completely and restart SMAPI. Test the WizardHouse stair position/occlusion, MiMi small avatar, and MiMi Profile/Gift Log full-body sprite first. Do not modify Airship/Gate/routine systems unless a new in-game report specifically points there.
+Replace the old Cardcha folder completely and restart SMAPI. First test MiMi's `Danh Sách Quà Tặng` / Profile/Gift Log at the new 50% menu scale, then walk into/out of the WizardHouse stair visual. The stair may disappear completely during overlap, but must no longer be sliced into missing rungs. Do not modify Airship/Gate/routine systems unless a new in-game report specifically points there.
