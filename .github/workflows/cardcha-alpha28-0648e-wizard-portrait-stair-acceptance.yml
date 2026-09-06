@@ -1,0 +1,166 @@
+name: Cardcha alpha28.0.4.14.4.5.12.11 Wizard Portrait Stair Acceptance
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648e-wizard-portrait-stair-acceptance ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0648E candidate
+        run: python3 tools/alpha28_0648e_wizard_portrait_stair_acceptance.py
+
+      - name: Validate exact Wizard-only acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, struct, subprocess
+
+          root=Path('src/Cardcha')
+          v='0.3.0-alpha.28.0.4.14.4.5.12.11'
+          assert json.loads((root/'manifest.json').read_text())['Version']==v
+          assert v in (root/'Cardcha.csproj').read_text()
+          assert v in (root/'Directory.Build.targets').read_text()
+
+          # Portrait: ONE real 64px/frame sheet, no runtime alternative files or generators.
+          p=root/'assets/mimi_portraits.png'
+          raw=p.read_bytes()
+          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+          width,height=struct.unpack('>II', raw[16:24])
+          assert (width,height)==(384,64), (width,height)
+          assert width//64 == 6 and height == 64
+          assert not (root/'assets/mimi_portraits_runtime64.png').exists()
+          assert not (root/'assets/mimi_npc_portraits.png').exists()
+
+          mystery=(root/'Services/MimiMysteryTownService.cs').read_text()
+          assert 'e.LoadFromModFile<Texture2D>(MimiPortraitsPath, AssetLoadPriority.Exclusive);' in mystery
+          assert 'GetNativePortraitCompatibilitySheet' not in mystery
+          assert 'CreateRuntimePortraitSheet' not in mystery
+          assert 'targetSize = 64' not in mystery
+          assert 'assets/mimi_portraits.png' in mystery
+
+          # Stair position: exact tile only. No percentages/search/map-size placement.
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          a=home.index('internal static Point ResolvePreferredWizardStairTile')
+          b=home.index('private static Point ResolveWizardLandingTile', a)
+          body=home[a:b]
+          assert 'return new Point(19, 5);' in body
+          for forbidden in ['LayerWidth','LayerHeight','Math.Clamp','Math.Round','IsTileClear','FindClearTileNear','for (','foreach']:
+              assert forbidden not in body, (forbidden, body)
+
+          # Stair layering: no whole-sprite always-front overlay, split into two source rectangles.
+          visual=(root/'Services/MimiAtticVisualService.cs').read_text()
+          a=visual.index('private void DrawStairMarker')
+          b=visual.index('private static AtticLayout GetLayout', a)
+          draw=visual[a:b]
+          assert 'upperSource' in draw and 'lowerSource' in draw
+          assert 'upperDepth' in draw and 'lowerDepth' in draw
+          assert '0.995f' not in draw
+          assert 'PrepareWizardStairArea(location, stair);' not in visual
+
+          # Regression firewall. Exactly these implementation files may change from 0648D.
+          changed=subprocess.check_output([
+              'git','diff','--name-only','origin/cardcha-alpha28-0648d-wizard-stair-placement'
+          ], text=True).splitlines()
+          allowed={
+              'tools/alpha28_0648e_wizard_portrait_stair_acceptance.py',
+              '.github/workflows/cardcha-alpha28-0648e-wizard-portrait-stair-acceptance.yml',
+              'src/Cardcha/Services/MimiMysteryTownService.cs',
+              'src/Cardcha/Services/MimiHomeService.cs',
+              'src/Cardcha/Services/MimiAtticVisualService.cs',
+              'src/Cardcha/assets/mimi_portraits.png',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+          }
+          unexpected=[x for x in changed if x not in allowed]
+          assert not unexpected, f'0648E touched unrelated files: {unexpected}'
+
+          # Explicitly prove the user-locked systems are untouched.
+          for protected in [
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/Services/WorldActorService.cs',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+          ]:
+              rc=subprocess.run(['git','diff','--quiet','origin/cardcha-alpha28-0648d-wizard-stair-placement','--',protected]).returncode
+              assert rc==0, f'Protected file changed: {protected}'
+
+          print('0648E Wizard portrait/stair validator PASS')
+          print('portrait:', width, 'x', height, 'six native 64px frames')
+          print('stair tile: (19,5)')
+          print('changed files:', changed)
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.11 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add src/Cardcha
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.11 Wizard portrait stair acceptance [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648e-wizard-portrait-stair-acceptance
+          fi
+
+      - name: Package .5.12.11 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.11_WizardPortraitStairAcceptance_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import zipfile, struct
+          z=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.11_WizardPortraitStairAcceptance_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              names=f.namelist()
+              assert 'Cardcha/assets/mimi_portraits.png' in names
+              assert not any(n.endswith('mimi_portraits_runtime64.png') or n.endswith('mimi_npc_portraits.png') for n in names)
+              raw=f.read('Cardcha/assets/mimi_portraits.png')
+              w,h=struct.unpack('>II', raw[16:24])
+              assert (w,h)==(384,64)
+              assert len(f.read('Cardcha/Cardcha.dll'))>100000
+          print('Final package portrait/DLL audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648e-wizard-portrait-stair-acceptance
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.11_WizardPortraitStairAcceptance_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.11_WizardPortraitStairAcceptance_TEST.zip.sha256
+          if-no-files-found: error
