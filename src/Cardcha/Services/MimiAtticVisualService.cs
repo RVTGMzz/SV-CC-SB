@@ -296,21 +296,20 @@ internal sealed class MimiAtticVisualService
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
+            Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);
+            Rectangle worldRect = new((int)world.X, (int)world.Y, 64, 256);
 
-            // RenderedWorld is after Stardew draws characters. Draw the ladder as four tile-sized
-            // segments and omit only a segment intersecting a visible character body, so it never
-            // paints over the farmer/NPC while preserving the rest of the staircase.
-            for (int segment = 0; segment < 4; segment++)
-            {
-                Rectangle source = new(0, segment * 16, 16, 16);
-                Vector2 world = new(tile.X * 64f, (tile.Y - 4 + segment) * 64f);
-                Rectangle worldRect = new((int)world.X, (int)world.Y, 64, 64);
-                if (IntersectsVisibleCharacter(location, worldRect))
-                    continue;
+            // RenderedWorld occurs after Stardew draws characters, so a custom stair cannot be
+            // truly depth-sorted behind them here. 0648G hid individual 64px rungs, which made
+            // the ladder visibly slice itself around the farmer. Keep visibility atomic instead:
+            // while a character overlaps the stair, hide the complete cosmetic stair for that
+            // frame; once clear, render the complete stair again. The warp/collision is untouched.
+            if (IntersectsVisibleCharacter(location, worldRect))
+                return;
 
-                Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-                batch.Draw(staircase, screen, source, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.01f);
-            }
+            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
+            Rectangle source = new(0, 0, 16, 64);
+            batch.Draw(staircase, screen, source, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.01f);
         }
         catch
         {
@@ -318,10 +317,10 @@ internal sealed class MimiAtticVisualService
         }
     }
 
-    private static bool IntersectsVisibleCharacter(GameLocation location, Rectangle stairSegment)
+    private static bool IntersectsVisibleCharacter(GameLocation location, Rectangle stairBounds)
     {
         if (Game1.player.currentLocation == location
-            && stairSegment.Intersects(GetCharacterVisualBounds(Game1.player)))
+            && stairBounds.Intersects(GetCharacterVisualBounds(Game1.player)))
         {
             return true;
         }
@@ -330,7 +329,7 @@ internal sealed class MimiAtticVisualService
         {
             if (npc.isInvisible.Value)
                 continue;
-            if (stairSegment.Intersects(GetCharacterVisualBounds(npc)))
+            if (stairBounds.Intersects(GetCharacterVisualBounds(npc)))
                 return true;
         }
 
