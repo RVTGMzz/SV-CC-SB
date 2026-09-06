@@ -9,6 +9,14 @@ Current build:
 Read this FIRST when resuming from another chat:
 `handoff/ALPHA28_0648G_MIMI_PROFILE_STAIR_OCCLUSION.md`
 
+## Session transition status — 2026-09-07
+- Current chat is being closed immediately after producing the verified `.5.12.13` test build.
+- GitHub source, workflow, materialized source, package metadata and handoff are all committed on the branch above.
+- CI is green. Packaging acceptance is complete.
+- In-game acceptance is still pending for exactly three screenshot-driven items: WizardHouse stair position/occlusion, MiMi small Social/Gift avatar, and MiMi Profile/Gift Log full-body sprite.
+- When the next chat starts, do NOT branch from an older 0648/0648F handoff. Resume from this 0648G branch and this file.
+- If the three visual checks pass, keep 0648G as the canonical base for the next feature. If one fails, patch only that visual issue first and preserve the locked systems below.
+
 ## Current verified state
 - Screenshot-driven WizardHouse stair placement is fixed at `(8,15)`, three tiles left of 0648F.
 - Stair rendering is split into four tile-sized segments with character-body occlusion so the post-world custom draw cannot paint over the farmer/NPC body.
