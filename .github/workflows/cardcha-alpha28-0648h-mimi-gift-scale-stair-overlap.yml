@@ -1,0 +1,182 @@
+name: Cardcha alpha28.0.4.14.4.5.12.14 MiMi Gift Scale Stair Overlap
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0648H candidate
+        run: python3 tools/alpha28_0648h_mimi_gift_scale_stair_overlap.py
+
+      - name: Validate exact visual hotfix scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, subprocess
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5.12.14'
+          parent='origin/cardcha-alpha28-0648g-mimi-profile-stair-occlusion'
+
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          # Canonical art is byte-locked. 0648H is code-only for MiMi scale.
+          walk=root/'assets/mimi_walk.png'
+          raw=walk.read_bytes()
+          assert hashlib.sha256(raw).hexdigest()=='04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert struct.unpack('>II',raw[16:24])==(128,192)
+          assert not (root/'assets/mimi_profile.png').exists()
+
+          airship=root/'assets/airship_visual.png'
+          assert hashlib.sha256(airship.read_bytes()).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          # Gift Log/Profile keeps the same canonical animation, but scales its final draw 50%.
+          world=(root/'Services/WorldActorService.cs').read_text()
+          assert 'private const string MimiProfileSheetPath = "assets/mimi_walk.png";' in world
+          patch=(root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          assert 'private const float MimiProfileScaleMultiplier = 0.5f;' in patch
+          assert 'new(WorldActorService.MimiProfileCharacterAsset, 0, 32, 48)' in patch
+          assert 'ScaleDrawPrefix' in patch
+          assert '__args[i] = scale * MimiProfileScaleMultiplier;' in patch
+          assert 'Game1.activeClickableMenu is not ProfileMenu profile' in patch
+
+          # Dedicated small avatar fix from 0648G is preserved.
+          mystery=(root/'Services/MimiMysteryTownService.cs').read_text()
+          assert 'SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);' in mystery
+          runtime=(root/'assets/mimi_walk_runtime.png').read_bytes()
+          assert struct.unpack('>II',runtime[16:24])==(128,216)
+
+          # Stair coordinate remains exactly where the screenshot-driven 0648G fix put it.
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          a=home.index('internal static Point ResolvePreferredWizardStairTile')
+          b=home.index('private static Point ResolveWizardLandingTile',a)
+          method=home[a:b]
+          assert 'return new Point(8, 15);' in method
+          assert 'return new Point(11, 15);' not in method
+
+          # No more per-rung slicing. The complete cosmetic stair toggles visibility atomically.
+          visual=(root/'Services/MimiAtticVisualService.cs').read_text()
+          a=visual.index('private void DrawStairMarker')
+          b=visual.index('private static AtticLayout GetLayout',a)
+          draw=visual[a:b]
+          assert 'for (int segment = 0; segment < 4; segment++)' not in draw
+          assert 'Rectangle worldRect = new((int)world.X, (int)world.Y, 64, 256);' in draw
+          assert 'if (IntersectsVisibleCharacter(location, worldRect))' in draw
+          assert 'Rectangle source = new(0, 0, 16, 64);' in draw
+          assert draw.count('batch.Draw(staircase')==1
+
+          # Only these hotfix/build files may differ from accepted 0648G.
+          changed=subprocess.check_output(['git','diff','--name-only',parent],text=True).splitlines()
+          allowed={
+              'tools/alpha28_0648h_mimi_gift_scale_stair_overlap.py',
+              '.github/workflows/cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap.yml',
+              'src/Cardcha/Patches/MimiProfileMenuPatch.cs',
+              'src/Cardcha/Services/MimiAtticVisualService.cs',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+          }
+          unexpected=[x for x in changed if x not in allowed]
+          assert not unexpected, f'unexpected changes: {unexpected}'
+
+          for protected in [
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/mimi_walk_runtime.png',
+              'src/Cardcha/assets/mimi_portraits.png',
+              'src/Cardcha/assets/mimi_attic.tmx',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/Services/MimiHomeService.cs',
+              'src/Cardcha/Services/MimiMysteryTownService.cs',
+              'src/Cardcha/Services/ProgressionService.cs',
+              'src/Cardcha/Models/SaveData.cs',
+          ]:
+              rc=subprocess.run(['git','diff','--quiet',parent,'--',protected]).returncode
+              assert rc==0, f'protected file changed: {protected}'
+
+          print('0648H acceptance validator PASS')
+          print('MiMi Gift/Profile: canonical 32x48 animation, draw scale x0.5 only in ProfileMenu')
+          print('Wizard stair: fixed (8,15), whole-sprite overlap visibility, no sliced rungs')
+          print('Airship/Gate/routine/save/card canon: untouched')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.14 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.14 MiMi gift scale stair overlap [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap
+          fi
+
+      - name: Package .5.12.14 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.14_MiMiGiftScaleStair_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, zipfile
+          z=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.14_MiMiGiftScaleStair_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              names=set(f.namelist())
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.14'
+              assert 'Cardcha/assets/mimi_walk.png' in names
+              assert 'Cardcha/assets/mimi_profile.png' not in names
+              walk=f.read('Cardcha/assets/mimi_walk.png')
+              assert hashlib.sha256(walk).hexdigest()=='04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+              assert struct.unpack('>II',walk[16:24])==(128,192)
+              assert hashlib.sha256(f.read('Cardcha/assets/airship_visual.png')).hexdigest()=='1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+              assert len(f.read('Cardcha/Cardcha.dll'))>100000
+          print('Final .5.12.14 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.14_MiMiGiftScaleStair_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.14_MiMiGiftScaleStair_TEST.zip.sha256
+          if-no-files-found: error
