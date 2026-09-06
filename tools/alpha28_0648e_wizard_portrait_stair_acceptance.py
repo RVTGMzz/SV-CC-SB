@@ -9,7 +9,6 @@ BASE_VERSION = '0.3.0-alpha.28.0.4.14.4.5.12.10'
 PORTRAIT_SOURCE_REF = 'origin/cardcha-alpha28-0646-mimi-secret-tv-routine'
 PORTRAIT_SOURCE_PATH = 'src/Cardcha/assets/mimi_portraits_runtime64.png'
 
-# Version metadata only.
 manifest = ROOT / 'manifest.json'
 data = json.loads(manifest.read_text(encoding='utf-8-sig'))
 data['Version'] = VERSION
@@ -21,14 +20,8 @@ for rel in ['Cardcha.csproj', 'Directory.Build.targets']:
     text = text.replace(BASE_VERSION, VERSION)
     path.write_text(text, encoding='utf-8')
 
-# ---------------------------------------------------------------------------
-# 1) MiMi portrait: restore the last known-good native 64x64/frame sheet.
-#    It becomes the ONE shared mimi_portraits.png used by Social/Gift Log and dialogue.
-#    No outer stroke, no padding, no runtime resize sheet.
-# ---------------------------------------------------------------------------
-portrait_bytes = subprocess.check_output([
-    'git', 'show', f'{PORTRAIT_SOURCE_REF}:{PORTRAIT_SOURCE_PATH}'
-])
+# 1) Restore last known-good native six-frame 64x64 MiMi portrait sheet.
+portrait_bytes = subprocess.check_output(['git', 'show', f'{PORTRAIT_SOURCE_REF}:{PORTRAIT_SOURCE_PATH}'])
 portrait_path = ROOT / 'assets/mimi_portraits.png'
 portrait_path.write_bytes(portrait_bytes)
 for obsolete in [ROOT / 'assets/mimi_portraits_runtime64.png', ROOT / 'assets/mimi_npc_portraits.png']:
@@ -46,7 +39,6 @@ mystery = mystery.replace(
     'e.LoadFromModFile<Texture2D>(MimiPortraitsPath, AssetLoadPriority.Exclusive);'
 )
 
-# Remove obsolete runtime portrait generators safely by matching braces.
 def remove_method(source: str, signature: str) -> str:
     start = source.find(signature)
     if start < 0:
@@ -78,10 +70,7 @@ mystery = remove_method(mystery, 'private Texture2D GetNativePortraitCompatibili
 mystery = remove_method(mystery, 'private static Texture2D CreateRuntimePortraitSheet(Texture2D master)')
 mystery_path.write_text(mystery, encoding='utf-8')
 
-# ---------------------------------------------------------------------------
-# 2) Wizard stair position: EXACT fixed tile, no map percentages/searches.
-#    Screenshot acceptance target: upper-right niche between the two plants.
-# ---------------------------------------------------------------------------
+# 2) Exact fixed Wizard stair tile from the requested upper niche screenshot.
 home_path = ROOT / 'Services/MimiHomeService.cs'
 home = home_path.read_text(encoding='utf-8')
 start = home.index('    internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)')
@@ -90,16 +79,12 @@ replacement = '''    internal static Point ResolvePreferredWizardStairTile(GameL
 home = home[:start] + replacement + home[end:]
 home_path.write_text(home, encoding='utf-8')
 
-# ---------------------------------------------------------------------------
-# 3) Wizard stair layering: split 16x64 art into upper/lower slices and depth-sort
-#    at the stair's world Y instead of the old always-front 0.995 overlay.
-#    No WizardHouse tiles are removed.
-# ---------------------------------------------------------------------------
+# 3) Split stair art and use normal world-Y depth instead of an always-front overlay.
 visual_path = ROOT / 'Services/MimiAtticVisualService.cs'
 visual = visual_path.read_text(encoding='utf-8')
 method_start = visual.index('    private void DrawStairMarker(SpriteBatch batch, Point tile)')
 method_end = visual.index('    private static AtticLayout GetLayout', method_start)
-new_draw = '''    private void DrawStairMarker(SpriteBatch batch, Point tile)\n    {\n        try\n        {\n            Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);\n\n            // The 16x64 staircase is four world tiles tall at 4x scale. Its foot ends at tile.Y.\n            // Split it so the lower segment participates in normal Y-depth instead of forcing the\n            // entire ladder over the farmer with the old fixed 0.995f layer depth.\n            Rectangle upperSource = new(0, 0, staircase.Width, 48);\n            Rectangle lowerSource = new(0, 48, staircase.Width, 16);\n            Vector2 upperWorld = new(tile.X * 64f, (tile.Y - 4) * 64f);\n            Vector2 lowerWorld = new(tile.X * 64f, (tile.Y - 1) * 64f);\n            Vector2 upperScreen = Game1.GlobalToLocal(Game1.viewport, upperWorld);\n            Vector2 lowerScreen = Game1.GlobalToLocal(Game1.viewport, lowerWorld);\n\n            float upperDepth = Math.Clamp(((tile.Y - 1) * 64f - 8f) / 10000f, 0.001f, 0.90f);\n            float lowerDepth = Math.Clamp((tile.Y * 64f - 8f) / 10000f, 0.001f, 0.90f);\n\n            batch.Draw(staircase, upperScreen, upperSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, upperDepth);\n            batch.Draw(staircase, lowerScreen, lowerSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, lowerDepth);\n        }\n        catch\n        {\n            // The actual warp still works if the visual asset can't be loaded.\n        }\n    }\n\n'''
+new_draw = '''    private void DrawStairMarker(SpriteBatch batch, Point tile)\n    {\n        try\n        {\n            Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);\n\n            // The 16x64 staircase is four world tiles tall at 4x scale. Its foot ends at tile.Y.\n            // Split it so both pieces participate in normal world-Y depth sorting with the farmer.\n            Rectangle upperSource = new(0, 0, staircase.Width, 48);\n            Rectangle lowerSource = new(0, 48, staircase.Width, 16);\n            Vector2 upperWorld = new(tile.X * 64f, (tile.Y - 4) * 64f);\n            Vector2 lowerWorld = new(tile.X * 64f, (tile.Y - 1) * 64f);\n            Vector2 upperScreen = Game1.GlobalToLocal(Game1.viewport, upperWorld);\n            Vector2 lowerScreen = Game1.GlobalToLocal(Game1.viewport, lowerWorld);\n\n            float upperDepth = Math.Clamp(((tile.Y - 1) * 64f - 8f) / 10000f, 0.001f, 0.90f);\n            float lowerDepth = Math.Clamp((tile.Y * 64f - 8f) / 10000f, 0.001f, 0.90f);\n\n            batch.Draw(staircase, upperScreen, upperSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, upperDepth);\n            batch.Draw(staircase, lowerScreen, lowerSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, lowerDepth);\n        }\n        catch\n        {\n            // The actual warp still works if the visual asset can't be loaded.\n        }\n    }\n\n'''
 visual = visual[:method_start] + new_draw + visual[method_end:]
 visual_path.write_text(visual, encoding='utf-8')
 
