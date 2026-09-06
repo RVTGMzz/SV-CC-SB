@@ -6,7 +6,7 @@ import subprocess
 ROOT = Path('src/Cardcha')
 VERSION = '0.3.0-alpha.28.0.4.14.4.5.12.11'
 BASE_VERSION = '0.3.0-alpha.28.0.4.14.4.5.12.10'
-PORTRAIT_SOURCE_REF = 'cardcha-alpha28-0646-mimi-secret-tv-routine'
+PORTRAIT_SOURCE_REF = 'origin/cardcha-alpha28-0646-mimi-secret-tv-routine'
 PORTRAIT_SOURCE_PATH = 'src/Cardcha/assets/mimi_portraits_runtime64.png'
 
 # Version metadata only.
@@ -51,7 +51,6 @@ def remove_method(source: str, signature: str) -> str:
     start = source.find(signature)
     if start < 0:
         return source
-    # Include indentation/newline before the method when possible.
     line_start = source.rfind('\n', 0, start) + 1
     brace = source.find('{', start)
     if brace < 0:
@@ -77,9 +76,6 @@ def remove_method(source: str, signature: str) -> str:
 
 mystery = remove_method(mystery, 'private Texture2D GetNativePortraitCompatibilitySheet()')
 mystery = remove_method(mystery, 'private static Texture2D CreateRuntimePortraitSheet(Texture2D master)')
-
-# The crisp dialogue path now reads the same GameContent PortraitAsset directly.
-# Keep it, since it no longer performs scaling and remains compatible with custom dialogue callers.
 mystery_path.write_text(mystery, encoding='utf-8')
 
 # ---------------------------------------------------------------------------
