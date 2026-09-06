@@ -178,7 +178,7 @@ internal sealed class MimiMysteryTownService
                 // The NPC actor scale preserves the approved in-game size.
                 SetPointProperty(mimi, "Size", 32, 48);
                 // Gift Log / Social mugshot comes from the character sheet, not Portraits/. Crop the crisp front-facing head.
-                SetRectangleProperty(mimi, "MugShotSourceRect", 8, 0, 16, 24);
+                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {

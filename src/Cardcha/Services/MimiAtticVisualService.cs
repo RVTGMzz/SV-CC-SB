@@ -76,7 +76,7 @@ internal sealed class MimiAtticVisualService
         if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
         {
             Point stair = MimiHomeService.ResolvePreferredWizardStairTile(location);
-            this.DrawStairMarker(e.SpriteBatch, stair);
+            this.DrawStairMarker(e.SpriteBatch, location, stair);
         }
     }
 
@@ -291,31 +291,57 @@ internal sealed class MimiAtticVisualService
         }
     }
 
-    private void DrawStairMarker(SpriteBatch batch, Point tile)
+    private void DrawStairMarker(SpriteBatch batch, GameLocation location, Point tile)
     {
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
 
-            Rectangle upperSource = new(0, 0, staircase.Width, 48);
-            Rectangle lowerSource = new(0, 48, staircase.Width, 16);
-            Vector2 upperWorld = new(tile.X * 64f, (tile.Y - 4) * 64f);
-            Vector2 lowerWorld = new(tile.X * 64f, (tile.Y - 1) * 64f);
-            Vector2 upperScreen = Game1.GlobalToLocal(Game1.viewport, upperWorld);
-            Vector2 lowerScreen = Game1.GlobalToLocal(Game1.viewport, lowerWorld);
+            // RenderedWorld is after Stardew draws characters. Draw the ladder as four tile-sized
+            // segments and omit only a segment intersecting a visible character body, so it never
+            // paints over the farmer/NPC while preserving the rest of the staircase.
+            for (int segment = 0; segment < 4; segment++)
+            {
+                Rectangle source = new(0, segment * 16, 16, 16);
+                Vector2 world = new(tile.X * 64f, (tile.Y - 4 + segment) * 64f);
+                Rectangle worldRect = new((int)world.X, (int)world.Y, 64, 64);
+                if (IntersectsVisibleCharacter(location, worldRect))
+                    continue;
 
-            // Normal world-Y depths. A farmer standing in front has a larger depth and therefore
-            // renders over the stair instead of having their face/body covered by it.
-            float upperDepth = Math.Clamp(((tile.Y - 1) * 64f - 8f) / 10000f, 0.001f, 0.90f);
-            float lowerDepth = Math.Clamp((tile.Y * 64f - 8f) / 10000f, 0.001f, 0.90f);
-
-            batch.Draw(staircase, upperScreen, upperSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, upperDepth);
-            batch.Draw(staircase, lowerScreen, lowerSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, lowerDepth);
+                Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
+                batch.Draw(staircase, screen, source, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.01f);
+            }
         }
         catch
         {
             // The warp remains functional if the cosmetic marker cannot be loaded.
         }
+    }
+
+    private static bool IntersectsVisibleCharacter(GameLocation location, Rectangle stairSegment)
+    {
+        if (Game1.player.currentLocation == location
+            && stairSegment.Intersects(GetCharacterVisualBounds(Game1.player)))
+        {
+            return true;
+        }
+
+        foreach (NPC npc in location.characters)
+        {
+            if (npc.isInvisible.Value)
+                continue;
+            if (stairSegment.Intersects(GetCharacterVisualBounds(npc)))
+                return true;
+        }
+
+        return false;
+    }
+
+    private static Rectangle GetCharacterVisualBounds(Character character)
+    {
+        int x = (int)character.Position.X - 8;
+        int y = (int)character.Position.Y - 96;
+        return new Rectangle(x, y, 80, 160);
     }
 
     private static AtticLayout GetLayout(GameLocation location)
