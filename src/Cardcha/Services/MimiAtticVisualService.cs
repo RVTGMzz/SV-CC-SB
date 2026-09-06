@@ -4,6 +4,8 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Objects;
+using xTile;
+using xTile.Tiles;
 
 namespace Cardcha.Services;
 
@@ -28,6 +30,7 @@ internal sealed class MimiAtticVisualService
     private readonly SaveService Save;
     private bool TestAccessActive;
     private GameLocation? DecorAppliedLocation;
+    private xTile.Map? WizardStairAppliedMap;
     private readonly Dictionary<string, int> InspectCountsToday = new(StringComparer.OrdinalIgnoreCase);
     private int InspectMemoryDay = -1;
 
@@ -76,7 +79,7 @@ internal sealed class MimiAtticVisualService
         if (location.NameOrUniqueName.Equals("WizardHouse", StringComparison.OrdinalIgnoreCase))
         {
             Point stair = MimiHomeService.ResolvePreferredWizardStairTile(location);
-            this.DrawStairMarker(e.SpriteBatch, location, stair);
+            this.EnsureWizardStairMapTiles(location, stair);
         }
     }
 
@@ -272,75 +275,71 @@ internal sealed class MimiAtticVisualService
         }
     }
 
-    private static void PrepareWizardStairArea(GameLocation location, Point tile)
-    {
-        // The old marker sat beside decorative plant/wall tiles and could visually/collision-wise
-        // pinch the player into the wall. Reserve a clean 2x3 opening for the real stair graphic.
-        foreach (string layerName in new[] { "Buildings", "Front" })
-        {
-            var layer = location.Map?.GetLayer(layerName);
-            if (layer is null)
-                continue;
-
-            int x = tile.X;
-            for (int y = tile.Y - 3; y <= tile.Y; y++)
-            {
-                if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
-                    layer.Tiles[x, y] = null;
-            }
-        }
-    }
-
-    private void DrawStairMarker(SpriteBatch batch, GameLocation location, Point tile)
+    private void EnsureWizardStairMapTiles(GameLocation location, Point tile)
     {
         try
         {
-            Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
-            Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);
-            Rectangle worldRect = new((int)world.X, (int)world.Y, 64, 256);
-
-            // RenderedWorld occurs after Stardew draws characters, so a custom stair cannot be
-            // truly depth-sorted behind them here. 0648G hid individual 64px rungs, which made
-            // the ladder visibly slice itself around the farmer. Keep visibility atomic instead:
-            // while a character overlaps the stair, hide the complete cosmetic stair for that
-            // frame; once clear, render the complete stair again. The warp/collision is untouched.
-            if (IntersectsVisibleCharacter(location, worldRect))
+            xTile.Map? map = location.Map;
+            if (map is null || ReferenceEquals(this.WizardStairAppliedMap, map))
                 return;
 
-            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-            Rectangle source = new(0, 0, 16, 64);
-            batch.Draw(staircase, screen, source, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.01f);
+            var buildings = map.GetLayer("Buildings");
+            if (buildings is null)
+                return;
+
+            const string tileSheetId = "z_cardcha_mimi_attic_stairs";
+            TileSheet? stairSheet = map.GetTileSheet(tileSheetId);
+            if (stairSheet is null)
+            {
+                string imageSource = this.Helper.ModContent.GetInternalAssetName(StairSpritePath).Name;
+                stairSheet = new TileSheet(
+                    tileSheetId,
+                    map,
+                    imageSource,
+                    new xTile.Dimensions.Size(1, 4),
+                    new xTile.Dimensions.Size(16, 16)
+                );
+                map.AddTileSheet(stairSheet);
+
+                // The WizardHouse map is already live when this runtime-only progression gate
+                // installs the stair, so load the newly added tilesheet into the map display device.
+                map.LoadTileSheets(Game1.mapDisplayDevice);
+            }
+
+            var front = map.GetLayer("Front");
+            int x = tile.X;
+
+            for (int segment = 0; segment < 4; segment++)
+            {
+                int y = tile.Y - 4 + segment;
+                if (x < 0 || y < 0 || x >= buildings.LayerWidth || y >= buildings.LayerHeight)
+                    continue;
+
+                // Clear only the same foreground column the old cosmetic stair occupied so no
+                // vanilla Front tile can paint over the ladder. Back/wall art remains untouched.
+                if (front is not null
+                    && x < front.LayerWidth
+                    && y < front.LayerHeight)
+                {
+                    front.Tiles[x, y] = null;
+                }
+
+                StaticTile stairTile = new(buildings, stairSheet, BlendMode.Alpha, segment);
+                stairTile.Properties["Passable"] = "T";
+                buildings.Tiles[x, y] = stairTile;
+            }
+
+            // Track the actual map object, not location.modData: map tiles themselves are runtime
+            // content and must be reinstalled if another mod reloads/replaces the WizardHouse map.
+            this.WizardStairAppliedMap = map;
         }
-        catch
+        catch (Exception ex)
         {
-            // The warp remains functional if the cosmetic marker cannot be loaded.
+            ModEntry.StaticMonitor?.Log(
+                $"WizardHouse MiMi stair map-layer install failed safely: {ex.Message}",
+                StardewModdingAPI.LogLevel.Warn
+            );
         }
-    }
-
-    private static bool IntersectsVisibleCharacter(GameLocation location, Rectangle stairBounds)
-    {
-        if (Game1.player.currentLocation == location
-            && stairBounds.Intersects(GetCharacterVisualBounds(Game1.player)))
-        {
-            return true;
-        }
-
-        foreach (NPC npc in location.characters)
-        {
-            if (npc.isInvisible.Value)
-                continue;
-            if (stairBounds.Intersects(GetCharacterVisualBounds(npc)))
-                return true;
-        }
-
-        return false;
-    }
-
-    private static Rectangle GetCharacterVisualBounds(Character character)
-    {
-        int x = (int)character.Position.X - 8;
-        int y = (int)character.Position.Y - 96;
-        return new Rectangle(x, y, 80, 160);
     }
 
     private static AtticLayout GetLayout(GameLocation location)

@@ -1,5 +1,7 @@
 using Cardcha.Services;
 using HarmonyLib;
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewValley;
 using StardewValley.Menus;
 using System.Reflection;
@@ -8,53 +10,56 @@ namespace Cardcha.Patches;
 
 internal static class MimiProfileMenuPatch
 {
-    private const float MimiProfileScaleMultiplier = 0.5f;
+    private const float VanillaProfileSpriteScale = 4f;
+    private const float MimiProfileSpriteScale = 2f;
+
     private static readonly FieldInfo? AnimatedSpriteField = AccessTools.Field(typeof(ProfileMenu), "_animatedSprite");
     private static bool MimiProfileActive;
 
     public static void Apply(Harmony harmony)
     {
-        MethodInfo? target = AccessTools.Method(
+        MethodInfo? setCharacter = AccessTools.Method(
             typeof(ProfileMenu),
             "_SetCharacter",
             new[] { typeof(SocialPage.SocialEntry) }
         );
 
-        if (target is null || AnimatedSpriteField is null)
+        MethodInfo? threeArgDraw = AccessTools.Method(
+            typeof(AnimatedSprite),
+            "draw",
+            new[] { typeof(SpriteBatch), typeof(Vector2), typeof(float) }
+        );
+
+        if (setCharacter is null || AnimatedSpriteField is null)
         {
-            ModEntry.StaticMonitor?.Log("Could not install MiMi ProfileMenu sprite-size patch.", StardewModdingAPI.LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log(
+                "Could not install MiMi ProfileMenu character hook.",
+                StardewModdingAPI.LogLevel.Warn
+            );
             return;
         }
 
         harmony.Patch(
-            target,
-            postfix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(Postfix))
+            setCharacter,
+            postfix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(SetCharacterPostfix))
         );
 
-        int scaledDrawOverloads = 0;
-        foreach (MethodInfo drawMethod in typeof(AnimatedSprite)
-                     .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                     .Where(method => string.Equals(method.Name, "draw", StringComparison.OrdinalIgnoreCase)
-                         && method.GetParameters().Any(parameter => parameter.ParameterType == typeof(float)
-                             && string.Equals(parameter.Name, "scale", StringComparison.OrdinalIgnoreCase))))
-        {
-            harmony.Patch(
-                drawMethod,
-                prefix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(ScaleDrawPrefix))
-            );
-            scaledDrawOverloads++;
-        }
-
-        if (scaledDrawOverloads == 0)
+        if (threeArgDraw is null)
         {
             ModEntry.StaticMonitor?.Log(
-                "MiMi ProfileMenu could not find an AnimatedSprite draw overload with a scale argument; vanilla scale will be used safely.",
+                "Could not install MiMi ProfileMenu direct-draw scale hook; the exact AnimatedSprite three-argument draw overload was not found.",
                 StardewModdingAPI.LogLevel.Warn
             );
+            return;
         }
+
+        harmony.Patch(
+            threeArgDraw,
+            prefix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(ThreeArgDrawPrefix))
+        );
     }
 
-    private static void Postfix(ProfileMenu __instance, SocialPage.SocialEntry entry)
+    private static void SetCharacterPostfix(ProfileMenu __instance, SocialPage.SocialEntry entry)
     {
         bool isMimi = entry.Character is NPC npc
             && string.Equals(npc.Name, WorldActorService.MimiNpcId, StringComparison.OrdinalIgnoreCase);
@@ -78,28 +83,61 @@ internal static class MimiProfileMenuPatch
         }
     }
 
-    private static void ScaleDrawPrefix(AnimatedSprite __instance, MethodBase __originalMethod, object[] __args)
+    /// <summary>
+    /// ProfileMenu uses AnimatedSprite.draw(SpriteBatch, Vector2, float). That overload hardcodes
+    /// a 4x sprite scale internally, so 0648H's scale-parameter hook could never affect it.
+    /// Intercept exactly that call for MiMi's active ProfileMenu sprite, draw at 2x, then skip the
+    /// vanilla 4x draw. The center offset keeps the half-size sprite visually centered in the same
+    /// character frame instead of shrinking toward the top-left corner.
+    /// </summary>
+    private static bool ThreeArgDrawPrefix(AnimatedSprite __instance, object[] __args)
     {
         if (!MimiProfileActive
             || Game1.activeClickableMenu is not ProfileMenu profile
             || !ReferenceEquals(AnimatedSpriteField?.GetValue(profile), __instance))
         {
-            return;
+            return true;
         }
 
-        ParameterInfo[] parameters = __originalMethod.GetParameters();
-        for (int i = 0; i < parameters.Length && i < __args.Length; i++)
+        if (__args.Length < 3
+            || __args[0] is not SpriteBatch batch
+            || __args[1] is not Vector2 screenPosition
+            || __args[2] is not float layerDepth)
         {
-            ParameterInfo parameter = parameters[i];
-            if (parameter.ParameterType != typeof(float)
-                || !string.Equals(parameter.Name, "scale", StringComparison.OrdinalIgnoreCase)
-                || __args[i] is not float scale)
-            {
-                continue;
-            }
-
-            __args[i] = scale * MimiProfileScaleMultiplier;
-            return;
+            return true;
         }
+
+        Texture2D texture = __instance.Texture;
+        if (texture is null)
+            return false;
+
+        Rectangle source = __instance.SourceRect;
+        float centerOffsetX = source.Width * (VanillaProfileSpriteScale - MimiProfileSpriteScale) / 2f;
+        float centerOffsetY = source.Height * (VanillaProfileSpriteScale - MimiProfileSpriteScale) / 2f;
+        Vector2 centeredPosition = screenPosition + new Vector2(centerOffsetX, centerOffsetY);
+
+        SpriteEffects effects = SpriteEffects.None;
+        var animation = __instance.CurrentAnimation;
+        if (animation is not null
+            && __instance.currentAnimationIndex >= 0
+            && __instance.currentAnimationIndex < animation.Count
+            && animation[__instance.currentAnimationIndex].flip)
+        {
+            effects = SpriteEffects.FlipHorizontally;
+        }
+
+        batch.Draw(
+            texture,
+            centeredPosition,
+            source,
+            Color.White,
+            0f,
+            Vector2.Zero,
+            MimiProfileSpriteScale,
+            effects,
+            layerDepth
+        );
+
+        return false;
     }
 }
