@@ -296,7 +296,7 @@ internal sealed class MimiAtticVisualService
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
-            Vector2 world = new(tile.X * 64f, (tile.Y - 3) * 64f);
+            Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);
             Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
             batch.Draw(staircase, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.995f);
         }

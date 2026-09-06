@@ -635,12 +635,12 @@ internal sealed class MimiHomeService
         int width = wizard.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 12;
         int height = wizard.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 10;
 
-        // WIZ-01/WIZ-02 LOCKED: this is a landmark-relative FIXED tile, not a safety search.
-        // In the current WizardHouse layout this is the bare floor between the two plants
-        // selected in the acceptance screenshot. NPCs, temporary objects, time, and player
-        // movement are deliberately ignored so the staircase can never "run" to another tile.
+        // WIZ-01/WIZ-02/WIZ-03 candidate: one fixed landmark-relative anchor only.
+        // The accepted screenshot target is the recessed floor tile between the two plants,
+        // higher than the previous open-floor placement. This deliberately ignores NPCs,
+        // temporary objects, time, and player movement, so the staircase cannot "run".
         int x = Math.Clamp(width - 4, 2, Math.Max(2, width - 2));
-        int y = Math.Clamp((int)Math.Round(height * 0.58f), 2, Math.Max(2, height - 3));
+        int y = Math.Clamp((int)Math.Round(height * 0.42f), 2, Math.Max(2, height - 3));
         return new Point(x, y);
     }
 
