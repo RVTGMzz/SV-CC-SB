@@ -1,0 +1,173 @@
+name: Cardcha alpha28.0.4.14.4.5.12.15 MiMi Direct Profile Draw + Stair Map Layer
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0648i-mimi-profile-directdraw-stair-maplayer ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0648I candidate
+        run: python3 tools/alpha28_0648i_mimi_profile_directdraw_stair_maplayer.py
+
+      - name: Validate root-cause fixes and locked scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, subprocess
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.15'
+
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          # Approved art remains byte-identical.
+          walk = (root/'assets/mimi_walk.png').read_bytes()
+          assert hashlib.sha256(walk).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+          assert struct.unpack('>II', walk[16:24]) == (128, 192)
+          airship = (root/'assets/airship_visual.png').read_bytes()
+          assert hashlib.sha256(airship).hexdigest() == '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132'
+
+          # MiMi: verify the hook targets the exact overload ProfileMenu actually calls.
+          profile = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          assert 'new[] { typeof(SpriteBatch), typeof(Vector2), typeof(float) }' in profile
+          assert 'ThreeArgDrawPrefix' in profile
+          assert 'VanillaProfileSpriteScale = 4f' in profile
+          assert 'MimiProfileSpriteScale = 2f' in profile
+          assert 'return false;' in profile
+          assert 'GetMethods(BindingFlags' not in profile
+          assert 'parameter.Name, "scale"' not in profile
+          assert 'new(WorldActorService.MimiProfileCharacterAsset, 0, 32, 48)' in profile
+
+          # Wizard stair: must be map architecture, never post-world visibility tricks.
+          visual = (root/'Services/MimiAtticVisualService.cs').read_text()
+          assert 'EnsureWizardStairMapTiles(location, stair);' in visual
+          assert 'new TileSheet(' in visual
+          assert 'new xTile.Dimensions.Size(1, 4)' in visual
+          assert 'StaticTile stairTile = new(buildings, stairSheet, BlendMode.Alpha, segment);' in visual
+          assert 'stairTile.Properties["Passable"] = "T";' in visual
+          assert 'map.LoadTileSheets(Game1.mapDisplayDevice);' in visual
+          assert 'DrawStairMarker' not in visual
+          assert 'IntersectsVisibleCharacter' not in visual
+          assert 'GetCharacterVisualBounds' not in visual
+
+          home = (root/'Services/MimiHomeService.cs').read_text()
+          a = home.index('internal static Point ResolvePreferredWizardStairTile')
+          b = home.index('private static Point ResolveWizardLandingTile', a)
+          method = home[a:b]
+          assert 'return new Point(8, 15);' in method
+          assert 'return new Point(11, 15);' not in method
+
+          # Keep this hotfix surgical.
+          changed = subprocess.check_output([
+              'git','diff','--name-only','origin/cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap'
+          ], text=True).splitlines()
+          allowed = {
+              'tools/alpha28_0648i_mimi_profile_directdraw_stair_maplayer.py',
+              '.github/workflows/cardcha-alpha28-0648i-mimi-profile-directdraw-stair-maplayer.yml',
+              'src/Cardcha/Patches/MimiProfileMenuPatch.cs',
+              'src/Cardcha/Services/MimiAtticVisualService.cs',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+          }
+          unexpected = [x for x in changed if x not in allowed]
+          assert not unexpected, f'unexpected changes: {unexpected}'
+
+          for protected in [
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/mimi_portraits.png',
+              'src/Cardcha/assets/mimi_attic_stairs.png',
+              'src/Cardcha/assets/mimi_attic.tmx',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/Services/ProgressionService.cs',
+              'src/Cardcha/Services/MimiHomeService.cs',
+          ]:
+              rc = subprocess.run([
+                  'git','diff','--quiet','origin/cardcha-alpha28-0648h-mimi-gift-scale-stair-overlap','--',protected
+              ]).returncode
+              assert rc == 0, f'protected file changed: {protected}'
+
+          print('0648I architecture validator PASS')
+          print('MiMi Profile/Gift: exact 3-arg AnimatedSprite draw intercepted; 4x -> 2x centered')
+          print('Wizard stair: real Buildings-layer tiles, Passable=T; no proximity hide/slicing')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.15 source
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.15 direct profile draw stair map layer [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0648i-mimi-profile-directdraw-stair-maplayer
+          fi
+
+      - name: Package .5.12.15 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.15_MiMiDirectScaleStairMap_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, zipfile
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.15_MiMiDirectScaleStairMap_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              names = set(f.namelist())
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.15'
+              assert 'Cardcha/assets/mimi_walk.png' in names
+              assert 'Cardcha/assets/mimi_attic_stairs.png' in names
+              walk = f.read('Cardcha/assets/mimi_walk.png')
+              assert hashlib.sha256(walk).hexdigest() == '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7'
+              assert struct.unpack('>II', walk[16:24]) == (128, 192)
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+          print('Final .5.12.15 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0648i-mimi-profile-directdraw-stair-maplayer
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.15_MiMiDirectScaleStairMap_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.15_MiMiDirectScaleStairMap_TEST.zip.sha256
+          if-no-files-found: error
