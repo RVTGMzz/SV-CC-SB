@@ -33,7 +33,7 @@ internal sealed class MimiMysteryTownService
     private const string ScheduleAsset = "Characters/schedules/Ronvotri.Cardcha_MiMi";
     private const string DialogueAsset = "Characters/Dialogue/Ronvotri.Cardcha_MiMi";
 
-    // Engine-compatible 64x64 portrait fallback only. Runtime dialogue portraits are generated in memory from MimiPortraitsPath.
+    // One canonical sharp Stardew portrait sheet: six native 64x64 frames shared by dialogue and social UI consumers.
     private const string MimiPortraitsPath = "assets/mimi_portraits.png";
     private const string MimiWalkSheetPath = "assets/mimi_walk_runtime.png";
     private const string MimiSchedulePath = "assets/mimi_schedule.json";
@@ -113,7 +113,7 @@ internal sealed class MimiMysteryTownService
 
         if (e.Name.IsEquivalentTo(PortraitAsset))
         {
-            e.LoadFrom(() => this.GetNativePortraitCompatibilitySheet(), AssetLoadPriority.Medium);
+            e.LoadFromModFile<Texture2D>(MimiPortraitsPath, AssetLoadPriority.Exclusive);
             return;
         }
 
@@ -177,7 +177,8 @@ internal sealed class MimiMysteryTownService
                 // Native world renderer uses the official 32x48 MiMi walk master directly.
                 // The NPC actor scale preserves the approved in-game size.
                 SetPointProperty(mimi, "Size", 32, 48);
-                SetRectangleProperty(mimi, "MugShotSourceRect", 0, 192, 16, 24);
+                // Gift Log / Social mugshot comes from the character sheet, not Portraits/. Crop the crisp front-facing head.
+                SetRectangleProperty(mimi, "MugShotSourceRect", 8, 0, 16, 24);
                 SetPointProperty(mimi, "EmoteOffset", 0, -24);
                 SetProperty(mimi, "Shadow", new CharacterShadowData
                 {
@@ -1158,15 +1159,7 @@ internal sealed class MimiMysteryTownService
         AssignPortraitTexture(speaker, portrait);
     }
 
-    private Texture2D GetNativePortraitCompatibilitySheet()
-    {
-        // IMPORTANT: this texture is returned to GameContent, which owns/disposes it.
-        // Never store this instance in a service field.
-        Texture2D master = this.Helper.ModContent.Load<Texture2D>(MimiPortraitsPath);
-        return CreateRuntimePortraitSheet(master);
-    }
-
-    internal bool TryShowCrispPortraitDialogue(NPC speaker, string text)
+internal bool TryShowCrispPortraitDialogue(NPC speaker, string text)
         => this.TryShowDialogueWithPortrait(speaker, text);
 
     private Texture2D GetLivePortraitTexture()
@@ -1205,42 +1198,7 @@ internal sealed class MimiMysteryTownService
         }
     }
 
-    private static Texture2D CreateRuntimePortraitSheet(Texture2D master)
-    {
-        const int frameCount = 6;
-        const int targetSize = 64;
-        if (master.Width % frameCount != 0)
-            throw new InvalidOperationException($"MiMi master portrait width {master.Width} is not divisible by {frameCount}.");
-
-        int sourceFrameWidth = master.Width / frameCount;
-        int sourceFrameHeight = master.Height;
-        Color[] source = new Color[master.Width * master.Height];
-        master.GetData(source);
-        Color[] output = new Color[frameCount * targetSize * targetSize];
-
-        // Preserve hard pixel edges. Do NOT average multiple master pixels into one output pixel.
-        // This is a vanilla-dialogue compatibility texture generated in memory only.
-        for (int frame = 0; frame < frameCount; frame++)
-        {
-            int frameX = frame * sourceFrameWidth;
-            for (int ty = 0; ty < targetSize; ty++)
-            {
-                int sy = Math.Min(sourceFrameHeight - 1, ty * sourceFrameHeight / targetSize);
-                for (int tx = 0; tx < targetSize; tx++)
-                {
-                    int sx = Math.Min(sourceFrameWidth - 1, tx * sourceFrameWidth / targetSize);
-                    output[ty * (frameCount * targetSize) + frame * targetSize + tx]
-                        = source[sy * master.Width + frameX + sx];
-                }
-            }
-        }
-
-        Texture2D runtime = new Texture2D(Game1.graphics.GraphicsDevice, frameCount * targetSize, targetSize);
-        runtime.SetData(output);
-        return runtime;
-    }
-
-    private static void AssignPortraitTexture(NPC npc, Texture2D? portraitTexture)
+private static void AssignPortraitTexture(NPC npc, Texture2D? portraitTexture)
     {
         if (portraitTexture is null)
             return;

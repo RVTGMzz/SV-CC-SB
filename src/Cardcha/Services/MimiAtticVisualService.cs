@@ -296,13 +296,25 @@ internal sealed class MimiAtticVisualService
         try
         {
             Texture2D staircase = this.Helper.ModContent.Load<Texture2D>(StairSpritePath);
-            Vector2 world = new(tile.X * 64f, (tile.Y - 4) * 64f);
-            Vector2 screen = Game1.GlobalToLocal(Game1.viewport, world);
-            batch.Draw(staircase, screen, null, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, 0.995f);
+
+            Rectangle upperSource = new(0, 0, staircase.Width, 48);
+            Rectangle lowerSource = new(0, 48, staircase.Width, 16);
+            Vector2 upperWorld = new(tile.X * 64f, (tile.Y - 4) * 64f);
+            Vector2 lowerWorld = new(tile.X * 64f, (tile.Y - 1) * 64f);
+            Vector2 upperScreen = Game1.GlobalToLocal(Game1.viewport, upperWorld);
+            Vector2 lowerScreen = Game1.GlobalToLocal(Game1.viewport, lowerWorld);
+
+            // Normal world-Y depths. A farmer standing in front has a larger depth and therefore
+            // renders over the stair instead of having their face/body covered by it.
+            float upperDepth = Math.Clamp(((tile.Y - 1) * 64f - 8f) / 10000f, 0.001f, 0.90f);
+            float lowerDepth = Math.Clamp((tile.Y * 64f - 8f) / 10000f, 0.001f, 0.90f);
+
+            batch.Draw(staircase, upperScreen, upperSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, upperDepth);
+            batch.Draw(staircase, lowerScreen, lowerSource, Color.White, 0f, Vector2.Zero, 4f, SpriteEffects.None, lowerDepth);
         }
         catch
         {
-            // The actual warp still works if the visual asset can't be loaded.
+            // The warp remains functional if the cosmetic marker cannot be loaded.
         }
     }
 
