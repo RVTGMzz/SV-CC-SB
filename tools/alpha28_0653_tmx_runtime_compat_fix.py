@@ -61,8 +61,6 @@ def validate_tmx(path: Path) -> None:
             continue
         body = data.text or ""
         raw_tokens = body.split(",")
-        # Emulate the strict TMXTile decode path that failed in the user's SMAPI log:
-        # every comma-delimited token must parse as UInt32, including the final token.
         values = []
         for index, token in enumerate(raw_tokens):
             value = token.strip()
@@ -83,44 +81,42 @@ def validate_tmx(path: Path) -> None:
 
 
 def write_handoff(repaired_blocks: int) -> None:
-    handoff = ROOT / "handoff" / "ALPHA28_0653_TMX_RUNTIME_COMPAT_FIX.md"
-    handoff.write_text(
-        f"""# Alpha28 0653 - TMX runtime compatibility fix\n\n"
-        f"Branch: `cardcha-alpha28-0653-tmx-runtime-compat-fix`\n\n"
+    handoff_text = (
+        "# Alpha28 0653 - TMX runtime compatibility fix\n\n"
+        "Branch: `cardcha-alpha28-0653-tmx-runtime-compat-fix`\n\n"
         f"Build target: `{NEW_VERSION}`\n\n"
-        f"## Why this patch exists\n"
-        f"In-game SMAPI testing exposed `TMXTile.TMXData.decode -> UInt32.Parse` failures when loading all six Region I Hunt Run rooms and the Verdant Guardian arena. The generated CSV layers ended with a comma immediately before `</data>`, producing an empty final token. XML/Tiled parsing tolerated the files, but Stardew/SMAPI's TMXTile runtime parser did not.\n\n"
-        f"The `.vi` suffix visible in SMAPI asset names is locale resolution and was not the cause.\n\n"
-        f"## Fix\n"
-        f"- Removed only the final trailing comma from each CSV `<data>` block in the 7 affected TMX maps.\n"
+        "## Why this patch exists\n"
+        "In-game SMAPI testing exposed `TMXTile.TMXData.decode -> UInt32.Parse` failures when loading all six Region I Hunt Run rooms and the Verdant Guardian arena. The generated CSV layers ended with a comma immediately before `</data>`, producing an empty final token. XML/Tiled parsing tolerated the files, but Stardew/SMAPI's TMXTile runtime parser did not.\n\n"
+        "The `.vi` suffix visible in SMAPI asset names is locale resolution and was not the cause.\n\n"
+        "## Fix\n"
+        "- Removed only the final trailing comma from each CSV `<data>` block in the 7 affected TMX maps.\n"
         f"- Repaired CSV blocks: {repaired_blocks}.\n"
-        f"- Added a strict regression validator that emulates the failing parser contract: every comma-separated token must be a non-empty UInt32 and each layer must contain exactly width x height tiles.\n"
-        f"- No map layout, collision, Hunt Run route logic, Boss I AI, rewards, save schema, card balance, MiMi, Airship, or visual animation timing changed.\n\n"
-        f"## Acceptance\n"
-        f"CI/static/compile/package acceptance only until a fresh in-game SMAPI test confirms both Hunt Run room loading and `Cardcha_VerdantGuardianArena` loading without ContentLoadException.\n",
-        encoding="utf-8",
+        "- Added a strict regression validator that emulates the failing parser contract: every comma-separated token must be a non-empty UInt32 and each layer must contain exactly width x height tiles.\n"
+        "- No map layout, collision, Hunt Run route logic, Boss I AI, rewards, save schema, card balance, MiMi, Airship, or visual animation timing changed.\n\n"
+        "## Acceptance\n"
+        "CI/static/compile/package acceptance only until a fresh in-game SMAPI test confirms both Hunt Run room loading and `Cardcha_VerdantGuardianArena` loading without ContentLoadException.\n"
     )
+    (ROOT / "handoff" / "ALPHA28_0653_TMX_RUNTIME_COMPAT_FIX.md").write_text(handoff_text, encoding="utf-8")
 
-    latest = ROOT / "handoff" / "LATEST_CARDCHA_HANDOFF.md"
-    latest.write_text(
-        f"""# Latest Cardcha handoff\n\n"
-        f"Current development branch:\n`cardcha-alpha28-0653-tmx-runtime-compat-fix`\n\n"
+    latest_text = (
+        "# Latest Cardcha handoff\n\n"
+        "Current development branch:\n`cardcha-alpha28-0653-tmx-runtime-compat-fix`\n\n"
         f"Current build target:\n`{NEW_VERSION}`\n\n"
-        f"Read first:\n"
-        f"- `handoff/ALPHA28_0653_TMX_RUNTIME_COMPAT_FIX.md`\n"
-        f"- `handoff/ALPHA28_0652_VERDANT_VISUAL_PROTOTYPE.md`\n"
-        f"- `handoff/VERDANT_GUARDIAN_ANIMATION_HOOK_SPEC.md`\n"
-        f"- `handoff/ALPHA28_0650_VERDANT_GUARDIAN_BOSS1.md`\n"
-        f"- `handoff/BOSS_CONCEPT_CANON.md`\n\n"
-        f"## Current acceptance state\n"
-        f"- 0653 repairs the TMX CSV runtime-format bug found by real SMAPI testing; fresh in-game acceptance pending.\n"
-        f"- Verdant Guardian gameplay + first custom visual overlay remain implemented; visual acceptance pending.\n"
-        f"- Region I Hunt Run remains exactly 4 unique rooms selected from a pool of 6 before the 20-card Boss Gate.\n"
-        f"- 0648J MiMi Gift/Profile 50% + Wizard stair remains pending; do not silently mark accepted.\n\n"
-        f"## Locked regression guard\n"
-        f"Save schema 19; Boss Form 10 sec; Boss Energy 1/3; 76/76 active cards; Forest Arcane Gate/collision; Airship route/visual; MiMi HOME/TV/LATE; card canon.\n",
-        encoding="utf-8",
+        "Read first:\n"
+        "- `handoff/ALPHA28_0653_TMX_RUNTIME_COMPAT_FIX.md`\n"
+        "- `handoff/ALPHA28_0652_VERDANT_VISUAL_PROTOTYPE.md`\n"
+        "- `handoff/VERDANT_GUARDIAN_ANIMATION_HOOK_SPEC.md`\n"
+        "- `handoff/ALPHA28_0650_VERDANT_GUARDIAN_BOSS1.md`\n"
+        "- `handoff/BOSS_CONCEPT_CANON.md`\n\n"
+        "## Current acceptance state\n"
+        "- 0653 repairs the TMX CSV runtime-format bug found by real SMAPI testing; fresh in-game acceptance pending.\n"
+        "- Verdant Guardian gameplay + first custom visual overlay remain implemented; visual acceptance pending.\n"
+        "- Region I Hunt Run remains exactly 4 unique rooms selected from a pool of 6 before the 20-card Boss Gate.\n"
+        "- 0648J MiMi Gift/Profile 50% + Wizard stair remains pending; do not silently mark accepted.\n\n"
+        "## Locked regression guard\n"
+        "Save schema 19; Boss Form 10 sec; Boss Energy 1/3; 76/76 active cards; Forest Arcane Gate/collision; Airship route/visual; MiMi HOME/TV/LATE; card canon.\n"
     )
+    (ROOT / "handoff" / "LATEST_CARDCHA_HANDOFF.md").write_text(latest_text, encoding="utf-8")
 
 
 set_version()
@@ -133,7 +129,6 @@ for target in TARGET_TMX:
 if repaired_blocks != 21:
     raise RuntimeError(f"0653 expected exactly 21 malformed CSV blocks across 7 maps; repaired {repaired_blocks}")
 
-# Validate the fixed targets and every other shipped TMX so this parser bug cannot hide elsewhere.
 for tmx in sorted((CARDCHA / "assets").rglob("*.tmx")):
     validate_tmx(tmx)
 
