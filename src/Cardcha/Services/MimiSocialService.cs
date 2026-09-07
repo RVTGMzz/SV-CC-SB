@@ -29,6 +29,8 @@ internal sealed class MimiSocialService
 
     private bool LastUnlocked;
     private bool CacheInitialized;
+    private bool LastCommunityCenterRoute;
+    private bool RouteCacheInitialized;
 
     public MimiSocialService(
         IModHelper helper,
@@ -95,7 +97,9 @@ internal sealed class MimiSocialService
             e.Edit(asset =>
             {
                 IDictionary<string, string> data = asset.AsDictionary<string, string>().Data;
-                data["Introduction"] = this.T("mimi.social.introduction");
+                data["Introduction"] = this.IsRestoredCommunityCenterRoute()
+                    ? this.T("mimi.social.community-center")
+                    : this.T("mimi.social.introduction");
                 data["Mon"] = this.T("mimi.social.mon");
                 data["Tue"] = this.T("mimi.social.tue");
                 data["Wed"] = this.T("mimi.social.wed");
@@ -113,6 +117,8 @@ internal sealed class MimiSocialService
     {
         this.LastUnlocked = false;
         this.CacheInitialized = false;
+        this.LastCommunityCenterRoute = false;
+        this.RouteCacheInitialized = false;
         this.RefreshUnlockState(forceRefresh: true);
     }
 
@@ -131,6 +137,8 @@ internal sealed class MimiSocialService
     {
         this.LastUnlocked = false;
         this.CacheInitialized = false;
+        this.LastCommunityCenterRoute = false;
+        this.RouteCacheInitialized = false;
     }
 
     /// <summary>
@@ -227,10 +235,15 @@ internal sealed class MimiSocialService
         this.CacheInitialized = true;
         this.LastUnlocked = unlocked;
 
+        bool communityCenterRoute = this.IsRestoredCommunityCenterRoute();
+        bool routeChanged = !this.RouteCacheInitialized || communityCenterRoute != this.LastCommunityCenterRoute;
+        this.RouteCacheInitialized = true;
+        this.LastCommunityCenterRoute = communityCenterRoute;
+
         if (unlocked)
             this.EnsureFriendshipEntry();
 
-        if (!forceRefresh && !changed)
+        if (!forceRefresh && !changed && !routeChanged)
             return;
 
         try
@@ -264,6 +277,21 @@ internal sealed class MimiSocialService
         catch (Exception ex)
         {
             this.Monitor.Log($"Couldn't create MiMi friendship entry: {ex.Message}", LogLevel.Warn);
+        }
+    }
+
+    private bool IsRestoredCommunityCenterRoute()
+    {
+        if (!Context.IsWorldReady || Game1.MasterPlayer.mailReceived.Contains("JojaMember"))
+            return false;
+        try
+        {
+            return Game1.MasterPlayer.hasCompletedCommunityCenter()
+                || Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
+        }
+        catch
+        {
+            return Game1.MasterPlayer.mailReceived.Contains("ccIsComplete");
         }
     }
 

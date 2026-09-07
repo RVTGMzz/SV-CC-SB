@@ -41,6 +41,7 @@ internal sealed class MimiHomeService
 
     private Point? CachedWizardStairTile;
     private Point? CachedAtticStairTile;
+    private Point? CachedCommunityCenterWorkTile;
     private bool LoggedAtticCreation;
     private bool AtticCreationFailed;
     private bool LoggedAtticFailure;
@@ -77,6 +78,7 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
+        this.CachedCommunityCenterWorkTile = null;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
@@ -87,6 +89,7 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
+        this.CachedCommunityCenterWorkTile = null;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
         this.EnsureAtticLocation();
@@ -125,6 +128,7 @@ internal sealed class MimiHomeService
     {
         this.CachedWizardStairTile = null;
         this.CachedAtticStairTile = null;
+        this.CachedCommunityCenterWorkTile = null;
         this.LoggedAtticCreation = false;
         this.AtticCreationFailed = false;
         this.LoggedAtticFailure = false;
@@ -293,8 +297,9 @@ internal sealed class MimiHomeService
         string secretTv = this.IsSecretTvRoutineNow() ? "ACTIVE" : this.IsSecretTvRoutineUnlocked() ? "unlocked" : "locked";
         NPC? actor = this.WorldActors.FindMimiActor();
         string actorTile = actor is null ? "<missing>" : $"{(int)(actor.Position.X / 64f)},{(int)(actor.Position.Y / 64f)}@{actor.currentLocation?.NameOrUniqueName}";
+        string ccWork = this.CachedCommunityCenterWorkTile is Point cc ? $"{cc.X},{cc.Y}" : "<unset>";
         Point wanderTile = new((int)(this.HomeWanderTarget.X / 64f), (int)(this.HomeWanderTarget.Y / 64f));
-        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | TestClockPreview={this.TestAtticRoutinePreview} | Clock={Game1.timeOfDay} | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | RoutineState={this.ActiveHomeRoutineState ?? "<none>"} | WanderTarget={wanderTile.X},{wanderTile.Y} | Actor={actorTile}";
+        return $"MiMiHome=Attic({attic is not null}) | AtticAccess={this.GetMimiHearts()}/{AtticAccessHearts} hearts | WizardStair={wizardStair.X},{wizardStair.Y} | CCWork={ccWork} | WorkRoute={route} | WorkHours=11:00-17:00 | SecretTV={secretTv} 17:30-22:00 | TestClockPreview={this.TestAtticRoutinePreview} | Clock={Game1.timeOfDay} | DebugRoutine={this.DebugRoutineOverride ?? "auto"} | RoutineState={this.ActiveHomeRoutineState ?? "<none>"} | WanderTarget={wanderTile.X},{wanderTile.Y} | Actor={actorTile}";
     }
 
     private GameLocation? EnsureAtticLocation()
@@ -413,7 +418,12 @@ internal sealed class MimiHomeService
         if (center is null)
             return;
 
-        Point work = FindClearTileNear(center, preferUpperHalf: false);
+        // 0656: resolve this once, then keep one stable work anchor. Re-running the clear-tile
+        // search every tick can see MiMi herself as an occupied tile, choose the neighboring tile,
+        // then choose the original tile on the next tick. That creates the visible two-position
+        // "ghost/clone" flicker reported in the restored Community Center.
+        Point work = this.CachedCommunityCenterWorkTile
+            ??= FindClearTileNear(center, preferUpperHalf: false);
         PlaceMimi(mimi, center, work, 2);
     }
 
