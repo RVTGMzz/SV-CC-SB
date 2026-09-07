@@ -632,9 +632,10 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        // SVE WizardHouse exact acceptance tile: upper recessed niche between the two plants.
-        // Fixed absolute tile only. No percentages, map-size math, search, or dynamic relocation.
-        return new Point(15, 15);
+        // 0654 in-game acceptance adjustment: keep the same stair route and vertical anchor,
+        // but move the ladder exactly one tile right so it sits snug against the right wall
+        // instead of floating over the stove/log nook. Do not move farther right into the wall.
+        return new Point(16, 15);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)

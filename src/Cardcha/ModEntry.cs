@@ -253,6 +253,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_hud_toggle", "Toggle Cardcha combat HUD on/off.", this.CommandHudToggle);
         helper.ConsoleCommands.Add("cardcha_book_status", "Show Cardcha Book tab layout/controller diagnostics.", this.CommandBookStatus);
         helper.ConsoleCommands.Add("cardcha_story_status", "Show MiMi/Cardcha Chapter 1 story state.", this.CommandStoryStatus);
+        helper.ConsoleCommands.Add("cardcha_mimi_profile_status", "Show MiMi Gift Log/Profile scaling hook diagnostics.", (_, _) => this.Monitor.Log(MimiProfileMenuPatch.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_controller_status", "Show resolved Cardcha controller profile and mapping.", this.CommandControllerStatus);
         helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
         helper.ConsoleCommands.Add("cardcha_test_mimi_routine", "TEST ONLY: force MiMi attic state: home|tv|late|auto.", this.CommandTestMimiRoutine);
@@ -300,7 +301,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.19 VERDANT GUARDIAN VISUAL PROTOTYPE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.21 MIMI STAIR + PROFILE FIT TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
