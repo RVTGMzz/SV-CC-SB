@@ -1,0 +1,636 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
+using StardewValley.Monsters;
+
+namespace Cardcha.Services;
+
+internal enum VerdantGuardianState
+{
+    Dormant,
+    Intro,
+    Decision,
+    SwipeTelegraph,
+    RootSpikesTelegraph,
+    SummonAdds,
+    ChargeTelegraph,
+    Charging,
+    VineTrapTelegraph,
+    VineTrapActive,
+    AreaSlamTelegraph,
+    PhaseTransition,
+    Defeated,
+    Victory
+}
+
+internal enum VerdantGuardianAttack
+{
+    Swipe,
+    RootSpikes,
+    SummonAdds,
+    Charge,
+    VineTrap,
+    AreaSlam
+}
+
+/// <summary>
+/// Boss I functional vertical slice. The body intentionally uses a vanilla GreenSlime proxy until
+/// approved custom art is authored; routing, telegraphs, phases, damage, save flags and rewards are real.
+/// </summary>
+internal sealed class VerdantGuardianBossService
+{
+    public const string LocationName = "Cardcha_VerdantGuardianArena";
+    public const string MapAssetName = "Maps/Cardcha_VerdantGuardianArena";
+    public const string BossCardId = "verdant_core";
+    public const string BossMarkerKey = "Ronvotri.Cardcha/VerdantGuardian";
+    public const string BossAddMarkerKey = "Ronvotri.Cardcha/VerdantGuardianAdd";
+    public static readonly Point PlayerArrivalTile = new(14, 17);
+
+    private const string MapPath = "assets/verdant_guardian_arena.tmx";
+    private const int BossMaxHealth = 1300;
+    private const int IntroDurationMs = 1500;
+    private const int PhaseTransitionDurationMs = 1600;
+    private const int VictoryReturnDelayMs = 3500;
+    private const int SwipeTelegraphMs = 700;
+    private const int RootTelegraphMs = 900;
+    private const int SummonTelegraphMs = 600;
+    private const int ChargeTelegraphMs = 900;
+    private const int ChargeDurationMs = 720;
+    private const int VineTelegraphMs = 900;
+    private const int VineActiveMs = 2500;
+    private const int SlamTelegraphMs = 1100;
+    private const int MaxActiveAdds = 4;
+    private const float ChargePixelsPerTick = 17f;
+
+    private static readonly Point BossSpawnTile = new(14, 7);
+    private static readonly Point RetreatTile = new(14, 18);
+    private static readonly Point[] AddSpawnTiles = { new(5, 5), new(22, 5), new(5, 14), new(22, 14) };
+
+    private readonly IModHelper Helper;
+    private readonly IMonitor Monitor;
+    private readonly SaveService Save;
+    private readonly PortableMachineService PortableMachine;
+    private readonly Dictionary<VerdantGuardianAttack, long> CooldownUntil = new();
+
+    private bool CreationFailed;
+    private bool LoggedCreation;
+    private Monster? BossProxy;
+    private VerdantGuardianState State = VerdantGuardianState.Dormant;
+    private VerdantGuardianAttack? LastAttack;
+    private int Phase = 1;
+    private int PendingPhase;
+    private long StateStartedAtMs;
+    private long NextDecisionAtMs;
+    private long VictoryReturnAtMs;
+    private bool AttackApplied;
+    private bool VictoryHandled;
+    private Point[] RootTargets = Array.Empty<Point>();
+    private Point VineTarget;
+    private Vector2 ChargeDirection;
+    private Random EncounterRandom = new(1);
+
+    public VerdantGuardianBossService(IModHelper helper, IMonitor monitor, SaveService save, PortableMachineService portableMachine)
+    {
+        this.Helper = helper;
+        this.Monitor = monitor;
+        this.Save = save;
+        this.PortableMachine = portableMachine;
+    }
+
+    public bool IsInArena => Context.IsWorldReady
+        && Game1.currentLocation?.NameOrUniqueName.Equals(LocationName, StringComparison.OrdinalIgnoreCase) == true;
+
+    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.NameWithoutLocale.IsEquivalentTo(MapAssetName))
+            e.LoadFromModFile<xTile.Map>(MapPath, AssetLoadPriority.Exclusive);
+    }
+
+    public void OnSaveLoaded()
+    {
+        this.ResetRuntime(removeActors: true);
+        this.EnsureLocation();
+    }
+
+    public void OnDayStarted(object? sender, DayStartedEventArgs e)
+    {
+        this.ResetRuntime(removeActors: true);
+        this.CreationFailed = false;
+        this.EnsureLocation();
+    }
+
+    public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
+    {
+        this.ResetRuntime(removeActors: true);
+        this.CreationFailed = false;
+        this.LoggedCreation = false;
+    }
+
+    public void OnWarped(object? sender, WarpedEventArgs e)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        if (e.NewLocation.NameOrUniqueName.Equals(LocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            this.StartEncounter(e.NewLocation);
+            return;
+        }
+        if (e.OldLocation?.NameOrUniqueName.Equals(LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            this.ResetRuntime(removeActors: true);
+    }
+
+    public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (!this.IsInArena || !e.Button.IsActionButton() || Game1.activeClickableMenu is not null || Game1.dialogueUp || Game1.eventUp)
+            return;
+        Point tile = PlayerTile();
+        if (Math.Abs(tile.X - RetreatTile.X) > 1 || Math.Abs(tile.Y - RetreatTile.Y) > 1)
+            return;
+        this.Helper.Input.Suppress(e.Button);
+        Game1.showGlobalMessage(ModEntry.T("boss.verdant.retreat"));
+        this.ReturnToRegion1();
+    }
+
+    public void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
+    {
+        if (!this.IsInArena || Game1.activeClickableMenu is not null || Game1.dialogueUp || Game1.eventUp)
+            return;
+
+        long now = Environment.TickCount64;
+        if (this.State == VerdantGuardianState.Victory)
+        {
+            if (this.VictoryReturnAtMs > 0 && now >= this.VictoryReturnAtMs)
+                this.ReturnToRegion1();
+            return;
+        }
+
+        Monster? boss = this.ResolveBoss();
+        if (boss is null || boss.Health <= 0)
+        {
+            this.HandleVictory(now);
+            return;
+        }
+
+        if (this.State != VerdantGuardianState.PhaseTransition)
+        {
+            if (this.Phase == 1 && boss.Health <= (int)(boss.MaxHealth * 0.70f))
+            {
+                this.BeginPhaseTransition(2, now);
+                return;
+            }
+            if (this.Phase == 2 && boss.Health <= (int)(boss.MaxHealth * 0.35f))
+            {
+                this.BeginPhaseTransition(3, now);
+                return;
+            }
+        }
+
+        switch (this.State)
+        {
+            case VerdantGuardianState.Intro:
+                if (now - this.StateStartedAtMs >= IntroDurationMs) this.EnterDecision(now, 400);
+                break;
+            case VerdantGuardianState.Decision:
+                if (now >= this.NextDecisionAtMs) this.SelectNextAttack(now);
+                break;
+            case VerdantGuardianState.SwipeTelegraph:
+                if (now - this.StateStartedAtMs >= SwipeTelegraphMs)
+                {
+                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 2.35f) DamagePlayer(10, boss);
+                    this.AttackApplied = true;
+                    this.CompleteAttack(now);
+                }
+                break;
+            case VerdantGuardianState.RootSpikesTelegraph:
+                if (now - this.StateStartedAtMs >= RootTelegraphMs)
+                {
+                    if (!this.AttackApplied && this.RootTargets.Contains(PlayerTile())) DamagePlayer(8, boss);
+                    this.AttackApplied = true;
+                    this.CompleteAttack(now);
+                }
+                break;
+            case VerdantGuardianState.SummonAdds:
+                if (now - this.StateStartedAtMs >= SummonTelegraphMs)
+                {
+                    if (!this.AttackApplied) this.SpawnAdds();
+                    this.AttackApplied = true;
+                    this.CompleteAttack(now);
+                }
+                break;
+            case VerdantGuardianState.ChargeTelegraph:
+                if (now - this.StateStartedAtMs >= ChargeTelegraphMs)
+                {
+                    this.State = VerdantGuardianState.Charging;
+                    this.StateStartedAtMs = now;
+                    this.AttackApplied = false;
+                    Game1.playSound("clubswipe");
+                }
+                break;
+            case VerdantGuardianState.Charging:
+                this.UpdateCharge(boss, now);
+                break;
+            case VerdantGuardianState.VineTrapTelegraph:
+                if (now - this.StateStartedAtMs >= VineTelegraphMs)
+                {
+                    this.State = VerdantGuardianState.VineTrapActive;
+                    this.StateStartedAtMs = now;
+                    this.AttackApplied = false;
+                    Game1.playSound("dirtyHit");
+                }
+                break;
+            case VerdantGuardianState.VineTrapActive:
+                if (!this.AttackApplied && this.PlayerInsideVineZone())
+                {
+                    this.AttackApplied = true;
+                    DamagePlayer(4, boss);
+                    Game1.player.Halt();
+                }
+                if (now - this.StateStartedAtMs >= VineActiveMs) this.CompleteAttack(now);
+                break;
+            case VerdantGuardianState.AreaSlamTelegraph:
+                if (now - this.StateStartedAtMs >= SlamTelegraphMs)
+                {
+                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 4.1f) DamagePlayer(16, boss);
+                    this.AttackApplied = true;
+                    Game1.playSound("explosion");
+                    this.CompleteAttack(now);
+                }
+                break;
+            case VerdantGuardianState.PhaseTransition:
+                boss.Position = BossSpawnPosition();
+                if (now - this.StateStartedAtMs >= PhaseTransitionDurationMs)
+                {
+                    this.Phase = Math.Clamp(this.PendingPhase, 1, 3);
+                    this.PendingPhase = 0;
+                    Game1.showGlobalMessage(ModEntry.T($"boss.verdant.phase.{this.Phase}"));
+                    this.EnterDecision(now, 500);
+                }
+                break;
+        }
+    }
+
+    public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+    {
+        if (!this.IsInArena) return;
+        Monster? boss = this.ResolveBoss();
+        if (boss is not null && boss.Health > 0)
+        {
+            Vector2 core = Game1.GlobalToLocal(Game1.viewport, BossCenter(boss));
+            float pulse = 0.72f + 0.18f * (float)Math.Sin(Environment.TickCount64 / 120d);
+            int size = 14 + this.Phase * 4;
+            Color c = this.Phase switch { 1 => new Color(78,214,105), 2 => new Color(112,238,79), _ => new Color(180,255,116) };
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)core.X - size, (int)core.Y - 3, size * 2, 6), c * pulse);
+            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)core.X - 3, (int)core.Y - size, 6, size * 2), c * pulse);
+        }
+
+        switch (this.State)
+        {
+            case VerdantGuardianState.RootSpikesTelegraph:
+                foreach (Point tile in this.RootTargets) DrawTileTelegraph(e.SpriteBatch, tile, new Color(96,224,98) * 0.48f);
+                break;
+            case VerdantGuardianState.VineTrapTelegraph:
+                DrawZoneTelegraph(e.SpriteBatch, this.VineTarget, 1, new Color(85,190,74) * 0.38f);
+                break;
+            case VerdantGuardianState.VineTrapActive:
+                DrawZoneTelegraph(e.SpriteBatch, this.VineTarget, 1, new Color(68,145,58) * 0.62f);
+                break;
+            case VerdantGuardianState.AreaSlamTelegraph:
+                if (boss is not null) DrawRadiusTelegraph(e.SpriteBatch, BossCenter(boss), 4.1f, new Color(199,245,111) * 0.34f);
+                break;
+            case VerdantGuardianState.SwipeTelegraph:
+                if (boss is not null) DrawRadiusTelegraph(e.SpriteBatch, BossCenter(boss), 2.35f, new Color(245,210,94) * 0.26f);
+                break;
+            case VerdantGuardianState.ChargeTelegraph:
+                if (boss is not null) DrawChargeLane(e.SpriteBatch, BossCenter(boss), this.ChargeDirection);
+                break;
+        }
+    }
+
+    public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+    {
+        if (!this.IsInArena || this.State == VerdantGuardianState.Dormant) return;
+        Monster? boss = this.ResolveBoss();
+        if (boss is null || boss.Health <= 0) return;
+
+        int width = Math.Min(620, Game1.uiViewport.Width - 80);
+        int x = (Game1.uiViewport.Width - width) / 2;
+        int y = 28;
+        Rectangle outer = new(x, y, width, 34);
+        Rectangle inner = new(x + 4, y + 4, width - 8, 26);
+        float ratio = Math.Clamp(boss.Health / (float)Math.Max(1, boss.MaxHealth), 0f, 1f);
+        Rectangle fill = new(inner.X, inner.Y, (int)(inner.Width * ratio), inner.Height);
+        e.SpriteBatch.Draw(Game1.staminaRect, outer, Color.Black * 0.78f);
+        e.SpriteBatch.Draw(Game1.staminaRect, inner, new Color(44,57,41) * 0.92f);
+        e.SpriteBatch.Draw(Game1.staminaRect, fill, new Color(92,197,91) * 0.96f);
+        string title = $"{ModEntry.T("boss.verdant.name")}  •  {ModEntry.T("boss.verdant.phase", new { phase = this.Phase })}";
+        Vector2 size = Game1.smallFont.MeasureString(title);
+        e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(Game1.uiViewport.Width / 2f - size.X / 2f, y + 7), Color.White);
+    }
+
+    public void PrepareForSave()
+    {
+        if (this.IsInArena) this.ReturnToRegion1();
+    }
+
+    public string DebugEnterArena()
+    {
+        if (!Context.IsWorldReady) return "Verdant Guardian TEST unavailable: load a save first.";
+        GameLocation? arena = this.EnsureLocation();
+        if (arena is null) return "Verdant Guardian TEST couldn't create the arena.";
+        Game1.warpFarmer(LocationName, PlayerArrivalTile.X, PlayerArrivalTile.Y, 0);
+        return "Verdant Guardian TEST: entered Boss I arena without changing the 20-card gate or clear flags.";
+    }
+
+    public string Describe()
+    {
+        Monster? boss = this.ResolveBoss();
+        string hp = boss is null ? "none" : $"{Math.Max(0,boss.Health)}/{Math.Max(1,boss.MaxHealth)}";
+        string unlocked = string.Join(",", this.Save.Data.BossCardsUnlocked ?? new HashSet<string>());
+        return $"Arena={this.IsInArena} | State={this.State} | Phase={this.Phase} | HP={hp} | Cleared={this.Save.Data.Region1BossDefeated} | BossCards=[{unlocked}] | EquippedBoss={this.Save.Data.EquippedBossCardId}";
+    }
+
+    private GameLocation? EnsureLocation()
+    {
+        if (!Context.IsWorldReady || this.CreationFailed) return null;
+        GameLocation? existing = Game1.getLocationFromName(LocationName);
+        if (existing is not null) return existing;
+        try
+        {
+            GameLocation arena = new(MapAssetName, LocationName);
+            Game1.locations.Add(arena);
+            if (!this.LoggedCreation)
+            {
+                this.LoggedCreation = true;
+                this.Monitor.Log("Created Cardcha_VerdantGuardianArena for Boss I.", LogLevel.Info);
+            }
+            return arena;
+        }
+        catch (Exception ex)
+        {
+            this.CreationFailed = true;
+            this.Monitor.Log($"Couldn't create Verdant Guardian arena: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            return null;
+        }
+    }
+
+    private void StartEncounter(GameLocation arena)
+    {
+        this.RemoveBossActors(arena);
+        GreenSlime proxy = new(BossSpawnPosition(), 0) { MaxHealth = BossMaxHealth, Health = BossMaxHealth, Speed = 0 };
+        proxy.modData[BossMarkerKey] = "verdant-guardian";
+        arena.characters.Add(proxy);
+        this.BossProxy = proxy;
+        this.Phase = 1;
+        this.PendingPhase = 0;
+        this.State = VerdantGuardianState.Intro;
+        this.StateStartedAtMs = Environment.TickCount64;
+        this.NextDecisionAtMs = this.StateStartedAtMs + IntroDurationMs;
+        this.VictoryReturnAtMs = 0;
+        this.AttackApplied = false;
+        this.VictoryHandled = false;
+        this.RootTargets = Array.Empty<Point>();
+        this.CooldownUntil.Clear();
+        this.LastAttack = null;
+        int seed = unchecked((int)Game1.uniqueIDForThisGame + Game1.Date.TotalDays * 7919 + this.Save.Data.AirshipFlightsTaken * 104729);
+        this.EncounterRandom = new Random(seed);
+        Game1.playSound("discoverMineral");
+        Game1.showGlobalMessage(ModEntry.T("boss.verdant.intro"));
+        this.Monitor.Log($"Verdant Guardian encounter started. seed={seed}, HP={BossMaxHealth}.", LogLevel.Info);
+    }
+
+    private Monster? ResolveBoss()
+    {
+        if (this.BossProxy is not null) return this.BossProxy;
+        this.BossProxy = Game1.getLocationFromName(LocationName)?.characters.OfType<Monster>().FirstOrDefault(m => m.modData.ContainsKey(BossMarkerKey));
+        return this.BossProxy;
+    }
+
+    private void BeginPhaseTransition(int targetPhase, long now)
+    {
+        this.PendingPhase = targetPhase;
+        this.State = VerdantGuardianState.PhaseTransition;
+        this.StateStartedAtMs = now;
+        this.AttackApplied = false;
+        this.RootTargets = Array.Empty<Point>();
+        Game1.playSound("discoverMineral");
+        Game1.showGlobalMessage(ModEntry.T($"boss.verdant.transition.{targetPhase}"));
+    }
+
+    private void SelectNextAttack(long now)
+    {
+        List<VerdantGuardianAttack> candidates = new();
+        this.AddIfReady(candidates, VerdantGuardianAttack.Swipe, now, 1);
+        this.AddIfReady(candidates, VerdantGuardianAttack.RootSpikes, now, 1);
+        this.AddIfReady(candidates, VerdantGuardianAttack.SummonAdds, now, 1);
+        this.AddIfReady(candidates, VerdantGuardianAttack.Charge, now, 2);
+        this.AddIfReady(candidates, VerdantGuardianAttack.VineTrap, now, 2);
+        this.AddIfReady(candidates, VerdantGuardianAttack.AreaSlam, now, 3);
+        if (candidates.Count == 0) { this.NextDecisionAtMs = now + 180; return; }
+        if (candidates.Count > 1 && this.LastAttack is VerdantGuardianAttack last) candidates.Remove(last);
+        VerdantGuardianAttack selected = candidates[this.EncounterRandom.Next(candidates.Count)];
+        this.LastAttack = selected;
+        this.CooldownUntil[selected] = now + CooldownMs(selected, this.Phase);
+        this.BeginAttack(selected, now);
+    }
+
+    private void AddIfReady(List<VerdantGuardianAttack> list, VerdantGuardianAttack attack, long now, int minPhase)
+    {
+        if (this.Phase < minPhase) return;
+        if (!this.CooldownUntil.TryGetValue(attack, out long until) || now >= until) list.Add(attack);
+    }
+
+    private void BeginAttack(VerdantGuardianAttack attack, long now)
+    {
+        this.StateStartedAtMs = now;
+        this.AttackApplied = false;
+        switch (attack)
+        {
+            case VerdantGuardianAttack.Swipe:
+                this.State = VerdantGuardianState.SwipeTelegraph; Game1.playSound("Cowboy_gunload"); break;
+            case VerdantGuardianAttack.RootSpikes:
+                this.RootTargets = BuildRootTargets(PlayerTile(), this.Phase); this.State = VerdantGuardianState.RootSpikesTelegraph; Game1.playSound("leafrustle"); break;
+            case VerdantGuardianAttack.SummonAdds:
+                this.State = VerdantGuardianState.SummonAdds; Game1.playSound("leafrustle"); break;
+            case VerdantGuardianAttack.Charge:
+                this.ChargeDirection = PlayerCenter() - BossCenter(this.ResolveBoss());
+                if (this.ChargeDirection.LengthSquared() < 0.001f) this.ChargeDirection = Vector2.UnitY; else this.ChargeDirection.Normalize();
+                this.State = VerdantGuardianState.ChargeTelegraph; Game1.playSound("clubswipe"); break;
+            case VerdantGuardianAttack.VineTrap:
+                this.VineTarget = ClampArenaTile(PlayerTile()); this.State = VerdantGuardianState.VineTrapTelegraph; Game1.playSound("leafrustle"); break;
+            case VerdantGuardianAttack.AreaSlam:
+                this.State = VerdantGuardianState.AreaSlamTelegraph; Game1.playSound("thudStep"); break;
+        }
+    }
+
+    private void UpdateCharge(Monster boss, long now)
+    {
+        Vector2 next = boss.Position + this.ChargeDirection * ChargePixelsPerTick;
+        next.X = Math.Clamp(next.X, 3 * 64f, 24 * 64f);
+        next.Y = Math.Clamp(next.Y, 3 * 64f, 15 * 64f);
+        boss.Position = next;
+        if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 1.15f)
+        {
+            this.AttackApplied = true;
+            DamagePlayer(14, boss);
+        }
+        if (now - this.StateStartedAtMs >= ChargeDurationMs) this.CompleteAttack(now);
+    }
+
+    private void CompleteAttack(long now)
+    {
+        this.RootTargets = Array.Empty<Point>();
+        this.AttackApplied = false;
+        this.EnterDecision(now, DecisionGapMs(this.Phase));
+    }
+
+    private void EnterDecision(long now, int delayMs)
+    {
+        this.State = VerdantGuardianState.Decision;
+        this.StateStartedAtMs = now;
+        this.NextDecisionAtMs = now + delayMs;
+    }
+
+    private void SpawnAdds()
+    {
+        GameLocation? arena = Game1.currentLocation;
+        if (arena is null) return;
+        int living = arena.characters.OfType<Monster>().Count(m => m.Health > 0 && m.modData.ContainsKey(BossAddMarkerKey));
+        int desired = this.Phase == 1 ? 2 : 3;
+        int spawnCount = Math.Min(desired, Math.Max(0, MaxActiveAdds - living));
+        if (spawnCount <= 0) return;
+        Point[] points = AddSpawnTiles.OrderBy(_ => this.EncounterRandom.Next()).Take(spawnCount).ToArray();
+        for (int i = 0; i < points.Length; i++)
+        {
+            Vector2 pos = new(points[i].X * 64f, points[i].Y * 64f);
+            Monster add = (i + this.Phase) % 2 == 0 ? new GreenSlime(pos, 0) : new Bug(pos, 0);
+            add.MaxHealth = this.Phase switch { 1 => 45, 2 => 60, _ => 75 };
+            add.Health = add.MaxHealth;
+            add.modData[BossAddMarkerKey] = this.Phase.ToString();
+            arena.characters.Add(add);
+        }
+    }
+
+    private void HandleVictory(long now)
+    {
+        if (this.VictoryHandled) return;
+        this.VictoryHandled = true;
+        this.State = VerdantGuardianState.Defeated;
+        this.StateStartedAtMs = now;
+        this.RemoveAdds();
+        bool firstClear = !this.Save.Data.Region1BossDefeated;
+        if (firstClear)
+        {
+            this.Save.Data.Region1BossDefeated = true;
+            this.Save.Data.BossCardsUnlocked ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            this.Save.Data.BossCardsUnlocked.Add(BossCardId);
+            if (string.IsNullOrWhiteSpace(this.Save.Data.EquippedBossCardId)) this.Save.Data.EquippedBossCardId = BossCardId;
+            this.Save.Data.AirshipHighestRegionUnlocked = Math.Max(2, this.Save.Data.AirshipHighestRegionUnlocked);
+            bool portableGranted = this.PortableMachine.GrantRegion1BossReward();
+            this.Save.Save();
+            Game1.playSound("yoba");
+            Game1.showGlobalMessage(ModEntry.T("boss.verdant.victory.first", new { card = ModEntry.T("boss.verdant.card.name"), portable = portableGranted ? ModEntry.T("boss.verdant.reward.portable") : "" }));
+        }
+        else
+        {
+            Game1.playSound("questcomplete");
+            Game1.showGlobalMessage(ModEntry.T("boss.verdant.victory.rematch"));
+        }
+        this.State = VerdantGuardianState.Victory;
+        this.VictoryReturnAtMs = now + VictoryReturnDelayMs;
+        this.Monitor.Log($"Verdant Guardian defeated. firstClear={firstClear}, bossCard={BossCardId}, regionUnlock={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
+    }
+
+    private void ReturnToRegion1()
+    {
+        if (!Context.IsWorldReady) return;
+        GameLocation? hub = Game1.getLocationFromName(AirshipFoundationService.Region1LocationName);
+        if (hub is null) return;
+        this.RemoveBossActors(Game1.getLocationFromName(LocationName));
+        this.State = VerdantGuardianState.Dormant;
+        this.VictoryReturnAtMs = 0;
+        Game1.warpFarmer(AirshipFoundationService.Region1LocationName, 20, 4, 2);
+    }
+
+    private void ResetRuntime(bool removeActors)
+    {
+        if (removeActors) this.RemoveBossActors(Game1.getLocationFromName(LocationName));
+        this.BossProxy = null;
+        this.State = VerdantGuardianState.Dormant;
+        this.LastAttack = null;
+        this.Phase = 1;
+        this.PendingPhase = 0;
+        this.StateStartedAtMs = 0;
+        this.NextDecisionAtMs = 0;
+        this.VictoryReturnAtMs = 0;
+        this.AttackApplied = false;
+        this.VictoryHandled = false;
+        this.RootTargets = Array.Empty<Point>();
+        this.VineTarget = Point.Zero;
+        this.ChargeDirection = Vector2.Zero;
+        this.CooldownUntil.Clear();
+    }
+
+    private void RemoveBossActors(GameLocation? arena)
+    {
+        if (arena is null) return;
+        foreach (NPC actor in arena.characters.Where(n => n.modData.ContainsKey(BossMarkerKey) || n.modData.ContainsKey(BossAddMarkerKey)).ToList()) arena.characters.Remove(actor);
+    }
+
+    private void RemoveAdds()
+    {
+        GameLocation? arena = Game1.getLocationFromName(LocationName);
+        if (arena is null) return;
+        foreach (NPC actor in arena.characters.Where(n => n.modData.ContainsKey(BossAddMarkerKey)).ToList()) arena.characters.Remove(actor);
+    }
+
+    private static int CooldownMs(VerdantGuardianAttack attack, int phase) => attack switch
+    {
+        VerdantGuardianAttack.Swipe => phase switch { 1 => 2200, 2 => 1800, _ => 1500 },
+        VerdantGuardianAttack.RootSpikes => phase switch { 1 => 5200, 2 => 4500, _ => 3600 },
+        VerdantGuardianAttack.SummonAdds => phase switch { 1 => 16000, 2 => 14000, _ => 12500 },
+        VerdantGuardianAttack.Charge => phase == 2 ? 7000 : 5600,
+        VerdantGuardianAttack.VineTrap => phase == 2 ? 8500 : 6500,
+        VerdantGuardianAttack.AreaSlam => 7200,
+        _ => 2500
+    };
+
+    private static int DecisionGapMs(int phase) => phase switch { 1 => 700, 2 => 550, _ => 400 };
+
+    private static Point[] BuildRootTargets(Point center, int phase)
+    {
+        List<Point> targets = new() { ClampArenaTile(center), ClampArenaTile(new Point(center.X - 2, center.Y)), ClampArenaTile(new Point(center.X + 2, center.Y)) };
+        if (phase >= 2) { targets.Add(ClampArenaTile(new Point(center.X, center.Y - 2))); targets.Add(ClampArenaTile(new Point(center.X, center.Y + 2))); }
+        if (phase >= 3) { targets.Add(ClampArenaTile(new Point(center.X - 2, center.Y - 2))); targets.Add(ClampArenaTile(new Point(center.X + 2, center.Y + 2))); }
+        return targets.Distinct().ToArray();
+    }
+
+    private static Point ClampArenaTile(Point p) => new(Math.Clamp(p.X, 2, 25), Math.Clamp(p.Y, 2, 16));
+    private bool PlayerInsideVineZone() { Point p = PlayerTile(); return Math.Abs(p.X - this.VineTarget.X) <= 1 && Math.Abs(p.Y - this.VineTarget.Y) <= 1; }
+    private static Point PlayerTile() => new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
+    private static Vector2 PlayerCenter() => Game1.player.Position + new Vector2(32f, 32f);
+    private static Vector2 BossSpawnPosition() => new(BossSpawnTile.X * 64f, BossSpawnTile.Y * 64f);
+    private static Vector2 BossCenter(Monster? boss) => boss is null ? BossSpawnPosition() + new Vector2(32f, 32f) : boss.Position + new Vector2(32f, 32f);
+    private static float DistanceTiles(Vector2 a, Vector2 b) => Vector2.Distance(a, b) / 64f;
+    private static void DamagePlayer(int damage, Monster damager) { if (Game1.player.health > 0) Game1.player.takeDamage(damage, false, damager); }
+
+    private static void DrawTileTelegraph(SpriteBatch b, Point tile, Color color) => DrawWorldRect(b, new Rectangle(tile.X * 64, tile.Y * 64, 64, 64), color);
+    private static void DrawZoneTelegraph(SpriteBatch b, Point center, int radiusTiles, Color color) => DrawWorldRect(b, new Rectangle((center.X-radiusTiles)*64, (center.Y-radiusTiles)*64, (radiusTiles*2+1)*64, (radiusTiles*2+1)*64), color);
+    private static void DrawRadiusTelegraph(SpriteBatch b, Vector2 centerWorld, float radiusTiles, Color color) { int r = (int)(radiusTiles * 64f); DrawWorldRect(b, new Rectangle((int)centerWorld.X-r, (int)centerWorld.Y-r, r*2, r*2), color); }
+    private static void DrawChargeLane(SpriteBatch b, Vector2 startWorld, Vector2 direction)
+    {
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, startWorld);
+        Vector2 end = local + direction * 480f;
+        for (int i = 1; i <= 12; i++)
+        {
+            Vector2 p = Vector2.Lerp(local, end, i / 12f);
+            b.Draw(Game1.staminaRect, new Rectangle((int)p.X - 9, (int)p.Y - 9, 18, 18), new Color(235,205,82) * 0.42f);
+        }
+    }
+    private static void DrawWorldRect(SpriteBatch b, Rectangle world, Color color)
+    {
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(world.X, world.Y));
+        b.Draw(Game1.staminaRect, new Rectangle((int)local.X, (int)local.Y, world.Width, world.Height), color);
+    }
+}

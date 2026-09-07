@@ -49,6 +49,7 @@ internal sealed class ModEntry : Mod
     private WorldActorService WorldActors = null!;
     private PortableMachineService PortableMachine = null!;
     private AirshipFoundationService Airship = null!;
+    private VerdantGuardianBossService VerdantGuardian = null!;
     private CardTestLabService CardLab = null!;
     private CardTestArenaService CardArena = null!;
     private CardTestLabOverlayService CardLabOverlay = null!;
@@ -149,6 +150,7 @@ internal sealed class ModEntry : Mod
         );
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
+        this.VerdantGuardian = new VerdantGuardianBossService(helper, this.Monitor, this.Save, this.PortableMachine);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
@@ -162,6 +164,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += this.Social.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Airship.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.VerdantGuardian.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.CardArena.OnAssetRequested;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
@@ -172,9 +175,11 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.DayStarted += this.BossEnergy.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaBossForm.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaSupport.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.VerdantGuardian.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.VerdantGuardian.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSkills.OnReturnedToTitle;
@@ -182,10 +187,12 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.BossEnergy.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaBossForm.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardian.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaSupport.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.VerdantGuardian.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSupport.OnRenderedWorld;
@@ -193,6 +200,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.ChaChaBossForm.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.VerdantGuardian.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
@@ -205,11 +213,13 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.AtticVisual.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.VerdantGuardian.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.CardLabOverlay.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.ChaChaBossForm.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
         helper.Events.Player.Warped += this.ChaChaSkills.OnWarped;
         helper.Events.Player.Warped += this.Airship.OnWarped;
+        helper.Events.Player.Warped += this.VerdantGuardian.OnWarped;
         helper.Events.Player.Warped += this.CardArena.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -246,6 +256,8 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_gate", "TEST ONLY: warp directly beside the Forest Arcane Gate with runtime-only access.", this.CommandTestGate);
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
+        helper.ConsoleCommands.Add("cardcha_test_boss1", "TEST ONLY: enter the Verdant Guardian arena without changing the 20-card gate.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugEnterArena(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_status", "Show Verdant Guardian runtime/save state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
         helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
         helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
@@ -283,7 +295,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.6.1 READABILITY + PROGRESSION + MIMI STYLE TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.18 VERDANT GUARDIAN BOSS I TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
@@ -342,6 +354,7 @@ internal sealed class ModEntry : Mod
         this.Progression.OnSaveLoaded();
         this.PortableMachine.OnSaveLoaded();
         this.Airship.OnSaveLoaded();
+        this.VerdantGuardian.OnSaveLoaded();
         (int storageNormal, int storageShiny) = this.Resources.SyncStorageModeOnLoad();
         if (storageNormal > 0 || storageShiny > 0)
         {
@@ -373,6 +386,7 @@ internal sealed class ModEntry : Mod
 
     private void OnSaving(object? sender, SavingEventArgs e)
     {
+        this.VerdantGuardian.PrepareForSave();
         this.CardArena.PrepareForSave();
         this.CardLab.EndSession();
         this.Combat.PrepareForGameSave();

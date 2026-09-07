@@ -1170,7 +1170,27 @@ internal sealed class AirshipFoundationService
         if (Touches(action, bossSigil) || PlayerIsNear(bossSigil))
         {
             this.Helper.Input.Suppress(e.Button);
-            Game1.drawObjectDialogue(ModEntry.T("airship.region1.boss.staging"));
+            int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+            if (owned < Region1GateCardRequirement)
+            {
+                Game1.drawObjectDialogue(ModEntry.T("airship.region1.gate.locked", new { cards = owned, required = Region1GateCardRequirement }));
+                return;
+            }
+
+            GameLocation? arena = Game1.getLocationFromName(VerdantGuardianBossService.LocationName);
+            if (arena is null)
+            {
+                Game1.drawObjectDialogue(ModEntry.T("boss.verdant.arena.unavailable"));
+                return;
+            }
+
+            Game1.playSound("wand");
+            Game1.warpFarmer(
+                VerdantGuardianBossService.LocationName,
+                VerdantGuardianBossService.PlayerArrivalTile.X,
+                VerdantGuardianBossService.PlayerArrivalTile.Y,
+                0
+            );
         }
     }
 

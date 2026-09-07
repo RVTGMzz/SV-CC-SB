@@ -308,6 +308,9 @@ internal sealed class SaveService
             AirshipNavigationLevel = d.AirshipNavigationLevel,
             AirshipHullLevel = d.AirshipHullLevel,
             AirshipReactorLevel = d.AirshipReactorLevel,
+            Region1BossDefeated = d.Region1BossDefeated,
+            BossCardsUnlocked = new HashSet<string>(d.BossCardsUnlocked ?? new HashSet<string>(), StringComparer.OrdinalIgnoreCase),
+            EquippedBossCardId = d.EquippedBossCardId ?? "",
             LastStateFingerprint = d.LastStateFingerprint ?? ""
         };
 
@@ -365,6 +368,15 @@ internal sealed class SaveService
         this.Data.ChaChaSkillsFound ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         this.Data.ChaChaSkillLevels ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
         this.Data.ActiveChaChaSkillId ??= "";
+        this.Data.BossCardsUnlocked ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        this.Data.BossCardsUnlocked = new HashSet<string>(
+            this.Data.BossCardsUnlocked.Where(p => !string.IsNullOrWhiteSpace(p)),
+            StringComparer.OrdinalIgnoreCase
+        );
+        this.Data.EquippedBossCardId ??= "";
+        if (!string.IsNullOrWhiteSpace(this.Data.EquippedBossCardId)
+            && !this.Data.BossCardsUnlocked.Contains(this.Data.EquippedBossCardId))
+            this.Data.EquippedBossCardId = "";
         this.Data.LastStateFingerprint ??= "";
         this.Data.CardboardScraps = Math.Max(0, this.Data.CardboardScraps);
         this.Data.ShinyScraps = Math.Max(0, this.Data.ShinyScraps);

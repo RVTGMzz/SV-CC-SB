@@ -85,5 +85,11 @@ internal sealed class SaveData
     public int AirshipHullLevel { get; set; }
     public int AirshipReactorLevel { get; set; }
 
+    // alpha.28.0.4.14.4.5.12.18 — boss milestone persistence. Kept inside schema 19 so the
+    // pending MiMi/stair acceptance build does not receive an unrelated schema migration.
+    public bool Region1BossDefeated { get; set; }
+    public HashSet<string> BossCardsUnlocked { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    public string EquippedBossCardId { get; set; } = "";
+
     public string LastStateFingerprint { get; set; } = "";
 }

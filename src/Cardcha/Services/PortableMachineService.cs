@@ -42,7 +42,8 @@ internal sealed class PortableMachineService
            && this.Save.Data.MachineDelivered
            && this.Save.Data.BinderUnlocked
            && !this.IsAcquired
-           && this.UniqueCardCount >= FreeGiftCardMilestone;
+           && this.UniqueCardCount >= FreeGiftCardMilestone
+           && this.Save.Data.Region1BossDefeated;
 
     public void OnSaveLoaded()
     {
@@ -62,21 +63,24 @@ internal sealed class PortableMachineService
         }
     }
 
-    /// <summary>Claim the current 20-unique-card milestone gift when the player next talks business with MiMi.
-    /// This direct gift is a compatibility bridge until the approved 20-card quest + boss reward is implemented.</summary>
+    /// <summary>Compatibility claim path after the 20-card Boss I clear.</summary>
     public bool TryGrantMilestoneGift()
     {
         if (!this.IsMilestoneGiftReady)
+            return false;
+        return this.GrantRegion1BossReward();
+    }
+
+    /// <summary>First-clear Boss I reward. Safe when the player already owns the portable machine.</summary>
+    public bool GrantRegion1BossReward()
+    {
+        if (!Context.IsWorldReady || this.IsAcquired)
             return false;
 
         this.Save.Data.PortableMachineGifted = true;
         this.GivePortableItem();
         this.Save.Save();
-
-        this.Monitor.Log(
-            $"MiMi gifted the Portable Cardcha Machine at {this.UniqueCardCount} unique cards.",
-            LogLevel.Info
-        );
+        this.Monitor.Log("Boss I granted the Portable Cardcha Machine.", LogLevel.Info);
         return true;
     }
 
