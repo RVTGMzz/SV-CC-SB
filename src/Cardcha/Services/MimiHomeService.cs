@@ -642,9 +642,9 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        // 0655: x16 proved to be the right-wall/foreign-content column in-game. Keep the known-good
-        // solid/interaction anchor at x15, then nudge the ladder artwork itself four screen pixels
-        // to the right (one source pixel) so it sits closer to the wall without entering it.
+        // 0657: preserve the last in-game-visible WizardHouse stair column. The regression was
+        // introduced by changing the stair artwork/caching, not by this gameplay anchor. Keep
+        // visual, collision, interaction, ascent and return landing tied to the same x15 route.
         return new Point(15, 15);
     }
 

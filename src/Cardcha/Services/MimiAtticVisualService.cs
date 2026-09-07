@@ -280,7 +280,7 @@ internal sealed class MimiAtticVisualService
         try
         {
             xTile.Map? map = location.Map;
-            if (map is null || ReferenceEquals(this.WizardStairAppliedMap, map))
+            if (map is null)
                 return;
 
             var buildings = map.GetLayer("Buildings");
@@ -300,37 +300,70 @@ internal sealed class MimiAtticVisualService
                     new xTile.Dimensions.Size(16, 16)
                 );
                 map.AddTileSheet(stairSheet);
-
-                // The WizardHouse map is already live when this runtime-only progression gate
-                // installs the stair, so load the newly added tilesheet into the map display device.
                 map.LoadTileSheets(Game1.mapDisplayDevice);
             }
 
-            var front = map.GetLayer("Front");
             int x = tile.X;
+            int firstY = tile.Y - 4;
+            if (x < 0 || x >= buildings.LayerWidth || firstY < 0 || tile.Y - 1 >= buildings.LayerHeight)
+            {
+                ModEntry.StaticMonitor?.Log(
+                    $"MiMi stair target {x},{tile.Y} is outside WizardHouse Buildings layer {buildings.LayerWidth}x{buildings.LayerHeight}; stair was not installed.",
+                    StardewModdingAPI.LogLevel.Warn
+                );
+                return;
+            }
+
+            // Do not trust a map-reference cache by itself. A live map can be mutated/reloaded by
+            // another content mod while keeping the same object. Verify all four actual ladder
+            // segments are still present; only reinstall when something is missing or replaced.
+            bool complete = true;
+            for (int segment = 0; segment < 4; segment++)
+            {
+                int y = firstY + segment;
+                Tile? existing = buildings.Tiles[x, y];
+                if (existing is null
+                    || !ReferenceEquals(existing.TileSheet, stairSheet)
+                    || existing.TileIndex != segment)
+                {
+                    complete = false;
+                    break;
+                }
+            }
+
+            if (complete)
+            {
+                this.WizardStairAppliedMap = map;
+                return;
+            }
+
+            // SVE/other WizardHouse edits can place foreground tiles over this interior strip.
+            // Clear only foreground layers at the four ladder cells. Never touch Back/floor art.
+            var front = map.GetLayer("Front");
+            var alwaysFront = map.GetLayer("AlwaysFront");
+            var front2 = map.GetLayer("Front2");
 
             for (int segment = 0; segment < 4; segment++)
             {
-                int y = tile.Y - 4 + segment;
-                if (x < 0 || y < 0 || x >= buildings.LayerWidth || y >= buildings.LayerHeight)
-                    continue;
+                int y = firstY + segment;
 
-                // Clear only the same foreground column the old cosmetic stair occupied so no
-                // vanilla Front tile can paint over the ladder. The Buildings tile itself stays solid.
-                if (front is not null
-                    && x < front.LayerWidth
-                    && y < front.LayerHeight)
-                {
+                if (front is not null && x < front.LayerWidth && y < front.LayerHeight)
                     front.Tiles[x, y] = null;
-                }
+                if (alwaysFront is not null && x < alwaysFront.LayerWidth && y < alwaysFront.LayerHeight)
+                    alwaysFront.Tiles[x, y] = null;
+                if (front2 is not null && x < front2.LayerWidth && y < front2.LayerHeight)
+                    front2.Tiles[x, y] = null;
 
-                StaticTile stairTile = new(buildings, stairSheet, BlendMode.Alpha, segment);
-                buildings.Tiles[x, y] = stairTile;
+                // Real Buildings-layer tiles keep the stair in the room's normal world draw order.
+                // No RenderedWorld overlay and no pixel-shifted art.
+                buildings.Tiles[x, y] = new StaticTile(buildings, stairSheet, BlendMode.Alpha, segment);
             }
 
-            // Track the actual map object, not location.modData: map tiles themselves are runtime
-            // content and must be reinstalled if another mod reloads/replaces the WizardHouse map.
             this.WizardStairAppliedMap = map;
+            ModEntry.StaticMonitor?.Log(
+                $"MiMi WizardHouse stair installed visibly at column x={x}, y={firstY}..{firstY + 3} using the restored 0653 artwork.",
+                StardewModdingAPI.LogLevel.Trace
+            );
         }
         catch (Exception ex)
         {

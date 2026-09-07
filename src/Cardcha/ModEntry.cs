@@ -301,7 +301,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.23 MIMI COMMUNITY CENTER STABILITY TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
+            $"Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.24 MIMI COMMUNITY CENTER STABILITY TEST with {this.Cards.All.Count} cards. The cardboard is now combat-capable. This seems unsafe.",
             LogLevel.Info
         );
     }
