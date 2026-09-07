@@ -33,6 +33,43 @@ internal sealed class AirshipFoundationService
     private const string DeckMapPath = "assets/airship_deck.tmx";
     private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
     private const string Region1MapPath = "assets/region1_hunting.tmx";
+    private const int Region1RunRoomCount = 4;
+    private static readonly string[] Region1RunRoomLocationNames =
+    {
+        "Cardcha_R1_VerdantClearing",
+        "Cardcha_R1_MossCreek",
+        "Cardcha_R1_OldRuins",
+        "Cardcha_R1_BriarThicket",
+        "Cardcha_R1_HollowGrove",
+        "Cardcha_R1_CardShrine",
+    };
+    private static readonly string[] Region1RunRoomMapAssetNames =
+    {
+        "Maps/Cardcha_R1_VerdantClearing",
+        "Maps/Cardcha_R1_MossCreek",
+        "Maps/Cardcha_R1_OldRuins",
+        "Maps/Cardcha_R1_BriarThicket",
+        "Maps/Cardcha_R1_HollowGrove",
+        "Maps/Cardcha_R1_CardShrine",
+    };
+    private static readonly string[] Region1RunRoomMapPaths =
+    {
+        "assets/region1_rooms/room_1_verdant_clearing.tmx",
+        "assets/region1_rooms/room_2_moss_creek.tmx",
+        "assets/region1_rooms/room_3_old_ruins.tmx",
+        "assets/region1_rooms/room_4_briar_thicket.tmx",
+        "assets/region1_rooms/room_5_hollow_grove.tmx",
+        "assets/region1_rooms/room_6_card_shrine.tmx",
+    };
+    private static readonly string[] Region1RunRoomNameKeys =
+    {
+        "airship.region1.run.room.0",
+        "airship.region1.run.room.1",
+        "airship.region1.run.room.2",
+        "airship.region1.run.room.3",
+        "airship.region1.run.room.4",
+        "airship.region1.run.room.5",
+    };
     private const string AirshipVisualPath = "assets/airship_visual.png";
     private const string AirshipUpgradeVisualPath = "assets/airship_upgrade_visuals.png";
     private const string Region1MonsterMarkerKey = "Ronvotri.Cardcha/Region1Spawn";
@@ -88,6 +125,11 @@ internal sealed class AirshipFoundationService
     private bool TestGateAccessActive;
     private GameLocation? DeckDecorAppliedLocation;
     private GameLocation? SkyDockDecorAppliedLocation;
+    private int[] Region1RunRoute = Array.Empty<int>();
+    private int Region1RunStep = -1;
+    private int Region1RunSeed;
+    private bool Region1RunActive;
+    private bool Region1RunCompleted;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
@@ -111,6 +153,15 @@ internal sealed class AirshipFoundationService
             return;
         }
 
+        for (int i = 0; i < Region1RunRoomMapAssetNames.Length; i++)
+        {
+            if (!e.NameWithoutLocale.IsEquivalentTo(Region1RunRoomMapAssetNames[i]))
+                continue;
+
+            e.LoadFromModFile<xTile.Map>(Region1RunRoomMapPaths[i], AssetLoadPriority.Exclusive);
+            return;
+        }
+
         if (e.NameWithoutLocale.IsEquivalentTo(Region1MapAssetName))
             e.LoadFromModFile<xTile.Map>(Region1MapPath, AssetLoadPriority.Exclusive);
     }
@@ -121,6 +172,8 @@ internal sealed class AirshipFoundationService
         this.EnsureDeckLocation();
         this.EnsureSkyDockInteriorLocation();
         this.EnsureRegion1Location();
+        this.EnsureRegion1RunRoomLocations();
+        this.ResetRegion1RunState();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + FlybyArmDelayMs;
     }
@@ -140,6 +193,8 @@ internal sealed class AirshipFoundationService
         this.EnsureDeckLocation();
         this.EnsureSkyDockInteriorLocation();
         this.EnsureRegion1Location();
+        this.EnsureRegion1RunRoomLocations();
+        this.ResetRegion1RunState();
         this.MigrateUnlockFromExistingStory();
         this.FlybyArmAfterMs = Environment.TickCount64 + 1500L;
     }
@@ -152,6 +207,7 @@ internal sealed class AirshipFoundationService
         this.LoggedRegion1Creation = false;
         this.DeckDecorAppliedLocation = null;
         this.SkyDockDecorAppliedLocation = null;
+        this.ResetRegion1RunState();
     }
 
     public void OnUpdateTicked(UpdateTickedEventArgs e)
@@ -308,6 +364,12 @@ internal sealed class AirshipFoundationService
             return;
         }
 
+        if (TryGetRegion1RunRoomIndex(location, out _))
+        {
+            this.HandleRegion1RunRoomInteraction(e, location);
+            return;
+        }
+
         if (!location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             return;
 
@@ -343,13 +405,45 @@ internal sealed class AirshipFoundationService
 
     public void OnWarped(object? sender, WarpedEventArgs e)
     {
-        if (!Context.IsWorldReady
-            || !Context.IsMainPlayer
-            || !e.NewLocation.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase)
-            || e.OldLocation?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
+        if (!Context.IsWorldReady || !Context.IsMainPlayer)
+            return;
+
+        if (TryGetRegion1RunRoomIndex(e.NewLocation, out int roomIndex))
         {
+            int routeStep = Array.IndexOf(this.Region1RunRoute, roomIndex);
+            if (routeStep >= 0)
+                this.Region1RunStep = routeStep;
+
+            this.PopulateRegion1RunRoom(e.NewLocation, roomIndex);
+            Game1.showGlobalMessage(
+                ModEntry.T(
+                    "airship.region1.run.enter",
+                    new
+                    {
+                        step = Math.Max(1, this.Region1RunStep + 1),
+                        total = Region1RunRoomCount,
+                        room = ModEntry.T(Region1RunRoomNameKeys[roomIndex])
+                    }
+                )
+            );
             return;
         }
+
+        if (!e.NewLocation.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase))
+            return;
+
+        if (e.OldLocation is not null && TryGetRegion1RunRoomIndex(e.OldLocation, out _))
+        {
+            this.ClearRegion1MarkedMonsters(e.NewLocation);
+            this.Region1RunActive = false;
+            this.Region1RunCompleted = true;
+            this.Region1RunStep = Region1RunRoomCount;
+            Game1.showGlobalMessage(ModEntry.T("airship.region1.run.complete"));
+            return;
+        }
+
+        if (e.OldLocation?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            return;
 
         this.PopulateRegion1(e.NewLocation);
     }
@@ -589,6 +683,250 @@ internal sealed class AirshipFoundationService
         }
     }
 
+    private bool EnsureRegion1RunRoomLocations()
+    {
+        if (!Context.IsWorldReady)
+            return false;
+
+        for (int i = 0; i < Region1RunRoomLocationNames.Length; i++)
+        {
+            if (Game1.getLocationFromName(Region1RunRoomLocationNames[i]) is not null)
+                continue;
+
+            try
+            {
+                Game1.locations.Add(new GameLocation(Region1RunRoomMapAssetNames[i], Region1RunRoomLocationNames[i]));
+            }
+            catch (Exception ex)
+            {
+                this.Monitor.Log(
+                    $"Couldn't create Region I Hunt Run room {i + 1}; run generation aborted safely. {ex.GetType().Name}: {ex.Message}",
+                    LogLevel.Error
+                );
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private void ResetRegion1RunState()
+    {
+        this.Region1RunRoute = Array.Empty<int>();
+        this.Region1RunStep = -1;
+        this.Region1RunSeed = 0;
+        this.Region1RunActive = false;
+        this.Region1RunCompleted = false;
+    }
+
+    private GameLocation? BeginRegion1HuntRun()
+    {
+        if (!this.EnsureRegion1RunRoomLocations())
+            return null;
+
+        this.Region1RunSeed = unchecked(
+            (int)Game1.uniqueIDForThisGame
+            + Game1.Date.TotalDays * 397
+            + this.Save.Data.AirshipFlightsTaken * 7919
+        );
+        Random random = new(this.Region1RunSeed);
+        this.Region1RunRoute = Enumerable.Range(0, Region1RunRoomLocationNames.Length)
+            .OrderBy(_ => random.Next())
+            .Take(Region1RunRoomCount)
+            .ToArray();
+        this.Region1RunStep = 0;
+        this.Region1RunActive = true;
+        this.Region1RunCompleted = false;
+
+        string route = string.Join(
+            " -> ",
+            this.Region1RunRoute.Select(index => ModEntry.T(Region1RunRoomNameKeys[index]))
+        );
+        this.Monitor.Log(
+            $"Region I Hunt Run seed={this.Region1RunSeed}; route={route}. Exactly {Region1RunRoomCount} unique room(s) selected from {Region1RunRoomLocationNames.Length}.",
+            LogLevel.Info
+        );
+
+        return Game1.getLocationFromName(Region1RunRoomLocationNames[this.Region1RunRoute[0]]);
+    }
+
+    private static bool TryGetRegion1RunRoomIndex(GameLocation location, out int index)
+    {
+        string name = location.NameOrUniqueName;
+        for (int i = 0; i < Region1RunRoomLocationNames.Length; i++)
+        {
+            if (!name.Equals(Region1RunRoomLocationNames[i], StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            index = i;
+            return true;
+        }
+
+        index = -1;
+        return false;
+    }
+
+    private void HandleRegion1RunRoomInteraction(ButtonPressedEventArgs e, GameLocation location)
+    {
+        Point action = GetActionTile();
+        Point next = ResolveRegion1RunNextTile(location);
+        Point retreat = ResolveRegion1RunReturnTile(location);
+
+        if (Touches(action, retreat) || PlayerIsNear(retreat))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            this.ResetRegion1RunState();
+            this.StartFlightCutscene(returning: true);
+            return;
+        }
+
+        if (!Touches(action, next) && !PlayerIsNear(next))
+            return;
+
+        this.Helper.Input.Suppress(e.Button);
+        int remaining = CountRegion1MarkedMonsters(location);
+        if (remaining > 0)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.blocked", new { count = remaining }));
+            return;
+        }
+
+        this.AdvanceRegion1HuntRun();
+    }
+
+    private void AdvanceRegion1HuntRun()
+    {
+        if (!this.Region1RunActive || this.Region1RunRoute.Length != Region1RunRoomCount)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.unstable"));
+            return;
+        }
+
+        this.Region1RunStep++;
+        if (this.Region1RunStep >= Region1RunRoomCount)
+        {
+            GameLocation? hub = this.EnsureRegion1Location();
+            if (hub is null)
+            {
+                Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
+                return;
+            }
+
+            Point arrival = ResolveRegion1ArrivalTile(hub);
+            this.WarpGraceUntilMs = Environment.TickCount64 + 650L;
+            Game1.playSound("discoverMineral");
+            Game1.warpFarmer(Region1LocationName, arrival.X, arrival.Y, 0);
+            return;
+        }
+
+        int roomIndex = this.Region1RunRoute[this.Region1RunStep];
+        GameLocation? next = Game1.getLocationFromName(Region1RunRoomLocationNames[roomIndex]);
+        if (next is null)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.unstable"));
+            return;
+        }
+
+        Point nextArrival = ResolveRegion1RunArrivalTile(next);
+        this.WarpGraceUntilMs = Environment.TickCount64 + 650L;
+        Game1.playSound("wand");
+        Game1.warpFarmer(next.NameOrUniqueName, nextArrival.X, nextArrival.Y, 0);
+    }
+
+    private void PopulateRegion1RunRoom(GameLocation location, int roomIndex)
+    {
+        this.ClearRegion1MarkedMonsters(location);
+
+        Point[][] roomCandidates =
+        {
+            new[] { new Point(5,5), new Point(9,5), new Point(18,5), new Point(22,5), new Point(6,9), new Point(11,9), new Point(17,9), new Point(22,9), new Point(5,13), new Point(10,13), new Point(18,13), new Point(23,13), new Point(8,16), new Point(19,16) },
+            new[] { new Point(5,4), new Point(10,5), new Point(17,4), new Point(22,5), new Point(7,9), new Point(11,10), new Point(18,9), new Point(23,10), new Point(5,15), new Point(10,14), new Point(18,15), new Point(22,14) },
+            new[] { new Point(4,4), new Point(9,5), new Point(18,5), new Point(23,4), new Point(6,10), new Point(11,10), new Point(17,10), new Point(22,10), new Point(4,15), new Point(9,14), new Point(18,14), new Point(23,15) },
+            new[] { new Point(5,4), new Point(10,4), new Point(18,5), new Point(22,5), new Point(6,9), new Point(12,9), new Point(17,10), new Point(22,10), new Point(5,14), new Point(10,15), new Point(18,14), new Point(23,15) },
+            new[] { new Point(5,5), new Point(9,6), new Point(18,6), new Point(22,5), new Point(5,10), new Point(11,9), new Point(17,11), new Point(22,10), new Point(6,15), new Point(10,14), new Point(18,14), new Point(22,15) },
+            new[] { new Point(5,5), new Point(10,5), new Point(18,5), new Point(23,5), new Point(6,9), new Point(10,11), new Point(18,9), new Point(22,11), new Point(5,15), new Point(10,15), new Point(18,15), new Point(23,15) },
+        };
+
+        int encounterSeed = unchecked(this.Region1RunSeed + roomIndex * 104729 + Math.Max(0, this.Region1RunStep) * 8191);
+        Random random = new(encounterSeed);
+        Point[] shuffled = roomCandidates[roomIndex].OrderBy(_ => random.Next()).ToArray();
+        int targetCount = random.Next(5, 9);
+        int spawned = 0;
+
+        foreach (Point tile in shuffled)
+        {
+            if (spawned >= targetCount)
+                break;
+
+            Vector2 tileVector = new(tile.X, tile.Y);
+            try
+            {
+                if (location.IsTileBlockedBy(tileVector) || location.Objects.ContainsKey(tileVector))
+                    continue;
+            }
+            catch
+            {
+                continue;
+            }
+
+            Monster monster = CreateRegion1RunMonster(roomIndex, random.Next(100), tileVector * 64f);
+            monster.modData[Region1MonsterMarkerKey] = "huntrun";
+            location.characters.Add(monster);
+            spawned++;
+        }
+
+        this.Monitor.Log(
+            $"Region I Hunt Run room {roomIndex + 1} populated with {spawned} controlled monster(s); existing Scrap drop pipeline remains authoritative.",
+            LogLevel.Trace
+        );
+    }
+
+    private static Monster CreateRegion1RunMonster(int roomIndex, int roll, Vector2 position)
+        => roomIndex switch
+        {
+            0 => roll < 72 ? (Monster)new GreenSlime(position, 0) : new Bug(position, 0),
+            1 => roll < 55 ? (Monster)new GreenSlime(position, 0) : new Bat(position),
+            2 => roll < 52 ? (Monster)new Bug(position, 0) : new Bat(position),
+            3 => roll < 45 ? (Monster)new GreenSlime(position, 0) : roll < 78 ? new Bug(position, 0) : new Bat(position),
+            4 => roll < 68 ? (Monster)new Bat(position) : new GreenSlime(position, 0),
+            _ => roll < 34 ? (Monster)new GreenSlime(position, 0) : roll < 67 ? new Bat(position) : new Bug(position, 0),
+        };
+
+    private void ClearRegion1MarkedMonsters(GameLocation location)
+    {
+        foreach (NPC actor in location.characters
+                     .Where(actor => actor is Monster && actor.modData.ContainsKey(Region1MonsterMarkerKey))
+                     .ToList())
+        {
+            location.characters.Remove(actor);
+        }
+    }
+
+    private static int CountRegion1MarkedMonsters(GameLocation location)
+        => location.characters
+            .OfType<Monster>()
+            .Count(monster => monster.Health > 0 && monster.modData.ContainsKey(Region1MonsterMarkerKey));
+
+    private static Point ResolveRegion1RunArrivalTile(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
+        return FindClearTileNear(room, new Point(width / 2, Math.Max(3, height - 3)));
+    }
+
+    private static Point ResolveRegion1RunNextTile(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        return new Point(width / 2, 1);
+    }
+
+    private static Point ResolveRegion1RunReturnTile(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
+        return new Point(width / 2, Math.Max(2, height - 2));
+    }
+
     private void HandleRegion1DepartureRequest()
     {
         if (this.Save.Data.AirshipHighestRegionUnlocked < 1)
@@ -598,7 +936,7 @@ internal sealed class AirshipFoundationService
         }
 
         // Validate the target before money is ever consumed.
-        if (this.EnsureRegion1Location() is null)
+        if (this.EnsureRegion1Location() is null || !this.EnsureRegion1RunRoomLocations())
         {
             Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
             return;
@@ -672,8 +1010,8 @@ internal sealed class AirshipFoundationService
             }
             else
             {
-                GameLocation? region = this.EnsureRegion1Location();
-                if (region is null)
+                GameLocation? firstRoom = this.BeginRegion1HuntRun();
+                if (firstRoom is null)
                 {
                     // Target was validated before charging; this is a last-resort failure path.
                     this.FlightCutsceneActive = false;
@@ -682,9 +1020,9 @@ internal sealed class AirshipFoundationService
                     return;
                 }
 
-                Point arrival = ResolveRegion1ArrivalTile(region);
+                Point arrival = ResolveRegion1RunArrivalTile(firstRoom);
                 this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
-                Game1.warpFarmer(Region1LocationName, arrival.X, arrival.Y, 0);
+                Game1.warpFarmer(firstRoom.NameOrUniqueName, arrival.X, arrival.Y, 0);
             }
         }
 

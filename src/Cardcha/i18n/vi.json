@@ -1014,5 +1014,15 @@
   "mimi.attic.routine.tv.talk.late": "MiMi: Thêm một tập nữa thôi. Nếu tui gọi nó là biến số kiểm soát thì không tính là trì hoãn đâu.",
   "mimi.attic.routine.tv.talk.chacha-away": "MiMi: Đừng kể ChaCha là tui xem tập này mà không có cậu ta nha. Cậu ta nhập tâm với phe phản diện một cách kỳ lạ lắm.",
   "mimi.attic.routine.home.talk": "Ở trên này là hết giờ làm rồi nhé. Cho tôi năm phút, chắc tôi sẽ nhớ ra mình để mấy ghi chú nghiêm túc ở đâu.$1",
-  "mimi.attic.routine.late.talk": "Tôi đang nghỉ dần đây. Uống trà, ghi nốt một dòng, rồi lần này nhất định tôi sẽ đi ngủ thật.$1"
+  "mimi.attic.routine.late.talk": "Tôi đang nghỉ dần đây. Uống trà, ghi nốt một dòng, rồi lần này nhất định tôi sẽ đi ngủ thật.$1",
+  "airship.region1.run.enter": "CHUYẾN SĂN {{step}}/{{total}} // {{room}}",
+  "airship.region1.run.blocked": "Lối phía bắc vẫn chưa ổn định. Hãy hạ {{count}} quái còn lại trước.",
+  "airship.region1.run.complete": "HOÀN TẤT CHUYẾN SĂN KHU VỰC I // Tuyến tới Cổng Boss đã mở ra phía trước.",
+  "airship.region1.run.unstable": "Chuyến săn đã mất trạng thái tuyến đường. Hãy rút về và bắt đầu một chuyến bay Khu Vực I mới.",
+  "airship.region1.run.room.0": "Khoảng Rừng Xanh",
+  "airship.region1.run.room.1": "Suối Rêu",
+  "airship.region1.run.room.2": "Tàn Tích Cổ",
+  "airship.region1.run.room.3": "Bụi Gai",
+  "airship.region1.run.room.4": "Lùm Cây Trũng",
+  "airship.region1.run.room.5": "Điện Thờ Cardcha"
 }
