@@ -642,10 +642,20 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        // 0657: preserve the last in-game-visible WizardHouse stair column. The regression was
-        // introduced by changing the stair artwork/caching, not by this gameplay anchor. Keep
-        // visual, collision, interaction, ascent and return landing tied to the same x15 route.
-        return new Point(15, 15);
+        // 0658: WizardHouse replacements can expose a Buildings layer only 15 tiles wide,
+        // where valid X coordinates are 0..14. Preserve x15 on wider maps, but clamp the
+        // preferred right-wall route to the active map bounds so every stair subsystem shares
+        // one valid coordinate.
+        int width = wizard.Map?.GetLayer("Buildings")?.LayerWidth
+            ?? wizard.Map?.Layers.FirstOrDefault()?.LayerWidth
+            ?? 16;
+        int height = wizard.Map?.GetLayer("Buildings")?.LayerHeight
+            ?? wizard.Map?.Layers.FirstOrDefault()?.LayerHeight
+            ?? 35;
+
+        int x = Math.Clamp(15, 0, Math.Max(0, width - 1));
+        int y = Math.Clamp(15, 4, Math.Max(4, height - 1));
+        return new Point(x, y);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
