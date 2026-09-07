@@ -1,0 +1,167 @@
+name: Cardcha alpha28.0.4.14.4.5.12.24 Wizard Stair Visible Placement Fix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0657-wizard-stair-visible-placement-fix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0657 Wizard stair fix
+        run: python3 tools/alpha28_0657_wizard_stair_visible_placement_fix.py
+
+      - name: Validate 0657 acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.24'
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          home = (root/'Services/MimiHomeService.cs').read_text()
+          assert 'return new Point(15, 15);' in home
+          assert 'return new Point(16, 15);' not in home
+          assert 'CachedCommunityCenterWorkTile' in home
+          assert 'CCWork={ccWork}' in home
+
+          visual = (root/'Services/MimiAtticVisualService.cs').read_text()
+          for token in [
+              'bool complete = true;',
+              'existing.TileIndex != segment',
+              'var alwaysFront = map.GetLayer("AlwaysFront");',
+              'var front2 = map.GetLayer("Front2");',
+              'restored 0653 artwork',
+          ]:
+              assert token in visual, token
+          assert 'map is null || ReferenceEquals(this.WizardStairAppliedMap, map)' not in visual
+
+          stair = root/'assets/mimi_attic_stairs.png'
+          raw = stair.read_bytes()
+          assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+          assert struct.unpack('>II', raw[16:24]) == (16,64)
+          assert hashlib.sha256(raw).hexdigest() == '9facd56cfd211d96648fd8d1eaf6d120574bd30e538904301c62ead672afdfd5'
+
+          # Preserve 0656 Community Center continuity/stability fix.
+          social = (root/'Services/MimiSocialService.cs').read_text()
+          assert 'mimi.social.community-center' in social
+          assert 'LastCommunityCenterRoute' in social
+          en = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert 'roof' in en['mimi.social.community-center'].lower()
+          assert 'trú mưa' in vi['mimi.social.community-center']
+          assert 'chính thức quen nhau' not in vi['mimi.social.introduction']
+
+          # Preserve 0655 native Gift Log/Profile pipeline.
+          world = (root/'Services/WorldActorService.cs').read_text()
+          profile = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          assert 'private const string MimiProfileSheetPath = "assets/mimi_npc.png";' in world
+          assert 'new(WorldActorService.MimiProfileCharacterAsset, 0, 16, 32)' in profile
+          assert 'DrawScale=vanilla-4x' in profile
+
+          # Preserve 0653 strict runtime-safe TMX contract.
+          checked_layers = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  vals = []
+                  for i, token in enumerate(tokens):
+                      s = token.strip()
+                      assert s != '', f'{tmx}: empty CSV token layer={layer.attrib.get("name")} index={i}'
+                      n = int(s)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      vals.append(n)
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+                  checked_layers += 1
+          assert checked_layers >= 21
+          print(f'0657 validator PASS; strict TMX layers checked={checked_layers}')
+          print('Restored pre-0655 visible ladder art + runtime four-tile presence verification')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.24 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.24 Wizard stair visible placement fix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0657-wizard-stair-visible-placement-fix
+          fi
+
+      - name: Package .5.12.24 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.24_WizardStairVisibleFix_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, zipfile, xml.etree.ElementTree as ET
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.24_WizardStairVisibleFix_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.24'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              assert hashlib.sha256(f.read('Cardcha/assets/mimi_attic_stairs.png')).hexdigest() == '9facd56cfd211d96648fd8d1eaf6d120574bd30e538904301c62ead672afdfd5'
+              vi = json.loads(f.read('Cardcha/i18n/vi.json'))
+              assert 'trú mưa' in vi['mimi.social.community-center']
+              for name in [n for n in f.namelist() if n.endswith('.tmx')]:
+                  map_root = ET.fromstring(f.read(name))
+                  for layer in map_root.findall('layer'):
+                      data = layer.find('data')
+                      if data is None or data.attrib.get('encoding') != 'csv':
+                          continue
+                      tokens = (data.text or '').split(',')
+                      vals = [int(t.strip()) for t in tokens if t.strip()]
+                      assert len(vals) == len(tokens), f'{name}: packaged empty CSV token'
+                      assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+          print('Final .5.12.24 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0657-wizard-stair-visible-placement-fix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.24_WizardStairVisibleFix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.24_WizardStairVisibleFix_TEST.zip.sha256
+          if-no-files-found: error
