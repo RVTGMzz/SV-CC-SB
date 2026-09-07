@@ -36,8 +36,8 @@ internal enum VerdantGuardianAttack
 }
 
 /// <summary>
-/// Boss I functional vertical slice. The body intentionally uses a vanilla GreenSlime proxy until
-/// approved custom art is authored; routing, telegraphs, phases, damage, save flags and rewards are real.
+/// Boss I functional vertical slice. A vanilla GreenSlime remains the gameplay/collision proxy;
+/// 0652 overlays Cardcha-owned custom art while routing, telegraphs, phases, damage, save flags and rewards remain authoritative here.
 /// </summary>
 internal sealed class VerdantGuardianBossService
 {
@@ -101,6 +101,12 @@ internal sealed class VerdantGuardianBossService
 
     public bool IsInArena => Context.IsWorldReady
         && Game1.currentLocation?.NameOrUniqueName.Equals(LocationName, StringComparison.OrdinalIgnoreCase) == true;
+
+    // 0652 visual layer: read-only snapshot. Combat state remains owned exclusively by this service.
+    internal VerdantGuardianState VisualState => this.State;
+    internal int VisualPhase => this.Phase;
+    internal long VisualStateStartedAtMs => this.StateStartedAtMs;
+    internal Monster? VisualBoss => this.ResolveBoss();
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
