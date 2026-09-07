@@ -642,20 +642,55 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        // 0658: WizardHouse replacements can expose a Buildings layer only 15 tiles wide,
-        // where valid X coordinates are 0..14. Preserve x15 on wider maps, but clamp the
-        // preferred right-wall route to the active map bounds so every stair subsystem shares
-        // one valid coordinate.
-        int width = wizard.Map?.GetLayer("Buildings")?.LayerWidth
+        // 0659: layer bounds are not the same thing as the visible room boundary. The 15-wide
+        // SVE WizardHouse accepts x14 mathematically, but that column is black exterior void.
+        // Resolve the stair from actual map content instead: use the rightmost walkable Back
+        // tile at the landing row which is immediately beside a wall/void boundary. This keeps
+        // the ladder inside the room and directly against the right wall where the NPCs stand.
+        const int preferredY = 15;
+        var buildings = wizard.Map?.GetLayer("Buildings");
+        var back = wizard.Map?.GetLayer("Back");
+
+        int width = buildings?.LayerWidth
+            ?? back?.LayerWidth
             ?? wizard.Map?.Layers.FirstOrDefault()?.LayerWidth
             ?? 16;
-        int height = wizard.Map?.GetLayer("Buildings")?.LayerHeight
+        int height = buildings?.LayerHeight
+            ?? back?.LayerHeight
             ?? wizard.Map?.Layers.FirstOrDefault()?.LayerHeight
             ?? 35;
+        int y = Math.Clamp(preferredY, 4, Math.Max(4, height - 1));
 
-        int x = Math.Clamp(15, 0, Math.Max(0, width - 1));
-        int y = Math.Clamp(15, 4, Math.Max(4, height - 1));
-        return new Point(x, y);
+        if (buildings is not null && back is not null)
+        {
+            int scanY = Math.Clamp(y, 0, Math.Min(buildings.LayerHeight, back.LayerHeight) - 1);
+            int maxX = Math.Min(buildings.LayerWidth, back.LayerWidth) - 1;
+
+            // First pass: choose a walkable interior floor tile directly beside the right boundary.
+            for (int x = maxX; x >= 0; x--)
+            {
+                if (back.Tiles[x, scanY] is null || buildings.Tiles[x, scanY] is not null)
+                    continue;
+
+                bool rightIsBoundary = x == maxX
+                    || back.Tiles[x + 1, scanY] is null
+                    || buildings.Tiles[x + 1, scanY] is not null;
+                if (rightIsBoundary)
+                    return new Point(x, scanY);
+            }
+
+            // Compatibility fallback: still prefer the rightmost actual floor tile, never raw map width.
+            for (int x = maxX; x >= 0; x--)
+            {
+                if (back.Tiles[x, scanY] is not null && buildings.Tiles[x, scanY] is null)
+                    return new Point(x, scanY);
+            }
+        }
+
+        // Last-resort fallback for unusual map replacements with no standard Back layer. Stay one
+        // tile inside the layer edge rather than returning the edge column itself.
+        int fallbackX = Math.Clamp(Math.Min(15, width - 2), 0, Math.Max(0, width - 1));
+        return new Point(fallbackX, y);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
