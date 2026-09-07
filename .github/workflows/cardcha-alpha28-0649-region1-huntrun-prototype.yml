@@ -1,0 +1,175 @@
+name: Cardcha alpha28.0.4.14.4.5.12.17 Region I Hunt Run 4-of-6
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0649-region1-huntrun-prototype ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0649 Hunt Run candidate
+        run: python3 tools/alpha28_0649_region1_huntrun_prototype.py
+
+      - name: Validate 4-of-6 Hunt Run architecture
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, re, subprocess, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.17'
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          service = (root/'Services/AirshipFoundationService.cs').read_text()
+          assert 'private const int Region1RunRoomCount = 4;' in service
+          assert service.count('"Cardcha_R1_') >= 6
+          assert '.Take(Region1RunRoomCount)' in service
+          assert 'Enumerable.Range(0, Region1RunRoomLocationNames.Length)' in service
+          assert 'this.BeginRegion1HuntRun()' in service
+          assert 'this.AdvanceRegion1HuntRun();' in service
+          assert 'CountRegion1MarkedMonsters(location)' in service
+          assert 'this.StartFlightCutscene(returning: true);' in service
+          assert 'Game1.warpFarmer(Region1LocationName' in service
+          assert 'Region1GateCardRequirement = 20' in service
+
+          rooms = sorted((root/'assets/region1_rooms').glob('*.tmx'))
+          assert len(rooms) == 6, [p.name for p in rooms]
+          for room in rooms:
+              tree = ET.parse(room)
+              m = tree.getroot()
+              assert m.attrib['width'] == '28' and m.attrib['height'] == '20'
+              props = {p.attrib['name']: p.attrib.get('value', '') for p in m.find('properties')}
+              assert props['CardchaAssetPolicy'] == 'cardcha-owned-map|vanilla-tiles-only|no-third-party-assets'
+              tileset = m.find('tileset')
+              image = tileset.find('image')
+              assert image.attrib['source'] == '.spring_outdoorsTileSheet.png'
+              assert [layer.attrib['name'] for layer in m.findall('layer')] == ['Back','Buildings','Front']
+
+          default = json.loads((root/'i18n/default.json').read_text())
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          for data in (default, vi):
+              assert 'airship.region1.run.enter' in data
+              assert 'airship.region1.run.blocked' in data
+              for i in range(6):
+                  assert f'airship.region1.run.room.{i}' in data
+
+          # Protected accepted systems/assets must not move in this feature branch.
+          protected_hashes = {
+              'src/Cardcha/assets/mimi_walk.png': '04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7',
+              'src/Cardcha/assets/airship_visual.png': '1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132',
+          }
+          for rel, expected in protected_hashes.items():
+              assert hashlib.sha256(Path(rel).read_bytes()).hexdigest() == expected
+
+          for protected in [
+              'src/Cardcha/Models/SaveData.cs',
+              'src/Cardcha/Services/ProgressionService.cs',
+              'src/Cardcha/Services/BossEnergyService.cs',
+              'src/Cardcha/Services/ChaChaBossFormService.cs',
+              'src/Cardcha/assets/region1_hunting.tmx',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+              'src/Cardcha/Patches/MimiProfileMenuPatch.cs',
+              'src/Cardcha/Services/MimiHomeService.cs',
+              'src/Cardcha/Services/MimiAtticVisualService.cs',
+          ]:
+              rc = subprocess.run([
+                  'git','diff','--quiet','origin/cardcha-alpha28-0648j-mimi-texture-scale-stair-wallblock','--',protected
+              ]).returncode
+              assert rc == 0, f'protected file changed: {protected}'
+
+          changed = subprocess.check_output([
+              'git','diff','--name-only','origin/cardcha-alpha28-0648j-mimi-texture-scale-stair-wallblock'
+          ], text=True).splitlines()
+          allowed_exact = {
+              'tools/alpha28_0649_region1_huntrun_prototype.py',
+              '.github/workflows/cardcha-alpha28-0649-region1-huntrun-prototype.yml',
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/i18n/default.json',
+              'src/Cardcha/i18n/vi.json',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+              'handoff/ALPHA28_0649_REGION1_HUNTRUN_PROTOTYPE.md',
+              'handoff/LATEST_CARDCHA_HANDOFF.md',
+          }
+          unexpected = [x for x in changed if x not in allowed_exact and not x.startswith('src/Cardcha/assets/region1_rooms/')]
+          assert not unexpected, f'unexpected changes: {unexpected}'
+
+          print('0649 validator PASS')
+          print('Region I: 6 authored vanilla-tile rooms; exactly 4 unique rooms sampled per Airship run')
+          print('Boss Gate hub and 20-card threshold preserved')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.17 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.17 Region I Hunt Run prototype [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0649-region1-huntrun-prototype
+          fi
+
+      - name: Package .5.12.17 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.17_Region1HuntRun4of6_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.17_Region1HuntRun4of6_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              names = set(f.namelist())
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.17'
+              rooms = [n for n in names if n.startswith('Cardcha/assets/region1_rooms/') and n.endswith('.tmx')]
+              assert len(rooms) == 6, rooms
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+          print('Final .5.12.17 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0649-region1-huntrun-prototype
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.17_Region1HuntRun4of6_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.17_Region1HuntRun4of6_TEST.zip.sha256
+          if-no-files-found: error
