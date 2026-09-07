@@ -9,9 +9,13 @@ Current build:
 Read this FIRST when resuming from another chat:
 `handoff/ALPHA28_0649_REGION1_HUNTRUN_PROTOTYPE.md`
 
+Approved boss concept canon:
+`handoff/BOSS_CONCEPT_CANON.md`
+
 ## Session status — 2026-09-07
 - Region I Hunt Run prototype implemented as 6 authored vanilla-tile rooms; each Airship farming run chooses exactly 4 unique rooms.
 - Existing Region I Boss Gate hub and 20-card requirement are preserved at the end of the run.
+- Boss concept direction is now documented in `handoff/BOSS_CONCEPT_CANON.md`: Boss I Verdant Guardian, Boss II Hollow Curator, Boss III Tricolor Resonance trio, Boss IV MiMi final boss; ChaCha remains a compact cute rabbit in all Boss Forms; MiMi's final transformation uses bow release -> loose original-color hair -> angelic winged form.
 - 0648J MiMi Gift/Profile scale and WizardHouse stair acceptance remains pending because the user is away from the test machine; do not silently treat those two items as accepted.
 - Save schema 19, Boss Form duration 10s, Boss Energy gain 1/3, 76/76 active-card audit, Airship route/visual, Forest gate collision contract, and card canon remain protected.
 
