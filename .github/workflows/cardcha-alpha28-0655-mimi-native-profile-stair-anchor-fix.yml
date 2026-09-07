@@ -1,0 +1,187 @@
+name: Cardcha alpha28.0.4.14.4.5.12.22 MiMi Native Profile + Stair Anchor Fix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0655-mimi-native-profile-stair-anchor-fix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0655 MiMi native profile/stair fix
+        run: python3 tools/alpha28_0655_mimi_native_profile_stair_anchor_fix.py
+
+      - name: Validate 0655 acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, subprocess, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.22'
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          home = (root/'Services/MimiHomeService.cs').read_text()
+          assert 'return new Point(15, 15);' in home
+          assert 'return new Point(16, 15);' not in home
+          assert 'Point landing = ResolveWizardLandingTile(wizard, target);' in home
+          assert 'Game1.warpFarmer("WizardHouse", landing.X, landing.Y, 2);' in home
+
+          world = (root/'Services/WorldActorService.cs').read_text()
+          assert 'private const string MimiProfileSheetPath = "assets/mimi_npc.png";' in world
+          assert 'private const string MimiProfileSheetPath = "assets/mimi_walk.png";' not in world
+
+          patch = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          for token in [
+              'new(WorldActorService.MimiProfileCharacterAsset, 0, 16, 32)',
+              'NativeSpriteSubstitutions++',
+              'DrawScale=vanilla-4x',
+          ]:
+              assert token in patch, token
+          for forbidden in [
+              'ThreeArgDrawPrefix',
+              'DrawingMimiProfile',
+              'MimiProfileSpriteScale',
+              'ScaledDrawHits',
+              'ProfileDrawPrefix',
+          ]:
+              assert forbidden not in patch, forbidden
+          assert 'cardcha_mimi_profile_status' in (root/'ModEntry.cs').read_text()
+
+          def png_size(path: Path):
+              raw = path.read_bytes()
+              assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+              assert raw[12:16] == b'IHDR'
+              return struct.unpack('>II', raw[16:24])
+
+          assert png_size(root/'assets/mimi_npc.png') == (64, 128)
+          stair = root/'assets/mimi_attic_stairs.png'
+          assert png_size(stair) == (16, 64)
+          assert hashlib.sha256(stair.read_bytes()).hexdigest() == '1b7283b15d8e83e7da1997134bd8b07b4d7615a7c6200c64f95df403e6c89d5e'
+
+          # Preserve 0653 runtime-safe TMX contract across every shipped TMX.
+          checked_layers = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  values = []
+                  for i, token in enumerate(tokens):
+                      s = token.strip()
+                      assert s != '', f'{tmx}: empty CSV token layer={layer.attrib.get("name")} index={i}'
+                      n = int(s)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      values.append(n)
+                  expected = int(layer.attrib['width']) * int(layer.attrib['height'])
+                  assert len(values) == expected, f'{tmx}: layer tile count mismatch'
+                  checked_layers += 1
+          assert checked_layers >= 21
+
+          changed = subprocess.check_output([
+              'git','diff','--name-only','origin/cardcha-alpha28-0654-mimi-stair-profile-fit-fix'
+          ], text=True).splitlines()
+          allowed = {
+              'tools/alpha28_0655_mimi_native_profile_stair_anchor_fix.py',
+              '.github/workflows/cardcha-alpha28-0655-mimi-native-profile-stair-anchor-fix.yml',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+              'src/Cardcha/ModEntry.cs',
+              'src/Cardcha/Services/MimiHomeService.cs',
+              'src/Cardcha/Services/WorldActorService.cs',
+              'src/Cardcha/Patches/MimiProfileMenuPatch.cs',
+              'src/Cardcha/assets/mimi_attic_stairs.png',
+              'handoff/ALPHA28_0655_MIMI_NATIVE_PROFILE_STAIR_ANCHOR_FIX.md',
+              'handoff/LATEST_CARDCHA_HANDOFF.md',
+          }
+          unexpected = [p for p in changed if p not in allowed]
+          assert not unexpected, f'unexpected 0655 changes: {unexpected}'
+          print(f'0655 validator PASS; strict TMX layers checked={checked_layers}')
+          print('MiMi profile now uses native 16x32 frames; ladder anchor x15 + 1px artwork nudge verified')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.22 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.22 MiMi native profile + stair anchor fix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0655-mimi-native-profile-stair-anchor-fix
+          fi
+
+      - name: Package .5.12.22 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.22_MiMiNativeProfile_StairAnchor_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, struct, zipfile, xml.etree.ElementTree as ET
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.22_MiMiNativeProfile_StairAnchor_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.22'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              assert hashlib.sha256(f.read('Cardcha/assets/mimi_attic_stairs.png')).hexdigest() == '1b7283b15d8e83e7da1997134bd8b07b4d7615a7c6200c64f95df403e6c89d5e'
+              npc = f.read('Cardcha/assets/mimi_npc.png')
+              assert npc[:8] == b'\x89PNG\r\n\x1a\n'
+              assert struct.unpack('>II', npc[16:24]) == (64, 128)
+              for name in [n for n in f.namelist() if n.endswith('.tmx')]:
+                  root = ET.fromstring(f.read(name))
+                  for layer in root.findall('layer'):
+                      data = layer.find('data')
+                      if data is None or data.attrib.get('encoding') != 'csv':
+                          continue
+                      tokens = (data.text or '').split(',')
+                      vals = [int(t.strip()) for t in tokens if t.strip()]
+                      assert len(vals) == len(tokens), f'{name}: packaged empty CSV token'
+                      assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+          print('Final .5.12.22 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0655-mimi-native-profile-stair-anchor-fix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.22_MiMiNativeProfile_StairAnchor_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.22_MiMiNativeProfile_StairAnchor_TEST.zip.sha256
+          if-no-files-found: error
