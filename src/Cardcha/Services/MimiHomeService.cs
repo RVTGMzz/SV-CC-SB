@@ -632,10 +632,10 @@ internal sealed class MimiHomeService
 
     internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)
     {
-        // 0654 in-game acceptance adjustment: keep the same stair route and vertical anchor,
-        // but move the ladder exactly one tile right so it sits snug against the right wall
-        // instead of floating over the stove/log nook. Do not move farther right into the wall.
-        return new Point(16, 15);
+        // 0655: x16 proved to be the right-wall/foreign-content column in-game. Keep the known-good
+        // solid/interaction anchor at x15, then nudge the ladder artwork itself four screen pixels
+        // to the right (one source pixel) so it sits closer to the wall without entering it.
+        return new Point(15, 15);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
