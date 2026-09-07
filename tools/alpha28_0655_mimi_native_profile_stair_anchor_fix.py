@@ -10,13 +10,7 @@ NEW_VERSION = "0.3.0-alpha.28.0.4.14.4.5.12.22"
 # Same 16x64 ladder art as before, but every painted pixel is shifted one source pixel right.
 # Stardew renders map tiles at 4x, so this is a 4-screen-pixel visual nudge without moving
 # the interaction/collision anchor into the right-wall tile.
-SHIFTED_STAIR_B64 = (
-    "iVBORw0KGgoAAAANSUhEUgAAABAAAABACAYAAAATffeWAAAAnUlEQVR4nGNgoBAwwhi6kuL/sSm4/PwlIz55JkpdQD0DYE7NcRRmWFCmhSKGLi/PxwIXo9gFjMgcXAGFC1x+/pKRBZsEzAu4QELXNTgbqwFnTr8k2hUUewEjENFjARnD5GGxwMAwGBLSaDSORuNoNELA"
-    "MAwGBLSaDSORuNoNELA"
-)
-
-# Correct base64. Kept separately so accidental line edits above cannot silently produce a PNG.
-SHIFTED_STAIR_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAABACAYAAAATffeWAAAAnUlEQVR4nGNgoBAwwhi6kuL/sSm4/PwlIz55JkpdQD0DYE7NcRRmWFCmhSKGLi/PxwIXo9gFjMgcXAGFC1x+/pKRBZsEzAu4QELXNTgbqwFnTr8k2hUUewEjENFjARnD5GGxwMAwGBLSaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDSORuNoNELAaDRiicacLkDuN+KTHyRdX0oAAL0tG0PyGGzfAAAAAElFTkSuQmCC"
+SHIFTED_STAIR_B64 = "iVBORw0KGgoAAAANSUhEUgAAABAAAABACAYAAAATffeWAAAAnUlEQVR4nGNgoBAwwhi6kuL/sSm4/PwlIz55JkpdQD0DYE7NcRRmWFCmhSKGLi/PxwIXo9gFjMgcXAGFC1x+/pKRBZsEzAu4QELXNTgbqwFnTr8k2hUUewEjENFjARnD5GGxwMAwGBLSaDSORuNoNELAaDSORiNVDBiNxtFoHI1GCBiNxtFopIoBo9FIhWjE6wLkfiMu+YFPBxQbAAA/0vNyMDNuxQAAAABJRU5ErkJggg=="
 
 
 def replace_once(text: str, old: str, new: str, label: str) -> str:
