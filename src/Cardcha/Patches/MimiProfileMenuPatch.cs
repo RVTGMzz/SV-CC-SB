@@ -12,9 +12,7 @@ internal static class MimiProfileMenuPatch
 {
     private const float VanillaProfileSpriteScale = 4f;
     private const float MimiProfileSpriteScale = 2f;
-
     private static readonly FieldInfo? AnimatedSpriteField = AccessTools.Field(typeof(ProfileMenu), "_animatedSprite");
-    private static bool MimiProfileActive;
 
     public static void Apply(Harmony harmony)
     {
@@ -23,32 +21,32 @@ internal static class MimiProfileMenuPatch
             "_SetCharacter",
             new[] { typeof(SocialPage.SocialEntry) }
         );
-
         MethodInfo? threeArgDraw = AccessTools.Method(
             typeof(AnimatedSprite),
             "draw",
             new[] { typeof(SpriteBatch), typeof(Vector2), typeof(float) }
         );
 
-        if (setCharacter is null || AnimatedSpriteField is null)
+        if (setCharacter is not null && AnimatedSpriteField is not null)
+        {
+            harmony.Patch(
+                setCharacter,
+                postfix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(SetCharacterPostfix))
+            );
+        }
+        else
         {
             ModEntry.StaticMonitor?.Log(
-                "Could not install MiMi ProfileMenu character hook.",
+                "MiMi ProfileMenu sprite substitution hook was not found; texture-owned scale hook remains active.",
                 StardewModdingAPI.LogLevel.Warn
             );
-            return;
         }
-
-        harmony.Patch(
-            setCharacter,
-            postfix: new HarmonyMethod(typeof(MimiProfileMenuPatch), nameof(SetCharacterPostfix))
-        );
 
         if (threeArgDraw is null)
         {
             ModEntry.StaticMonitor?.Log(
-                "Could not install MiMi ProfileMenu direct-draw scale hook; the exact AnimatedSprite three-argument draw overload was not found.",
-                StardewModdingAPI.LogLevel.Warn
+                "Could not install MiMi ProfileMenu 50% texture-owned draw hook.",
+                StardewModdingAPI.LogLevel.Error
             );
             return;
         }
@@ -61,11 +59,7 @@ internal static class MimiProfileMenuPatch
 
     private static void SetCharacterPostfix(ProfileMenu __instance, SocialPage.SocialEntry entry)
     {
-        bool isMimi = entry.Character is NPC npc
-            && string.Equals(npc.Name, WorldActorService.MimiNpcId, StringComparison.OrdinalIgnoreCase);
-
-        MimiProfileActive = isMimi;
-        if (!isMimi)
+        if (entry.Character is not NPC npc || !IsMimiName(npc.Name))
             return;
 
         try
@@ -83,29 +77,10 @@ internal static class MimiProfileMenuPatch
         }
     }
 
-    /// <summary>
-    /// ProfileMenu uses AnimatedSprite.draw(SpriteBatch, Vector2, float). That overload hardcodes
-    /// a 4x sprite scale internally, so 0648H's scale-parameter hook could never affect it.
-    /// Intercept exactly that call for MiMi's active ProfileMenu sprite, draw at 2x, then skip the
-    /// vanilla 4x draw. The center offset keeps the half-size sprite visually centered in the same
-    /// character frame instead of shrinking toward the top-left corner.
-    /// </summary>
-    private static bool ThreeArgDrawPrefix(AnimatedSprite __instance, object[] __args)
+    private static bool ThreeArgDrawPrefix(AnimatedSprite __instance, SpriteBatch b, Vector2 screenPosition, float layerDepth)
     {
-        if (!MimiProfileActive
-            || Game1.activeClickableMenu is not ProfileMenu profile
-            || !ReferenceEquals(AnimatedSpriteField?.GetValue(profile), __instance))
-        {
+        if (!IsMimiProfileTexture(__instance))
             return true;
-        }
-
-        if (__args.Length < 3
-            || __args[0] is not SpriteBatch batch
-            || __args[1] is not Vector2 screenPosition
-            || __args[2] is not float layerDepth)
-        {
-            return true;
-        }
 
         Texture2D texture = __instance.Texture;
         if (texture is null)
@@ -126,7 +101,7 @@ internal static class MimiProfileMenuPatch
             effects = SpriteEffects.FlipHorizontally;
         }
 
-        batch.Draw(
+        b.Draw(
             texture,
             centeredPosition,
             source,
@@ -137,7 +112,21 @@ internal static class MimiProfileMenuPatch
             effects,
             layerDepth
         );
-
         return false;
     }
+
+    private static bool IsMimiProfileTexture(AnimatedSprite sprite)
+    {
+        string? loaded = sprite.loadedTexture;
+        string? requested = sprite.textureName.Value;
+        return IsMimiTextureName(loaded) || IsMimiTextureName(requested);
+    }
+
+    private static bool IsMimiTextureName(string? value)
+        => string.Equals(value, WorldActorService.MimiProfileCharacterAsset, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(value, WorldActorService.MimiCharacterAsset, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsMimiName(string? value)
+        => string.Equals(value, WorldActorService.MimiNpcId, StringComparison.OrdinalIgnoreCase)
+           || string.Equals(value, "MiMi", StringComparison.OrdinalIgnoreCase);
 }

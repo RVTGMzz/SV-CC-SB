@@ -316,7 +316,7 @@ internal sealed class MimiAtticVisualService
                     continue;
 
                 // Clear only the same foreground column the old cosmetic stair occupied so no
-                // vanilla Front tile can paint over the ladder. Back/wall art remains untouched.
+                // vanilla Front tile can paint over the ladder. The Buildings tile itself stays solid.
                 if (front is not null
                     && x < front.LayerWidth
                     && y < front.LayerHeight)
@@ -325,7 +325,6 @@ internal sealed class MimiAtticVisualService
                 }
 
                 StaticTile stairTile = new(buildings, stairSheet, BlendMode.Alpha, segment);
-                stairTile.Properties["Passable"] = "T";
                 buildings.Tiles[x, y] = stairTile;
             }
 

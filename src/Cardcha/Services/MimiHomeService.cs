@@ -634,7 +634,7 @@ internal sealed class MimiHomeService
     {
         // SVE WizardHouse exact acceptance tile: upper recessed niche between the two plants.
         // Fixed absolute tile only. No percentages, map-size math, search, or dynamic relocation.
-        return new Point(8, 15);
+        return new Point(15, 15);
     }
 
     private static Point ResolveWizardLandingTile(GameLocation wizard, Point stair)
