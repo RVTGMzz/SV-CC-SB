@@ -1,44 +1,43 @@
 # Latest Cardcha handoff
 
 Current development branch:
-`cardcha-alpha28-0648i-mimi-profile-directdraw-stair-maplayer`
+`cardcha-alpha28-0648j-mimi-texture-scale-stair-wallblock`
 
 Current build:
-`0.3.0-alpha.28.0.4.14.4.5.12.15`
+`0.3.0-alpha.28.0.4.14.4.5.12.16`
 
 Read this FIRST when resuming from another chat:
-`handoff/ALPHA28_0648I_MIMI_PROFILE_DIRECTDRAW_STAIR_MAPLAYER.md`
+`handoff/ALPHA28_0648J_MIMI_TEXTURE_SCALE_STAIR_WALLBLOCK.md`
 
 ## Session status — 2026-09-07
-- 0648I replaces failed 0648H for the two screenshot-driven visual issues only.
-- CI architecture validation, compile and package audit are green.
-- In-game acceptance is still pending for MiMi Profile/Gift Log half-size rendering and WizardHouse stair depth behavior.
-- Do NOT return to 0648G/0648H visibility hacks for the Wizard stair. The stair is now map-layer architecture, not a post-world cosmetic draw.
-- Do NOT reintroduce generic AnimatedSprite scale-overload scanning for MiMi. The active ProfileMenu path is explicitly the three-argument draw overload.
+- 0648J replaces 0648I for the two remaining screenshot-driven issues only.
+- CI static validation, SMAPI compile, materialization and package audit are green.
+- In-game acceptance is pending for MiMi Profile/Gift Log 50% rendering and the right-wall solid WizardHouse stair.
 
-## Root-cause fixes now implemented
+## Current implementation
 ### MiMi Profile / Gift Log
-- Canonical `assets/mimi_walk.png`, native 32x48 frames, no new asset.
-- Exact `AnimatedSprite.draw(SpriteBatch, Vector2, float)` overload is intercepted only for the active MiMi ProfileMenu sprite.
-- Vanilla 4x draw is replaced with a centered 2x draw, i.e. 50% relative size.
-- World sprite and other NPC/menu draws are untouched.
+- Canonical `assets/mimi_walk.png`, native 32x48 frames, no new image/animation.
+- Exact `AnimatedSprite.draw(SpriteBatch, Vector2, float)` overload is intercepted.
+- Scale gating no longer depends on `MimiProfileActive`, current-menu state, or `_animatedSprite` reference equality.
+- MiMi is detected directly from her profile/world character texture names and the vanilla 4x profile draw is replaced with a centered 2x draw (50%).
+- World MiMi uses a different AnimatedSprite draw overload and remains unchanged.
 
 ### WizardHouse stair
-- Approved anchor remains `(8,15)`.
-- No `DrawStairMarker`, no per-rung omission, no whole-stair hiding, no character-overlap visibility logic.
-- `mimi_attic_stairs.png` is installed as four real 16x16 tiles on the WizardHouse `Buildings` layer (x=8, y=11..14), with `Passable=T`.
-- Corresponding `Front` tiles in the single stair column are cleared; Back art is preserved.
-- Stardew now owns the draw order, so player/NPC sprites should naturally render in front of the stair while the full stair remains visible.
+- Anchor moved to `(15,15)` to match the right-wall strip beside the fireplace in the user's screenshot.
+- Stair remains four real 16x16 `Buildings` layer tiles.
+- `Passable=T` is removed, so the stair is solid and cannot be walked through.
+- No RenderedWorld stair draw, proximity hiding, slicing, fading, or disappearance logic remains.
+- Attic interaction/warp follows the same `(15,15)` anchor.
 
 ## Verified build
-- workflow run: `34057497198` SUCCESS
-- job: `101551951323` SUCCESS
-- materialized source commit: `a46c507b116f052c67cd66c1cafcbfb03ab74e9b`
-- artifact ID: `9996411295`
-- outer artifact digest: `sha256:a4c00ed9e65e93ce1f73ad79be6b8e89acf6d3a9c04448b3da359b7c02037fa9`
-- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.15_MiMiDirectScaleStairMap_TEST.zip`
-- package SHA-256: `eaa32dde60c1b2a1c9d6ebc81e5250d56aa1ef5b341c81f39c5325da82a4a04b`
-- compiled DLL size: `763392` bytes
+- workflow run: `34071322412` SUCCESS
+- job: `101589087127` SUCCESS
+- materialized source commit: `46efd58e7739962b3196815d553768d93b6964d9`
+- artifact ID: `10000553550`
+- outer artifact digest: `sha256:11f3d739ad531c5ead3f2dbd66aa9198cd14889a74760dc60f959b36f14e17a9`
+- package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.16_MiMiScale50_StairWallBlock_TEST.zip`
+- package SHA-256: `397a02cf79d325cb04f1585510eb83ca8a86f50d766694b0431b3ab01b2a5328`
+- compiled DLL size: `762880` bytes
 
 ## Locked canon / regression guard
 - Save schema 19.
@@ -49,8 +48,8 @@ Read this FIRST when resuming from another chat:
 - Locked `airship_visual.png` SHA remains `1821ee869759a924f7ff2b6821aaeb64b80a000d84c46f207a578d3a1e771132`.
 - Airship route remains `Forest -> Cardcha_SkyDockInterior -> Cardcha_AirshipDeck`.
 - Airship upgrade costs/levels/save fields and deferred gameplay bonuses unchanged.
-- MiMi HOME/TV/LATE routine test preview, attic layout, progression and portrait architecture remain intact.
+- MiMi HOME/TV/LATE routine, attic layout, progression, portrait architecture, save schema and card canon remain intact.
 - Canonical `mimi_walk.png` SHA remains `04ff1cbf031c2be0a21f114b8f8eb6f8850bb800eeabd4c27df036d7b23d4fb7`.
 
 ## Next acceptance
-Replace the old Cardcha folder completely and restart SMAPI. Test MiMi's `Danh Sách Quà Tặng` / Profile first: she should be exactly half the previous visual size and centered in the frame. Then walk toward/across/away from the WizardHouse stair: it must remain fully visible at all distances, with the player naturally appearing in front of it. No slicing, fading or disappearance is acceptable.
+Replace the old Cardcha folder completely and restart SMAPI. Test MiMi's `Danh Sách Quà Tặng` first: she should visibly shrink to 50% and remain centered. Then test the WizardHouse stair: it should sit at the right wall, remain fully visible, block walking through it, and still allow attic interaction from in front of the stair.
