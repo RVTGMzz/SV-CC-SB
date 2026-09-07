@@ -1,0 +1,170 @@
+name: Cardcha alpha28.0.4.14.4.5.12.20 TMX Runtime Compat Fix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0653-tmx-runtime-compat-fix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0653 TMX runtime fix
+        run: python3 tools/alpha28_0653_tmx_runtime_compat_fix.py
+
+      - name: Validate strict TMXTile CSV contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET, subprocess
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.20'
+          manifest = json.loads((root/'manifest.json').read_text())
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          target_paths = [
+              root/'assets/region1_rooms/room_1_verdant_clearing.tmx',
+              root/'assets/region1_rooms/room_2_moss_creek.tmx',
+              root/'assets/region1_rooms/room_3_old_ruins.tmx',
+              root/'assets/region1_rooms/room_4_briar_thicket.tmx',
+              root/'assets/region1_rooms/room_5_hollow_grove.tmx',
+              root/'assets/region1_rooms/room_6_card_shrine.tmx',
+              root/'assets/verdant_guardian_arena.tmx',
+          ]
+          assert all(p.exists() for p in target_paths)
+
+          checked_layers = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  values = []
+                  for i, token in enumerate(tokens):
+                      s = token.strip()
+                      assert s != '', f'{tmx}: empty CSV token layer={layer.attrib.get("name")} index={i}'
+                      n = int(s)
+                      assert 0 <= n <= 0xFFFFFFFF, f'{tmx}: UInt32 overflow: {s}'
+                      values.append(n)
+                  expected = int(layer.attrib['width']) * int(layer.attrib['height'])
+                  assert len(values) == expected, f'{tmx}: {layer.attrib.get("name")} tiles={len(values)} expected={expected}'
+                  checked_layers += 1
+
+          assert checked_layers >= 21
+
+          # Confirm the exact real-world failure shape is gone from all seven affected maps.
+          for p in target_paths:
+              text = p.read_text()
+              assert ',\n</data>' not in text, f'trailing final CSV comma survived: {p}'
+
+          # This hotfix must remain format-only apart from version/handoff/CI plumbing.
+          changed = subprocess.check_output([
+              'git','diff','--name-only','origin/cardcha-alpha28-0652-verdant-visual-prototype'
+          ], text=True).splitlines()
+          allowed = {
+              'tools/alpha28_0653_tmx_runtime_compat_fix.py',
+              '.github/workflows/cardcha-alpha28-0653-tmx-runtime-compat-fix.yml',
+              'src/Cardcha/manifest.json',
+              'src/Cardcha/Cardcha.csproj',
+              'src/Cardcha/Directory.Build.targets',
+              'src/Cardcha/assets/region1_rooms/room_1_verdant_clearing.tmx',
+              'src/Cardcha/assets/region1_rooms/room_2_moss_creek.tmx',
+              'src/Cardcha/assets/region1_rooms/room_3_old_ruins.tmx',
+              'src/Cardcha/assets/region1_rooms/room_4_briar_thicket.tmx',
+              'src/Cardcha/assets/region1_rooms/room_5_hollow_grove.tmx',
+              'src/Cardcha/assets/region1_rooms/room_6_card_shrine.tmx',
+              'src/Cardcha/assets/verdant_guardian_arena.tmx',
+              'handoff/ALPHA28_0653_TMX_RUNTIME_COMPAT_FIX.md',
+              'handoff/LATEST_CARDCHA_HANDOFF.md',
+          }
+          unexpected = [p for p in changed if p not in allowed]
+          assert not unexpected, f'unexpected 0653 changes: {unexpected}'
+
+          print(f'0653 strict TMXTile CSV validator PASS; checked {checked_layers} CSV layer(s)')
+          print('Six Hunt Run rooms + Verdant Guardian arena contain no empty final CSV token')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.20 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.20 TMX runtime compatibility fix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0653-tmx-runtime-compat-fix
+          fi
+
+      - name: Package .5.12.20 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.20_TMXRuntimeCompatFix_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import io, json, xml.etree.ElementTree as ET, zipfile
+
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.20_TMXRuntimeCompatFix_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.20'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              rooms = sorted(n for n in f.namelist() if n.startswith('Cardcha/assets/region1_rooms/') and n.endswith('.tmx'))
+              assert len(rooms) == 6, rooms
+              targets = rooms + ['Cardcha/assets/verdant_guardian_arena.tmx']
+              for name in targets:
+                  root = ET.fromstring(f.read(name))
+                  for layer in root.findall('layer'):
+                      data = layer.find('data')
+                      if data is None or data.attrib.get('encoding') != 'csv':
+                          continue
+                      tokens = (data.text or '').split(',')
+                      values = [int(token.strip()) for token in tokens if token.strip()]
+                      assert len(values) == len(tokens), f'{name}: packaged empty CSV token'
+                      expected = int(layer.attrib['width']) * int(layer.attrib['height'])
+                      assert len(values) == expected, f'{name}: packaged tile count mismatch'
+          print('Final .5.12.20 package TMX runtime audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0653-tmx-runtime-compat-fix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.20_TMXRuntimeCompatFix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.20_TMXRuntimeCompatFix_TEST.zip.sha256
+          if-no-files-found: error
