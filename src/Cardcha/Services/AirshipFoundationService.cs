@@ -40,6 +40,7 @@ internal sealed class AirshipFoundationService
     private const int Region1CheckpointNodeB = 6;
     private const int Region1BossBranchMinNode = 7;
     private const string Region1EliteMarkerKey = "Ronvotri.Cardcha/Region1Elite";
+    private const string Region1EliteAffixMarkerKey = "Ronvotri.Cardcha/Region1EliteAffix";
     private const string Region1RootNestMarkerKey = "Ronvotri.Cardcha/Region1RootNest";
 
     private enum Region1RunEncounterType
@@ -48,7 +49,29 @@ internal sealed class AirshipFoundationService
         Ambush,
         Elite,
         RootNest,
-        Shrine
+        Shrine,
+        LostCache,
+        Moonwell,
+        AncientEcho
+    }
+
+    private enum Region1EliteAffix
+    {
+        ThornAura,
+        Swift,
+        Regrowth,
+        Bulwark,
+        Infested,
+        Resonant
+    }
+
+    private enum Region1DailyMutation
+    {
+        CalmGrove,
+        BriarBloom,
+        MoonlitGrove,
+        Overgrown,
+        ChaoticResonance
     }
 
     private enum Region1RunRouteKind
@@ -167,6 +190,8 @@ internal sealed class AirshipFoundationService
     private readonly HashSet<int> Region1RunRewardedSteps = new();
     private int Region1RunUnbankedScrap;
     private int Region1RunUnbankedShiny;
+    private long Region1EliteAuraNextAtMs;
+    private int Region1RunRareRoomsSeen;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
@@ -271,6 +296,14 @@ internal sealed class AirshipFoundationService
             && CountRegion1MarkedMonsters(activeRunRoom) == 0)
         {
             this.HandleRegion1RunNodeCleared(activeRunRoom);
+        }
+
+        if (this.Region1RunActive
+            && activeRunRoom is not null
+            && TryGetRegion1RunRoomIndex(activeRunRoom, out _)
+            && e.IsMultipleOf(60))
+        {
+            this.UpdateRegion1EliteAffixes(activeRunRoom, now);
         }
 
         // Cardcha-owned portal lanes behave like real exits: walk onto the endpoint and transition.
@@ -466,6 +499,14 @@ internal sealed class AirshipFoundationService
             }
 
             this.PopulateRegion1RunRoom(e.NewLocation, roomIndex);
+            if (this.Region1RunStep == 0)
+            {
+                Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
+                Game1.showGlobalMessage(ModEntry.T("airship.region1.run.mutation.banner", new
+                {
+                    mutation = ModEntry.T($"airship.region1.run.mutation.{MutationKey(mutation)}.name")
+                }));
+            }
             string encounter = ModEntry.T($"airship.region1.run.encounter.{this.Region1RunEncounters[this.Region1RunStep].ToString().ToLowerInvariant()}");
             Game1.showGlobalMessage(
                 ModEntry.T(
@@ -796,6 +837,8 @@ internal sealed class AirshipFoundationService
         this.Region1RunRewardedSteps.Clear();
         this.Region1RunUnbankedScrap = 0;
         this.Region1RunUnbankedShiny = 0;
+        this.Region1EliteAuraNextAtMs = 0;
+        this.Region1RunRareRoomsSeen = 0;
     }
 
     private GameLocation? BeginRegion1HuntRun()
@@ -952,6 +995,46 @@ internal sealed class AirshipFoundationService
         int nodeNumber = this.Region1RunStep + 1;
         Region1RunRouteKind routeKind = this.Region1RunRouteKinds[this.Region1RunStep];
         Region1RunEncounterType encounter = this.Region1RunEncounters[this.Region1RunStep];
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
+
+        if (encounter is Region1RunEncounterType.LostCache or Region1RunEncounterType.Moonwell or Region1RunEncounterType.AncientEcho)
+            this.Region1RunRareRoomsSeen++;
+
+        switch (encounter)
+        {
+            case Region1RunEncounterType.LostCache:
+                this.Region1RunUnbankedScrap += 4;
+                this.Region1RunUnbankedShiny += 1;
+                break;
+            case Region1RunEncounterType.Moonwell:
+                Game1.player.health = Math.Min(Game1.player.maxHealth, Game1.player.health + Math.Max(12, (int)Math.Round(Game1.player.maxHealth * 0.30d)));
+                this.BankRegion1RunRewards("moonwell");
+                break;
+            case Region1RunEncounterType.AncientEcho:
+                this.Region1RunUnbankedScrap += 3;
+                this.Region1RunUnbankedShiny += 1;
+                break;
+        }
+
+        switch (mutation)
+        {
+            case Region1DailyMutation.Overgrown:
+                this.Region1RunUnbankedScrap++;
+                break;
+            case Region1DailyMutation.BriarBloom:
+                if (encounter is Region1RunEncounterType.Elite or Region1RunEncounterType.RootNest or Region1RunEncounterType.AncientEcho)
+                    this.Region1RunUnbankedScrap++;
+                break;
+            case Region1DailyMutation.MoonlitGrove:
+                Random moonlit = new(unchecked(this.Region1RunSeed + nodeNumber * 2147483 + Game1.Date.TotalDays));
+                if (moonlit.NextDouble() < 0.25d)
+                    this.Region1RunUnbankedShiny++;
+                break;
+            case Region1DailyMutation.ChaoticResonance:
+                if (encounter is Region1RunEncounterType.Elite or Region1RunEncounterType.AncientEcho)
+                    this.Region1RunUnbankedScrap++;
+                break;
+        }
 
         if (routeKind is Region1RunRouteKind.Briar or Region1RunRouteKind.Ancient)
             this.Region1RunUnbankedScrap++;
@@ -979,7 +1062,8 @@ internal sealed class AirshipFoundationService
             Game1.showGlobalMessage(ModEntry.T("airship.region1.run.checkpoint", new { node = nodeNumber }));
         }
 
-        bool boonMilestone = nodeNumber == 2 || nodeNumber == 5 || nodeNumber == 8;
+        bool boonMilestone = nodeNumber == 2 || nodeNumber == 5 || nodeNumber == 8
+            || (mutation == Region1DailyMutation.ChaoticResonance && (nodeNumber == 4 || nodeNumber == 7));
         if (boonMilestone || encounter == Region1RunEncounterType.Shrine)
             this.PrepareRegion1RunBoonChoices();
 
@@ -1058,7 +1142,35 @@ internal sealed class AirshipFoundationService
 
     private Region1RunEncounterType RollRegion1Encounter(Region1RunRouteKind route, int nodeIndex)
     {
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
         Random random = new(unchecked(this.Region1RunSeed + (nodeIndex + 1) * 32452843 + (int)route * 49999));
+
+        if (nodeIndex >= 3)
+        {
+            int rareChance = mutation switch
+            {
+                Region1DailyMutation.ChaoticResonance => 18,
+                Region1DailyMutation.MoonlitGrove => 16,
+                _ => 11
+            };
+            if (random.Next(100) < rareChance)
+            {
+                int rare = random.Next(100);
+                return route switch
+                {
+                    Region1RunRouteKind.Ancient => rare < 45 ? Region1RunEncounterType.LostCache
+                        : rare < 76 ? Region1RunEncounterType.Moonwell
+                        : Region1RunEncounterType.AncientEcho,
+                    Region1RunRouteKind.Briar => rare < 32 ? Region1RunEncounterType.LostCache
+                        : rare < 50 ? Region1RunEncounterType.Moonwell
+                        : Region1RunEncounterType.AncientEcho,
+                    _ => rare < 44 ? Region1RunEncounterType.Moonwell
+                        : rare < 82 ? Region1RunEncounterType.LostCache
+                        : Region1RunEncounterType.AncientEcho,
+                };
+            }
+        }
+
         int roll = random.Next(100);
         return route switch
         {
@@ -1124,13 +1236,14 @@ internal sealed class AirshipFoundationService
     private void PopulateRegion1RunRoom(GameLocation location, int roomIndex)
     {
         this.ClearRegion1MarkedMonsters(location);
+        this.Region1EliteAuraNextAtMs = 0;
         if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunEncounters.Length)
             return;
 
         Region1RunEncounterType encounter = this.Region1RunEncounters[this.Region1RunStep];
-        if (encounter == Region1RunEncounterType.Shrine)
+        if (encounter is Region1RunEncounterType.Shrine or Region1RunEncounterType.LostCache or Region1RunEncounterType.Moonwell)
         {
-            this.Monitor.Log($"Region I Hunt Run node {this.Region1RunStep + 1}: Ancient Shrine, no combat spawn.", LogLevel.Trace);
+            this.Monitor.Log($"Region I Hunt Run node {this.Region1RunStep + 1}: {encounter}, no combat spawn.", LogLevel.Trace);
             return;
         }
 
@@ -1147,16 +1260,23 @@ internal sealed class AirshipFoundationService
         int encounterSeed = unchecked(this.Region1RunSeed + roomIndex * 104729 + Math.Max(0, this.Region1RunStep) * 8191);
         Random random = new(encounterSeed);
         Point[] shuffled = roomCandidates[roomIndex].OrderBy(_ => random.Next()).ToArray();
+        bool eliteEncounter = encounter is Region1RunEncounterType.Elite or Region1RunEncounterType.AncientEcho;
+        Region1EliteAffix eliteAffix = eliteEncounter ? this.RollRegion1EliteAffix(this.Region1RunStep) : Region1EliteAffix.ThornAura;
         int targetCount = encounter switch
         {
             Region1RunEncounterType.Combat => random.Next(5, 8),
             Region1RunEncounterType.Ambush => random.Next(8, 11),
             Region1RunEncounterType.Elite => 4,
             Region1RunEncounterType.RootNest => 6,
+            Region1RunEncounterType.AncientEcho => 3,
             _ => 0
         };
-        int spawned = 0;
+        if (eliteEncounter && eliteAffix == Region1EliteAffix.Infested)
+            targetCount += 2;
+        if (this.ResolveRegion1DailyMutation() == Region1DailyMutation.CalmGrove && targetCount > 3)
+            targetCount--;
 
+        int spawned = 0;
         foreach (Point tile in shuffled)
         {
             if (spawned >= targetCount)
@@ -1174,11 +1294,16 @@ internal sealed class AirshipFoundationService
             }
 
             Monster monster;
-            if (encounter == Region1RunEncounterType.Elite && spawned == 0)
+            if (eliteEncounter && spawned == 0)
             {
-                GreenSlime elite = new(tileVector * 64f, 0) { MaxHealth = 210 + this.Region1RunStep * 16, Speed = 3 };
+                int baseHp = 210 + this.Region1RunStep * 16;
+                if (encounter == Region1RunEncounterType.AncientEcho)
+                    baseHp = (int)Math.Round(baseHp * 1.20d);
+                GreenSlime elite = new(tileVector * 64f, 0) { MaxHealth = baseHp, Speed = 3 };
                 elite.Health = elite.MaxHealth;
                 elite.modData[Region1EliteMarkerKey] = "1";
+                elite.modData[Region1EliteAffixMarkerKey] = eliteAffix.ToString();
+                this.ApplyRegion1EliteAffix(elite, eliteAffix);
                 monster = elite;
             }
             else if (encounter == Region1RunEncounterType.RootNest && spawned < 3)
@@ -1191,18 +1316,138 @@ internal sealed class AirshipFoundationService
             else
             {
                 monster = CreateRegion1RunMonster(roomIndex, random.Next(100), tileVector * 64f);
+                if (eliteEncounter && eliteAffix == Region1EliteAffix.Resonant)
+                {
+                    monster.Speed += 1;
+                    monster.MaxHealth = Math.Max(1, (int)Math.Round(monster.MaxHealth * 1.15d));
+                    monster.Health = monster.MaxHealth;
+                }
             }
 
             monster.modData[Region1MonsterMarkerKey] = "huntrun2";
+            this.ApplyRegion1DailyMutationToMonster(monster);
             location.characters.Add(monster);
             spawned++;
         }
 
         this.Monitor.Log(
-            $"Region I Hunt Run 2.0 node {this.Region1RunStep + 1}/{this.Region1RunTargetNodes}: room={roomIndex + 1}, encounter={encounter}, spawned={spawned}.",
+            $"Region I Hunt Run 2.0 node {this.Region1RunStep + 1}/{this.Region1RunTargetNodes}: room={roomIndex + 1}, encounter={encounter}, eliteAffix={(eliteEncounter ? eliteAffix : "none")}, mutation={this.ResolveRegion1DailyMutation()}, spawned={spawned}.",
             LogLevel.Trace
         );
     }
+
+    private Region1EliteAffix RollRegion1EliteAffix(int nodeIndex)
+    {
+        Region1EliteAffix[] pool = Enum.GetValues<Region1EliteAffix>();
+        int seed = unchecked(this.Region1RunSeed + (nodeIndex + 1) * 67867967 + Game1.Date.TotalDays * 97);
+        return pool[new Random(seed).Next(pool.Length)];
+    }
+
+    private void ApplyRegion1EliteAffix(Monster elite, Region1EliteAffix affix)
+    {
+        switch (affix)
+        {
+            case Region1EliteAffix.ThornAura:
+                elite.MaxHealth = Math.Max(1, (int)Math.Round(elite.MaxHealth * 1.10d));
+                break;
+            case Region1EliteAffix.Swift:
+                elite.Speed += 2;
+                break;
+            case Region1EliteAffix.Regrowth:
+                elite.MaxHealth = Math.Max(1, (int)Math.Round(elite.MaxHealth * 1.15d));
+                break;
+            case Region1EliteAffix.Bulwark:
+                elite.MaxHealth = Math.Max(1, (int)Math.Round(elite.MaxHealth * 1.60d));
+                elite.Speed = Math.Max(1, elite.Speed - 1);
+                break;
+            case Region1EliteAffix.Infested:
+                elite.MaxHealth = Math.Max(1, (int)Math.Round(elite.MaxHealth * 1.15d));
+                break;
+            case Region1EliteAffix.Resonant:
+                elite.MaxHealth = Math.Max(1, (int)Math.Round(elite.MaxHealth * 1.25d));
+                break;
+        }
+        elite.Health = elite.MaxHealth;
+    }
+
+    private void ApplyRegion1DailyMutationToMonster(Monster monster)
+    {
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
+        bool rootNest = monster.modData.ContainsKey(Region1RootNestMarkerKey);
+        bool elite = monster.modData.ContainsKey(Region1EliteMarkerKey);
+        double hpScale = mutation switch
+        {
+            Region1DailyMutation.CalmGrove => 0.90d,
+            Region1DailyMutation.BriarBloom when elite || rootNest => 1.20d,
+            Region1DailyMutation.Overgrown => 1.15d,
+            Region1DailyMutation.ChaoticResonance => 1.10d,
+            _ => 1.00d
+        };
+        monster.MaxHealth = Math.Max(1, (int)Math.Round(monster.MaxHealth * hpScale));
+        monster.Health = monster.MaxHealth;
+
+        if (!rootNest && mutation == Region1DailyMutation.MoonlitGrove && monster is Bat)
+            monster.Speed += 1;
+        if (!rootNest && mutation == Region1DailyMutation.ChaoticResonance)
+            monster.Speed += 1;
+    }
+
+    private void UpdateRegion1EliteAffixes(GameLocation room, long now)
+    {
+        foreach (Monster elite in room.characters.OfType<Monster>().Where(m => m.Health > 0 && m.modData.ContainsKey(Region1EliteMarkerKey)))
+        {
+            if (!elite.modData.TryGetValue(Region1EliteAffixMarkerKey, out string? raw)
+                || !Enum.TryParse(raw, ignoreCase: true, out Region1EliteAffix affix))
+            {
+                continue;
+            }
+
+            if (affix == Region1EliteAffix.Regrowth && elite.Health < elite.MaxHealth)
+            {
+                int heal = Math.Max(2, elite.MaxHealth / 40);
+                elite.Health = Math.Min(elite.MaxHealth, elite.Health + heal);
+            }
+
+            if (affix == Region1EliteAffix.ThornAura && now >= this.Region1EliteAuraNextAtMs)
+            {
+                Vector2 eliteCenter = elite.Position + new Vector2(32f, 32f);
+                Vector2 playerCenter = Game1.player.Position + new Vector2(32f, 32f);
+                if (Vector2.Distance(eliteCenter, playerCenter) <= 112f)
+                {
+                    this.Region1EliteAuraNextAtMs = now + 1200L;
+                    Game1.player.takeDamage(3, false, elite);
+                    Game1.playSound("leafrustle");
+                }
+            }
+        }
+    }
+
+    private Region1DailyMutation ResolveRegion1DailyMutation()
+    {
+        Region1DailyMutation[] values = Enum.GetValues<Region1DailyMutation>();
+        int seed = unchecked((int)Game1.uniqueIDForThisGame + Game1.Date.TotalDays * 1009 + 17041);
+        int index = (int)((uint)seed % (uint)values.Length);
+        return values[index];
+    }
+
+    private static string MutationKey(Region1DailyMutation mutation) => mutation switch
+    {
+        Region1DailyMutation.CalmGrove => "calm_grove",
+        Region1DailyMutation.BriarBloom => "briar_bloom",
+        Region1DailyMutation.MoonlitGrove => "moonlit_grove",
+        Region1DailyMutation.Overgrown => "overgrown",
+        _ => "chaotic_resonance"
+    };
+
+    private static string EliteAffixKey(Region1EliteAffix affix) => affix switch
+    {
+        Region1EliteAffix.ThornAura => "thorn_aura",
+        Region1EliteAffix.Swift => "swift",
+        Region1EliteAffix.Regrowth => "regrowth",
+        Region1EliteAffix.Bulwark => "bulwark",
+        Region1EliteAffix.Infested => "infested",
+        _ => "resonant"
+    };
 
     private static Monster CreateRegion1RunMonster(int roomIndex, int roll, Vector2 position)
         => roomIndex switch
@@ -1240,10 +1485,25 @@ internal sealed class AirshipFoundationService
         string route = this.Region1RunStep >= 0 && this.Region1RunStep < this.Region1RunRouteKinds.Length
             ? this.Region1RunRouteKinds[this.Region1RunStep].ToString()
             : "none";
+        string affix = "none";
+        Monster? elite = Game1.currentLocation?.characters.OfType<Monster>().FirstOrDefault(m => m.Health > 0 && m.modData.ContainsKey(Region1EliteMarkerKey));
+        if (elite is not null && elite.modData.TryGetValue(Region1EliteAffixMarkerKey, out string? currentAffix))
+            affix = currentAffix;
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
         return $"HuntRun2 Active={this.Region1RunActive} | Node={Math.Max(0, this.Region1RunStep + 1)}/{this.Region1RunTargetNodes} | " +
-               $"Encounter={encounter} | Route={route} | Boons=[{string.Join(',', this.Region1RunBoons)}] | " +
-               $"AwaitingBoon={this.Region1RunAwaitingBoon} | Unbanked={this.Region1RunUnbankedScrap} Scrap + {this.Region1RunUnbankedShiny} Shiny | " +
+               $"Encounter={encounter} | Route={route} | Mutation={mutation} | EliteAffix={affix} | RareSeen={this.Region1RunRareRoomsSeen} | " +
+               $"Boons=[{string.Join(',', this.Region1RunBoons)}] | AwaitingBoon={this.Region1RunAwaitingBoon} | " +
+               $"Unbanked={this.Region1RunUnbankedScrap} Scrap + {this.Region1RunUnbankedShiny} Shiny | " +
                $"BossBranch={(this.Region1RunStep + 1 >= Region1BossBranchMinNode)} | Seed={this.Region1RunSeed}";
+    }
+
+    public string DescribeHuntAdvanced()
+    {
+        if (!Context.IsWorldReady)
+            return "HuntRunAdvanced=<no save>";
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
+        return $"DailyMutation={mutation} | Name={ModEntry.T($"airship.region1.run.mutation.{MutationKey(mutation)}.name")} | " +
+               $"RareRoomsSeen={this.Region1RunRareRoomsSeen} | Run={this.DescribeHuntRun2()}";
     }
 
     public string DebugClearHuntRunNode()
@@ -1259,6 +1519,30 @@ internal sealed class AirshipFoundationService
     {
         if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes)
             return;
+
+        Region1DailyMutation mutation = this.ResolveRegion1DailyMutation();
+        string mutationLabel = "MUTATION • " + ModEntry.T($"airship.region1.run.mutation.{MutationKey(mutation)}.name");
+        batch.DrawString(Game1.smallFont, mutationLabel, new Vector2(24f, 78f), new Color(208, 235, 184));
+
+        foreach (Monster elite in room.characters.OfType<Monster>().Where(m => m.Health > 0 && m.modData.ContainsKey(Region1EliteMarkerKey)))
+        {
+            if (!elite.modData.TryGetValue(Region1EliteAffixMarkerKey, out string? raw)
+                || !Enum.TryParse(raw, ignoreCase: true, out Region1EliteAffix affix))
+            {
+                continue;
+            }
+            Point tile = new((int)(elite.Position.X / 64f), (int)(elite.Position.Y / 64f));
+            DrawRunChoiceMarker(batch, tile, EliteAffixColor(affix), ModEntry.T($"airship.region1.run.affix.{EliteAffixKey(affix)}.name"));
+        }
+
+        Region1RunEncounterType currentEncounter = this.Region1RunEncounters[this.Region1RunStep];
+        if (currentEncounter is Region1RunEncounterType.LostCache or Region1RunEncounterType.Moonwell or Region1RunEncounterType.AncientEcho)
+        {
+            int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+            int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
+            Point rareTile = new(width / 2, Math.Max(5, height / 2));
+            DrawRunChoiceMarker(batch, rareTile, RareEncounterColor(currentEncounter), ModEntry.T($"airship.region1.run.rare.{currentEncounter.ToString().ToLowerInvariant()}.name"));
+        }
 
         foreach (Monster nest in room.characters.OfType<Monster>().Where(m => m.Health > 0 && m.modData.ContainsKey(Region1RootNestMarkerKey)))
         {
@@ -1309,6 +1593,24 @@ internal sealed class AirshipFoundationService
         Region1RunRouteKind.Moss => new Color(113, 198, 118),
         Region1RunRouteKind.Briar => new Color(202, 117, 104),
         _ => new Color(139, 177, 224)
+    };
+
+
+    private static Color EliteAffixColor(Region1EliteAffix affix) => affix switch
+    {
+        Region1EliteAffix.ThornAura => new Color(211, 104, 112),
+        Region1EliteAffix.Swift => new Color(235, 218, 108),
+        Region1EliteAffix.Regrowth => new Color(107, 220, 129),
+        Region1EliteAffix.Bulwark => new Color(145, 169, 184),
+        Region1EliteAffix.Infested => new Color(191, 131, 215),
+        _ => new Color(95, 210, 202)
+    };
+
+    private static Color RareEncounterColor(Region1RunEncounterType encounter) => encounter switch
+    {
+        Region1RunEncounterType.LostCache => new Color(232, 199, 94),
+        Region1RunEncounterType.Moonwell => new Color(116, 181, 236),
+        _ => new Color(184, 125, 229)
     };
 
     private static void DrawRunChoiceMarker(SpriteBatch batch, Point tile, Color color, string label)
