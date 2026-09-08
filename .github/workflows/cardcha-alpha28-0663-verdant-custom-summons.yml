@@ -1,0 +1,215 @@
+name: Cardcha alpha28.0.4.14.4.5.12.30 Verdant Custom Summons
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0663-verdant-custom-summons ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install generator deps
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Generate 0663 Verdant custom summons
+        run: python3 tools/alpha28_0663_verdant_custom_summons.py
+
+      - name: Validate 0663 acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.30'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
+          for token in [
+              'BossAddTypeKey = "Ronvotri.Cardcha/VerdantGuardianAddType"',
+              'BriarlingId = "briarling"',
+              'LeafWispId = "leaf_wisp"',
+              'PrepareSummonPlan()',
+              'add.isInvisible.Value = true;',
+              'Phase == 1 ? 2 : 3',
+              'MaxActiveAdds - living',
+              'add.MaxHealth = this.Phase switch { 1 => 55, 2 => 75, _ => 95 };',
+              'add.MaxHealth = this.Phase switch { 1 => 38, 2 => 52, _ => 68 };',
+              'DebugSummonWave()',
+          ]:
+              assert token in boss, token
+          assert 'private const int MaxActiveAdds = 4;' in boss
+          assert 'VerdantGuardianAttack.SummonAdds => phase switch { 1 => 16000, 2 => 14000, _ => 12500 }' in boss
+
+          summon_visual = (root/'Services/VerdantGuardianSummonVisualService.cs').read_text()
+          for token in [
+              'briarling.png', 'leaf_wisp.png', 'summon_portal.png',
+              'VisualSummonTargets', 'VisualSummonKinds', 'VisualAdds',
+              'CustomSummons=ON', 'ProxyArtHidden=ON'
+          ]:
+              assert token in summon_visual, token
+
+          asset_dir = root/'assets/bosses/verdant_guardian/summons'
+          expected = {
+              'briarling.png': (128,128),
+              'leaf_wisp.png': (128,128),
+              'summon_portal.png': (128,32),
+          }
+          for name, size in expected.items():
+              p = asset_dir/name
+              assert p.exists() and p.stat().st_size > 250, name
+              with Image.open(p) as im:
+                  assert im.size == size, (name, im.size)
+                  assert im.mode == 'RGBA'
+                  assert im.getbbox() is not None
+
+          mod = (root/'ModEntry.cs').read_text()
+          assert 'VerdantGuardianSummonVisualService VerdantSummons' in mod
+          assert 'cardcha_boss1_summons' in mod
+          assert '0.3.0-alpha.28.0.4.14.4.5.12.30 VERDANT CUSTOM SUMMONS TEST' in mod
+
+          # Preserve 0660 Colossus, 0661 Boss Card, 0662 Guardian Rabbit locks.
+          visual = (root/'Services/VerdantGuardianVisualService.cs').read_text()
+          assert 'private const float DrawScale = 8f;' in visual
+          assert 'private const int DefeatSequenceDurationMs = 2200;' in boss
+          assert 'private Vector2 HeavyAnchor;' in boss
+          boss_card = (root/'Services/BossCardService.cs').read_text()
+          assert 'public const string VerdantCoreId = "verdant_core";' in boss_card
+          assert 'public const double VerdantDamageReduction = 0.35d;' in boss_card
+          form = (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'public const string GuardianRabbitFormId = "guardian_rabbit";' in form
+          assert 'public const int BossFormDurationMs = 10000;' in form
+          assert 'GuardianRootPulseIntervalMs = 2000' in form
+          energy = (root/'Services/BossEnergyService.cs').read_text()
+          assert 'public const double EnergyGainScale = 1d / 3d;' in energy
+          assert 'public const double MaxEnergy = 100d;' in energy
+
+          save = (root/'Models/SaveData.cs').read_text()
+          assert 'SchemaVersion { get; set; } = 19;' in save
+          cards = json.loads((root/'assets/cards.json').read_text())
+          legacy_mythic = {'endless_hunt', 'fate_weaver', 'immortal_echo', 'worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
+
+          for lang in ['default.json', 'vi.json']:
+              data = json.loads((root/'i18n'/lang).read_text())
+              for key in [
+                  'boss.verdant.summon.briarling.name',
+                  'boss.verdant.summon.briarling.desc',
+                  'boss.verdant.summon.leaf-wisp.name',
+                  'boss.verdant.summon.leaf-wisp.desc',
+              ]:
+                  assert key in data, (lang,key)
+
+          # Preserve MiMi stair/profile/CC continuity and strict TMX contract.
+          home = (root/'Services/MimiHomeService.cs').read_text()
+          assert 'ResolvePreferredWizardStairTile' in home
+          assert 'bool rightIsBoundary' in home
+          profile = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          assert 'DrawScale=vanilla-4x' in profile
+          vi = json.loads((root/'i18n/vi.json').read_text())
+          assert 'trú mưa' in vi['mimi.social.community-center']
+
+          checked_layers = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  vals = []
+                  for i, token in enumerate(tokens):
+                      s = token.strip()
+                      assert s != '', f'{tmx}: empty CSV token layer={layer.attrib.get("name")} index={i}'
+                      vals.append(int(s))
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+                  checked_layers += 1
+          assert checked_layers >= 21
+          print(f'0663 validator PASS; summons=2 customTypes baseCards=80 active=76 TMXLayers={checked_layers}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.30 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.30 Verdant custom summons [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0663-verdant-custom-summons
+          fi
+
+      - name: Package .5.12.30 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.30_VerdantCustomSummons_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, xml.etree.ElementTree as ET
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.30_VerdantCustomSummons_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.30'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              for name in [
+                  'Cardcha/assets/bosses/verdant_guardian/summons/briarling.png',
+                  'Cardcha/assets/bosses/verdant_guardian/summons/leaf_wisp.png',
+                  'Cardcha/assets/bosses/verdant_guardian/summons/summon_portal.png',
+              ]:
+                  assert len(f.read(name)) > 250, name
+              for name in [n for n in f.namelist() if n.endswith('.tmx')]:
+                  map_root = ET.fromstring(f.read(name))
+                  for layer in map_root.findall('layer'):
+                      data = layer.find('data')
+                      if data is None or data.attrib.get('encoding') != 'csv':
+                          continue
+                      tokens = (data.text or '').split(',')
+                      vals = [int(t.strip()) for t in tokens if t.strip()]
+                      assert len(vals) == len(tokens), f'{name}: packaged empty CSV token'
+                      assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+          print('Final .5.12.30 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0663-verdant-custom-summons
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.30_VerdantCustomSummons_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.30_VerdantCustomSummons_TEST.zip.sha256
+          if-no-files-found: error
