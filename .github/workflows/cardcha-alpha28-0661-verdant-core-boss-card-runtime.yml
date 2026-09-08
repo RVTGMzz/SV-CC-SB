@@ -79,9 +79,11 @@ jobs:
           assert 'SchemaVersion { get; set; } = 19;' in save
           assert 'BossCardsUnlocked' in save and 'EquippedBossCardId' in save
 
-          # Boss Card stays outside the normal card registry/canon.
+          # Boss Card stays outside the 76 currently-active normal cards and outside all 80 base IDs.
           cards = json.loads((root/'assets/cards.json').read_text())
-          assert len([c for c in cards if c.get('Enabled', True)]) == 76
+          legacy_mythic = {'endless_hunt', 'fate_weaver', 'immortal_echo', 'worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
           assert all(c.get('Id') != 'verdant_core' for c in cards)
 
           icon = root/'assets/boss_cards/verdant_core_icon.png'
@@ -141,7 +143,7 @@ jobs:
                   assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
                   checked_layers += 1
           assert checked_layers >= 21
-          print(f'0661 validator PASS; normalCards=76, strictTMXLayers={checked_layers}')
+          print(f'0661 validator PASS; baseCards=80, activeNormalCards=76, strictTMXLayers={checked_layers}')
           PY
 
       - name: Setup SMAPI build environment
