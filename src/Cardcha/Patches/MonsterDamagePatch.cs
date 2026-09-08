@@ -46,6 +46,13 @@ internal static class MonsterDamagePatch
         {
             TestArena?.TryOverrideOutgoingDamage(__instance, ref damage, isBomb, who);
 
+            // Boss I Colossus pass: weapon/team trajectories do not launch the Guardian.
+            if (__instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey))
+            {
+                xTrajectory = 0;
+                yTrajectory = 0;
+            }
+
             if (Combat is not null)
             {
                 damage = Combat.ModifyMonsterDamage(__instance, damage, isBomb, who);

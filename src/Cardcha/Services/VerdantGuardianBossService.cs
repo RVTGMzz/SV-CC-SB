@@ -53,6 +53,7 @@ internal sealed class VerdantGuardianBossService
     private const int IntroDurationMs = 1500;
     private const int PhaseTransitionDurationMs = 1600;
     private const int VictoryReturnDelayMs = 3500;
+    private const int DefeatSequenceDurationMs = 2200;
     private const int SwipeTelegraphMs = 700;
     private const int RootTelegraphMs = 900;
     private const int SummonTelegraphMs = 600;
@@ -89,6 +90,7 @@ internal sealed class VerdantGuardianBossService
     private Point[] RootTargets = Array.Empty<Point>();
     private Point VineTarget;
     private Vector2 ChargeDirection;
+    private Vector2 HeavyAnchor;
     private Random EncounterRandom = new(1);
 
     public VerdantGuardianBossService(IModHelper helper, IMonitor monitor, SaveService save, PortableMachineService portableMachine)
@@ -107,6 +109,10 @@ internal sealed class VerdantGuardianBossService
     internal int VisualPhase => this.Phase;
     internal long VisualStateStartedAtMs => this.StateStartedAtMs;
     internal Monster? VisualBoss => this.ResolveBoss();
+    internal Point[] VisualRootTargets => this.RootTargets;
+    internal Point VisualVineTarget => this.VineTarget;
+    internal Vector2 VisualChargeDirection => this.ChargeDirection;
+    internal Vector2 VisualBossCenter => BossCenter(this.ResolveBoss());
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -175,9 +181,17 @@ internal sealed class VerdantGuardianBossService
         Monster? boss = this.ResolveBoss();
         if (boss is null || boss.Health <= 0)
         {
-            this.HandleVictory(now);
+            if (this.State != VerdantGuardianState.Defeated)
+                this.BeginDefeat(now);
+            else if (now - this.StateStartedAtMs >= DefeatSequenceDurationMs)
+                this.CompleteVictory(now);
             return;
         }
+
+        // Colossus weight: normal attacks cannot shove the boss around. Only Cardcha-owned
+        // movement (Charge or phase recenter) changes HeavyAnchor.
+        if (this.State != VerdantGuardianState.Charging && this.State != VerdantGuardianState.PhaseTransition)
+            boss.Position = this.HeavyAnchor;
 
         if (this.State != VerdantGuardianState.PhaseTransition)
         {
@@ -266,6 +280,7 @@ internal sealed class VerdantGuardianBossService
                 break;
             case VerdantGuardianState.PhaseTransition:
                 boss.Position = BossSpawnPosition();
+                this.HeavyAnchor = boss.Position;
                 if (now - this.StateStartedAtMs >= PhaseTransitionDurationMs)
                 {
                     this.Phase = Math.Clamp(this.PendingPhase, 1, 3);
@@ -388,6 +403,7 @@ internal sealed class VerdantGuardianBossService
         proxy.modData[BossMarkerKey] = "verdant-guardian";
         arena.characters.Add(proxy);
         this.BossProxy = proxy;
+        this.HeavyAnchor = proxy.Position;
         this.Phase = 1;
         this.PendingPhase = 0;
         this.State = VerdantGuardianState.Intro;
@@ -476,6 +492,7 @@ internal sealed class VerdantGuardianBossService
         next.X = Math.Clamp(next.X, 3 * 64f, 24 * 64f);
         next.Y = Math.Clamp(next.Y, 3 * 64f, 15 * 64f);
         boss.Position = next;
+        this.HeavyAnchor = next;
         if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 1.15f)
         {
             this.AttackApplied = true;
@@ -518,13 +535,19 @@ internal sealed class VerdantGuardianBossService
         }
     }
 
-    private void HandleVictory(long now)
+    private void BeginDefeat(long now)
     {
-        if (this.VictoryHandled) return;
-        this.VictoryHandled = true;
+        if (this.State == VerdantGuardianState.Defeated || this.State == VerdantGuardianState.Victory) return;
         this.State = VerdantGuardianState.Defeated;
         this.StateStartedAtMs = now;
         this.RemoveAdds();
+        Game1.playSound("thudStep");
+    }
+
+    private void CompleteVictory(long now)
+    {
+        if (this.VictoryHandled) return;
+        this.VictoryHandled = true;
         bool firstClear = !this.Save.Data.Region1BossDefeated;
         if (firstClear)
         {
@@ -545,7 +568,7 @@ internal sealed class VerdantGuardianBossService
         }
         this.State = VerdantGuardianState.Victory;
         this.VictoryReturnAtMs = now + VictoryReturnDelayMs;
-        this.Monitor.Log($"Verdant Guardian defeated. firstClear={firstClear}, bossCard={BossCardId}, regionUnlock={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
+        this.Monitor.Log($"Verdant Guardian defeat sequence complete. firstClear={firstClear}, bossCard={BossCardId}, regionUnlock={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
     }
 
     private void ReturnToRegion1()
@@ -575,6 +598,7 @@ internal sealed class VerdantGuardianBossService
         this.RootTargets = Array.Empty<Point>();
         this.VineTarget = Point.Zero;
         this.ChargeDirection = Vector2.Zero;
+        this.HeavyAnchor = Vector2.Zero;
         this.CooldownUntil.Clear();
     }
 
