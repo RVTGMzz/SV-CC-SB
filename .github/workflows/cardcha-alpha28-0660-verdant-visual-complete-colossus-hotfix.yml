@@ -1,0 +1,134 @@
+name: Cardcha 0660 Verdant Colossus Hotfix Pipeline
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0660-verdant-visual-complete-colossus ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install generator deps
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Generate 0660
+        run: |
+          python3 tools/alpha28_0660_verdant_visual_complete_colossus.py
+          python3 tools/alpha28_0660_compile_hotfix.py
+
+      - name: Validate 0660
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import json, xml.etree.ElementTree as ET
+          root=Path('src/Cardcha'); version='0.3.0-alpha.28.0.4.14.4.5.12.27'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          mod=(root/'ModEntry.cs').read_text()
+          assert 'VerdantGuardianProxyDrawPatch.Apply(harmony);' in mod
+          assert 'VERDANT GUARDIAN VISUAL COMPLETE + COLOSSUS TEST",' in mod
+          visual=(root/'Services/VerdantGuardianVisualService.cs').read_text()
+          assert 'private const float DrawScale = 8f;' in visual
+          assert 'Colossus=ON' in visual and 'ProxyHidden=ON' in visual
+          boss=(root/'Services/VerdantGuardianBossService.cs').read_text()
+          for token in ['DefeatSequenceDurationMs = 2200','HeavyAnchor','BeginDefeat(now)','CompleteVictory(now)','boss.Position = this.HeavyAnchor']:
+              assert token in boss, token
+          damage=(root/'Patches/MonsterDamagePatch.cs').read_text()
+          assert 'VerdantGuardianBossService.BossMarkerKey' in damage and 'xTrajectory = 0;' in damage and 'yTrajectory = 0;' in damage
+          proxy=(root/'Patches/VerdantGuardianProxyDrawPatch.cs').read_text()
+          assert 'GreenSlime' in proxy and 'BossMarkerKey' in proxy
+          asset=root/'assets/bosses/verdant_guardian'
+          specs={'boss1_verdant_guardian_idle.png':6,'boss1_verdant_guardian_intro_awaken.png':10,'boss1_verdant_guardian_swipe_attack.png':9,'boss1_verdant_guardian_root_cast.png':8,'boss1_verdant_guardian_summon_cast.png':10,'boss1_verdant_guardian_charge_prep.png':7,'boss1_verdant_guardian_charge_loop.png':3,'boss1_verdant_guardian_charge_end.png':4,'boss1_verdant_guardian_vine_cast.png':8,'boss1_verdant_guardian_slam_attack.png':11,'boss1_verdant_guardian_phase_shift.png':12,'boss1_verdant_guardian_hurt.png':3,'boss1_verdant_guardian_defeat.png':12,'fx_boss1_root_warning.png':4,'fx_boss1_root_erupt.png':5,'fx_boss1_vine_trap.png':6,'fx_boss1_slam_warning.png':4,'fx_boss1_slam_shockwave.png':5,'fx_boss1_leaf_burst.png':6,'fx_boss1_phase_pulse.png':6,'fx_boss1_core_release.png':6}
+          for name,frames in specs.items():
+              p=asset/name; assert p.exists() and p.stat().st_size>100,name
+              with Image.open(p) as im: assert im.size==(64*frames,64),(name,im.size)
+          home=(root/'Services/MimiHomeService.cs').read_text()
+          for token in ['ResolvePreferredWizardStairTile','var buildings = wizard.Map?.GetLayer("Buildings");','var back = wizard.Map?.GetLayer("Back");','bool rightIsBoundary','width - 2']:
+              assert token in home,token
+          vi=json.loads((root/'i18n/vi.json').read_text()); assert 'trú mưa' in vi['mimi.social.community-center']
+          assert 'DrawScale=vanilla-4x' in (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          layers=0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              r=ET.parse(tmx).getroot()
+              for layer in r.findall('layer'):
+                  d=layer.find('data')
+                  if d is None or d.attrib.get('encoding')!='csv': continue
+                  toks=(d.text or '').split(','); vals=[]
+                  for i,t in enumerate(toks):
+                      s=t.strip(); assert s!='',f'{tmx}: empty CSV token {i}'
+                      n=int(s); assert 0<=n<=0xFFFFFFFF; vals.append(n)
+                  assert len(vals)==int(layer.attrib['width'])*int(layer.attrib['height']); layers+=1
+          assert layers>=21
+          print(f'0660 hotfix validator PASS; visual assets={len(specs)}, TMX layers={layers}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.27 Verdant visual complete + Colossus [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0660-verdant-visual-complete-colossus
+          fi
+
+      - name: Package TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"; mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"; cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"; cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.27_VerdantVisualComplete_Colossus_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,zipfile,xml.etree.ElementTree as ET
+          z=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.27_VerdantVisualComplete_Colossus_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.27'
+              assert len(f.read('Cardcha/Cardcha.dll'))>100000
+              for p in ['Cardcha/assets/bosses/verdant_guardian/boss1_verdant_guardian_defeat.png','Cardcha/assets/bosses/verdant_guardian/boss1_verdant_guardian_slam_attack.png','Cardcha/assets/bosses/verdant_guardian/fx_boss1_core_release.png']:
+                  assert len(f.read(p))>100,p
+              for n in [n for n in f.namelist() if n.endswith('.tmx')]:
+                  r=ET.fromstring(f.read(n))
+                  for layer in r.findall('layer'):
+                      d=layer.find('data')
+                      if d is None or d.attrib.get('encoding')!='csv': continue
+                      toks=(d.text or '').split(','); vals=[int(t.strip()) for t in toks if t.strip()]
+                      assert len(vals)==len(toks) and len(vals)==int(layer.attrib['width'])*int(layer.attrib['height'])
+          print('0660 final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0660-verdant-visual-complete-colossus-hotfix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.27_VerdantVisualComplete_Colossus_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.27_VerdantVisualComplete_Colossus_TEST.zip.sha256
+          if-no-files-found: error
