@@ -15,6 +15,8 @@ internal static class MonsterDamagePatch
     private static CombatService? Combat;
     private static MonsterDeathService? Deaths;
     private static CardTestArenaService? TestArena;
+    private const double VerdantGuardianKnockbackScale = 0.08d;
+    private const int VerdantGuardianKnockbackCap = 12;
 
     public static void Apply(Harmony harmony, CombatService combat, MonsterDeathService deaths, CardTestArenaService? testArena = null)
     {
@@ -46,18 +48,21 @@ internal static class MonsterDamagePatch
         {
             TestArena?.TryOverrideOutgoingDamage(__instance, ref damage, isBomb, who);
 
-            // Boss I Colossus pass: weapon/team trajectories do not launch the Guardian.
-            if (__instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey))
-            {
-                xTrajectory = 0;
-                yTrajectory = 0;
-            }
+            bool isVerdantGuardian = __instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey);
 
             if (Combat is not null)
             {
                 damage = Combat.ModifyMonsterDamage(__instance, damage, isBomb, who);
                 TestArena?.ClampMainDummyDamage(__instance, ref damage);
                 Combat.ModifyMonsterTrajectory(ref xTrajectory, ref yTrajectory, isBomb, who);
+            }
+
+            // 0665: receive 8% of final trajectory, then hard-cap it. The boss service recenters
+            // toward HeavyAnchor, so repeated party hits cannot walk the Guardian into a wall.
+            if (isVerdantGuardian)
+            {
+                xTrajectory = Math.Clamp((int)Math.Round(xTrajectory * VerdantGuardianKnockbackScale), -VerdantGuardianKnockbackCap, VerdantGuardianKnockbackCap);
+                yTrajectory = Math.Clamp((int)Math.Round(yTrajectory * VerdantGuardianKnockbackScale), -VerdantGuardianKnockbackCap, VerdantGuardianKnockbackCap);
             }
         }
         catch (Exception ex)

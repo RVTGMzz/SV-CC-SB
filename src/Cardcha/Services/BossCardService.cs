@@ -15,9 +15,9 @@ internal sealed class BossCardService
 {
     public const string VerdantCoreId = "verdant_core";
     public const double VerdantGuardThreshold = 0.50d;
-    public const double VerdantDamageReduction = 0.35d;
+    public const double VerdantDamageReduction = 0.30d;
     public const int VerdantActiveDurationMs = 6000;
-    public const int VerdantCooldownMs = 24000;
+    public const int VerdantCooldownMs = 28000;
     public const int VerdantHealIntervalMs = 1000;
     public const int VerdantHealPerTick = 2;
 

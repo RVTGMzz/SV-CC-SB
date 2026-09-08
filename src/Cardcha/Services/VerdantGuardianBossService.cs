@@ -52,7 +52,25 @@ internal sealed class VerdantGuardianBossService
     public static readonly Point PlayerArrivalTile = new(14, 17);
 
     private const string MapPath = "assets/verdant_guardian_arena.tmx";
-    private const int BossMaxHealth = 1300;
+    // 0665 Region I balance candidate. Phase 1 teaches the moves, Phase 2/3 add pressure.
+    private const int BossMaxHealth = 1600;
+    private const int SwipeDamageP1 = 10;
+    private const int SwipeDamageP2 = 12;
+    private const int SwipeDamageP3 = 14;
+    private const int RootDamageP1 = 8;
+    private const int RootDamageP2 = 10;
+    private const int RootDamageP3 = 12;
+    private const int ChargeDamageP1 = 14;
+    private const int ChargeDamageP2 = 16;
+    private const int ChargeDamageP3 = 19;
+    private const int VineDamageP1 = 4;
+    private const int VineDamageP2 = 5;
+    private const int VineDamageP3 = 7;
+    private const int SlamDamageP1 = 16;
+    private const int SlamDamageP2 = 18;
+    private const int SlamDamageP3 = 22;
+    private const float HeavyRecoilCapPixels = 18f;
+    private const float HeavyRecenterFactor = 0.22f;
     private const int IntroDurationMs = 1500;
     private const int PhaseTransitionDurationMs = 1600;
     private const int VictoryReturnDelayMs = 3500;
@@ -197,10 +215,10 @@ internal sealed class VerdantGuardianBossService
             return;
         }
 
-        // Colossus weight: normal attacks cannot shove the boss around. Only Cardcha-owned
-        // movement (Charge or phase recenter) changes HeavyAnchor.
+        // 0665 heavy-body tuning: allow a tiny hit reaction, but never cumulative wall-pinning.
+        // HeavyAnchor only moves through Cardcha-owned motion (Charge/phase recenter).
         if (this.State != VerdantGuardianState.Charging && this.State != VerdantGuardianState.PhaseTransition)
-            boss.Position = this.HeavyAnchor;
+            this.ApplyHeavyRecoil(boss);
 
         if (this.State != VerdantGuardianState.PhaseTransition)
         {
@@ -227,7 +245,7 @@ internal sealed class VerdantGuardianBossService
             case VerdantGuardianState.SwipeTelegraph:
                 if (now - this.StateStartedAtMs >= SwipeTelegraphMs)
                 {
-                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 2.35f) DamagePlayer(10, boss);
+                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 2.35f) DamagePlayer(PhaseDamage(SwipeDamageP1, SwipeDamageP2, SwipeDamageP3, this.Phase), boss);
                     this.AttackApplied = true;
                     this.CompleteAttack(now);
                 }
@@ -235,7 +253,7 @@ internal sealed class VerdantGuardianBossService
             case VerdantGuardianState.RootSpikesTelegraph:
                 if (now - this.StateStartedAtMs >= RootTelegraphMs)
                 {
-                    if (!this.AttackApplied && this.RootTargets.Contains(PlayerTile())) DamagePlayer(8, boss);
+                    if (!this.AttackApplied && this.RootTargets.Contains(PlayerTile())) DamagePlayer(PhaseDamage(RootDamageP1, RootDamageP2, RootDamageP3, this.Phase), boss);
                     this.AttackApplied = true;
                     this.CompleteAttack(now);
                 }
@@ -273,7 +291,7 @@ internal sealed class VerdantGuardianBossService
                 if (!this.AttackApplied && this.PlayerInsideVineZone())
                 {
                     this.AttackApplied = true;
-                    DamagePlayer(4, boss);
+                    DamagePlayer(PhaseDamage(VineDamageP1, VineDamageP2, VineDamageP3, this.Phase), boss);
                     Game1.player.Halt();
                 }
                 if (now - this.StateStartedAtMs >= VineActiveMs) this.CompleteAttack(now);
@@ -281,7 +299,7 @@ internal sealed class VerdantGuardianBossService
             case VerdantGuardianState.AreaSlamTelegraph:
                 if (now - this.StateStartedAtMs >= SlamTelegraphMs)
                 {
-                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 4.1f) DamagePlayer(16, boss);
+                    if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 4.1f) DamagePlayer(PhaseDamage(SlamDamageP1, SlamDamageP2, SlamDamageP3, this.Phase), boss);
                     this.AttackApplied = true;
                     Game1.playSound("explosion");
                     this.CompleteAttack(now);
@@ -389,7 +407,7 @@ internal sealed class VerdantGuardianBossService
         string hp = boss is null ? "none" : $"{Math.Max(0,boss.Health)}/{Math.Max(1,boss.MaxHealth)}";
         string unlocked = string.Join(",", this.Save.Data.BossCardsUnlocked ?? new HashSet<string>());
         string adds = string.Join(",", this.VisualAdds.Select(m => m.modData.TryGetValue(BossAddTypeKey, out string? kind) ? kind : "unknown"));
-        return $"Arena={this.IsInArena} | State={this.State} | Phase={this.Phase} | HP={hp} | Adds=[{adds}] | Cleared={this.Save.Data.Region1BossDefeated} | BossCards=[{unlocked}] | EquippedBoss={this.Save.Data.EquippedBossCardId}";
+        return $"Arena={this.IsInArena} | State={this.State} | Phase={this.Phase} | HP={hp} | Balance=0665 | Adds=[{adds}] | Cleared={this.Save.Data.Region1BossDefeated} | BossCards=[{unlocked}] | EquippedBoss={this.Save.Data.EquippedBossCardId}";
     }
 
     private GameLocation? EnsureLocation()
@@ -519,7 +537,7 @@ internal sealed class VerdantGuardianBossService
         if (!this.AttackApplied && DistanceTiles(BossCenter(boss), PlayerCenter()) <= 1.15f)
         {
             this.AttackApplied = true;
-            DamagePlayer(14, boss);
+            DamagePlayer(PhaseDamage(ChargeDamageP1, ChargeDamageP2, ChargeDamageP3, this.Phase), boss);
         }
         if (now - this.StateStartedAtMs >= ChargeDurationMs) this.CompleteAttack(now);
     }
@@ -593,13 +611,13 @@ internal sealed class VerdantGuardianBossService
             if (string.Equals(kind, LeafWispId, StringComparison.OrdinalIgnoreCase))
             {
                 add = new Bug(pos, 0);
-                add.MaxHealth = this.Phase switch { 1 => 38, 2 => 52, _ => 68 };
-                add.Speed = this.Phase switch { 1 => 4, 2 => 5, _ => 6 };
+                add.MaxHealth = this.Phase switch { 1 => 34, 2 => 46, _ => 58 };
+                add.Speed = this.Phase switch { 1 => 4, 2 => 5, _ => 5 };
             }
             else
             {
                 add = new GreenSlime(pos, 0);
-                add.MaxHealth = this.Phase switch { 1 => 55, 2 => 75, _ => 95 };
+                add.MaxHealth = this.Phase switch { 1 => 50, 2 => 68, _ => 84 };
                 add.Speed = this.Phase switch { 1 => 2, 2 => 3, _ => 3 };
                 kind = BriarlingId;
             }
@@ -701,16 +719,44 @@ internal sealed class VerdantGuardianBossService
 
     private static int CooldownMs(VerdantGuardianAttack attack, int phase) => attack switch
     {
-        VerdantGuardianAttack.Swipe => phase switch { 1 => 2200, 2 => 1800, _ => 1500 },
-        VerdantGuardianAttack.RootSpikes => phase switch { 1 => 5200, 2 => 4500, _ => 3600 },
-        VerdantGuardianAttack.SummonAdds => phase switch { 1 => 16000, 2 => 14000, _ => 12500 },
-        VerdantGuardianAttack.Charge => phase == 2 ? 7000 : 5600,
-        VerdantGuardianAttack.VineTrap => phase == 2 ? 8500 : 6500,
-        VerdantGuardianAttack.AreaSlam => 7200,
-        _ => 2500
+        // Slightly more breathing room than the raw prototype. Pressure still rises each phase,
+        // but the player should read the animation rather than get chain-locked by attack roulette.
+        VerdantGuardianAttack.Swipe => phase switch { 1 => 2400, 2 => 2000, _ => 1700 },
+        VerdantGuardianAttack.RootSpikes => phase switch { 1 => 5600, 2 => 4800, _ => 4000 },
+        VerdantGuardianAttack.SummonAdds => phase switch { 1 => 17000, 2 => 14500, _ => 13000 },
+        VerdantGuardianAttack.Charge => phase == 2 ? 7200 : 6000,
+        VerdantGuardianAttack.VineTrap => phase == 2 ? 8800 : 7000,
+        VerdantGuardianAttack.AreaSlam => 7600,
+        _ => 2600
     };
 
-    private static int DecisionGapMs(int phase) => phase switch { 1 => 700, 2 => 550, _ => 400 };
+    private static int DecisionGapMs(int phase) => phase switch { 1 => 750, 2 => 600, _ => 450 };
+
+    private void ApplyHeavyRecoil(Monster boss)
+    {
+        Vector2 displacement = boss.Position - this.HeavyAnchor;
+        float length = displacement.Length();
+        if (length <= 0.05f)
+        {
+            boss.Position = this.HeavyAnchor;
+            return;
+        }
+
+        if (length > HeavyRecoilCapPixels)
+            displacement = displacement / length * HeavyRecoilCapPixels;
+
+        Vector2 clamped = this.HeavyAnchor + displacement;
+        boss.Position = Vector2.Lerp(clamped, this.HeavyAnchor, HeavyRecenterFactor);
+    }
+
+    private static int PhaseDamage(int p1, int p2, int p3, int phase)
+        => phase <= 1 ? p1 : phase == 2 ? p2 : p3;
+
+    public string DescribeBalance()
+        => $"0665 Region I Balance | HP={BossMaxHealth} | Damage P1/P2/P3: Swipe={SwipeDamageP1}/{SwipeDamageP2}/{SwipeDamageP3}, " +
+           $"Root={RootDamageP1}/{RootDamageP2}/{RootDamageP3}, Charge={ChargeDamageP1}/{ChargeDamageP2}/{ChargeDamageP3}, " +
+           $"Vine={VineDamageP1}/{VineDamageP2}/{VineDamageP3}, Slam={SlamDamageP1}/{SlamDamageP2}/{SlamDamageP3} | " +
+           $"HeavyRecoilCap={HeavyRecoilCapPixels:0}px Recenter={HeavyRecenterFactor:0.00} | AddsMax={MaxActiveAdds}";
 
     private static Point[] BuildRootTargets(Point center, int phase)
     {

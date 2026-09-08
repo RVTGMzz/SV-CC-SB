@@ -284,6 +284,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_boss1_status", "Show Verdant Guardian runtime/save state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe() + "\n" + this.VerdantSummons.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_polish_status", "Show Verdant arena cinematic/camera/sound polish state.", (_, _) => this.Monitor.Log(this.VerdantArenaPolish.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_balance_status", "Show the 0665 Region I Boss balance profile.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance() + "\n" + this.BossCards.Describe() + "\n" + this.ChaChaBossForm.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
@@ -328,7 +329,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.31 VERDANT ARENA CINEMATIC POLISH TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.32 VERDANT REGION I BALANCE PASS TEST",
             LogLevel.Info
         );
     }

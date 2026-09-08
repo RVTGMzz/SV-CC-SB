@@ -17,7 +17,7 @@ internal sealed class ChaChaBossFormService
     public const string GuardianRabbitFormId = "guardian_rabbit";
     public const int BossFormDurationMs = 10000;
     public const int GuardianRootPulseIntervalMs = 2000;
-    public const int GuardianRootPulseDamage = 18;
+    public const int GuardianRootPulseDamage = 14;
     public const float GuardianRootPulseRadius = 176f;
 
     private readonly IModHelper Helper;
