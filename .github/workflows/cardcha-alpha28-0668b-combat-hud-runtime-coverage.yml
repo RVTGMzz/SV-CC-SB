@@ -72,7 +72,7 @@ jobs:
           assert '0.3.0-alpha.28.0.4.14.4.5.12.36 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST' in mod
 
           boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
-          for token in ['TotemMaxHealth = 90', 'TotemBarrierReduction()', 'TotemRootVineCooldownScale = 0.92d', 'TotemBreakStaggerMs = 1200']:
+          for token in ['TotemMaxHealth = 90', 'GetTotemDamageReductionPercent()', 'ms * 0.92d', 'TotemStaggerDurationMs = 1200']:
               assert token in boss, token
 
           cards = json.loads((root/'assets/cards.json').read_text())
