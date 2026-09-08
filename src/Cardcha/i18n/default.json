@@ -972,5 +972,9 @@
   "chacha.boss.guardian.name": "Guardian Rabbit",
   "chacha.boss.guardian.desc": "ChaCha channels Verdant Guardian resonance for 10 seconds. Every 2 seconds, roots pulse around ChaCha and damage nearby monsters.",
   "chacha.boss.guardian.activated": "ChaCha transformed into Guardian Rabbit! Verdant roots are answering the resonance.",
-  "chacha.boss.guardian.locked": "Guardian Rabbit awakens after Boss I: Verdant Guardian."
+  "chacha.boss.guardian.locked": "Guardian Rabbit awakens after Boss I: Verdant Guardian.",
+  "boss.verdant.summon.briarling.name": "Briarling",
+  "boss.verdant.summon.briarling.desc": "A thorn-bud spawned from the Guardian root network.",
+  "boss.verdant.summon.leaf-wisp.name": "Leaf Wisp",
+  "boss.verdant.summon.leaf-wisp.desc": "A fast seed-spirit carried by Verdant resonance."
 }

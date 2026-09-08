@@ -46,6 +46,9 @@ internal sealed class VerdantGuardianBossService
     public const string BossCardId = "verdant_core";
     public const string BossMarkerKey = "Ronvotri.Cardcha/VerdantGuardian";
     public const string BossAddMarkerKey = "Ronvotri.Cardcha/VerdantGuardianAdd";
+    public const string BossAddTypeKey = "Ronvotri.Cardcha/VerdantGuardianAddType";
+    public const string BriarlingId = "briarling";
+    public const string LeafWispId = "leaf_wisp";
     public static readonly Point PlayerArrivalTile = new(14, 17);
 
     private const string MapPath = "assets/verdant_guardian_arena.tmx";
@@ -88,6 +91,8 @@ internal sealed class VerdantGuardianBossService
     private bool AttackApplied;
     private bool VictoryHandled;
     private Point[] RootTargets = Array.Empty<Point>();
+    private Point[] PendingSummonTiles = Array.Empty<Point>();
+    private string[] PendingSummonKinds = Array.Empty<string>();
     private Point VineTarget;
     private Vector2 ChargeDirection;
     private Vector2 HeavyAnchor;
@@ -110,6 +115,10 @@ internal sealed class VerdantGuardianBossService
     internal long VisualStateStartedAtMs => this.StateStartedAtMs;
     internal Monster? VisualBoss => this.ResolveBoss();
     internal Point[] VisualRootTargets => this.RootTargets;
+    internal Point[] VisualSummonTargets => this.PendingSummonTiles;
+    internal string[] VisualSummonKinds => this.PendingSummonKinds;
+    internal Monster[] VisualAdds => Game1.getLocationFromName(LocationName)?.characters.OfType<Monster>()
+        .Where(m => m.Health > 0 && m.modData.ContainsKey(BossAddMarkerKey)).ToArray() ?? Array.Empty<Monster>();
     internal Point VisualVineTarget => this.VineTarget;
     internal Vector2 VisualChargeDirection => this.ChargeDirection;
     internal Vector2 VisualBossCenter => BossCenter(this.ResolveBoss());
@@ -364,12 +373,23 @@ internal sealed class VerdantGuardianBossService
         return "Verdant Guardian TEST: entered Boss I arena without changing the 20-card gate or clear flags.";
     }
 
+    public string DebugSummonWave()
+    {
+        if (!this.IsInArena) return "Verdant summon TEST unavailable: enter Boss I arena first.";
+        this.RemoveAdds();
+        this.PrepareSummonPlan();
+        string planned = string.Join(",", this.PendingSummonKinds);
+        this.SpawnAdds();
+        return $"Verdant summon TEST spawned phase {this.Phase}: [{planned}]. Vanilla proxy art is hidden; Cardcha summon visuals are active.";
+    }
+
     public string Describe()
     {
         Monster? boss = this.ResolveBoss();
         string hp = boss is null ? "none" : $"{Math.Max(0,boss.Health)}/{Math.Max(1,boss.MaxHealth)}";
         string unlocked = string.Join(",", this.Save.Data.BossCardsUnlocked ?? new HashSet<string>());
-        return $"Arena={this.IsInArena} | State={this.State} | Phase={this.Phase} | HP={hp} | Cleared={this.Save.Data.Region1BossDefeated} | BossCards=[{unlocked}] | EquippedBoss={this.Save.Data.EquippedBossCardId}";
+        string adds = string.Join(",", this.VisualAdds.Select(m => m.modData.TryGetValue(BossAddTypeKey, out string? kind) ? kind : "unknown"));
+        return $"Arena={this.IsInArena} | State={this.State} | Phase={this.Phase} | HP={hp} | Adds=[{adds}] | Cleared={this.Save.Data.Region1BossDefeated} | BossCards=[{unlocked}] | EquippedBoss={this.Save.Data.EquippedBossCardId}";
     }
 
     private GameLocation? EnsureLocation()
@@ -436,6 +456,8 @@ internal sealed class VerdantGuardianBossService
         this.StateStartedAtMs = now;
         this.AttackApplied = false;
         this.RootTargets = Array.Empty<Point>();
+        this.PendingSummonTiles = Array.Empty<Point>();
+        this.PendingSummonKinds = Array.Empty<string>();
         Game1.playSound("discoverMineral");
         Game1.showGlobalMessage(ModEntry.T($"boss.verdant.transition.{targetPhase}"));
     }
@@ -474,6 +496,7 @@ internal sealed class VerdantGuardianBossService
             case VerdantGuardianAttack.RootSpikes:
                 this.RootTargets = BuildRootTargets(PlayerTile(), this.Phase); this.State = VerdantGuardianState.RootSpikesTelegraph; Game1.playSound("leafrustle"); break;
             case VerdantGuardianAttack.SummonAdds:
+                this.PrepareSummonPlan();
                 this.State = VerdantGuardianState.SummonAdds; Game1.playSound("leafrustle"); break;
             case VerdantGuardianAttack.Charge:
                 this.ChargeDirection = PlayerCenter() - BossCenter(this.ResolveBoss());
@@ -504,6 +527,8 @@ internal sealed class VerdantGuardianBossService
     private void CompleteAttack(long now)
     {
         this.RootTargets = Array.Empty<Point>();
+        this.PendingSummonTiles = Array.Empty<Point>();
+        this.PendingSummonKinds = Array.Empty<string>();
         this.AttackApplied = false;
         this.EnterDecision(now, DecisionGapMs(this.Phase));
     }
@@ -515,24 +540,81 @@ internal sealed class VerdantGuardianBossService
         this.NextDecisionAtMs = now + delayMs;
     }
 
+    private void PrepareSummonPlan()
+    {
+        GameLocation? arena = Game1.currentLocation;
+        if (arena is null)
+        {
+            this.PendingSummonTiles = Array.Empty<Point>();
+            this.PendingSummonKinds = Array.Empty<string>();
+            return;
+        }
+
+        int living = arena.characters.OfType<Monster>()
+            .Count(m => m.Health > 0 && m.modData.ContainsKey(BossAddMarkerKey));
+        int desired = this.Phase == 1 ? 2 : 3;
+        int spawnCount = Math.Min(desired, Math.Max(0, MaxActiveAdds - living));
+        if (spawnCount <= 0)
+        {
+            this.PendingSummonTiles = Array.Empty<Point>();
+            this.PendingSummonKinds = Array.Empty<string>();
+            return;
+        }
+
+        this.PendingSummonTiles = AddSpawnTiles
+            .OrderBy(_ => this.EncounterRandom.Next())
+            .Take(spawnCount)
+            .ToArray();
+
+        string[] phasePool = this.Phase switch
+        {
+            1 => new[] { BriarlingId, BriarlingId },
+            2 => new[] { BriarlingId, LeafWispId, BriarlingId },
+            _ => new[] { LeafWispId, BriarlingId, LeafWispId },
+        };
+        this.PendingSummonKinds = Enumerable.Range(0, spawnCount)
+            .Select(i => phasePool[i % phasePool.Length])
+            .ToArray();
+    }
+
     private void SpawnAdds()
     {
         GameLocation? arena = Game1.currentLocation;
         if (arena is null) return;
-        int living = arena.characters.OfType<Monster>().Count(m => m.Health > 0 && m.modData.ContainsKey(BossAddMarkerKey));
-        int desired = this.Phase == 1 ? 2 : 3;
-        int spawnCount = Math.Min(desired, Math.Max(0, MaxActiveAdds - living));
-        if (spawnCount <= 0) return;
-        Point[] points = AddSpawnTiles.OrderBy(_ => this.EncounterRandom.Next()).Take(spawnCount).ToArray();
-        for (int i = 0; i < points.Length; i++)
+        if (this.PendingSummonTiles.Length == 0) this.PrepareSummonPlan();
+
+        int count = Math.Min(this.PendingSummonTiles.Length, this.PendingSummonKinds.Length);
+        for (int i = 0; i < count; i++)
         {
-            Vector2 pos = new(points[i].X * 64f, points[i].Y * 64f);
-            Monster add = (i + this.Phase) % 2 == 0 ? new GreenSlime(pos, 0) : new Bug(pos, 0);
-            add.MaxHealth = this.Phase switch { 1 => 45, 2 => 60, _ => 75 };
+            Point point = this.PendingSummonTiles[i];
+            string kind = this.PendingSummonKinds[i];
+            Vector2 pos = new(point.X * 64f, point.Y * 64f);
+            Monster add;
+            if (string.Equals(kind, LeafWispId, StringComparison.OrdinalIgnoreCase))
+            {
+                add = new Bug(pos, 0);
+                add.MaxHealth = this.Phase switch { 1 => 38, 2 => 52, _ => 68 };
+                add.Speed = this.Phase switch { 1 => 4, 2 => 5, _ => 6 };
+            }
+            else
+            {
+                add = new GreenSlime(pos, 0);
+                add.MaxHealth = this.Phase switch { 1 => 55, 2 => 75, _ => 95 };
+                add.Speed = this.Phase switch { 1 => 2, 2 => 3, _ => 3 };
+                kind = BriarlingId;
+            }
+
             add.Health = add.MaxHealth;
             add.modData[BossAddMarkerKey] = this.Phase.ToString();
+            add.modData[BossAddTypeKey] = kind;
+            // Hide only the vanilla proxy art. AI, collision, damage and death routing remain native/stable.
+            add.isInvisible.Value = true;
             arena.characters.Add(add);
         }
+
+        if (count > 0) Game1.playSound("debuffSpell");
+        this.PendingSummonTiles = Array.Empty<Point>();
+        this.PendingSummonKinds = Array.Empty<string>();
     }
 
     private void BeginDefeat(long now)
@@ -596,6 +678,8 @@ internal sealed class VerdantGuardianBossService
         this.AttackApplied = false;
         this.VictoryHandled = false;
         this.RootTargets = Array.Empty<Point>();
+        this.PendingSummonTiles = Array.Empty<Point>();
+        this.PendingSummonKinds = Array.Empty<string>();
         this.VineTarget = Point.Zero;
         this.ChargeDirection = Vector2.Zero;
         this.HeavyAnchor = Vector2.Zero;

@@ -1050,5 +1050,9 @@
   "chacha.boss.guardian.name": "Guardian Rabbit",
   "chacha.boss.guardian.desc": "ChaCha cộng hưởng với Verdant Guardian trong 10 giây. Cứ mỗi 2 giây, rễ cây lại bùng lên quanh ChaCha và gây sát thương cho quái vật ở gần.",
   "chacha.boss.guardian.activated": "ChaCha đã biến thành Guardian Rabbit! Rễ cây Verdant đang đáp lại cộng hưởng.",
-  "chacha.boss.guardian.locked": "Guardian Rabbit sẽ thức tỉnh sau khi đánh bại Boss I: Verdant Guardian."
+  "chacha.boss.guardian.locked": "Guardian Rabbit sẽ thức tỉnh sau khi đánh bại Boss I: Verdant Guardian.",
+  "boss.verdant.summon.briarling.name": "Briarling",
+  "boss.verdant.summon.briarling.desc": "Một mầm gai được sinh ra từ mạng rễ của Guardian.",
+  "boss.verdant.summon.leaf-wisp.name": "Leaf Wisp",
+  "boss.verdant.summon.leaf-wisp.desc": "Linh thể hạt giống nhanh nhẹn được cộng hưởng Verdant nâng đỡ."
 }

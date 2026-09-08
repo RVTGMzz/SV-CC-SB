@@ -52,6 +52,7 @@ internal sealed class ModEntry : Mod
     private AirshipFoundationService Airship = null!;
     private VerdantGuardianBossService VerdantGuardian = null!;
     private VerdantGuardianVisualService VerdantGuardianVisual = null!;
+    private VerdantGuardianSummonVisualService VerdantSummons = null!;
     private CardTestLabService CardLab = null!;
     private CardTestArenaService CardArena = null!;
     private CardTestLabOverlayService CardLabOverlay = null!;
@@ -155,6 +156,7 @@ internal sealed class ModEntry : Mod
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
         this.VerdantGuardian = new VerdantGuardianBossService(helper, this.Monitor, this.Save, this.PortableMachine);
         this.VerdantGuardianVisual = new VerdantGuardianVisualService(helper, this.Monitor, this.VerdantGuardian);
+        this.VerdantSummons = new VerdantGuardianSummonVisualService(helper, this.Monitor, this.VerdantGuardian);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
@@ -197,6 +199,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardian.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardianVisual.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.VerdantSummons.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.BossCards.OnRenderedHud;
@@ -213,6 +216,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantGuardian.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantGuardianVisual.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.VerdantSummons.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
@@ -271,7 +275,8 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
         helper.ConsoleCommands.Add("cardcha_test_boss1", "TEST ONLY: enter the Verdant Guardian arena without changing the 20-card gate.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugEnterArena(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_status", "Show Verdant Guardian runtime/save state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.Describe(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe() + "\n" + this.VerdantSummons.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
@@ -315,7 +320,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.29 GUARDIAN RABBIT BOSS FORM TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.30 VERDANT CUSTOM SUMMONS TEST",
             LogLevel.Info
         );
     }
