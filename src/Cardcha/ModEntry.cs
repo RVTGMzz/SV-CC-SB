@@ -334,7 +334,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.36 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.37 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST",
             LogLevel.Info
         );
     }

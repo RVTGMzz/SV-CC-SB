@@ -1121,7 +1121,9 @@
   "airship.region1.run.rare.moonwell.desc": "Một mạch nước Verdant yên tĩnh. Hồi 30% Max HP và bank ngay phần thưởng route hiện tại.",
   "airship.region1.run.rare.ancientecho.name": "VỌNG ÂM CỔ ĐẠI",
   "airship.region1.run.rare.ancientecho.desc": "Một Elite có affix mạnh hơn. Thưởng khi clear: +3 Scrap và +1 Shiny Scrap.",
-  "boss.verdant.totem.broken": "Một Verdant Seed Totem đã vỡ. Còn lại {{remaining}} trụ.",
-  "boss.verdant.totem.all-broken": "LỚP CỘNG HƯỞNG VERDANT ĐÃ VỠ! Guardian khựng lại khi trụ cuối cùng sụp xuống.",
-  "airship.lostfound.empty": "KHO ĐỒ THẤT LẠC\\nHiện chưa có vật phẩm nào được gửi về đây."
+  "boss.verdant.totem.broken": "Một Trụ Hạt Verdant đã vỡ. Còn {{remaining}} trụ. Khiên Guardian còn {{barrier}}%.",
+  "boss.verdant.totem.all-broken": "KHIÊN VERDANT ĐÃ VỠ! Guardian choáng rõ rệt trong 1,2 giây khi trụ cuối cùng sụp xuống.",
+  "airship.lostfound.empty": "KHO ĐỒ THẤT LẠC\\nHiện chưa có vật phẩm nào được gửi về đây.",
+  "boss.verdant.totem.hud": "TRỤ VERDANT {{living}}/4  •  KHIÊN {{barrier}}%",
+  "airship.region1.run.rare.lostcache.opened": "KHO ĐỒ THẤT LẠC\nBạn mở chiếc rương tiếp tế bị bỏ quên. +4 Scrap và +1 Shiny Scrap được cộng vào phần thưởng chưa bank của chuyến săn này."
 }

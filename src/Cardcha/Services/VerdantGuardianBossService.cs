@@ -124,6 +124,7 @@ internal sealed class VerdantGuardianBossService
     private int LastLivingTotemCount;
     private long LastTotemHitAtMs;
     private int LastTotemHitIndex = -1;
+    private int LastTotemHitDamage;
 
     public VerdantGuardianBossService(IModHelper helper, IMonitor monitor, SaveService save, PortableMachineService portableMachine)
     {
@@ -150,6 +151,7 @@ internal sealed class VerdantGuardianBossService
         .Where(m => m.Health > 0 && m.modData.ContainsKey(TotemMarkerKey)).ToArray() ?? Array.Empty<Monster>();
     internal long VisualLastTotemHitAtMs => this.LastTotemHitAtMs;
     internal int VisualLastTotemHitIndex => this.LastTotemHitIndex;
+    internal int VisualLastTotemHitDamage => this.LastTotemHitDamage;
     internal Point VisualVineTarget => this.VineTarget;
     internal Vector2 VisualChargeDirection => this.ChargeDirection;
     internal Vector2 VisualBossCenter => BossCenter(this.ResolveBoss());
@@ -385,7 +387,7 @@ internal sealed class VerdantGuardianBossService
         int width = Math.Min(620, Game1.uiViewport.Width - 80);
         int x = (Game1.uiViewport.Width - width) / 2;
         int y = 28;
-        Rectangle outer = new(x, y, width, 34);
+        Rectangle outer = new(x, y, width, 58);
         Rectangle inner = new(x + 4, y + 4, width - 8, 26);
         float ratio = Math.Clamp(boss.Health / (float)Math.Max(1, boss.MaxHealth), 0f, 1f);
         Rectangle fill = new(inner.X, inner.Y, (int)(inner.Width * ratio), inner.Height);
@@ -395,6 +397,12 @@ internal sealed class VerdantGuardianBossService
         string title = $"{ModEntry.T("boss.verdant.name")}  •  {ModEntry.T("boss.verdant.phase", new { phase = this.Phase })}";
         Vector2 size = Game1.smallFont.MeasureString(title);
         e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(Game1.uiViewport.Width / 2f - size.X / 2f, y + 7), Color.White);
+        int livingTotems = this.GetLivingTotemCount();
+        int barrier = this.GetTotemDamageReductionPercent();
+        string totemSummary = ModEntry.T("boss.verdant.totem.hud", new { living = livingTotems, barrier });
+        Vector2 totemSize = Game1.smallFont.MeasureString(totemSummary);
+        Color totemColor = livingTotems > 0 ? new Color(221, 244, 184) : new Color(255, 220, 151);
+        e.SpriteBatch.DrawString(Game1.smallFont, totemSummary, new Vector2(Game1.uiViewport.Width / 2f - totemSize.X / 2f, y + 35), totemColor);
     }
 
     public void PrepareForSave()
@@ -474,6 +482,7 @@ internal sealed class VerdantGuardianBossService
         this.LastLivingTotemCount = 4;
         this.LastTotemHitAtMs = 0;
         this.LastTotemHitIndex = -1;
+        this.LastTotemHitDamage = 0;
         this.RootTargets = Array.Empty<Point>();
         this.CooldownUntil.Clear();
         this.LastAttack = null;
@@ -729,6 +738,7 @@ internal sealed class VerdantGuardianBossService
         this.LastLivingTotemCount = 0;
         this.LastTotemHitAtMs = 0;
         this.LastTotemHitIndex = -1;
+        this.LastTotemHitDamage = 0;
         this.CooldownUntil.Clear();
     }
 
@@ -753,7 +763,7 @@ internal sealed class VerdantGuardianBossService
             GreenSlime proxy = new(new Vector2(tile.X * 64f, tile.Y * 64f), 0) { MaxHealth = TotemMaxHealth, Health = TotemMaxHealth, Speed = 0 };
             proxy.modData[TotemMarkerKey] = "verdant-seed-totem";
             proxy.modData[TotemIndexKey] = i.ToString();
-            proxy.isInvisible.Value = false;
+            proxy.isInvisible.Value = true;
             arena.characters.Add(proxy);
         }
     }
@@ -776,7 +786,7 @@ internal sealed class VerdantGuardianBossService
         if (living < this.LastLivingTotemCount)
         {
             int broken = this.LastLivingTotemCount - living; Game1.playSound("woodWhack");
-            Game1.showGlobalMessage(ModEntry.T("boss.verdant.totem.broken", new { remaining = living }));
+            Game1.showGlobalMessage(ModEntry.T("boss.verdant.totem.broken", new { remaining = living, barrier = this.GetTotemDamageReductionPercent() }));
             this.Monitor.Log($"Verdant Seed Totem broken x{broken}; remaining={living}; barrier={this.GetTotemDamageReductionPercent()}%.", LogLevel.Trace);
             if (living == 0)
             {
@@ -786,6 +796,19 @@ internal sealed class VerdantGuardianBossService
             }
         }
         this.LastLivingTotemCount = living;
+        this.PruneDestroyedTotems();
+    }
+
+    private void PruneDestroyedTotems()
+    {
+        GameLocation? arena = Game1.getLocationFromName(LocationName);
+        if (arena is null) return;
+        foreach (Monster dead in arena.characters.OfType<Monster>()
+                     .Where(m => m.Health <= 0 && m.modData.ContainsKey(TotemMarkerKey))
+                     .ToList())
+        {
+            arena.characters.Remove(dead);
+        }
     }
 
     internal int ModifyBossIncomingDamage(int damage)
@@ -798,6 +821,7 @@ internal sealed class VerdantGuardianBossService
     {
         if (!monster.modData.ContainsKey(TotemMarkerKey) || previousHealth <= monster.Health) return;
         this.LastTotemHitAtMs = Environment.TickCount64;
+        this.LastTotemHitDamage = Math.Max(1, previousHealth - Math.Max(0, monster.Health));
         if (monster.modData.TryGetValue(TotemIndexKey, out string? raw) && int.TryParse(raw, out int index)) this.LastTotemHitIndex = Math.Clamp(index, 0, TotemTiles.Length - 1);
     }
 

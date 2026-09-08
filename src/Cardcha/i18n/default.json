@@ -1043,7 +1043,9 @@
   "airship.region1.run.rare.moonwell.desc": "A quiet Verdant spring. Restores 30% Max HP and immediately banks current route rewards.",
   "airship.region1.run.rare.ancientecho.name": "ANCIENT ECHO",
   "airship.region1.run.rare.ancientecho.desc": "A stronger affixed Elite encounter. Clear reward: +3 Scrap and +1 Shiny Scrap.",
-  "boss.verdant.totem.broken": "A Verdant Seed Totem shattered. {{remaining}} remain.",
-  "boss.verdant.totem.all-broken": "VERDANT BARRIER BROKEN! The Guardian reels as the last seed totem collapses.",
-  "airship.lostfound.empty": "LOST & FOUND\\nNothing has been returned here right now."
+  "boss.verdant.totem.broken": "A Verdant Seed Totem shattered. {{remaining}} remain. Guardian Barrier: {{barrier}}%.",
+  "boss.verdant.totem.all-broken": "VERDANT BARRIER BROKEN! The Guardian staggers for 1.2 seconds as the final seed totem collapses.",
+  "airship.lostfound.empty": "LOST & FOUND\\nNothing has been returned here right now.",
+  "boss.verdant.totem.hud": "TOTEMS {{living}}/4  •  BARRIER {{barrier}}%",
+  "airship.region1.run.rare.lostcache.opened": "LOST CACHE\nYou open the abandoned supply chest. +4 Scrap and +1 Shiny Scrap are added to this run's unbanked rewards."
 }

@@ -42,6 +42,7 @@ internal sealed class AirshipFoundationService
     private const string Region1EliteMarkerKey = "Ronvotri.Cardcha/Region1Elite";
     private const string Region1EliteAffixMarkerKey = "Ronvotri.Cardcha/Region1EliteAffix";
     private const string Region1RootNestMarkerKey = "Ronvotri.Cardcha/Region1RootNest";
+    private const string Region1LostCacheMarkerKey = "Ronvotri.Cardcha/Region1LostCache";
 
     private enum Region1RunEncounterType
     {
@@ -293,7 +294,8 @@ internal sealed class AirshipFoundationService
         if (this.Region1RunActive
             && activeRunRoom is not null
             && TryGetRegion1RunRoomIndex(activeRunRoom, out _)
-            && CountRegion1MarkedMonsters(activeRunRoom) == 0)
+            && CountRegion1MarkedMonsters(activeRunRoom) == 0
+            && !this.CurrentRegion1NodeNeedsManualInteraction())
         {
             this.HandleRegion1RunNodeCleared(activeRunRoom);
         }
@@ -913,6 +915,9 @@ internal sealed class AirshipFoundationService
             return;
         }
 
+        if (this.TryHandleRegion1LostCacheInteraction(e, location))
+            return;
+
         int remaining = CountRegion1MarkedMonsters(location);
         if (remaining > 0)
         {
@@ -1244,6 +1249,7 @@ internal sealed class AirshipFoundationService
     private void PopulateRegion1RunRoom(GameLocation location, int roomIndex)
     {
         this.ClearRegion1MarkedMonsters(location);
+        this.ClearRegion1LostCacheObject(location);
         this.Region1EliteAuraNextAtMs = 0;
         if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunEncounters.Length)
             return;
@@ -1251,6 +1257,8 @@ internal sealed class AirshipFoundationService
         Region1RunEncounterType encounter = this.Region1RunEncounters[this.Region1RunStep];
         if (encounter is Region1RunEncounterType.Shrine or Region1RunEncounterType.LostCache or Region1RunEncounterType.Moonwell)
         {
+            if (encounter == Region1RunEncounterType.LostCache)
+                this.EnsureRegion1LostCacheChest(location);
             this.Monitor.Log($"Region I Hunt Run node {this.Region1RunStep + 1}: {encounter}, no combat spawn.", LogLevel.Trace);
             return;
         }
@@ -1520,6 +1528,7 @@ internal sealed class AirshipFoundationService
             return "Hunt Run 2.0 TEST: enter a Region I run room first.";
         this.ClearRegion1MarkedMonsters(Game1.currentLocation);
         this.HandleRegion1RunNodeCleared(Game1.currentLocation);
+        this.ClearRegion1LostCacheObject(Game1.currentLocation);
         return $"TEST: cleared node {this.Region1RunStep + 1}/{this.Region1RunTargetNodes}. {this.DescribeHuntRun2()}";
     }
 
@@ -1544,11 +1553,15 @@ internal sealed class AirshipFoundationService
         }
 
         Region1RunEncounterType currentEncounter = this.Region1RunEncounters[this.Region1RunStep];
-        if (currentEncounter is Region1RunEncounterType.LostCache or Region1RunEncounterType.Moonwell or Region1RunEncounterType.AncientEcho)
+        if (currentEncounter == Region1RunEncounterType.LostCache)
         {
-            int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
-            int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
-            Point rareTile = new(width / 2, Math.Max(5, height / 2));
+            // 0668C: the cache is a physical chest. No floating name or action hint before interaction.
+            if (!this.Region1RunRewardedSteps.Contains(this.Region1RunStep))
+                return;
+        }
+        else if (currentEncounter is Region1RunEncounterType.Moonwell or Region1RunEncounterType.AncientEcho)
+        {
+            Point rareTile = ResolveRegion1RunRareTile(room);
             DrawRunChoiceMarker(batch, rareTile, RareEncounterColor(currentEncounter), ModEntry.T($"airship.region1.run.rare.{currentEncounter.ToString().ToLowerInvariant()}.name"));
         }
 
@@ -1593,6 +1606,68 @@ internal sealed class AirshipFoundationService
         else if (this.Region1RunStep >= this.Region1RunTargetNodes - 1)
         {
             DrawRunChoiceMarker(batch, boss, new Color(158, 211, 178), ModEntry.T("airship.region1.run.route.finish"));
+        }
+    }
+
+    private bool CurrentRegion1NodeNeedsManualInteraction()
+    {
+        if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunEncounters.Length)
+            return false;
+        return this.Region1RunEncounters[this.Region1RunStep] == Region1RunEncounterType.LostCache
+            && !this.Region1RunRewardedSteps.Contains(this.Region1RunStep);
+    }
+
+    private bool TryHandleRegion1LostCacheInteraction(ButtonPressedEventArgs e, GameLocation location)
+    {
+        if (!this.CurrentRegion1NodeNeedsManualInteraction())
+            return false;
+
+        Point cacheTile = ResolveRegion1RunRareTile(location);
+        Point actionTile = GetActionTile();
+        Point cursorTile = new((int)e.Cursor.GrabTile.X, (int)e.Cursor.GrabTile.Y);
+        bool mouseDirect = e.Button == SButton.MouseRight && Touches(cursorTile, cacheTile);
+        if (!Touches(actionTile, cacheTile) && !mouseDirect)
+            return false;
+
+        this.Helper.Input.Suppress(e.Button);
+        Game1.playSound("openBox");
+        this.HandleRegion1RunNodeCleared(location);
+        this.ClearRegion1LostCacheObject(location);
+        Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.rare.lostcache.opened"));
+        return true;
+    }
+
+    private static Point ResolveRegion1RunRareTile(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
+        return new Point(width / 2, Math.Max(5, height / 2));
+    }
+
+    private void EnsureRegion1LostCacheChest(GameLocation room)
+    {
+        Point tile = ResolveRegion1RunRareTile(room);
+        Vector2 key = new(tile.X, tile.Y);
+        if (room.Objects.TryGetValue(key, out StardewValley.Object? existing))
+        {
+            if (existing is Chest && existing.modData.ContainsKey(Region1LostCacheMarkerKey))
+                return;
+            return;
+        }
+
+        Chest cache = new(true);
+        cache.modData[Region1LostCacheMarkerKey] = "0668C";
+        room.setObject(key, cache);
+    }
+
+    private void ClearRegion1LostCacheObject(GameLocation room)
+    {
+        Point tile = ResolveRegion1RunRareTile(room);
+        Vector2 key = new(tile.X, tile.Y);
+        if (room.Objects.TryGetValue(key, out StardewValley.Object? existing)
+            && existing.modData.ContainsKey(Region1LostCacheMarkerKey))
+        {
+            room.Objects.Remove(key);
         }
     }
 

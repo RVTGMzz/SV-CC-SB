@@ -129,6 +129,12 @@ internal sealed class VerdantGuardianArenaPolishService
             this.TriggerShake(3, 320, "intro-footfall");
         }
 
+        if (current == VerdantGuardianState.TotemStagger)
+        {
+            this.PlayCue("thudStep");
+            this.TriggerShake(10, 520, "totem-final-stagger");
+        }
+
         if (current == VerdantGuardianState.PhaseTransition)
         {
             this.PhaseCoreCue = false;
@@ -170,6 +176,7 @@ internal sealed class VerdantGuardianArenaPolishService
         this.DrawObelisks(e.SpriteBatch);
         this.DrawRetreatGlyph(e.SpriteBatch);
         this.DrawAmbientMotes(e.SpriteBatch);
+        this.DrawTotemStaggerBurst(e.SpriteBatch);
     }
 
     public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
@@ -232,16 +239,45 @@ internal sealed class VerdantGuardianArenaPolishService
             index = Math.Clamp(index, 0, ObeliskTiles.Length - 1); livingIndices.Add(index);
             float hp = totem.MaxHealth <= 0 ? 0f : Math.Clamp(totem.Health / (float)totem.MaxHealth, 0f, 1f); int frame = hp > 0.66f ? 0 : hp > 0.33f ? 1 : 2;
             Rectangle src = new(frame * 32, 0, 32, 48); Point tile = ObeliskTiles[index]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
-            float pulse = 0.94f + 0.04f * (float)Math.Sin(Environment.TickCount64 / 240d + index); float flash = index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 130 ? 0.45f : 0f;
+            float pulse = 0.94f + 0.04f * (float)Math.Sin(Environment.TickCount64 / 240d + index); float flash = index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 520 ? 0.90f : 0f;
             Color tint = Color.Lerp(Color.White, new Color(255, 237, 156), flash); float layer = Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f);
-            batch.Draw(texture, local, src, tint, 0f, new Vector2(16f, 47f), 2.15f * pulse, SpriteEffects.None, layer);
+            batch.Draw(texture, local, src, tint, 0f, new Vector2(16f, 47f), 2.15f * pulse * (1f + flash * 0.10f), SpriteEffects.None, layer);
             int barW = 54, barX = (int)local.X - 27, barY = (int)local.Y + 7; batch.Draw(Game1.staminaRect, new Rectangle(barX, barY, barW, 5), Color.Black * 0.65f); batch.Draw(Game1.staminaRect, new Rectangle(barX + 1, barY + 1, Math.Max(1, (int)((barW - 2) * hp)), 3), new Color(119, 211, 92) * 0.92f);
+            if (index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 700 && this.Boss.VisualLastTotemHitDamage > 0)
+            {
+                string hitText = $"-{this.Boss.VisualLastTotemHitDamage}";
+                Vector2 hitSize = Game1.smallFont.MeasureString(hitText);
+                batch.DrawString(Game1.smallFont, hitText, new Vector2(local.X - hitSize.X / 2f, local.Y - 92f), new Color(255, 237, 156));
+            }
         }
         Rectangle brokenSrc = new(96, 0, 32, 48);
         for (int i = 0; i < ObeliskTiles.Length; i++)
         {
             if (livingIndices.Contains(i)) continue; Point tile = ObeliskTiles[i]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
             batch.Draw(texture, local, brokenSrc, Color.White * 0.76f, 0f, new Vector2(16f, 47f), 2.15f, SpriteEffects.None, Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f));
+        }
+    }
+
+    private void DrawTotemStaggerBurst(SpriteBatch batch)
+    {
+        if (this.Boss.VisualState != VerdantGuardianState.TotemStagger) return;
+        long elapsed = Math.Max(0L, Environment.TickCount64 - this.Boss.VisualStateStartedAtMs);
+        float progress = Math.Clamp(elapsed / 1200f, 0f, 1f);
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, this.Boss.VisualBossCenter);
+        int radius = 42 + (int)(progress * 150f);
+        float alpha = Math.Max(0f, 0.92f - progress * 0.72f);
+        Color c = new Color(205, 255, 137) * alpha;
+        for (int i = 0; i < 20; i++)
+        {
+            float a = i * MathHelper.TwoPi / 20f;
+            int x = (int)(local.X + MathF.Cos(a) * radius);
+            int y = (int)(local.Y + MathF.Sin(a) * radius * 0.58f);
+            batch.Draw(Game1.staminaRect, new Rectangle(x - 4, y - 4, 8, 8), c);
+        }
+        if (elapsed < 360)
+        {
+            int flash = Math.Max(70, 240 - (int)(elapsed * 0.42f));
+            batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - flash / 2, (int)local.Y - flash / 4, flash, flash / 2), Color.White * (0.16f * (1f - elapsed / 360f)));
         }
     }
 
