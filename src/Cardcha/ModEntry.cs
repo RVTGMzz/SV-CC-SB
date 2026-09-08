@@ -252,6 +252,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_equip", "Equip a prototype card by ID: cardcha_equip <card-id>", this.CommandEquip);
         helper.ConsoleCommands.Add("cardcha_unequip", "Unequip a prototype card by ID.", this.CommandUnequip);
         helper.ConsoleCommands.Add("cardcha_combat_status", "Show active Cardcha combat state.", this.CommandCombatStatus);
+        helper.ConsoleCommands.Add("cardcha_hud_runtime_status", "Show timed Cardcha HUD proc state.", (_, _) => this.Monitor.Log(string.Join(" | ", this.Combat.CurrentTimedCardHudStates.Select(p => $"{p.CardId}:{p.RemainingSeconds:0.0}s")), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_give_scrap", "Give prototype Scrap: cardcha_give_scrap [normal|shiny] [amount]", this.CommandGiveScrap);
         helper.ConsoleCommands.Add("cardcha_give_dust", "TEST ONLY: give Magic Dust for Airship upgrade testing: cardcha_give_dust [amount]", this.CommandGiveDust);
         helper.ConsoleCommands.Add("cardcha_give_machine", "Give the Cardcha! Machine prototype.", this.CommandGiveMachine);
@@ -333,7 +334,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.35 HUNT RUN 2.0 ADVANCED LAYER TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.36 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST",
             LogLevel.Info
         );
     }

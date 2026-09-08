@@ -175,61 +175,9 @@ internal sealed class BossCardService
 
     public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
     {
-        if (!Context.IsWorldReady
-            || !this.Config.EnableCombatCards
-            || !this.Config.EnableCombatHud
-            || !this.VerdantEquipped
-            || Game1.activeClickableMenu is not null)
-        {
-            return;
-        }
-
-        Texture2D? icon = this.LoadIcon();
-        if (icon is null)
-            return;
-
-        long now = Environment.TickCount64;
-        string state;
-        Color accent;
-        if (this.VerdantActive)
-        {
-            state = ModEntry.T("boss.card.state.active", new { seconds = this.ActiveSecondsRemaining.ToString("0.0") });
-            accent = new Color(126, 226, 113);
-        }
-        else if (this.CooldownSecondsRemaining > 0.05d)
-        {
-            state = ModEntry.T("boss.card.state.cooldown", new { seconds = this.CooldownSecondsRemaining.ToString("0.0") });
-            accent = new Color(99, 145, 91);
-        }
-        else
-        {
-            state = ModEntry.T("boss.card.state.ready");
-            accent = new Color(174, 232, 134);
-        }
-
-        const int size = 52;
-        int x = 24;
-        int y = Math.Clamp((int)(Game1.uiViewport.Height * 0.115f), 74, 124);
-        Rectangle outer = new(x, y, 252, 62);
-        e.SpriteBatch.Draw(Game1.staminaRect, outer, new Color(12, 27, 22) * 0.86f);
-        e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(outer.X, outer.Y, 4, outer.Height), accent * 0.95f);
-        Rectangle iconRect = new(outer.X + 7, outer.Y + 5, size, size);
-        e.SpriteBatch.Draw(icon, iconRect, Color.White);
-
-        string title = ModEntry.T("boss.card.verdant_core.name");
-        e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(iconRect.Right + 9, outer.Y + 7), Color.White);
-        e.SpriteBatch.DrawString(Game1.smallFont, state, new Vector2(iconRect.Right + 9, outer.Y + 31), accent);
-
-        if (this.VerdantActive)
-        {
-            float ratio = (float)Math.Clamp(this.ActiveSecondsRemaining / (VerdantActiveDurationMs / 1000d), 0d, 1d);
-            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(outer.X + 5, outer.Bottom - 5, (int)((outer.Width - 10) * ratio), 3), accent * 0.92f);
-        }
-        else if (this.CooldownSecondsRemaining > 0d)
-        {
-            float ratio = 1f - (float)Math.Clamp(this.CooldownSecondsRemaining / (VerdantCooldownMs / 1000d), 0d, 1d);
-            e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(outer.X + 5, outer.Bottom - 5, (int)((outer.Width - 10) * ratio), 3), accent * 0.75f);
-        }
+        // 0668B: temporarily hidden after real-game overlap feedback.
+        // Verdant Core runtime, activation message, world icon and diagnostics remain active.
+        // Reintroduce it later only through the unified Cardcha combat HUD.
     }
 
     public string DebugUnlock()

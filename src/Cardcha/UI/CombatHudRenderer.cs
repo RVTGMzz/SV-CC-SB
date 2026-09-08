@@ -18,6 +18,8 @@ internal sealed class CombatHudRenderer
     private const int FadeOutMs = 240;
     private const int MaxVisibleSlots = 3;
     private const int CircleTextureSize = 64;
+    // 0668B: temporary cleanup requested after in-game overlap report.
+    private const bool ShowPersistentReadyIndicators = false;
 
     private readonly ModConfig Config;
     private readonly CombatService Combat;
@@ -195,7 +197,7 @@ internal sealed class CombatHudRenderer
             ));
         }
 
-        if (this.Loadout.IsEquipped("phoenix_heart") && this.Combat.IsPhoenixReady)
+        if (ShowPersistentReadyIndicators && this.Loadout.IsEquipped("phoenix_heart") && this.Combat.IsPhoenixReady)
         {
             entries.Add(new HudEntry(
                 Key: "phoenix_heart",
@@ -261,7 +263,7 @@ internal sealed class CombatHudRenderer
                     Priority: 35
                 ));
             }
-            else
+            else if (ShowPersistentReadyIndicators)
             {
                 entries.Add(new HudEntry(
                     Key: "soul_eater_progress",
@@ -276,6 +278,26 @@ internal sealed class CombatHudRenderer
                     Priority: 25
                 ));
             }
+        }
+
+        // 0668B: every player-facing timed proc should visibly confirm that the card fired.
+        // Passive always-on cards stay quiet; duration/stack effects get a compact Cardcha slot.
+        foreach (TimedCardHudState timed in this.Combat.CurrentTimedCardHudStates)
+        {
+            CardDefinition? timedCard = this.Cards.Get(timed.CardId);
+            string label = timedCard?.Name ?? timed.CardId;
+            entries.Add(new HudEntry(
+                Key: "timed_" + timed.CardId,
+                CardId: timed.CardId,
+                Label: label,
+                Value: $"{timed.RemainingSeconds:0.0}s",
+                RemainingSeconds: timed.RemainingSeconds,
+                TotalSeconds: timed.TotalSeconds,
+                Timing: HudTiming.Duration,
+                StackText: timed.StackText,
+                Kind: HudKind.Buff,
+                Priority: timed.Priority
+            ));
         }
 
         if (this.Loadout.IsEquipped("chain_hunter"))

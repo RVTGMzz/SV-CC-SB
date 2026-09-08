@@ -130,6 +130,7 @@ internal sealed class CombatService
     public int CurrentSoulEaterKills => Math.Max(0, this.SoulEaterKills);
 
     public int CurrentNoHitKillStreak => this.Completion.CurrentNoHitKillStreak;
+    internal IReadOnlyList<TimedCardHudState> CurrentTimedCardHudStates => this.Completion.GetTimedHudStates();
     internal int DebugVitalityAppliedBonus => this.VitalityAppliedBonus;
     internal CoreCardEffectsService DebugCompletion => this.Completion;
 

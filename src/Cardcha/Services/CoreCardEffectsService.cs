@@ -7,6 +7,14 @@ using System.Reflection;
 
 namespace Cardcha.Services;
 
+internal readonly record struct TimedCardHudState(
+    string CardId,
+    double RemainingSeconds,
+    double TotalSeconds,
+    string StackText,
+    int Priority
+);
+
 internal readonly record struct CardPassiveDebugSnapshot(
     int Defense,
     double WeaponSpeed,
@@ -108,6 +116,49 @@ internal sealed class CoreCardEffectsService
     }
 
     public int CurrentNoHitKillStreak => Math.Max(0, this.NoHitKillStreak);
+    internal IReadOnlyList<TimedCardHudState> GetTimedHudStates()
+    {
+        if (!this.Loadout.CardEffectsActive)
+            return Array.Empty<TimedCardHudState>();
+
+        long now = Environment.TickCount64;
+        this.ExpireTimedStacks(now);
+        List<TimedCardHudState> states = new();
+
+        void Add(string id, long until, int totalMs, int priority, string stack = "")
+        {
+            if (!this.Loadout.IsEquipped(id) || until <= now)
+                return;
+            double remaining = Math.Max(0d, (until - now) / 1000d);
+            double total = Math.Max(0.1d, totalMs / 1000d);
+            states.Add(new TimedCardHudState(id, remaining, total, stack, priority));
+        }
+
+        Add("guard_step", this.GuardStepUntil, this.LevelInt("guard_step", 600, 700, 800, 900), 62);
+        Add("backstep", this.BackstepUntil, this.LevelInt("backstep", 1000, 1100, 1200, 1300), 61);
+        Add("explorer", this.ExplorerUntil, 3000, 45);
+        Add("momentum", this.MomentumUntil, 2000, 70);
+        Add("adrenaline", this.AdrenalineUntil, 3000, 90);
+        Add("fleet_hunter", this.FleetHunterUntil, 2500, 72);
+        Add("battle_trance", this.BattleTranceUntil, 2000, 74);
+        Add("overclock", this.OverclockUntil, 5000, 80);
+        Add("void_walker", this.VoidPhaseUntil, this.LevelInt("void_walker", 1500, 1750, 2000), 95);
+        Add("time_breaker", this.TimeBreakerUntil, 3000, 88);
+        Add("apex_predator", this.ApexPredatorBuffUntil, 6000, 78);
+
+        if (this.Loadout.IsEquipped("predator") && this.PredatorStacks > 0 && this.PredatorExpiresAt > now)
+            Add("predator", this.PredatorExpiresAt, 6000, 68, $"{this.PredatorStacks}/3");
+
+        if (this.Loadout.IsEquipped("war_drum") && this.WarDrumStacks > 0 && this.WarDrumExpiresAt > now)
+        {
+            long until = this.WarDrumStacks >= 4 && this.WarDrumBurstUntil > now ? this.WarDrumBurstUntil : this.WarDrumExpiresAt;
+            int total = this.WarDrumStacks >= 4 && this.WarDrumBurstUntil > now ? 3000 : 6000;
+            Add("war_drum", until, total, 76, $"{this.WarDrumStacks}/4");
+        }
+
+        return states;
+    }
+
     internal CardPassiveDebugSnapshot DebugPassiveSnapshot => this.DebugLastPassive;
     internal int LastProcessedActualDamage { get; private set; }
     internal bool LastProcessedCritLike { get; private set; }
