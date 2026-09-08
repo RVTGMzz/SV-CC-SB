@@ -288,6 +288,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe() + "\n" + this.VerdantSummons.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_polish_status", "Show Verdant arena cinematic/camera/sound polish state.", (_, _) => this.Monitor.Log(this.VerdantArenaPolish.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_balance_status", "Show the 0665 Region I Boss balance profile.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance() + "\n" + this.BossCards.Describe() + "\n" + this.ChaChaBossForm.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_totem_status", "Show destructible Verdant Seed Totem state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
@@ -322,7 +323,7 @@ internal sealed class ModEntry : Mod
 
         Harmony harmony = new(this.ModManifest.UniqueID);
         MonsterDropPatch.Apply(harmony, this.Deaths);
-        MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena);
+        MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena, this.VerdantGuardian);
         VerdantGuardianProxyDrawPatch.Apply(harmony);
         CriticalChancePatch.Apply(harmony, this.Combat);
         FarmerDamagePatch.Apply(harmony, this.Combat, this.ChaChaSupport, this.CardArena, this.BossCards);
@@ -332,7 +333,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.34 HUNT RUN 2.0 ADVANCED LAYER TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.35 HUNT RUN 2.0 ADVANCED LAYER TEST",
             LogLevel.Info
         );
     }

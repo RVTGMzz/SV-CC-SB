@@ -42,6 +42,8 @@ internal sealed class MonsterDeathService
             return;
 
         monster.modData[DeathHandledKey] = "1";
+        if (monster.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey))
+            return;
 
         GameLocation? resolvedLocation =
             location

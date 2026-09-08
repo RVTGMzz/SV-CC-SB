@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Monsters;
 
 namespace Cardcha.Services;
 
@@ -203,7 +204,7 @@ internal sealed class VerdantGuardianArenaPolishService
         => $"Arena={this.Boss.IsInArena} | State={this.Boss.VisualState} | Phase={this.Boss.VisualPhase} | " +
            $"CameraShakeActive={Environment.TickCount64 < this.ShakeUntilMs} | AppliedOffset={this.AppliedCameraOffset.X},{this.AppliedCameraOffset.Y} | " +
            $"ShakeCount={this.CameraShakeCount} | SoundCues={this.SoundCueCount} | LastSound={this.LastSoundCue} | LastImpact={this.LastImpact} | " +
-           $"ArenaSeal=ON | Obelisks=4 | Motes=ON | IntroBars=ON";
+           $"ArenaSeal=ON | DestructibleTotems={this.Boss.GetLivingTotemCount()}/4 | Barrier={this.Boss.GetTotemDamageReductionPercent()}% | Motes=ON | IntroBars=ON";
 
     private void DrawArenaSeal(SpriteBatch batch)
     {
@@ -222,19 +223,25 @@ internal sealed class VerdantGuardianArenaPolishService
 
     private void DrawObelisks(SpriteBatch batch)
     {
-        Texture2D? texture = this.Load("verdant_arena_obelisk.png");
-        if (texture is null)
-            return;
-
+        Texture2D? texture = this.Load("verdant_seed_totem.png");
+        if (texture is null || texture.Width < 128 || texture.Height < 48) return;
+        Monster[] living = this.Boss.VisualTotems; HashSet<int> livingIndices = new();
+        foreach (Monster totem in living)
+        {
+            if (!totem.modData.TryGetValue(VerdantGuardianBossService.TotemIndexKey, out string? raw) || !int.TryParse(raw, out int index)) index = 0;
+            index = Math.Clamp(index, 0, ObeliskTiles.Length - 1); livingIndices.Add(index);
+            float hp = totem.MaxHealth <= 0 ? 0f : Math.Clamp(totem.Health / (float)totem.MaxHealth, 0f, 1f); int frame = hp > 0.66f ? 0 : hp > 0.33f ? 1 : 2;
+            Rectangle src = new(frame * 32, 0, 32, 48); Point tile = ObeliskTiles[index]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+            float pulse = 0.94f + 0.04f * (float)Math.Sin(Environment.TickCount64 / 240d + index); float flash = index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 130 ? 0.45f : 0f;
+            Color tint = Color.Lerp(Color.White, new Color(255, 237, 156), flash); float layer = Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f);
+            batch.Draw(texture, local, src, tint, 0f, new Vector2(16f, 47f), 2.15f * pulse, SpriteEffects.None, layer);
+            int barW = 54, barX = (int)local.X - 27, barY = (int)local.Y + 7; batch.Draw(Game1.staminaRect, new Rectangle(barX, barY, barW, 5), Color.Black * 0.65f); batch.Draw(Game1.staminaRect, new Rectangle(barX + 1, barY + 1, Math.Max(1, (int)((barW - 2) * hp)), 3), new Color(119, 211, 92) * 0.92f);
+        }
+        Rectangle brokenSrc = new(96, 0, 32, 48);
         for (int i = 0; i < ObeliskTiles.Length; i++)
         {
-            Point tile = ObeliskTiles[i];
-            Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f);
-            Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
-            float alpha = 0.72f + 0.10f * (float)Math.Sin(Environment.TickCount64 / 360d + i);
-            batch.Draw(texture, local, null, Color.White * alpha, 0f,
-                new Vector2(texture.Width / 2f, texture.Height), 2.8f, SpriteEffects.None,
-                Math.Clamp((world.Y + 48f) / 10000f, 0f, 0.94f));
+            if (livingIndices.Contains(i)) continue; Point tile = ObeliskTiles[i]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+            batch.Draw(texture, local, brokenSrc, Color.White * 0.76f, 0f, new Vector2(16f, 47f), 2.15f, SpriteEffects.None, Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f));
         }
     }
 

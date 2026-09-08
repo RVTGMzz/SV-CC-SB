@@ -359,8 +359,11 @@ internal sealed class AirshipFoundationService
         if (location?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawRegion1Details(e.SpriteBatch, location);
 
-        if (location is not null && TryGetRegion1RunRoomIndex(location, out _))
+        if (location is not null && TryGetRegion1RunRoomIndex(location, out int activeRoomIndex))
+        {
+            Region1StardewDecorRenderer.Draw(e.SpriteBatch, location, activeRoomIndex);
             this.DrawRegion1HuntRun2Overlay(e.SpriteBatch, location);
+        }
 
         if (this.FlightCutsceneActive)
             this.DrawFlightCutscene(e.SpriteBatch);
@@ -412,7 +415,12 @@ internal sealed class AirshipFoundationService
             Point interiorAction = GetActionTile();
             Point route = ResolveSkyDockInteriorRouteTile(location);
             Point bay = ResolveSkyDockInteriorBayTile(location);
+            Point lostFound = ResolveSkyDockLostFoundTile(location);
             Point interiorExit = ResolveSkyDockInteriorExitTile(location);
+            if (Touches(interiorAction, lostFound))
+            {
+                this.Helper.Input.Suppress(e.Button); Game1.playSound("openBox"); Game1.drawObjectDialogue(ModEntry.T("airship.lostfound.empty")); return;
+            }
 
             if (interiorAction == route)
             {
@@ -2175,6 +2183,12 @@ internal sealed class AirshipFoundationService
         return new Point(Math.Clamp(width - 7, 4, width - 3), Math.Clamp(8, 3, height - 5));
     }
 
+    private static Point ResolveSkyDockLostFoundTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30; int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        return new Point(Math.Clamp(5, 2, width - 3), Math.Clamp(11, 4, height - 3));
+    }
+
     private static Point ResolveRegion1ArrivalTile(GameLocation region)
     {
         int width = region.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
@@ -2232,7 +2246,7 @@ internal sealed class AirshipFoundationService
             return;
         this.DeckDecorAppliedLocation = deck;
         ClearInteriorDecor(deck);
-        deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-physical-bridge-no-pickups";
+        deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0668-lived-in-stardew-decor";
     }
 
     private void EnsureSkyDockVanillaFurniture(GameLocation dock)
@@ -2241,7 +2255,7 @@ internal sealed class AirshipFoundationService
             return;
         this.SkyDockDecorAppliedLocation = dock;
         ClearInteriorDecor(dock);
-        dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-physical-dock-no-pickups";
+        dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0668-lived-in-stardew-decor-lostfound";
     }
 
     private static void ClearInteriorDecor(GameLocation location)

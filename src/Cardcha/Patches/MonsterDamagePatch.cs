@@ -15,14 +15,16 @@ internal static class MonsterDamagePatch
     private static CombatService? Combat;
     private static MonsterDeathService? Deaths;
     private static CardTestArenaService? TestArena;
+    private static VerdantGuardianBossService? VerdantBoss;
     private const double VerdantGuardianKnockbackScale = 0.08d;
     private const int VerdantGuardianKnockbackCap = 12;
 
-    public static void Apply(Harmony harmony, CombatService combat, MonsterDeathService deaths, CardTestArenaService? testArena = null)
+    public static void Apply(Harmony harmony, CombatService combat, MonsterDeathService deaths, CardTestArenaService? testArena, VerdantGuardianBossService verdantBoss)
     {
         Combat = combat;
         Deaths = deaths;
         TestArena = testArena;
+        VerdantBoss = verdantBoss;
 
         MethodInfo? target = AccessTools.Method(
             typeof(Monster),
@@ -49,6 +51,7 @@ internal static class MonsterDamagePatch
             TestArena?.TryOverrideOutgoingDamage(__instance, ref damage, isBomb, who);
 
             bool isVerdantGuardian = __instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey);
+            bool isVerdantTotem = __instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey);
 
             if (Combat is not null)
             {
@@ -56,6 +59,11 @@ internal static class MonsterDamagePatch
                 TestArena?.ClampMainDummyDamage(__instance, ref damage);
                 Combat.ModifyMonsterTrajectory(ref xTrajectory, ref yTrajectory, isBomb, who);
             }
+
+            if (isVerdantGuardian && VerdantBoss is not null)
+                damage = VerdantBoss.ModifyBossIncomingDamage(damage);
+
+            if (isVerdantTotem) { xTrajectory = 0; yTrajectory = 0; }
 
             // 0665: receive 8% of final trajectory, then hard-cap it. The boss service recenters
             // toward HeavyAnchor, so repeated party hits cannot walk the Guardian into a wall.
@@ -76,7 +84,8 @@ internal static class MonsterDamagePatch
         try
         {
             Combat?.AfterMonsterTakesDamage(__instance, who, __state);
-            if (__state > 0 && __instance.Health <= 0)
+            VerdantBoss?.NotifyTotemHit(__instance, __state);
+            if (__state > 0 && __instance.Health <= 0 && !__instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey))
                 Deaths?.HandleDeath(__instance, who, __instance.currentLocation);
         }
         catch (Exception ex)

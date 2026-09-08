@@ -11,9 +11,12 @@ namespace Cardcha.Services;
 internal static class AirshipInteriorStardewRenderer
 {
     private const string UpgradeAtlasPath = "assets/airship_upgrade_visuals.png";
+    private const string HubDecorAtlasPath = "assets/airship_hub_decor.png";
     private const int CellSize = 96;
     private static Texture2D? UpgradeAtlas;
     private static bool AtlasLoadFailed;
+    private static Texture2D? HubDecorAtlas;
+    private static bool HubDecorLoadFailed;
 
     public static bool TryDrawDeck(SpriteBatch batch, GameLocation deck, SaveService save)
     {
@@ -21,6 +24,7 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
+        DrawDeckStardewDecor(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
         DrawHelmMagic(batch, phase);
@@ -35,9 +39,36 @@ internal static class AirshipInteriorStardewRenderer
         if (batch is null || dock is null)
             return false;
         float phase = (float)(Environment.TickCount64 / 1000.0);
+        DrawDockStardewDecor(batch);
         DrawDockMagic(batch, phase);
         DrawDoorwayThreshold(batch, new Point(15, 16), new Color(210, 161, 79) * 0.54f);
         return true;
+    }
+
+    private static void DrawDeckStardewDecor(SpriteBatch batch)
+    {
+        Texture2D? atlas = GetHubDecorAtlas(); if (atlas is null) return;
+        DrawDecor(batch, atlas, 2,0, new Point(2,5), 2f); DrawDecor(batch, atlas, 0,1, new Point(11,3), 2f); DrawDecor(batch, atlas, 3,0, new Point(6,7), 2f); DrawDecor(batch, atlas, 3,2, new Point(16,7), 2f);
+        DrawDecor(batch, atlas, 0,0, new Point(2,10), 2f); DrawDecor(batch, atlas, 1,0, new Point(20,10), 2f); DrawDecor(batch, atlas, 2,2, new Point(18,4), 2f); DrawDecor(batch, atlas, 1,2, new Point(4,4), 2f); DrawDecor(batch, atlas, 3,1, new Point(21,5), 2f); DrawDecor(batch, atlas, 1,1, new Point(9,8), 4.1f, 112, 64);
+    }
+
+    private static void DrawDockStardewDecor(SpriteBatch batch)
+    {
+        Texture2D? atlas = GetHubDecorAtlas(); if (atlas is null) return;
+        DrawDecor(batch, atlas, 0,0, new Point(3,10), 2f); DrawDecor(batch, atlas, 2,1, new Point(5,11), 2f); DrawDecor(batch, atlas, 0,2, new Point(7,12), 2f); DrawDecor(batch, atlas, 2,2, new Point(22,10), 2f); DrawDecor(batch, atlas, 1,0, new Point(24,11), 2f); DrawDecor(batch, atlas, 3,1, new Point(3,6), 2f); DrawDecor(batch, atlas, 3,1, new Point(26,6), 2f); DrawDecor(batch, atlas, 1,2, new Point(8,6), 2f);
+    }
+
+    private static void DrawDecor(SpriteBatch batch, Texture2D atlas, int col, int row, Point tile, float scale, int destW = 0, int destH = 0)
+    {
+        Rectangle src = new(col * 32, row * 32, 32, 32); Vector2 local = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
+        if (destW > 0 && destH > 0) { batch.Draw(atlas, new Rectangle((int)local.X - destW/2, (int)local.Y - destH, destW, destH), src, Color.White); return; }
+        batch.Draw(atlas, local, src, Color.White, 0f, new Vector2(16f, 31f), scale, SpriteEffects.None, 0.92f);
+    }
+
+    private static Texture2D? GetHubDecorAtlas()
+    {
+        if (HubDecorAtlas is not null && !HubDecorAtlas.IsDisposed) return HubDecorAtlas; HubDecorAtlas = null; if (HubDecorLoadFailed || ModEntry.StaticHelper is null) return null;
+        try { HubDecorAtlas = ModEntry.StaticHelper.ModContent.Load<Texture2D>(HubDecorAtlasPath); return HubDecorAtlas; } catch { HubDecorLoadFailed = true; return null; }
     }
 
     private static void DrawWindowMagic(SpriteBatch batch, float phase)
