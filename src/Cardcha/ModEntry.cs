@@ -28,6 +28,7 @@ internal sealed class ModEntry : Mod
     private ItemAssetService Items = null!;
     private ResourceService Resources = null!;
     private BossEnergyService BossEnergy = null!;
+    private BossCardService BossCards = null!;
     private ChaChaBossFormService ChaChaBossForm = null!;
     private ChaChaSkillService ChaChaSkills = null!;
     private ChaChaSupportCastService ChaChaSupport = null!;
@@ -70,6 +71,7 @@ internal sealed class ModEntry : Mod
         this.Items = new ItemAssetService(helper);
         this.Resources = new ResourceService(this.Save);
         this.BossEnergy = new BossEnergyService(this.Loadout, this.Cards, this.Upgrades);
+        this.BossCards = new BossCardService(helper, this.Monitor, this.Save, this.Config);
         this.Combat = new CombatService(this.Config, this.Loadout, this.Save, this.Cards, this.Upgrades, this.BossEnergy);
         this.Renderer = new CardRenderer(helper);
         this.WorldActors = new WorldActorService(this.Monitor);
@@ -171,32 +173,38 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.SaveLoaded += this.CardArena.OnSaveLoaded;
+        helper.Events.GameLoop.SaveLoaded += this.BossCards.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.BossEnergy.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.BossCards.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaBossForm.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaSupport.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.VerdantGuardian.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.BossCards.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.VerdantGuardian.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSkills.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSupport.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.BossEnergy.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.BossCards.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaBossForm.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.CardArena.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardian.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardianVisual.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.BossCards.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaSupport.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.VerdantGuardian.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.BossCards.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSupport.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaMaterials.OnRenderedWorld;
@@ -264,6 +272,10 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_boss1", "TEST ONLY: enter the Verdant Guardian arena without changing the 20-card gate.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugEnterArena(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_status", "Show Verdant Guardian runtime/save state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_card_trigger", "TEST ONLY: force Verdant Guard active for visual/gameplay verification.", (_, _) => this.Monitor.Log(this.BossCards.DebugTrigger(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
         helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
         helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
@@ -295,14 +307,14 @@ internal sealed class ModEntry : Mod
         MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena);
         VerdantGuardianProxyDrawPatch.Apply(harmony);
         CriticalChancePatch.Apply(harmony, this.Combat);
-        FarmerDamagePatch.Apply(harmony, this.Combat, this.ChaChaSupport, this.CardArena);
+        FarmerDamagePatch.Apply(harmony, this.Combat, this.ChaChaSupport, this.CardArena, this.BossCards);
         MachineInteractionPatch.Apply(harmony, this.OpenMachineMenu);
         BookNavigationPatch.Apply(harmony, this.BookTab);
         MimiProfileMenuPatch.Apply(harmony);
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.27 VERDANT GUARDIAN VISUAL COMPLETE + COLOSSUS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.28 VERDANT CORE BOSS CARD RUNTIME TEST",
             LogLevel.Info
         );
     }

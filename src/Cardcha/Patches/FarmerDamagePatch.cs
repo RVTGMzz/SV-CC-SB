@@ -12,12 +12,14 @@ internal static class FarmerDamagePatch
     private static CombatService? Combat;
     private static ChaChaSupportCastService? Support;
     private static CardTestArenaService? TestArena;
+    private static BossCardService? BossCards;
 
-    public static void Apply(Harmony harmony, CombatService combat, ChaChaSupportCastService support, CardTestArenaService? testArena = null)
+    public static void Apply(Harmony harmony, CombatService combat, ChaChaSupportCastService support, CardTestArenaService? testArena, BossCardService bossCards)
     {
         Combat = combat;
         Support = support;
         TestArena = testArena;
+        BossCards = bossCards;
         MethodInfo? target = AccessTools.Method(
             typeof(Farmer),
             nameof(Farmer.takeDamage),
@@ -43,6 +45,8 @@ internal static class FarmerDamagePatch
                 damage = Combat.ModifyFarmerDamage(damage, __instance, damager);
             if (Support is not null)
                 damage = Support.ModifyIncomingDamage(damage, __instance);
+            if (BossCards is not null)
+                damage = BossCards.ModifyIncomingDamage(damage, __instance);
         }
         catch (Exception ex)
         {

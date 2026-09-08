@@ -1039,5 +1039,12 @@
   "boss.verdant.card.name": "Verdant Core",
   "boss.verdant.reward.portable": "Đã nhận Máy Cardcha Cầm Tay!",
   "boss.verdant.retreat": "Bạn rút khỏi Khu Rừng Cổ. Verdant Guardian để những tầng rễ khép lại phía sau.",
-  "boss.verdant.arena.unavailable": "Đấu trường Verdant Guardian hiện chưa thể ổn định. Hãy tải lại ngày rồi thử lại."
+  "boss.verdant.arena.unavailable": "Đấu trường Verdant Guardian hiện chưa thể ổn định. Hãy tải lại ngày rồi thử lại.",
+  "boss.card.verdant_core.name": "Verdant Core",
+  "boss.card.verdant_core.desc": "Khi một đòn đánh sắp khiến HP còn 50% hoặc thấp hơn, Verdant Guard thức tỉnh trong 6 giây: giảm 35% sát thương nhận vào và hồi 2 HP mỗi giây. Hồi chiêu 24 giây.",
+  "boss.card.verdant_core.unlocked": "BOSS CARD THỨC TỈNH: Verdant Core. Lá bài đã được đặt vào ô Boss Card riêng.",
+  "boss.card.verdant_core.activated": "Verdant Core thức tỉnh: rễ cây siết lại thành lớp giáp quanh bạn.",
+  "boss.card.state.ready": "SẴN SÀNG",
+  "boss.card.state.active": "VERDANT GUARD  {{seconds}}s",
+  "boss.card.state.cooldown": "RỄ ĐANG HỒI PHỤC  {{seconds}}s"
 }

@@ -961,5 +961,12 @@
   "boss.verdant.card.name": "Verdant Core",
   "boss.verdant.reward.portable": "Portable Cardcha Machine obtained!",
   "boss.verdant.retreat": "You retreat from the Ancient Grove. The Guardian lets the roots close behind you.",
-  "boss.verdant.arena.unavailable": "The Verdant Guardian arena cannot stabilize right now. Reload the day and try again."
+  "boss.verdant.arena.unavailable": "The Verdant Guardian arena cannot stabilize right now. Reload the day and try again.",
+  "boss.card.verdant_core.name": "Verdant Core",
+  "boss.card.verdant_core.desc": "When a hit would leave you at or below 50% HP, Verdant Guard awakens for 6s: take 35% less damage and recover 2 HP each second. 24s cooldown.",
+  "boss.card.verdant_core.unlocked": "BOSS CARD AWAKENED: Verdant Core. It has been placed in your dedicated Boss Card slot.",
+  "boss.card.verdant_core.activated": "Verdant Core awakened: roots harden around you.",
+  "boss.card.state.ready": "READY",
+  "boss.card.state.active": "VERDANT GUARD  {{seconds}}s",
+  "boss.card.state.cooldown": "ROOTS RECOVERING  {{seconds}}s"
 }
