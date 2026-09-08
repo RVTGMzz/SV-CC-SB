@@ -33,7 +33,30 @@ internal sealed class AirshipFoundationService
     private const string DeckMapPath = "assets/airship_deck.tmx";
     private const string SkyDockInteriorMapPath = "assets/sky_dock_interior.tmx";
     private const string Region1MapPath = "assets/region1_hunting.tmx";
-    private const int Region1RunRoomCount = 4;
+    // 0666 Hunt Run 2.0: a daily farming run is intentionally longer than the old 4-room prototype.
+    private const int Region1RunMinNodes = 7;
+    private const int Region1RunMaxNodes = 10;
+    private const int Region1CheckpointNodeA = 3;
+    private const int Region1CheckpointNodeB = 6;
+    private const int Region1BossBranchMinNode = 7;
+    private const string Region1EliteMarkerKey = "Ronvotri.Cardcha/Region1Elite";
+    private const string Region1RootNestMarkerKey = "Ronvotri.Cardcha/Region1RootNest";
+
+    private enum Region1RunEncounterType
+    {
+        Combat,
+        Ambush,
+        Elite,
+        RootNest,
+        Shrine
+    }
+
+    private enum Region1RunRouteKind
+    {
+        Moss,
+        Briar,
+        Ancient
+    }
     private static readonly string[] Region1RunRoomLocationNames =
     {
         "Cardcha_R1_VerdantClearing",
@@ -126,10 +149,24 @@ internal sealed class AirshipFoundationService
     private GameLocation? DeckDecorAppliedLocation;
     private GameLocation? SkyDockDecorAppliedLocation;
     private int[] Region1RunRoute = Array.Empty<int>();
+    private Region1RunEncounterType[] Region1RunEncounters = Array.Empty<Region1RunEncounterType>();
+    private Region1RunRouteKind[] Region1RunRouteKinds = Array.Empty<Region1RunRouteKind>();
     private int Region1RunStep = -1;
     private int Region1RunSeed;
+    private int Region1RunTargetNodes;
     private bool Region1RunActive;
     private bool Region1RunCompleted;
+    private bool Region1RunRouteChoicesPrepared;
+    private int Region1RunLeftRoomIndex = -1;
+    private int Region1RunRightRoomIndex = -1;
+    private Region1RunRouteKind Region1RunLeftRouteKind = Region1RunRouteKind.Moss;
+    private Region1RunRouteKind Region1RunRightRouteKind = Region1RunRouteKind.Briar;
+    private bool Region1RunAwaitingBoon;
+    private string[] Region1RunBoonChoices = Array.Empty<string>();
+    private readonly HashSet<string> Region1RunBoons = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<int> Region1RunRewardedSteps = new();
+    private int Region1RunUnbankedScrap;
+    private int Region1RunUnbankedShiny;
 
     public AirshipFoundationService(IModHelper helper, IMonitor monitor, SaveService save, ControllerProfileService controller)
     {
@@ -227,6 +264,15 @@ internal sealed class AirshipFoundationService
         if (this.PendingDepartureUntilMs > 0 && now > this.PendingDepartureUntilMs)
             this.PendingDepartureUntilMs = 0;
 
+        GameLocation? activeRunRoom = Game1.currentLocation;
+        if (this.Region1RunActive
+            && activeRunRoom is not null
+            && TryGetRegion1RunRoomIndex(activeRunRoom, out _)
+            && CountRegion1MarkedMonsters(activeRunRoom) == 0)
+        {
+            this.HandleRegion1RunNodeCleared(activeRunRoom);
+        }
+
         // Cardcha-owned portal lanes behave like real exits: walk onto the endpoint and transition.
         // The Forest gate deliberately stays action-driven for maximum map-overhaul compatibility.
         if (now >= this.WarpGraceUntilMs && this.TryHandleAutoTransition())
@@ -279,6 +325,9 @@ internal sealed class AirshipFoundationService
 
         if (location?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawRegion1Details(e.SpriteBatch, location);
+
+        if (location is not null && TryGetRegion1RunRoomIndex(location, out _))
+            this.DrawRegion1HuntRun2Overlay(e.SpriteBatch, location);
 
         if (this.FlightCutsceneActive)
             this.DrawFlightCutscene(e.SpriteBatch);
@@ -410,23 +459,41 @@ internal sealed class AirshipFoundationService
 
         if (TryGetRegion1RunRoomIndex(e.NewLocation, out int roomIndex))
         {
-            int routeStep = Array.IndexOf(this.Region1RunRoute, roomIndex);
-            if (routeStep >= 0)
-                this.Region1RunStep = routeStep;
+            if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes)
+            {
+                Game1.showGlobalMessage(ModEntry.T("airship.region1.run.unstable"));
+                return;
+            }
 
             this.PopulateRegion1RunRoom(e.NewLocation, roomIndex);
+            string encounter = ModEntry.T($"airship.region1.run.encounter.{this.Region1RunEncounters[this.Region1RunStep].ToString().ToLowerInvariant()}");
             Game1.showGlobalMessage(
                 ModEntry.T(
-                    "airship.region1.run.enter",
+                    "airship.region1.run.enter2",
                     new
                     {
-                        step = Math.Max(1, this.Region1RunStep + 1),
-                        total = Region1RunRoomCount,
-                        room = ModEntry.T(Region1RunRoomNameKeys[roomIndex])
+                        step = this.Region1RunStep + 1,
+                        total = this.Region1RunTargetNodes,
+                        room = ModEntry.T(Region1RunRoomNameKeys[roomIndex]),
+                        encounter
                     }
                 )
             );
             return;
+        }
+
+        // Unexpected exit (death/emergency warp) drops only the current unbanked route bonus.
+        // Checkpointed wallet rewards are already persisted and stay safe.
+        if (this.Region1RunActive
+            && e.OldLocation is not null
+            && TryGetRegion1RunRoomIndex(e.OldLocation, out _)
+            && !e.NewLocation.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            int lost = this.Region1RunUnbankedScrap;
+            int lostShiny = this.Region1RunUnbankedShiny;
+            this.ResetRegion1RunState();
+            if (lost > 0 || lostShiny > 0)
+                Game1.showGlobalMessage(ModEntry.T("airship.region1.run.unbanked-lost", new { scrap = lost, shiny = lostShiny }));
         }
 
         if (!e.NewLocation.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase))
@@ -437,7 +504,7 @@ internal sealed class AirshipFoundationService
             this.ClearRegion1MarkedMonsters(e.NewLocation);
             this.Region1RunActive = false;
             this.Region1RunCompleted = true;
-            this.Region1RunStep = Region1RunRoomCount;
+            this.Region1RunStep = this.Region1RunTargetNodes;
             Game1.showGlobalMessage(ModEntry.T("airship.region1.run.complete"));
             return;
         }
@@ -713,10 +780,22 @@ internal sealed class AirshipFoundationService
     private void ResetRegion1RunState()
     {
         this.Region1RunRoute = Array.Empty<int>();
+        this.Region1RunEncounters = Array.Empty<Region1RunEncounterType>();
+        this.Region1RunRouteKinds = Array.Empty<Region1RunRouteKind>();
         this.Region1RunStep = -1;
         this.Region1RunSeed = 0;
+        this.Region1RunTargetNodes = 0;
         this.Region1RunActive = false;
         this.Region1RunCompleted = false;
+        this.Region1RunRouteChoicesPrepared = false;
+        this.Region1RunLeftRoomIndex = -1;
+        this.Region1RunRightRoomIndex = -1;
+        this.Region1RunAwaitingBoon = false;
+        this.Region1RunBoonChoices = Array.Empty<string>();
+        this.Region1RunBoons.Clear();
+        this.Region1RunRewardedSteps.Clear();
+        this.Region1RunUnbankedScrap = 0;
+        this.Region1RunUnbankedShiny = 0;
     }
 
     private GameLocation? BeginRegion1HuntRun()
@@ -730,20 +809,23 @@ internal sealed class AirshipFoundationService
             + this.Save.Data.AirshipFlightsTaken * 7919
         );
         Random random = new(this.Region1RunSeed);
-        this.Region1RunRoute = Enumerable.Range(0, Region1RunRoomLocationNames.Length)
-            .OrderBy(_ => random.Next())
-            .Take(Region1RunRoomCount)
-            .ToArray();
+        this.Region1RunTargetNodes = random.Next(Region1RunMinNodes, Region1RunMaxNodes + 1);
+        this.Region1RunRoute = Enumerable.Repeat(-1, this.Region1RunTargetNodes).ToArray();
+        this.Region1RunEncounters = Enumerable.Repeat(Region1RunEncounterType.Combat, this.Region1RunTargetNodes).ToArray();
+        this.Region1RunRouteKinds = Enumerable.Repeat(Region1RunRouteKind.Moss, this.Region1RunTargetNodes).ToArray();
+        this.Region1RunRoute[0] = random.Next(Region1RunRoomLocationNames.Length);
+        this.Region1RunEncounters[0] = Region1RunEncounterType.Combat;
         this.Region1RunStep = 0;
         this.Region1RunActive = true;
         this.Region1RunCompleted = false;
+        this.Region1RunRouteChoicesPrepared = false;
+        this.Region1RunRewardedSteps.Clear();
+        this.Region1RunBoons.Clear();
+        this.Region1RunUnbankedScrap = 0;
+        this.Region1RunUnbankedShiny = 0;
 
-        string route = string.Join(
-            " -> ",
-            this.Region1RunRoute.Select(index => ModEntry.T(Region1RunRoomNameKeys[index]))
-        );
         this.Monitor.Log(
-            $"Region I Hunt Run seed={this.Region1RunSeed}; route={route}. Exactly {Region1RunRoomCount} unique room(s) selected from {Region1RunRoomLocationNames.Length}.",
+            $"Region I Hunt Run 2.0 seed={this.Region1RunSeed}; targetNodes={this.Region1RunTargetNodes}; firstRoom={ModEntry.T(Region1RunRoomNameKeys[this.Region1RunRoute[0]])}. Branches generate after each clear.",
             LogLevel.Info
         );
 
@@ -769,58 +851,249 @@ internal sealed class AirshipFoundationService
     private void HandleRegion1RunRoomInteraction(ButtonPressedEventArgs e, GameLocation location)
     {
         Point action = GetActionTile();
-        Point next = ResolveRegion1RunNextTile(location);
         Point retreat = ResolveRegion1RunReturnTile(location);
 
         if (Touches(action, retreat) || PlayerIsNear(retreat))
         {
             this.Helper.Input.Suppress(e.Button);
+            this.BankRegion1RunRewards("extract");
             this.ResetRegion1RunState();
             this.StartFlightCutscene(returning: true);
             return;
         }
 
-        if (!Touches(action, next) && !PlayerIsNear(next))
-            return;
-
-        this.Helper.Input.Suppress(e.Button);
         int remaining = CountRegion1MarkedMonsters(location);
         if (remaining > 0)
         {
-            Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.blocked", new { count = remaining }));
+            Point[] blockedTargets = ResolveRegion1RunChoiceTiles(location);
+            if (blockedTargets.Any(tile => Touches(action, tile)) || Touches(action, ResolveRegion1RunBossTile(location)))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.blocked", new { count = remaining }));
+            }
             return;
         }
 
-        this.AdvanceRegion1HuntRun();
+        this.HandleRegion1RunNodeCleared(location);
+
+        if (this.Region1RunAwaitingBoon)
+        {
+            Point[] boonTiles = ResolveRegion1RunBoonTiles(location);
+            for (int i = 0; i < boonTiles.Length && i < this.Region1RunBoonChoices.Length; i++)
+            {
+                if (!Touches(action, boonTiles[i]))
+                    continue;
+                this.Helper.Input.Suppress(e.Button);
+                this.ChooseRegion1RunBoon(this.Region1RunBoonChoices[i]);
+                return;
+            }
+
+            if (ResolveRegion1RunChoiceTiles(location).Any(tile => Touches(action, tile)))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.boon.choose-first"));
+            }
+            return;
+        }
+
+        int nodeNumber = this.Region1RunStep + 1;
+        Point bossTile = ResolveRegion1RunBossTile(location);
+        int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+        bool bossBranchVisible = nodeNumber >= Region1BossBranchMinNode;
+        if (bossBranchVisible && Touches(action, bossTile))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            if (owned < Region1GateCardRequirement)
+            {
+                Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.boss-locked", new { cards = owned, required = Region1GateCardRequirement }));
+                return;
+            }
+
+            this.BankRegion1RunRewards("boss-branch");
+            this.WarpRegion1RunToHub();
+            return;
+        }
+
+        if (this.Region1RunStep >= this.Region1RunTargetNodes - 1)
+        {
+            if (Touches(action, bossTile))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                this.BankRegion1RunRewards("run-complete");
+                this.WarpRegion1RunToHub();
+            }
+            return;
+        }
+
+        if (!this.Region1RunRouteChoicesPrepared)
+            this.PrepareRegion1RunRouteChoices();
+
+        Point[] routeTiles = ResolveRegion1RunChoiceTiles(location);
+        if (routeTiles.Length >= 2 && Touches(action, routeTiles[0]))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            this.AdvanceRegion1HuntRun(this.Region1RunLeftRouteKind, this.Region1RunLeftRoomIndex);
+            return;
+        }
+        if (routeTiles.Length >= 2 && Touches(action, routeTiles[1]))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            this.AdvanceRegion1HuntRun(this.Region1RunRightRouteKind, this.Region1RunRightRoomIndex);
+        }
     }
 
-    private void AdvanceRegion1HuntRun()
+    private void HandleRegion1RunNodeCleared(GameLocation location)
     {
-        if (!this.Region1RunActive || this.Region1RunRoute.Length != Region1RunRoomCount)
+        if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes)
+            return;
+        if (!this.Region1RunRewardedSteps.Add(this.Region1RunStep))
+            return;
+
+        int nodeNumber = this.Region1RunStep + 1;
+        Region1RunRouteKind routeKind = this.Region1RunRouteKinds[this.Region1RunStep];
+        Region1RunEncounterType encounter = this.Region1RunEncounters[this.Region1RunStep];
+
+        if (routeKind is Region1RunRouteKind.Briar or Region1RunRouteKind.Ancient)
+            this.Region1RunUnbankedScrap++;
+        if (this.Region1RunBoons.Contains("scrap_compass"))
+            this.Region1RunUnbankedScrap++;
+        if (this.Region1RunBoons.Contains("hunters_edge") && encounter is Region1RunEncounterType.Elite or Region1RunEncounterType.RootNest)
+            this.Region1RunUnbankedScrap++;
+        if (this.Region1RunBoons.Contains("verdant_recovery"))
+            Game1.player.health = Math.Min(Game1.player.maxHealth, Game1.player.health + 6);
+        if (this.Region1RunBoons.Contains("moss_ward") && encounter is Region1RunEncounterType.Elite or Region1RunEncounterType.RootNest)
+            Game1.player.health = Math.Min(Game1.player.maxHealth, Game1.player.health + 12);
+        if (this.Region1RunBoons.Contains("fortune_bud"))
+        {
+            Random fortune = new(unchecked(this.Region1RunSeed + nodeNumber * 982451653));
+            if (fortune.NextDouble() < 0.20d)
+                this.Region1RunUnbankedShiny++;
+        }
+
+        if (nodeNumber == Region1CheckpointNodeA || nodeNumber == Region1CheckpointNodeB)
+        {
+            if (this.Region1RunBoons.Contains("deep_roots"))
+                Game1.player.health = Math.Min(Game1.player.maxHealth, Game1.player.health + 20);
+            this.BankRegion1RunRewards($"checkpoint-{nodeNumber}");
+            Game1.playSound("questcomplete");
+            Game1.showGlobalMessage(ModEntry.T("airship.region1.run.checkpoint", new { node = nodeNumber }));
+        }
+
+        bool boonMilestone = nodeNumber == 2 || nodeNumber == 5 || nodeNumber == 8;
+        if (boonMilestone || encounter == Region1RunEncounterType.Shrine)
+            this.PrepareRegion1RunBoonChoices();
+
+        if (!this.Region1RunAwaitingBoon && this.Region1RunStep < this.Region1RunTargetNodes - 1)
+            this.PrepareRegion1RunRouteChoices();
+
+        Game1.playSound("discoverMineral");
+    }
+
+    private void PrepareRegion1RunBoonChoices()
+    {
+        string[] pool =
+        {
+            "verdant_recovery",
+            "scrap_compass",
+            "deep_roots",
+            "fortune_bud",
+            "hunters_edge",
+            "moss_ward"
+        };
+        string[] available = pool.Where(id => !this.Region1RunBoons.Contains(id)).ToArray();
+        if (available.Length < 3)
+        {
+            this.Region1RunUnbankedScrap += 2;
+            this.Region1RunAwaitingBoon = false;
+            this.Region1RunBoonChoices = Array.Empty<string>();
+            return;
+        }
+
+        Random random = new(unchecked(this.Region1RunSeed + (this.Region1RunStep + 1) * 65537 + this.Region1RunBoons.Count * 31337));
+        this.Region1RunBoonChoices = available.OrderBy(_ => random.Next()).Take(3).ToArray();
+        this.Region1RunAwaitingBoon = true;
+        this.Region1RunRouteChoicesPrepared = false;
+        Game1.showGlobalMessage(ModEntry.T("airship.region1.run.boon.ready"));
+    }
+
+    private void ChooseRegion1RunBoon(string boonId)
+    {
+        if (!this.Region1RunAwaitingBoon || !this.Region1RunBoonChoices.Contains(boonId, StringComparer.OrdinalIgnoreCase))
+            return;
+        this.Region1RunBoons.Add(boonId);
+        this.Region1RunAwaitingBoon = false;
+        this.Region1RunBoonChoices = Array.Empty<string>();
+        Game1.playSound("yoba");
+        Game1.showGlobalMessage(ModEntry.T("airship.region1.run.boon.chosen", new { boon = ModEntry.T($"airship.region1.run.boon.{boonId}.name") }));
+        if (this.Region1RunStep < this.Region1RunTargetNodes - 1)
+            this.PrepareRegion1RunRouteChoices();
+    }
+
+    private void PrepareRegion1RunRouteChoices()
+    {
+        if (!this.Region1RunActive || this.Region1RunStep >= this.Region1RunTargetNodes - 1)
+        {
+            this.Region1RunRouteChoicesPrepared = false;
+            return;
+        }
+
+        Random random = new(unchecked(this.Region1RunSeed + (this.Region1RunStep + 1) * 104729));
+        Region1RunRouteKind[] kinds = Enum.GetValues<Region1RunRouteKind>().OrderBy(_ => random.Next()).Take(2).ToArray();
+        this.Region1RunLeftRouteKind = kinds[0];
+        this.Region1RunRightRouteKind = kinds[1];
+        int currentRoom = this.Region1RunRoute[this.Region1RunStep];
+        this.Region1RunLeftRoomIndex = PickNextRegion1Room(random, currentRoom, -1);
+        this.Region1RunRightRoomIndex = PickNextRegion1Room(random, currentRoom, this.Region1RunLeftRoomIndex);
+        this.Region1RunRouteChoicesPrepared = true;
+    }
+
+    private static int PickNextRegion1Room(Random random, int currentRoom, int excludedRoom)
+    {
+        int[] candidates = Enumerable.Range(0, Region1RunRoomLocationNames.Length)
+            .Where(i => i != currentRoom && i != excludedRoom)
+            .OrderBy(_ => random.Next())
+            .ToArray();
+        return candidates.Length == 0 ? Math.Max(0, (currentRoom + 1) % Region1RunRoomLocationNames.Length) : candidates[0];
+    }
+
+    private Region1RunEncounterType RollRegion1Encounter(Region1RunRouteKind route, int nodeIndex)
+    {
+        Random random = new(unchecked(this.Region1RunSeed + (nodeIndex + 1) * 32452843 + (int)route * 49999));
+        int roll = random.Next(100);
+        return route switch
+        {
+            Region1RunRouteKind.Moss => roll < 55 ? Region1RunEncounterType.Combat
+                : roll < 78 ? Region1RunEncounterType.Ambush
+                : roll < 90 ? Region1RunEncounterType.RootNest
+                : Region1RunEncounterType.Shrine,
+            Region1RunRouteKind.Briar => roll < 38 ? Region1RunEncounterType.Elite
+                : roll < 68 ? Region1RunEncounterType.RootNest
+                : Region1RunEncounterType.Ambush,
+            _ => roll < 34 ? Region1RunEncounterType.Shrine
+                : roll < 58 ? Region1RunEncounterType.RootNest
+                : roll < 78 ? Region1RunEncounterType.Elite
+                : Region1RunEncounterType.Combat,
+        };
+    }
+
+    private void AdvanceRegion1HuntRun(Region1RunRouteKind routeKind, int roomIndex)
+    {
+        if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes - 1)
         {
             Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.unstable"));
             return;
         }
 
-        this.Region1RunStep++;
-        if (this.Region1RunStep >= Region1RunRoomCount)
-        {
-            GameLocation? hub = this.EnsureRegion1Location();
-            if (hub is null)
-            {
-                Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
-                return;
-            }
+        int nextStep = this.Region1RunStep + 1;
+        this.Region1RunRoute[nextStep] = Math.Clamp(roomIndex, 0, Region1RunRoomLocationNames.Length - 1);
+        this.Region1RunRouteKinds[nextStep] = routeKind;
+        this.Region1RunEncounters[nextStep] = this.RollRegion1Encounter(routeKind, nextStep);
+        this.Region1RunStep = nextStep;
+        this.Region1RunRouteChoicesPrepared = false;
+        this.Region1RunAwaitingBoon = false;
+        this.Region1RunBoonChoices = Array.Empty<string>();
 
-            Point arrival = ResolveRegion1ArrivalTile(hub);
-            this.WarpGraceUntilMs = Environment.TickCount64 + 650L;
-            Game1.playSound("discoverMineral");
-            Game1.warpFarmer(Region1LocationName, arrival.X, arrival.Y, 0);
-            return;
-        }
-
-        int roomIndex = this.Region1RunRoute[this.Region1RunStep];
-        GameLocation? next = Game1.getLocationFromName(Region1RunRoomLocationNames[roomIndex]);
+        GameLocation? next = Game1.getLocationFromName(Region1RunRoomLocationNames[this.Region1RunRoute[nextStep]]);
         if (next is null)
         {
             Game1.drawObjectDialogue(ModEntry.T("airship.region1.run.unstable"));
@@ -833,9 +1106,33 @@ internal sealed class AirshipFoundationService
         Game1.warpFarmer(next.NameOrUniqueName, nextArrival.X, nextArrival.Y, 0);
     }
 
+    private void WarpRegion1RunToHub()
+    {
+        GameLocation? hub = this.EnsureRegion1Location();
+        if (hub is null)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region1.unavailable"));
+            return;
+        }
+
+        Point arrival = ResolveRegion1ArrivalTile(hub);
+        this.WarpGraceUntilMs = Environment.TickCount64 + 650L;
+        Game1.playSound("discoverMineral");
+        Game1.warpFarmer(Region1LocationName, arrival.X, arrival.Y, 0);
+    }
+
     private void PopulateRegion1RunRoom(GameLocation location, int roomIndex)
     {
         this.ClearRegion1MarkedMonsters(location);
+        if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunEncounters.Length)
+            return;
+
+        Region1RunEncounterType encounter = this.Region1RunEncounters[this.Region1RunStep];
+        if (encounter == Region1RunEncounterType.Shrine)
+        {
+            this.Monitor.Log($"Region I Hunt Run node {this.Region1RunStep + 1}: Ancient Shrine, no combat spawn.", LogLevel.Trace);
+            return;
+        }
 
         Point[][] roomCandidates =
         {
@@ -850,7 +1147,14 @@ internal sealed class AirshipFoundationService
         int encounterSeed = unchecked(this.Region1RunSeed + roomIndex * 104729 + Math.Max(0, this.Region1RunStep) * 8191);
         Random random = new(encounterSeed);
         Point[] shuffled = roomCandidates[roomIndex].OrderBy(_ => random.Next()).ToArray();
-        int targetCount = random.Next(5, 9);
+        int targetCount = encounter switch
+        {
+            Region1RunEncounterType.Combat => random.Next(5, 8),
+            Region1RunEncounterType.Ambush => random.Next(8, 11),
+            Region1RunEncounterType.Elite => 4,
+            Region1RunEncounterType.RootNest => 6,
+            _ => 0
+        };
         int spawned = 0;
 
         foreach (Point tile in shuffled)
@@ -869,14 +1173,33 @@ internal sealed class AirshipFoundationService
                 continue;
             }
 
-            Monster monster = CreateRegion1RunMonster(roomIndex, random.Next(100), tileVector * 64f);
-            monster.modData[Region1MonsterMarkerKey] = "huntrun";
+            Monster monster;
+            if (encounter == Region1RunEncounterType.Elite && spawned == 0)
+            {
+                GreenSlime elite = new(tileVector * 64f, 0) { MaxHealth = 210 + this.Region1RunStep * 16, Speed = 3 };
+                elite.Health = elite.MaxHealth;
+                elite.modData[Region1EliteMarkerKey] = "1";
+                monster = elite;
+            }
+            else if (encounter == Region1RunEncounterType.RootNest && spawned < 3)
+            {
+                GreenSlime nest = new(tileVector * 64f, 0) { MaxHealth = 60 + this.Region1RunStep * 8, Speed = 0 };
+                nest.Health = nest.MaxHealth;
+                nest.modData[Region1RootNestMarkerKey] = "1";
+                monster = nest;
+            }
+            else
+            {
+                monster = CreateRegion1RunMonster(roomIndex, random.Next(100), tileVector * 64f);
+            }
+
+            monster.modData[Region1MonsterMarkerKey] = "huntrun2";
             location.characters.Add(monster);
             spawned++;
         }
 
         this.Monitor.Log(
-            $"Region I Hunt Run room {roomIndex + 1} populated with {spawned} controlled monster(s); existing Scrap drop pipeline remains authoritative.",
+            $"Region I Hunt Run 2.0 node {this.Region1RunStep + 1}/{this.Region1RunTargetNodes}: room={roomIndex + 1}, encounter={encounter}, spawned={spawned}.",
             LogLevel.Trace
         );
     }
@@ -891,6 +1214,134 @@ internal sealed class AirshipFoundationService
             4 => roll < 68 ? (Monster)new Bat(position) : new GreenSlime(position, 0),
             _ => roll < 34 ? (Monster)new GreenSlime(position, 0) : roll < 67 ? new Bat(position) : new Bug(position, 0),
         };
+
+    private void BankRegion1RunRewards(string reason)
+    {
+        int scrap = Math.Max(0, this.Region1RunUnbankedScrap);
+        int shiny = Math.Max(0, this.Region1RunUnbankedShiny);
+        if (scrap <= 0 && shiny <= 0)
+            return;
+
+        this.Save.Data.CardboardScraps += scrap;
+        this.Save.Data.ShinyScraps += shiny;
+        this.Region1RunUnbankedScrap = 0;
+        this.Region1RunUnbankedShiny = 0;
+        this.Save.Save();
+        Game1.showGlobalMessage(ModEntry.T("airship.region1.run.bank", new { scrap, shiny, reason }));
+    }
+
+    public string DescribeHuntRun2()
+    {
+        if (!Context.IsWorldReady)
+            return "HuntRun2=<no save>";
+        string encounter = this.Region1RunStep >= 0 && this.Region1RunStep < this.Region1RunEncounters.Length
+            ? this.Region1RunEncounters[this.Region1RunStep].ToString()
+            : "none";
+        string route = this.Region1RunStep >= 0 && this.Region1RunStep < this.Region1RunRouteKinds.Length
+            ? this.Region1RunRouteKinds[this.Region1RunStep].ToString()
+            : "none";
+        return $"HuntRun2 Active={this.Region1RunActive} | Node={Math.Max(0, this.Region1RunStep + 1)}/{this.Region1RunTargetNodes} | " +
+               $"Encounter={encounter} | Route={route} | Boons=[{string.Join(',', this.Region1RunBoons)}] | " +
+               $"AwaitingBoon={this.Region1RunAwaitingBoon} | Unbanked={this.Region1RunUnbankedScrap} Scrap + {this.Region1RunUnbankedShiny} Shiny | " +
+               $"BossBranch={(this.Region1RunStep + 1 >= Region1BossBranchMinNode)} | Seed={this.Region1RunSeed}";
+    }
+
+    public string DebugClearHuntRunNode()
+    {
+        if (!Context.IsWorldReady || !this.Region1RunActive || Game1.currentLocation is null || !TryGetRegion1RunRoomIndex(Game1.currentLocation, out _))
+            return "Hunt Run 2.0 TEST: enter a Region I run room first.";
+        this.ClearRegion1MarkedMonsters(Game1.currentLocation);
+        this.HandleRegion1RunNodeCleared(Game1.currentLocation);
+        return $"TEST: cleared node {this.Region1RunStep + 1}/{this.Region1RunTargetNodes}. {this.DescribeHuntRun2()}";
+    }
+
+    private void DrawRegion1HuntRun2Overlay(SpriteBatch batch, GameLocation room)
+    {
+        if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes)
+            return;
+
+        foreach (Monster nest in room.characters.OfType<Monster>().Where(m => m.Health > 0 && m.modData.ContainsKey(Region1RootNestMarkerKey)))
+        {
+            Vector2 center = Game1.GlobalToLocal(Game1.viewport, nest.Position + new Vector2(32f, 32f));
+            int pulse = 34 + (int)(5f * Math.Sin(Environment.TickCount64 / 170d));
+            batch.Draw(Game1.staminaRect, new Rectangle((int)center.X - pulse, (int)center.Y - 3, pulse * 2, 6), new Color(111, 199, 83) * 0.55f);
+            batch.Draw(Game1.staminaRect, new Rectangle((int)center.X - 3, (int)center.Y - pulse, 6, pulse * 2), new Color(111, 199, 83) * 0.55f);
+        }
+
+        if (CountRegion1MarkedMonsters(room) > 0)
+            return;
+
+        if (this.Region1RunAwaitingBoon)
+        {
+            Point[] boonTiles = ResolveRegion1RunBoonTiles(room);
+            for (int i = 0; i < boonTiles.Length && i < this.Region1RunBoonChoices.Length; i++)
+                DrawRunChoiceMarker(batch, boonTiles[i], new Color(154, 228, 124), ModEntry.T($"airship.region1.run.boon.{this.Region1RunBoonChoices[i]}.name"));
+            return;
+        }
+
+        int nodeNumber = this.Region1RunStep + 1;
+        if (this.Region1RunStep < this.Region1RunTargetNodes - 1)
+        {
+            if (!this.Region1RunRouteChoicesPrepared)
+                this.PrepareRegion1RunRouteChoices();
+            Point[] routes = ResolveRegion1RunChoiceTiles(room);
+            DrawRunChoiceMarker(batch, routes[0], RouteColor(this.Region1RunLeftRouteKind), ModEntry.T($"airship.region1.run.route.{this.Region1RunLeftRouteKind.ToString().ToLowerInvariant()}"));
+            DrawRunChoiceMarker(batch, routes[1], RouteColor(this.Region1RunRightRouteKind), ModEntry.T($"airship.region1.run.route.{this.Region1RunRightRouteKind.ToString().ToLowerInvariant()}"));
+        }
+
+        Point boss = ResolveRegion1RunBossTile(room);
+        if (nodeNumber >= Region1BossBranchMinNode)
+        {
+            int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+            string label = owned >= Region1GateCardRequirement
+                ? ModEntry.T("airship.region1.run.route.boss")
+                : ModEntry.T("airship.region1.run.route.boss-locked-short", new { cards = owned, required = Region1GateCardRequirement });
+            DrawRunChoiceMarker(batch, boss, new Color(214, 194, 92), label);
+        }
+        else if (this.Region1RunStep >= this.Region1RunTargetNodes - 1)
+        {
+            DrawRunChoiceMarker(batch, boss, new Color(158, 211, 178), ModEntry.T("airship.region1.run.route.finish"));
+        }
+    }
+
+    private static Color RouteColor(Region1RunRouteKind route) => route switch
+    {
+        Region1RunRouteKind.Moss => new Color(113, 198, 118),
+        Region1RunRouteKind.Briar => new Color(202, 117, 104),
+        _ => new Color(139, 177, 224)
+    };
+
+    private static void DrawRunChoiceMarker(SpriteBatch batch, Point tile, Color color, string label)
+    {
+        Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 32f);
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+        float pulse = 0.82f + 0.12f * (float)Math.Sin(Environment.TickCount64 / 180d + tile.X);
+        int size = (int)(24f * pulse);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - size, (int)local.Y - 3, size * 2, 6), color * 0.72f);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 3, (int)local.Y - size, 6, size * 2), color * 0.72f);
+        Vector2 textSize = Game1.smallFont.MeasureString(label);
+        batch.DrawString(Game1.smallFont, label, new Vector2(local.X - textSize.X / 2f, local.Y + 30f), Color.White);
+    }
+
+    private static Point[] ResolveRegion1RunChoiceTiles(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        int center = width / 2;
+        return new[] { new Point(Math.Max(2, center - 5), 2), new Point(Math.Min(width - 3, center + 5), 2) };
+    }
+
+    private static Point[] ResolveRegion1RunBoonTiles(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        int center = width / 2;
+        return new[] { new Point(Math.Max(3, center - 7), 5), new Point(center, 5), new Point(Math.Min(width - 4, center + 7), 5) };
+    }
+
+    private static Point ResolveRegion1RunBossTile(GameLocation room)
+    {
+        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
+        return new Point(width / 2, 2);
+    }
 
     private void ClearRegion1MarkedMonsters(GameLocation location)
     {
@@ -912,12 +1363,6 @@ internal sealed class AirshipFoundationService
         int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
         int height = room.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 20;
         return FindClearTileNear(room, new Point(width / 2, Math.Max(3, height - 3)));
-    }
-
-    private static Point ResolveRegion1RunNextTile(GameLocation room)
-    {
-        int width = room.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 28;
-        return new Point(width / 2, 1);
     }
 
     private static Point ResolveRegion1RunReturnTile(GameLocation room)

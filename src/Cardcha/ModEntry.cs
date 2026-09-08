@@ -277,6 +277,8 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_attic", "TEST ONLY: toggle direct MiMi attic access without changing friendship/story progression.", this.CommandTestAttic);
         helper.ConsoleCommands.Add("cardcha_test_mimi_routine", "TEST ONLY: force MiMi attic state: home|tv|late|auto.", this.CommandTestMimiRoutine);
         helper.ConsoleCommands.Add("cardcha_airship_status", "Show alpha.28 Airship foundation state.", this.CommandAirshipStatus);
+        helper.ConsoleCommands.Add("cardcha_huntrun_status", "Show Region I Hunt Run 2.0 route/boon/checkpoint state.", (_, _) => this.Monitor.Log(this.Airship.DescribeHuntRun2(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_huntrun_clear", "TEST ONLY: clear the current Hunt Run 2.0 encounter.", (_, _) => this.Monitor.Log(this.Airship.DebugClearHuntRunNode(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_gate", "TEST ONLY: warp directly beside the Forest Arcane Gate with runtime-only access.", this.CommandTestGate);
         helper.ConsoleCommands.Add("cardcha_test_airship", "TEST ONLY: toggle direct Airship deck access without changing story progression.", this.CommandTestAirship);
         helper.ConsoleCommands.Add("cardcha_test_airship_flyby", "TEST ONLY: replay the pre-MiMi Farm Airship flyby without changing save progression.", this.CommandTestAirshipFlyby);
@@ -329,7 +331,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.32 VERDANT REGION I BALANCE PASS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.33 REGION I HUNT RUN 2.0 FOUNDATION TEST",
             LogLevel.Info
         );
     }
