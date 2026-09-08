@@ -1046,5 +1046,9 @@
   "boss.card.verdant_core.activated": "Verdant Core thức tỉnh: rễ cây siết lại thành lớp giáp quanh bạn.",
   "boss.card.state.ready": "SẴN SÀNG",
   "boss.card.state.active": "VERDANT GUARD  {{seconds}}s",
-  "boss.card.state.cooldown": "RỄ ĐANG HỒI PHỤC  {{seconds}}s"
+  "boss.card.state.cooldown": "RỄ ĐANG HỒI PHỤC  {{seconds}}s",
+  "chacha.boss.guardian.name": "Guardian Rabbit",
+  "chacha.boss.guardian.desc": "ChaCha cộng hưởng với Verdant Guardian trong 10 giây. Cứ mỗi 2 giây, rễ cây lại bùng lên quanh ChaCha và gây sát thương cho quái vật ở gần.",
+  "chacha.boss.guardian.activated": "ChaCha đã biến thành Guardian Rabbit! Rễ cây Verdant đang đáp lại cộng hưởng.",
+  "chacha.boss.guardian.locked": "Guardian Rabbit sẽ thức tỉnh sau khi đánh bại Boss I: Verdant Guardian."
 }

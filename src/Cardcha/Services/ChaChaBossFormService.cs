@@ -3,18 +3,22 @@ using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
+using StardewValley.Monsters;
 
 namespace Cardcha.Services;
 
 /// <summary>
-/// Runtime-only ChaCha Boss Form foundation.
-/// ChaCha visibly charges through four aura stages, owns one unified Energy HUD, and activates
-/// through a semantic controller chord, Left Shift+A on keyboard, or a click on the READY bar.
-/// This foundation intentionally grants no combat stat bonuses yet.
+/// ChaCha Boss Form runtime. Boss I unlocks Guardian Rabbit, an actual Verdant transformation
+/// with a dedicated sprite and periodic root pulses. The global Boss Form contract remains
+/// exactly 10 seconds and still spends the existing 100 Boss Energy charge.
 /// </summary>
 internal sealed class ChaChaBossFormService
 {
+    public const string GuardianRabbitFormId = "guardian_rabbit";
     public const int BossFormDurationMs = 10000;
+    public const int GuardianRootPulseIntervalMs = 2000;
+    public const int GuardianRootPulseDamage = 18;
+    public const float GuardianRootPulseRadius = 176f;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -26,6 +30,14 @@ internal sealed class ChaChaBossFormService
     private long ActiveUntil;
     private bool ReadyAnnounced;
     private Texture2D? AuraTexture;
+    private long NextRootPulseAt;
+    private long RootPulseVisualUntil;
+    private long LastRootPulseAt;
+    private bool DebugGuardianUnlock;
+
+    public long GuardianPulseCount { get; private set; }
+    public long GuardianPulseHits { get; private set; }
+    public int LastPulseTargets { get; private set; }
 
     public ChaChaBossFormService(
         IModHelper helper,
@@ -43,9 +55,16 @@ internal sealed class ChaChaBossFormService
         this.Controller = controller;
     }
 
+    public bool GuardianRabbitUnlocked
+        => this.DebugGuardianUnlock
+           || this.Save.Data.Region1BossDefeated
+           || this.Save.Data.BossCardsUnlocked?.Contains(BossCardService.VerdantCoreId) == true;
+
+    public string ActiveFormId => this.IsActive ? GuardianRabbitFormId : string.Empty;
     public bool IsActive => this.ActiveUntil > Environment.TickCount64;
     public bool IsReady => !this.IsActive
                            && this.Save.Data.ChaChaLoaned
+                           && this.GuardianRabbitUnlocked
                            && this.BossEnergy.CurrentEnergy >= BossEnergyService.MaxEnergy - 0.001d;
 
     public double SecondsRemaining
@@ -80,6 +99,11 @@ internal sealed class ChaChaBossFormService
         if (this.IsActive)
         {
             this.WorldActors.SetChaChaBossVisual(true);
+            if (now >= this.NextRootPulseAt)
+            {
+                this.EmitGuardianRootPulse(now);
+                this.NextRootPulseAt = now + GuardianRootPulseIntervalMs;
+            }
             return;
         }
 
@@ -96,7 +120,7 @@ internal sealed class ChaChaBossFormService
             this.ReadyAnnounced = true;
             Game1.playSound("yoba");
             this.WorldActors.TriggerChaChaEmote(56);
-            this.Monitor.Log("ChaCha Boss Form READY: ChaCha Energy reached 100.", LogLevel.Info);
+            this.Monitor.Log("Guardian Rabbit READY: ChaCha Energy reached 100 and Boss I resonance is unlocked.", LogLevel.Info);
         }
     }
 
@@ -105,8 +129,6 @@ internal sealed class ChaChaBossFormService
         if (!Context.IsWorldReady || !this.IsReady || !this.CanAcceptActivationInput())
             return;
 
-        // .5.6.1: the persistent ChaCha Energy panel was removed from gameplay HUD.
-        // Do not leave its former rectangle as an invisible mouse activation hotspot.
         if (e.Button == SButton.MouseLeft)
             return;
 
@@ -141,9 +163,8 @@ internal sealed class ChaChaBossFormService
 
     public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
     {
-        // .5.6.1: user-approved HUD cleanup. Boss Energy continues charging internally and
-        // READY still announces through sound/ChaCha emote; activation remains controller chord
-        // or Left Shift+A. The old always-on rectangular meter is intentionally not drawn.
+        // The user-approved persistent Boss Energy rectangle remains removed.
+        // READY is signaled through ChaCha's aura/emote; activation stays on the semantic chord.
     }
 
     public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
@@ -171,7 +192,7 @@ internal sealed class ChaChaBossFormService
 
         float scale = (stage switch { 1 => 1.18f, 2 => 1.30f, 3 => 1.43f, _ => 1.62f }) * pulse;
         if (this.IsActive)
-            scale *= 1.10f;
+            scale *= 1.16f;
 
         Color color = this.GetStageColor(stage);
         float alpha = stage switch { 1 => 0.23f, 2 => 0.30f, 3 => 0.38f, _ => 0.48f };
@@ -191,6 +212,23 @@ internal sealed class ChaChaBossFormService
             e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)p.X - size, (int)p.Y, size * 2 + 1, 1), spark);
             e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)p.X, (int)p.Y - size, 1, size * 2 + 1), spark);
         }
+
+        // Root Pulse presentation: a quick broad Verdant bloom centered on transformed ChaCha.
+        if (now < this.RootPulseVisualUntil)
+        {
+            float t = Math.Clamp((now - this.LastRootPulseAt) / 520f, 0f, 1f);
+            float ringScale = 1.55f + 3.65f * t;
+            float ringAlpha = (1f - t) * 0.34f;
+            Color pulseColor = new(108, 224, 103);
+            e.SpriteBatch.Draw(this.AuraTexture, center, null, pulseColor * ringAlpha, 0f, origin, ringScale, SpriteEffects.None, 0.985f);
+            for (int i = 0; i < 8; i++)
+            {
+                float a = (float)(i * Math.PI / 4d + now * 0.0025d);
+                float r = 26f + 72f * t;
+                Vector2 p = center + new Vector2((float)Math.Cos(a) * r, (float)Math.Sin(a) * r * 0.62f);
+                e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle((int)p.X - 2, (int)p.Y - 1, 5, 3), pulseColor * ((1f - t) * 0.78f));
+            }
+        }
     }
 
     public bool TryActivate(string source)
@@ -201,21 +239,38 @@ internal sealed class ChaChaBossFormService
         if (!this.BossEnergy.TrySpend(BossEnergyService.MaxEnergy))
             return false;
 
+        long now = Environment.TickCount64;
         this.ReadyAnnounced = false;
-        this.ActiveUntil = Environment.TickCount64 + BossFormDurationMs;
+        this.ActiveUntil = now + BossFormDurationMs;
+        this.NextRootPulseAt = now + 650;
+        this.LastRootPulseAt = now;
+        this.RootPulseVisualUntil = now + 520;
         this.BossEnergy.SetGainSuppressed(true);
         this.WorldActors.SetChaChaBossVisual(true);
         this.WorldActors.TriggerChaChaEmote(16);
         Game1.playSound("wand");
-        Game1.showGlobalMessage(ModEntry.T("chacha.boss.activated"));
-        this.Monitor.Log($"ChaCha Boss Form activated via {source}; duration={BossFormDurationMs}ms.", LogLevel.Info);
+        Game1.showGlobalMessage(ModEntry.T("chacha.boss.guardian.activated"));
+        this.Monitor.Log($"Guardian Rabbit activated via {source}; duration={BossFormDurationMs}ms, rootPulse={GuardianRootPulseDamage} every {GuardianRootPulseIntervalMs}ms.", LogLevel.Info);
         return true;
+    }
+
+    public bool DebugForceGuardianRabbit()
+    {
+        if (!Context.IsWorldReady)
+            return false;
+        this.EndBossForm("debug force");
+        this.DebugGuardianUnlock = true;
+        this.BossEnergy.DebugSetEnergy(BossEnergyService.MaxEnergy);
+        this.ReadyAnnounced = false;
+        return this.TryActivate("debug guardian-rabbit command");
     }
 
     public void EndBossForm(string reason)
     {
         bool wasActive = this.ActiveUntil > 0 || this.WorldActors.IsChaChaBossVisualActive;
         this.ActiveUntil = 0;
+        this.NextRootPulseAt = 0;
+        this.RootPulseVisualUntil = 0;
         this.BossEnergy.SetGainSuppressed(false);
         this.WorldActors.SetChaChaBossVisual(false);
 
@@ -226,15 +281,15 @@ internal sealed class ChaChaBossFormService
         }
 
         if (wasActive)
-            this.Monitor.Log($"ChaCha Boss Form ended ({reason}).", LogLevel.Trace);
+            this.Monitor.Log($"Guardian Rabbit ended ({reason}).", LogLevel.Trace);
     }
 
     public void OnDayStarted(object? sender, DayStartedEventArgs e)
-        => this.ResetRuntime();
+        => this.ResetRuntime(clearDebugUnlock: true);
 
     public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
     {
-        this.ResetRuntime();
+        this.ResetRuntime(clearDebugUnlock: true);
         this.DisposeAuraTexture();
     }
 
@@ -246,6 +301,7 @@ internal sealed class ChaChaBossFormService
         if (!Context.IsWorldReady)
             return;
         this.EndBossForm("debug prime");
+        this.DebugGuardianUnlock = true;
         this.BossEnergy.DebugSetEnergy(BossEnergyService.MaxEnergy);
         this.ReadyAnnounced = false;
     }
@@ -253,14 +309,63 @@ internal sealed class ChaChaBossFormService
     public string Describe()
     {
         string chord = $"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)}";
-        return $"Ready={this.IsReady} | Active={this.IsActive} | Remaining={this.SecondsRemaining:0.0}s | " +
+        return $"Form={GuardianRabbitFormId} | Unlocked={this.GuardianRabbitUnlocked} (debug={this.DebugGuardianUnlock}) | " +
+               $"Ready={this.IsReady} | Active={this.IsActive} | Remaining={this.SecondsRemaining:0.0}s | " +
+               $"RootPulse={GuardianRootPulseDamage} dmg/{GuardianRootPulseIntervalMs / 1000d:0.#}s radius={GuardianRootPulseRadius:0}px | " +
+               $"Pulses={this.GuardianPulseCount} Hits={this.GuardianPulseHits} LastTargets={this.LastPulseTargets} | " +
                $"AuraStage={this.EnergyAuraStage} | ControllerChord={chord} | Keyboard=LeftShift+A | {this.BossEnergy.Describe()}";
     }
 
-    private void ResetRuntime()
+    private void EmitGuardianRootPulse(long now)
+    {
+        this.LastRootPulseAt = now;
+        this.RootPulseVisualUntil = now + 520;
+        this.GuardianPulseCount++;
+        this.LastPulseTargets = 0;
+
+        NPC? actor = this.WorldActors.FindChaChaActor();
+        Farmer? who = Game1.player;
+        GameLocation? location = Game1.currentLocation;
+        if (actor is null || who is null || location is null || actor.currentLocation != location)
+            return;
+
+        Vector2 center = actor.Position + new Vector2(16f, 16f);
+        float radiusSq = GuardianRootPulseRadius * GuardianRootPulseRadius;
+        List<Monster> targets = location.characters
+            .OfType<Monster>()
+            .Where(monster => monster.Health > 0
+                              && Vector2.DistanceSquared(monster.Position + new Vector2(32f, 32f), center) <= radiusSq)
+            .ToList();
+
+        foreach (Monster monster in targets)
+        {
+            try
+            {
+                monster.takeDamage(GuardianRootPulseDamage, 0, 0, false, 0d, who);
+                this.GuardianPulseHits++;
+                this.LastPulseTargets++;
+            }
+            catch (Exception ex)
+            {
+                ModEntry.LogOnce("guardian-rabbit-root-pulse", $"Guardian Rabbit Root Pulse couldn't damage a target: {ex.Message}");
+            }
+        }
+
+        Game1.playSound(targets.Count > 0 ? "leafrustle" : "dirtyHit");
+    }
+
+    private void ResetRuntime(bool clearDebugUnlock)
     {
         this.ActiveUntil = 0;
         this.ReadyAnnounced = false;
+        this.NextRootPulseAt = 0;
+        this.RootPulseVisualUntil = 0;
+        this.LastRootPulseAt = 0;
+        this.GuardianPulseCount = 0;
+        this.GuardianPulseHits = 0;
+        this.LastPulseTargets = 0;
+        if (clearDebugUnlock)
+            this.DebugGuardianUnlock = false;
         this.BossEnergy.SetGainSuppressed(false);
         this.WorldActors.SetChaChaBossVisual(false);
     }
@@ -272,17 +377,12 @@ internal sealed class ChaChaBossFormService
            && !Game1.eventUp
            && !Game1.dialogueUp;
 
-    private Rectangle GetEnergyHudRect()
-    {
-        const int width = 318;
-        const int height = 58;
-        int x = Math.Max(12, (Game1.uiViewport.Width - width) / 2);
-        int y = Math.Clamp(108, 72, Math.Max(72, Game1.uiViewport.Height - height - 120));
-        return new Rectangle(x, y, width, height);
-    }
-
     private Color GetStageColor(int stage)
-        => stage switch
+    {
+        if (this.IsActive)
+            return new Color(105, 224, 100);
+
+        return stage switch
         {
             1 => new Color(242, 244, 255),
             2 => new Color(255, 226, 82),
@@ -290,6 +390,7 @@ internal sealed class ChaChaBossFormService
             4 => new Color(232, 54, 48),
             _ => new Color(126, 116, 145)
         };
+    }
 
     private void EnsureAuraTexture()
     {
@@ -321,13 +422,5 @@ internal sealed class ChaChaBossFormService
             return;
         try { this.AuraTexture.Dispose(); } catch { }
         this.AuraTexture = null;
-    }
-
-    private static void DrawBorder(SpriteBatch batch, Rectangle rect, Color color, int thickness)
-    {
-        batch.Draw(Game1.staminaRect, new Rectangle(rect.X, rect.Y, rect.Width, thickness), color);
-        batch.Draw(Game1.staminaRect, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), color);
-        batch.Draw(Game1.staminaRect, new Rectangle(rect.X, rect.Y, thickness, rect.Height), color);
-        batch.Draw(Game1.staminaRect, new Rectangle(rect.Right - thickness, rect.Y, thickness, rect.Height), color);
     }
 }

@@ -968,5 +968,9 @@
   "boss.card.verdant_core.activated": "Verdant Core awakened: roots harden around you.",
   "boss.card.state.ready": "READY",
   "boss.card.state.active": "VERDANT GUARD  {{seconds}}s",
-  "boss.card.state.cooldown": "ROOTS RECOVERING  {{seconds}}s"
+  "boss.card.state.cooldown": "ROOTS RECOVERING  {{seconds}}s",
+  "chacha.boss.guardian.name": "Guardian Rabbit",
+  "chacha.boss.guardian.desc": "ChaCha channels Verdant Guardian resonance for 10 seconds. Every 2 seconds, roots pulse around ChaCha and damage nearby monsters.",
+  "chacha.boss.guardian.activated": "ChaCha transformed into Guardian Rabbit! Verdant roots are answering the resonance.",
+  "chacha.boss.guardian.locked": "Guardian Rabbit awakens after Boss I: Verdant Guardian."
 }

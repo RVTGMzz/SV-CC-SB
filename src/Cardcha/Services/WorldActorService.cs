@@ -22,12 +22,14 @@ internal sealed class WorldActorService
     public const string ChaChaNpcId = "Ronvotri.Cardcha_ChaCha";
     public const string ChaChaCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha";
     public const string ChaChaMachineCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_Machine";
+    public const string ChaChaGuardianCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_GuardianRabbit";
 
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
     private const string MimiProfileSheetPath = "assets/mimi_npc.png";
     private const string MimiPortraitAsset = "Portraits/Ronvotri.Cardcha_MiMi";
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
     private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
+    private const string ChaChaGuardianSheetPath = "assets/chacha_guardian_rabbit.png";
 
     // Native NPC draw multiplies Character.Scale by 4. These values reproduce the previous
     // approved visual sizes: MiMi 32x48 @ 2.3x, ChaCha 32x32 @ 1.8x.
@@ -36,7 +38,7 @@ internal sealed class WorldActorService
     // smaller inside its native 48x48 frames, so keep the accepted 10% runtime compensation.
     private const float MimiBroomNativeScale = MimiNativeScale * 1.10f;
     private const float ChaChaNativeScale = 0.5625f;
-    private const float ChaChaBossNativeScale = 0.74f;
+    private const float ChaChaBossNativeScale = 0.82f;
 
     private static readonly int[] ChaChaEmotePool = { 32, 16, 20, 56, 60, 8, 40 };
 
@@ -73,7 +75,13 @@ internal sealed class WorldActorService
         }
 
         if (e.Name.IsEquivalentTo(ChaChaMachineCharacterAsset))
+        {
             e.LoadFromModFile<Texture2D>(ChaChaMachineSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+
+        if (e.Name.IsEquivalentTo(ChaChaGuardianCharacterAsset))
+            e.LoadFromModFile<Texture2D>(ChaChaGuardianSheetPath, AssetLoadPriority.Medium);
     }
 
     public NPC? FindMimiActor()
@@ -252,7 +260,9 @@ internal sealed class WorldActorService
     public NPC? EnsureChaChaActor(GameLocation location, Vector2 position, int direction, int frame, bool machine = false)
     {
         NPC? actor = this.FindChaChaActor();
-        string asset = machine ? ChaChaMachineCharacterAsset : ChaChaCharacterAsset;
+        string asset = machine
+            ? ChaChaMachineCharacterAsset
+            : (this.ChaChaBossVisualActive ? ChaChaGuardianCharacterAsset : ChaChaCharacterAsset);
 
         if (actor is null)
         {
@@ -325,8 +335,25 @@ internal sealed class WorldActorService
     {
         this.ChaChaBossVisualActive = active;
         NPC? actor = this.FindChaChaActor();
-        if (actor is not null)
-            actor.Scale = active ? ChaChaBossNativeScale : ChaChaNativeScale;
+        if (actor is null)
+            return;
+
+        bool machineVisual = actor.Sprite is not null
+            && string.Equals(actor.Sprite.loadedTexture, ChaChaMachineCharacterAsset, StringComparison.OrdinalIgnoreCase);
+        if (!machineVisual)
+        {
+            string desired = active ? ChaChaGuardianCharacterAsset : ChaChaCharacterAsset;
+            int frame = actor.Sprite?.CurrentFrame ?? 0;
+            if (actor.Sprite is null
+                || actor.Sprite.SpriteWidth != 32
+                || actor.Sprite.SpriteHeight != 32
+                || !string.Equals(actor.Sprite.loadedTexture, desired, StringComparison.OrdinalIgnoreCase))
+            {
+                actor.Sprite = new AnimatedSprite(desired, Math.Clamp(frame, 0, 15), 32, 32);
+            }
+        }
+
+        actor.Scale = active ? ChaChaBossNativeScale : ChaChaNativeScale;
     }
 
     public NPC? FindChaChaActor()

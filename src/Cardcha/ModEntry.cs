@@ -281,6 +281,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
         helper.ConsoleCommands.Add("cardcha_chacha_boss_ready", "TEST ONLY: fill Boss Energy to 100 so the ChaCha activation UI can be tested.", this.CommandChaChaBossReady);
         helper.ConsoleCommands.Add("cardcha_chacha_boss_status", "Show ChaCha Boss Form runtime state.", this.CommandChaChaBossStatus);
+        helper.ConsoleCommands.Add("cardcha_guardian_rabbit_test", "TEST ONLY: runtime-unlock and immediately activate Guardian Rabbit for 10 seconds.", (_, _) => this.Monitor.Log(this.ChaChaBossForm.DebugForceGuardianRabbit() ? "TEST: Guardian Rabbit activated for 10 seconds." : "TEST: Guardian Rabbit could not activate in the current game state.", LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_chacha_skill_unlock", "TEST ONLY: discover the Region I ChaCha skill.", this.CommandChaChaSkillUnlock);
         helper.ConsoleCommands.Add("cardcha_chacha_skill_level", "TEST ONLY: set the Region I ChaCha skill level 1-5 without spending Magic Dust.", this.CommandChaChaSkillLevel);
         helper.ConsoleCommands.Add("cardcha_chacha_skill_cast", "TEST ONLY: replay the normal-form ChaCha skill cast visual.", this.CommandChaChaSkillCast);
@@ -314,7 +315,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.28 VERDANT CORE BOSS CARD RUNTIME TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.29 GUARDIAN RABBIT BOSS FORM TEST",
             LogLevel.Info
         );
     }
@@ -1107,7 +1108,7 @@ internal sealed class ModEntry : Mod
         }
 
         this.ChaChaBossForm.DebugPrimeReady();
-        this.Monitor.Log("ChaCha Boss Form TEST primed to 100 ChaCha Energy. Use controller Confirm+Deselect (Switch B+Y), Left Shift+A, or click the READY ChaCha Energy bar.", LogLevel.Alert);
+        this.Monitor.Log("Guardian Rabbit TEST primed to 100 ChaCha Energy with a runtime-only unlock. Use controller Confirm+Deselect (Switch B+Y) or Left Shift+A.", LogLevel.Alert);
     }
 
     private void CommandChaChaBossStatus(string command, string[] args)
