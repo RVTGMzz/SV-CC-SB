@@ -1,0 +1,159 @@
+name: Cardcha alpha28.0.4.14.4.5.12.37 Mechanic Clarity Hotfix V2
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0668c-mechanic-clarity-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0668C mechanic clarity hotfix
+        run: python3 tools/alpha28_0668c_mechanic_clarity_hotfix.py
+
+      - name: Validate 0668C acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5.12.37'
+          assert json.loads((root/'manifest.json').read_text())['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          boss=(root/'Services/VerdantGuardianBossService.cs').read_text()
+          for token in [
+              'TotemMaxHealth = 90',
+              'TotemStaggerDurationMs = 1200',
+              'proxy.isInvisible.Value = true',
+              'VisualLastTotemHitDamage',
+              'PruneDestroyedTotems()',
+              'boss.verdant.totem.hud',
+              'new { remaining = living, barrier = this.GetTotemDamageReductionPercent() }',
+              'this.GetLivingTotemCount() switch { >= 4 => 15, 3 => 10, 2 => 6, 1 => 3, _ => 0 }',
+              'ms * 0.92d',
+          ]: assert token in boss, token
+
+          arena=(root/'Services/VerdantGuardianArenaPolishService.cs').read_text()
+          for token in ['totem-final-stagger','DrawTotemStaggerBurst','VisualLastTotemHitDamage','< 520 ? 0.90f : 0f']:
+              assert token in arena, token
+
+          airship=(root/'Services/AirshipFoundationService.cs').read_text()
+          for token in [
+              'Region1LostCacheMarkerKey',
+              'CurrentRegion1NodeNeedsManualInteraction()',
+              'TryHandleRegion1LostCacheInteraction',
+              'EnsureRegion1LostCacheChest(location)',
+              'Chest cache = new(true);',
+              'room.setObject(key, cache);',
+              'airship.region1.run.rare.lostcache.opened',
+              '&& !this.CurrentRegion1NodeNeedsManualInteraction())',
+          ]: assert token in airship, token
+          rare=airship.split('Region1RunEncounterType currentEncounter = this.Region1RunEncounters[this.Region1RunStep];',1)[1].split('foreach (Monster nest',1)[0]
+          assert 'currentEncounter == Region1RunEncounterType.LostCache' in rare
+          assert 'DrawRunChoiceMarker(batch, rareTile' not in rare.split('else if',1)[0]
+
+          core=(root/'Services/CoreCardEffectsService.cs').read_text()
+          for token in [
+              'Add("adrenaline", this.AdrenalineUntil, 3000, 90);',
+              'Add("momentum", this.MomentumUntil, 2000, 70);',
+              'Add("battle_trance", this.BattleTranceUntil, 2000, 74);',
+          ]: assert token in core, token
+          hud=(root/'UI/CombatHudRenderer.cs').read_text()
+          assert 'ShowPersistentReadyIndicators = false' in hud
+          assert 'foreach (TimedCardHudState timed in this.Combat.CurrentTimedCardHudStates)' in hud
+
+          vi=json.loads((root/'i18n'/'vi.json').read_text())
+          en=json.loads((root/'i18n'/'default.json').read_text())
+          for table in (vi,en):
+              assert 'boss.verdant.totem.hud' in table
+              assert 'airship.region1.run.rare.lostcache.opened' in table
+
+          cards=json.loads((root/'assets/cards.json').read_text())
+          legacy={'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards)==80 and len([c for c in cards if c.get('Id') not in legacy])==76
+
+          checked=0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root=ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data=layer.find('data')
+                  if data is None or data.attrib.get('encoding')!='csv': continue
+                  vals=[]
+                  for i, token in enumerate((data.text or '').split(',')):
+                      st=token.strip(); assert st!='', f'{tmx}: empty CSV token {i}'
+                      n=int(st); assert 0<=n<=0xFFFFFFFF; vals.append(n)
+                  assert len(vals)==int(layer.attrib['width'])*int(layer.attrib['height'])
+                  checked+=1
+          assert checked>=21
+          print(f'0668C validator PASS; hiddenProxy=YES LostCache=PHYSICAL+GATED strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.37 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.37 mechanic clarity [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0668c-mechanic-clarity-hotfix
+          fi
+
+      - name: Package .5.12.37 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.37_MechanicClarity_HOTFIX_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,zipfile
+          z=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.37_MechanicClarity_HOTFIX_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.37'
+              assert len(f.read('Cardcha/Cardcha.dll'))>100000
+              vi=json.loads(f.read('Cardcha/i18n/vi.json'))
+              assert 'airship.region1.run.rare.lostcache.opened' in vi
+          print('0668C final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0668c-mechanic-clarity-hotfix-v2
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.37_MechanicClarity_HOTFIX_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.37_MechanicClarity_HOTFIX_TEST.zip.sha256
+          if-no-files-found: error
