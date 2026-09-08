@@ -19,6 +19,9 @@ jobs:
       - name: Generate 0668B HUD hotfix
         run: python3 tools/alpha28_0668b_combat_hud_runtime_coverage.py
 
+      - name: Normalize 0668B startup banner
+        run: python3 tools/alpha28_0668b_startup_hotfix.py
+
       - name: Validate 0668B acceptance contract
         shell: bash
         run: |
@@ -61,7 +64,6 @@ jobs:
           hud_method = boss_card.split('public void OnRenderedHud',1)[1].split('public string DebugUnlock',1)[0]
           assert 'temporarily hidden' in hud_method
           assert 'e.SpriteBatch.Draw' not in hud_method
-          # Gameplay must remain intact.
           for token in ['VerdantDamageReduction = 0.30d', 'VerdantCooldownMs = 28000', 'this.Activate(now, "low-hp guard")', 'OnRenderedWorld']:
               assert token in boss_card, token
 
@@ -69,18 +71,15 @@ jobs:
           assert 'cardcha_hud_runtime_status' in mod
           assert '0.3.0-alpha.28.0.4.14.4.5.12.36 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST' in mod
 
-          # Preserve 0668 Totem mechanic.
           boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
           for token in ['TotemMaxHealth = 90', 'TotemBarrierReduction()', 'TotemRootVineCooldownScale = 0.92d', 'TotemBreakStaggerMs = 1200']:
               assert token in boss, token
 
-          # Preserve locked normal-card canon.
           cards = json.loads((root/'assets/cards.json').read_text())
           legacy_mythic = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
           assert len(cards) == 80
           assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
 
-          # Strict TMX CSV contract stays intact.
           checked = 0
           for tmx in sorted((root/'assets').rglob('*.tmx')):
               map_root = ET.parse(tmx).getroot()
