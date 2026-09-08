@@ -42,7 +42,7 @@ jobs:
               'PruneDestroyedTotems()',
               'boss.verdant.totem.hud',
               'new { remaining = living, barrier = this.GetTotemDamageReductionPercent() }',
-              'GetTotemDamageReductionPercent() switch { >= 4 => 15, 3 => 10, 2 => 6, 1 => 3, _ => 0 }',
+              'this.GetLivingTotemCount() switch { >= 4 => 15, 3 => 10, 2 => 6, 1 => 3, _ => 0 }',
               'ms * 0.92d',
           ]:
               assert token in boss, token
