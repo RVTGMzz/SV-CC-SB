@@ -1054,5 +1054,8 @@
   "boss.verdant.summon.briarling.name": "Briarling",
   "boss.verdant.summon.briarling.desc": "Một mầm gai được sinh ra từ mạng rễ của Guardian.",
   "boss.verdant.summon.leaf-wisp.name": "Leaf Wisp",
-  "boss.verdant.summon.leaf-wisp.desc": "Linh thể hạt giống nhanh nhẹn được cộng hưởng Verdant nâng đỡ."
+  "boss.verdant.summon.leaf-wisp.desc": "Linh thể hạt giống nhanh nhẹn được cộng hưởng Verdant nâng đỡ.",
+  "boss.verdant.cinematic.title": "VERDANT GUARDIAN",
+  "boss.verdant.cinematic.subtitle": "Những bộ rễ cổ xưa đang thức giấc dưới đấu trường.",
+  "boss.verdant.cinematic.phase": "CỘNG HƯỞNG VERDANT • PHASE {{phase}}"
 }

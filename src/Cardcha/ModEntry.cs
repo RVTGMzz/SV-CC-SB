@@ -53,6 +53,7 @@ internal sealed class ModEntry : Mod
     private VerdantGuardianBossService VerdantGuardian = null!;
     private VerdantGuardianVisualService VerdantGuardianVisual = null!;
     private VerdantGuardianSummonVisualService VerdantSummons = null!;
+    private VerdantGuardianArenaPolishService VerdantArenaPolish = null!;
     private CardTestLabService CardLab = null!;
     private CardTestArenaService CardArena = null!;
     private CardTestLabOverlayService CardLabOverlay = null!;
@@ -157,6 +158,7 @@ internal sealed class ModEntry : Mod
         this.VerdantGuardian = new VerdantGuardianBossService(helper, this.Monitor, this.Save, this.PortableMachine);
         this.VerdantGuardianVisual = new VerdantGuardianVisualService(helper, this.Monitor, this.VerdantGuardian);
         this.VerdantSummons = new VerdantGuardianSummonVisualService(helper, this.Monitor, this.VerdantGuardian);
+        this.VerdantArenaPolish = new VerdantGuardianArenaPolishService(helper, this.Monitor, this.VerdantGuardian);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
@@ -189,6 +191,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.BossCards.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.VerdantGuardian.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.VerdantArenaPolish.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.ChaChaSkills.OnReturnedToTitle;
@@ -200,12 +203,14 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardian.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardianVisual.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantSummons.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.VerdantArenaPolish.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.BossCards.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaBossForm.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.ChaChaSupport.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.VerdantGuardian.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.VerdantArenaPolish.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.BossCards.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
@@ -214,6 +219,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.ChaChaBossForm.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.AtticVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.Airship.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.VerdantArenaPolish.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantGuardian.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantGuardianVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantSummons.OnRenderedWorld;
@@ -236,6 +242,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Player.Warped += this.ChaChaSkills.OnWarped;
         helper.Events.Player.Warped += this.Airship.OnWarped;
         helper.Events.Player.Warped += this.VerdantGuardian.OnWarped;
+        helper.Events.Player.Warped += this.VerdantArenaPolish.OnWarped;
         helper.Events.Player.Warped += this.CardArena.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -276,6 +283,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_boss1", "TEST ONLY: enter the Verdant Guardian arena without changing the 20-card gate.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugEnterArena(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_status", "Show Verdant Guardian runtime/save state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_visual_status", "Show Verdant Guardian visual animation state.", (_, _) => this.Monitor.Log(this.VerdantGuardianVisual.Describe() + "\n" + this.VerdantSummons.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss1_polish_status", "Show Verdant arena cinematic/camera/sound polish state.", (_, _) => this.Monitor.Log(this.VerdantArenaPolish.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
@@ -320,7 +328,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.30 VERDANT CUSTOM SUMMONS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.31 VERDANT ARENA CINEMATIC POLISH TEST",
             LogLevel.Info
         );
     }

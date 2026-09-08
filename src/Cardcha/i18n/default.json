@@ -976,5 +976,8 @@
   "boss.verdant.summon.briarling.name": "Briarling",
   "boss.verdant.summon.briarling.desc": "A thorn-bud spawned from the Guardian root network.",
   "boss.verdant.summon.leaf-wisp.name": "Leaf Wisp",
-  "boss.verdant.summon.leaf-wisp.desc": "A fast seed-spirit carried by Verdant resonance."
+  "boss.verdant.summon.leaf-wisp.desc": "A fast seed-spirit carried by Verdant resonance.",
+  "boss.verdant.cinematic.title": "VERDANT GUARDIAN",
+  "boss.verdant.cinematic.subtitle": "Ancient roots stir beneath the arena.",
+  "boss.verdant.cinematic.phase": "VERDANT RESONANCE • PHASE {{phase}}"
 }
