@@ -81,7 +81,7 @@ jobs:
           assert 'xTrajectory = 0;' in damage and 'yTrajectory = 0;' in damage
 
           proxy = (root/'Patches/VerdantGuardianProxyDrawPatch.cs').read_text()
-          assert 'GreenSlime' in proxy and 'return' not in proxy[:1]
+          assert 'GreenSlime' in proxy
           assert 'BossMarkerKey' in proxy
           mod = (root/'ModEntry.cs').read_text()
           assert 'VerdantGuardianProxyDrawPatch.Apply(harmony);' in mod
@@ -116,10 +116,19 @@ jobs:
               with Image.open(p) as im:
                   assert im.size == (64*frames,64), f'{name}: {im.size}'
 
-          # Preserve 0659 stair resolver, 0656 continuity and 0655 native MiMi profile.
+          # Preserve the materialized 0659 interior-edge stair resolver exactly by architecture,
+          # not by an invented helper name. It must inspect real Back/Buildings tiles and keep a
+          # one-tile-inside fallback instead of returning the raw layer edge.
           home = (root/'Services/MimiHomeService.cs').read_text()
-          assert 'IsInteriorStairCandidate' in home
-          assert 'Back' in home and 'Buildings' in home
+          for token in [
+              'internal static Point ResolvePreferredWizardStairTile(GameLocation wizard)',
+              'var buildings = wizard.Map?.GetLayer("Buildings");',
+              'var back = wizard.Map?.GetLayer("Back");',
+              'back.Tiles[x, scanY] is null || buildings.Tiles[x, scanY] is not null',
+              'bool rightIsBoundary',
+              'int fallbackX = Math.Clamp(Math.Min(15, width - 2)',
+          ]:
+              assert token in home, token
           social = (root/'Services/MimiSocialService.cs').read_text()
           assert 'mimi.social.community-center' in social
           vi = json.loads((root/'i18n/vi.json').read_text())
@@ -127,7 +136,6 @@ jobs:
           profile = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
           assert 'DrawScale=vanilla-4x' in profile
 
-          # Preserve runtime-safe TMX contract.
           checked_layers = 0
           for tmx in sorted((root/'assets').rglob('*.tmx')):
               map_root = ET.parse(tmx).getroot()
