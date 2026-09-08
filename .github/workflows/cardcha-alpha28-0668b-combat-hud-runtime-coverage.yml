@@ -1,0 +1,158 @@
+name: Cardcha alpha28.0.4.14.4.5.12.36 Combat HUD Runtime Coverage Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0668b-combat-hud-runtime-coverage ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0668B HUD hotfix
+        run: python3 tools/alpha28_0668b_combat_hud_runtime_coverage.py
+
+      - name: Validate 0668B acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.36'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          core = (root/'Services/CoreCardEffectsService.cs').read_text()
+          for token in [
+              'TimedCardHudState',
+              'GetTimedHudStates()',
+              'Add("adrenaline", this.AdrenalineUntil, 3000, 90);',
+              'Add("momentum", this.MomentumUntil, 2000, 70);',
+              'Add("battle_trance", this.BattleTranceUntil, 2000, 74);',
+              'Add("void_walker", this.VoidPhaseUntil',
+              'Add("predator", this.PredatorExpiresAt, 6000, 68',
+              'Add("war_drum", until, total, 76',
+          ]:
+              assert token in core, token
+
+          combat = (root/'Services/CombatService.cs').read_text()
+          assert 'CurrentTimedCardHudStates => this.Completion.GetTimedHudStates()' in combat
+
+          hud = (root/'UI/CombatHudRenderer.cs').read_text()
+          assert 'ShowPersistentReadyIndicators = false' in hud
+          assert 'foreach (TimedCardHudState timed in this.Combat.CurrentTimedCardHudStates)' in hud
+          assert 'Key: "timed_" + timed.CardId' in hud
+          assert 'RemainingSeconds: timed.RemainingSeconds' in hud
+          assert 'ShowPersistentReadyIndicators && this.Loadout.IsEquipped("phoenix_heart")' in hud
+          assert 'else if (ShowPersistentReadyIndicators)' in hud
+
+          boss_card = (root/'Services/BossCardService.cs').read_text()
+          hud_method = boss_card.split('public void OnRenderedHud',1)[1].split('public string DebugUnlock',1)[0]
+          assert 'temporarily hidden' in hud_method
+          assert 'e.SpriteBatch.Draw' not in hud_method
+          # Gameplay must remain intact.
+          for token in ['VerdantDamageReduction = 0.30d', 'VerdantCooldownMs = 28000', 'this.Activate(now, "low-hp guard")', 'OnRenderedWorld']:
+              assert token in boss_card, token
+
+          mod = (root/'ModEntry.cs').read_text()
+          assert 'cardcha_hud_runtime_status' in mod
+          assert '0.3.0-alpha.28.0.4.14.4.5.12.36 COMBAT HUD RUNTIME COVERAGE HOTFIX TEST' in mod
+
+          # Preserve 0668 Totem mechanic.
+          boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
+          for token in ['TotemMaxHealth = 90', 'TotemBarrierReduction()', 'TotemRootVineCooldownScale = 0.92d', 'TotemBreakStaggerMs = 1200']:
+              assert token in boss, token
+
+          # Preserve locked normal-card canon.
+          cards = json.loads((root/'assets/cards.json').read_text())
+          legacy_mythic = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
+
+          # Strict TMX CSV contract stays intact.
+          checked = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  vals = []
+                  for i, token in enumerate(tokens):
+                      st = token.strip()
+                      assert st != '', f'{tmx}: empty CSV token {i}'
+                      n = int(st)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      vals.append(n)
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+                  checked += 1
+          assert checked >= 21
+          print(f'0668B validator PASS; timedHUD=13+, persistentReady=hidden, strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.36 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.36 combat HUD runtime coverage [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0668b-combat-hud-runtime-coverage
+          fi
+
+      - name: Package .5.12.36 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.36_CombatHudRuntimeCoverage_HOTFIX_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          z=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.36_CombatHudRuntimeCoverage_HOTFIX_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.36'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+          print('0668B final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0668b-combat-hud-runtime-coverage
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.36_CombatHudRuntimeCoverage_HOTFIX_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.36_CombatHudRuntimeCoverage_HOTFIX_TEST.zip.sha256
+          if-no-files-found: error
