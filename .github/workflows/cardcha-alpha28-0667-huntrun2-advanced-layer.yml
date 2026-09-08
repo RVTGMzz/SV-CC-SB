@@ -1,0 +1,224 @@
+name: Cardcha alpha28.0.4.14.4.5.12.34 Hunt Run 2.0 Advanced Layer
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0667-huntrun2-advanced-layer ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0667 advanced Hunt Run layer
+        run: python3 tools/alpha28_0667_huntrun2_advanced_layer.py
+
+      - name: Validate 0667 acceptance contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.34'
+          assert json.loads((root/'manifest.json').read_text())['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text()
+          assert version in (root/'Directory.Build.targets').read_text()
+
+          air = (root/'Services/AirshipFoundationService.cs').read_text()
+          for token in [
+              'private const int Region1RunMinNodes = 7;',
+              'private const int Region1RunMaxNodes = 10;',
+              'private const int Region1CheckpointNodeA = 3;',
+              'private const int Region1CheckpointNodeB = 6;',
+              'private const int Region1BossBranchMinNode = 7;',
+              'private enum Region1EliteAffix',
+              'ThornAura,', 'Swift,', 'Regrowth,', 'Bulwark,', 'Infested,', 'Resonant',
+              'private enum Region1DailyMutation',
+              'CalmGrove,', 'BriarBloom,', 'MoonlitGrove,', 'Overgrown,', 'ChaoticResonance',
+              'LostCache,', 'Moonwell,', 'AncientEcho',
+              'Region1EliteAffixMarkerKey',
+              'UpdateRegion1EliteAffixes',
+              'ResolveRegion1DailyMutation',
+              'ApplyRegion1DailyMutationToMonster',
+              'RollRegion1EliteAffix',
+              'RareSeen=',
+              'DescribeHuntAdvanced',
+          ]:
+              assert token in air, token
+
+          # Rare-room economics and mutation rates.
+          for token in [
+              'this.Region1RunUnbankedScrap += 4;',
+              'this.Region1RunUnbankedShiny += 1;',
+              'Game1.player.maxHealth * 0.30d',
+              'Region1DailyMutation.ChaoticResonance => 18',
+              'Region1DailyMutation.MoonlitGrove => 16',
+              '_ => 11',
+              'nodeNumber == 4 || nodeNumber == 7',
+          ]:
+              assert token in air, token
+
+          # Elite behavior is real, not label-only.
+          for token in [
+              'elite.Speed += 2;',
+              'elite.MaxHealth * 1.60d',
+              'elite.Health = Math.Min(elite.MaxHealth, elite.Health + heal);',
+              'Game1.player.takeDamage(3, false, elite);',
+              'targetCount += 2;',
+              'monster.Speed += 1;',
+              'monster.MaxHealth * 1.15d',
+          ]:
+              assert token in air, token
+
+          mod = (root/'ModEntry.cs').read_text()
+          assert 'cardcha_huntrun_daily' in mod
+          assert '0.3.0-alpha.28.0.4.14.4.5.12.34 HUNT RUN 2.0 ADVANCED LAYER TEST' in mod
+
+          # EN/VI coverage.
+          keys = [
+              'airship.region1.run.mutation.banner',
+              'airship.region1.run.mutation.calm_grove.name',
+              'airship.region1.run.mutation.briar_bloom.name',
+              'airship.region1.run.mutation.moonlit_grove.name',
+              'airship.region1.run.mutation.overgrown.name',
+              'airship.region1.run.mutation.chaotic_resonance.name',
+              'airship.region1.run.affix.thorn_aura.name',
+              'airship.region1.run.affix.swift.name',
+              'airship.region1.run.affix.regrowth.name',
+              'airship.region1.run.affix.bulwark.name',
+              'airship.region1.run.affix.infested.name',
+              'airship.region1.run.affix.resonant.name',
+              'airship.region1.run.encounter.lostcache',
+              'airship.region1.run.encounter.moonwell',
+              'airship.region1.run.encounter.ancientecho',
+              'airship.region1.run.rare.lostcache.name',
+              'airship.region1.run.rare.moonwell.name',
+              'airship.region1.run.rare.ancientecho.name',
+          ]
+          for lang in ['default.json', 'vi.json']:
+              data = json.loads((root/'i18n'/lang).read_text())
+              for key in keys:
+                  assert key in data, (lang, key)
+
+          # Boss package and progression locks remain intact.
+          save = (root/'Models/SaveData.cs').read_text()
+          assert 'SchemaVersion { get; set; } = 19;' in save
+          boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
+          assert 'private const int BossMaxHealth = 1600;' in boss
+          assert 'private const int DefeatSequenceDurationMs = 2200;' in boss
+          form = (root/'Services/ChaChaBossFormService.cs').read_text()
+          assert 'public const int BossFormDurationMs = 10000;' in form
+          assert 'public const int GuardianRootPulseDamage = 14;' in form
+          card = (root/'Services/BossCardService.cs').read_text()
+          assert 'public const double VerdantDamageReduction = 0.30d;' in card
+          assert 'public const int VerdantCooldownMs = 28000;' in card
+          energy = (root/'Services/BossEnergyService.cs').read_text()
+          assert '/ 3' in energy or '/3' in energy or 'OneThird' in energy or '0.333' in energy
+
+          cards = json.loads((root/'assets/cards.json').read_text())
+          legacy_mythic = {'endless_hunt', 'fate_weaver', 'immortal_echo', 'worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
+
+          # 0659 MiMi/stair and accepted architecture remain present.
+          home = (root/'Services/MimiHomeService.cs').read_text()
+          assert 'ResolvePreferredWizardStairTile' in home and 'bool rightIsBoundary' in home
+          profile = (root/'Patches/MimiProfileMenuPatch.cs').read_text()
+          assert 'DrawScale=vanilla-4x' in profile
+
+          # Strict TMX contract remains safe.
+          checked = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  tokens = (data.text or '').split(',')
+                  vals = []
+                  for i, token in enumerate(tokens):
+                      stripped = token.strip()
+                      assert stripped != '', f'{tmx}: empty CSV token layer={layer.attrib.get("name")} index={i}'
+                      vals.append(int(stripped))
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+                  checked += 1
+          assert checked >= 21
+          print(f'0667 validator PASS; activeNormalCards=76, strictTMXLayers={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.34 source + handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.34 Hunt Run 2.0 advanced layer [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0667-huntrun2-advanced-layer
+          fi
+
+      - name: Package .5.12.34 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.34_HuntRun2Advanced_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, xml.etree.ElementTree as ET
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.34_HuntRun2Advanced_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.34'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              vi = json.loads(f.read('Cardcha/i18n/vi.json'))
+              assert vi['airship.region1.run.mutation.banner'].startswith('BIẾN DỊ')
+              for name in [n for n in f.namelist() if n.endswith('.tmx')]:
+                  map_root = ET.fromstring(f.read(name))
+                  for layer in map_root.findall('layer'):
+                      data = layer.find('data')
+                      if data is None or data.attrib.get('encoding') != 'csv':
+                          continue
+                      tokens = (data.text or '').split(',')
+                      vals = [int(t.strip()) for t in tokens if t.strip()]
+                      assert len(vals) == len(tokens), f'{name}: packaged empty CSV token'
+                      assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height'])
+          print('Final .5.12.34 package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0667-huntrun2-advanced-layer
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.34_HuntRun2Advanced_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.34_HuntRun2Advanced_TEST.zip.sha256
+          if-no-files-found: error
