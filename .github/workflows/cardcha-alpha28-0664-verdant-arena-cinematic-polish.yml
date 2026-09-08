@@ -20,7 +20,9 @@ jobs:
         run: python3 -m pip install --disable-pip-version-check pillow
 
       - name: Generate 0664 Verdant arena cinematic polish
-        run: python3 tools/alpha28_0664_verdant_arena_cinematic_polish.py
+        run: |
+          python3 tools/alpha28_0664_verdant_arena_cinematic_polish.py
+          python3 tools/alpha28_0664_fix_polish_command.py
 
       - name: Validate 0664 acceptance contract
         shell: bash
@@ -57,7 +59,6 @@ jobs:
           ]:
               assert token in polish, token
 
-          # Arena assets are Cardcha-owned and all non-empty.
           arena_dir = root/'assets/bosses/verdant_guardian/arena'
           specs = {
               'verdant_arena_seal.png': (128,128),
@@ -95,7 +96,6 @@ jobs:
               ]:
                   assert key in data, (lang,key)
 
-          # 0664 is presentation-only: authoritative Boss I combat timings/balance remain locked.
           boss = (root/'Services/VerdantGuardianBossService.cs').read_text()
           for token in [
               'private const int BossMaxHealth = 1300;',
@@ -118,7 +118,6 @@ jobs:
           ]:
               assert token in boss, token
 
-          # 0663 custom summons stay intact.
           for token in [
               'public const string BriarlingId = "briarling";',
               'public const string LeafWispId = "leaf_wisp";',
@@ -134,7 +133,6 @@ jobs:
               p = root/'assets/bosses/verdant_guardian/summons'/name
               assert p.exists() and p.stat().st_size > 150
 
-          # Preserve 0660 Colossus, 0661 Boss Card, 0662 Guardian Rabbit.
           visual = (root/'Services/VerdantGuardianVisualService.cs').read_text()
           assert 'private const float DrawScale = 8f;' in visual
           assert 'boss1_verdant_guardian_defeat.png' in visual
@@ -148,7 +146,6 @@ jobs:
           energy = (root/'Services/BossEnergyService.cs').read_text()
           assert 'public const double EnergyGainScale = 1d / 3d;' in energy
 
-          # Save/card canon remains unchanged.
           save = (root/'Models/SaveData.cs').read_text()
           assert 'SchemaVersion { get; set; } = 19;' in save
           cards = json.loads((root/'assets/cards.json').read_text())
@@ -156,7 +153,6 @@ jobs:
           assert len(cards) == 80
           assert len([c for c in cards if c.get('Id') not in legacy_mythic]) == 76
 
-          # Preserve MiMi/stair/profile work.
           home = (root/'Services/MimiHomeService.cs').read_text()
           assert 'ResolvePreferredWizardStairTile' in home
           assert 'bool rightIsBoundary' in home
@@ -165,7 +161,6 @@ jobs:
           vi = json.loads((root/'i18n/vi.json').read_text())
           assert 'trú mưa' in vi['mimi.social.community-center']
 
-          # Strict TMX runtime contract and 28x20 arena geometry preserved.
           arena_tmx = ET.parse(root/'assets/verdant_guardian_arena.tmx').getroot()
           assert arena_tmx.attrib['width'] == '28' and arena_tmx.attrib['height'] == '20'
           props = {p.attrib.get('name'):p.attrib.get('value') for p in arena_tmx.find('properties')}
