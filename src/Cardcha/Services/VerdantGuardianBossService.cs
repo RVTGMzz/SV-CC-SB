@@ -483,6 +483,7 @@ internal sealed class VerdantGuardianBossService
         this.LastTotemHitAtMs = 0;
         this.LastTotemHitIndex = -1;
         this.LastTotemHitDamage = 0;
+        this.LastTotemHitDamage = 0;
         this.RootTargets = Array.Empty<Point>();
         this.CooldownUntil.Clear();
         this.LastAttack = null;
@@ -738,6 +739,7 @@ internal sealed class VerdantGuardianBossService
         this.LastLivingTotemCount = 0;
         this.LastTotemHitAtMs = 0;
         this.LastTotemHitIndex = -1;
+        this.LastTotemHitDamage = 0;
         this.LastTotemHitDamage = 0;
         this.CooldownUntil.Clear();
     }
