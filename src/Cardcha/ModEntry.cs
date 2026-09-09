@@ -365,9 +365,10 @@ internal sealed class ModEntry : Mod
         BookNavigationPatch.Apply(harmony, this.BookTab);
         MimiProfileMenuPatch.Apply(harmony);
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
+        WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.2 REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.2 REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT + WORLD DEPTH SAFETY HOTFIX TEST",
             LogLevel.Info
         );
     }
