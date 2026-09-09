@@ -6,23 +6,21 @@ using System.Reflection;
 
 namespace Cardcha.Patches;
 
-/// <summary>0675: expedition monsters keep real AI/hitboxes while Cardcha owns their visible authored art.</summary>
+/// <summary>
+/// 0676A runtime hotfix: patch the draw implementation declared by Monster exactly once.
+/// Expedition GreenSlime/Bat/Bug proxies inherit this implementation; Harmony must not be asked
+/// to patch an inherited MethodInfo as though it were declared on each subclass.
+/// </summary>
 internal static class RegionExpeditionProxyDrawPatch
 {
     public static void Apply(Harmony harmony)
     {
-        HashSet<MethodInfo> targets = new();
-        foreach (Type type in new[] { typeof(GreenSlime), typeof(Bat), typeof(Bug) })
-        {
-            MethodInfo? target = AccessTools.Method(type, "draw", new[] { typeof(SpriteBatch) });
-            if (target is not null)
-                targets.Add(target);
-        }
-        if (targets.Count == 0)
-            throw new MissingMethodException("Could not resolve expedition monster draw methods.");
+        MethodInfo? target = AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) });
+        if (target is null)
+            throw new MissingMethodException("Could not resolve declared Monster.draw(SpriteBatch) for expedition proxy suppression.");
+
         HarmonyMethod prefix = new(typeof(RegionExpeditionProxyDrawPatch), nameof(Prefix));
-        foreach (MethodInfo target in targets)
-            harmony.Patch(target, prefix: prefix);
+        harmony.Patch(target, prefix: prefix);
     }
 
     private static bool Prefix(Monster __instance)
