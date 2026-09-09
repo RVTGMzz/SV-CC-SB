@@ -1,0 +1,214 @@
+name: Cardcha alpha28.0.4.14.4.5.12.45.2 Region Layering + Gate Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0676b-region-layering-extraction-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Normalize strict 0676B TMX CSV endings
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          for name in ['region3_mirrorwild.tmx','region4_resonance_verge.tmx']:
+              p=Path('src/Cardcha/assets')/name
+              s=p.read_text(encoding='utf-8')
+              s=re.sub(r',\s*</data>', '</data>', s)
+              p.write_text(s, encoding='utf-8')
+          PY
+
+      - name: Validate 0676B layering map gate and frozen contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re, subprocess, xml.etree.ElementTree as ET
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5.12.45.2'
+          base='origin/cardcha-alpha28-0676a-expedition-draw-runtime-hotfix'
+
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          targets=(root/'Directory.Build.targets').read_text()
+          assert targets.count(version)>=2
+          assert '.12.45.1' not in targets
+          entry=(root/'ModEntry.cs').read_text()
+          assert version in entry
+          assert 'REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST' in entry
+
+          patch=(root/'Patches/RegionExpeditionProxyDrawPatch.cs').read_text()
+          for token in [
+              'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })',
+              'MonsterDrawPrefix(Monster __instance, SpriteBatch b)',
+              'DrawAuthoredEnemy(b, __instance);',
+              'AccessTools.DeclaredMethod(typeof(RegionExpeditionService), "DrawEnemyIdentity")',
+              'SkipLegacyPostWorldEnemyDraw',
+              'AccessTools.DeclaredMethod(typeof(RegionExpeditionService), "DrawRegionIdentity")',
+              'DrawSafeExtractionMarker',
+              'MarkerActorSafetyRadius = 108f',
+          ]: assert token in patch, token
+          for forbidden in [
+              'typeof(GreenSlime)', 'typeof(Bat)', 'typeof(Bug)', 'isInvisible'
+          ]: assert forbidden not in patch, forbidden
+
+          gate=(root/'Patches/AirshipGateDepthPatch.cs').read_text()
+          for token in [
+              '"DrawSkyDock"',
+              'new Vector2(gate.Width / 2f, gate.Height)',
+              'tile.X * 64f + 32f',
+              'tile.Y * 64f + 64f',
+              'DrawAlignedGatePrefix',
+          ]: assert token in gate, token
+          for forbidden in ['1.48f', 'tile.Y * 64f + 70f', 'gate.Height - 10f']:
+              assert forbidden not in gate, forbidden
+
+          # The gameplay service remains frozen. 0676B corrects presentation architecture around it.
+          frozen=[
+              'src/Cardcha/Services/RegionExpeditionService.cs',
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/Services/MilestoneBossService.cs',
+              'src/Cardcha/Services/SaveService.cs',
+              'src/Cardcha/assets/cards.json',
+              'src/Cardcha/assets/region3_mirrorwild_enemies.png',
+              'src/Cardcha/assets/region4_resonance_enemies.png',
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_gate_auth.png',
+          ]
+          for p in frozen:
+              assert subprocess.run(['git','diff','--quiet',base,'--',p]).returncode==0, p
+
+          region=(root/'Services/RegionExpeditionService.cs').read_text()
+          for token in [
+              'WaveCount = 3',
+              'wave switch { 1 => 10, 2 => 15, _ => 22 }',
+              'wave switch { 1 => 15, 2 => 22, _ => 32 }',
+          ]: assert token in region, token
+          airship=(root/'Services/AirshipFoundationService.cs').read_text()
+          for token in ['Region3Fare = 500', 'Region4Fare = 1000']:
+              assert token in airship, token
+
+          save=(root/'Services/SaveService.cs').read_text()
+          assert 'CurrentSchemaVersion = 19' in save and 'CurrentSchemaVersion = 20' not in save
+          cards=json.loads((root/'assets/cards.json').read_text())
+          legacy={'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards)==80 and len([c for c in cards if c.get('Id') not in legacy])==76
+
+          # Strict TMX CSV plus anti-test-arena composition guards for the two rebuilt maps.
+          for name in ['region3_mirrorwild.tmx','region4_resonance_verge.tmx']:
+              p=root/'assets'/name
+              tree=ET.parse(p)
+              r=tree.getroot()
+              assert r.attrib.get('width')=='40' and r.attrib.get('height')=='28'
+              props={x.attrib.get('name'):x.attrib.get('value') for x in r.findall('./properties/property')}
+              assert props.get('CardchaRegionVersion')=='0676B'
+              assert props.get('CardchaTerrainDepth')=='map-layer-authored|no-postworld-ground-overlays'
+              layers={layer.attrib['name']:layer for layer in r.findall('layer')}
+              assert set(layers)=={'Back','Buildings','Front'}
+              for lname,layer in layers.items():
+                  data=layer.find('data')
+                  assert data is not None and data.attrib.get('encoding')=='csv'
+                  raw=(data.text or '').split(',')
+                  vals=[]
+                  for i,t in enumerate(raw):
+                      st=t.strip(); assert st!='', f'{name}:{lname}: empty CSV token {i}'
+                      vals.append(int(st))
+                  assert len(vals)==1120, f'{name}:{lname}: {len(vals)} != 1120'
+              back=[int(x.strip()) for x in (layers['Back'].find('data').text or '').split(',')]
+              path_count=back.count(457)
+              assert 10 <= path_count <= 80, f'{name}: suspicious path count {path_count}'
+              for y in range(28):
+                  row=back[y*40:(y+1)*40]
+                  longest=max((len(m.group(0)) for m in re.finditer(r'1+', ''.join('1' if v==457 else '0' for v in row))), default=0)
+                  assert longest <= 8, f'{name}: giant straight test path row {y}, run={longest}'
+
+          latest=Path('handoff/LATEST_CARDCHA_HANDOFF.md').read_text()
+          handoff=Path('handoff/ALPHA28_0676B_REGION_LAYERING_EXTRACTION_HOTFIX.md').read_text()
+          assert version in latest and version in handoff
+          assert 'cardcha-alpha28-0676b-region-layering-extraction-hotfix' in latest
+          assert 'CI success is not visual acceptance' in handoff
+          print('0676B validator PASS: strict TMX + depth architecture + gate anchor + frozen gameplay')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .12.45.2 hotfix source handoff and normalized TMX
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.45.2 layering gate hotfix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0676b-region-layering-extraction-hotfix
+          fi
+
+      - name: Package .12.45.2 0676B TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          import json, zipfile
+          z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip'
+          with zipfile.ZipFile(z) as f:
+              names=set(f.namelist())
+              manifest=json.loads(f.read('Cardcha/manifest.json'))
+              dll=f.read('Cardcha/Cardcha.dll')
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.45.2'
+              assert len(dll)>50000 and dll[:2]==b'MZ'
+              for p in [
+                  'Cardcha/assets/region3_mirrorwild.tmx',
+                  'Cardcha/assets/region4_resonance_verge.tmx',
+                  'Cardcha/assets/region3_mirrorwild_enemies.png',
+                  'Cardcha/assets/region4_resonance_enemies.png',
+                  'Cardcha/assets/airship_gate_auth.png',
+                  'Cardcha/assets/mimi_walk.png',
+                  'Cardcha/i18n/default.json',
+                  'Cardcha/i18n/vi.json'
+              ]: assert p in names,p
+          print('0676B final package audit PASS')
+          PY
+
+      - name: Upload 0676B TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0676b-region-layering-extraction-hotfix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip.sha256
+          if-no-files-found: error
