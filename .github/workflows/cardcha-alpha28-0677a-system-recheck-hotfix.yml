@@ -26,10 +26,10 @@ jobs:
         run: python3 tools/validate_0677a_system_recheck.py
 
       - name: Setup SMAPI build environment
-        uses: Pathoschild/SMAPI-ModBuildWorkflow@v1
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
       - name: Compile Cardcha
-        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --no-restore
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
 
       - name: Materialize 0677A source and handoff
         shell: bash
@@ -47,18 +47,23 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          OUT="$GITHUB_WORKSPACE/out"
-          PKG="$OUT/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip"
-          mkdir -p "$OUT/stage/Cardcha"
-          cp -R src/Cardcha/bin/Release/net6.0/* "$OUT/stage/Cardcha/"
-          cp src/Cardcha/manifest.json "$OUT/stage/Cardcha/manifest.json"
-          cp -R src/Cardcha/i18n "$OUT/stage/Cardcha/i18n"
-          cp -R src/Cardcha/assets "$OUT/stage/Cardcha/assets"
-          (cd "$OUT/stage" && zip -qr "$PKG" Cardcha)
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip'
+          zip -qr "$ZIP" Cardcha
           python3 - <<'PY'
           from pathlib import Path
           import json, zipfile
-          p=next(Path('out').glob('*0677A_SystemRecheckHotfix_TEST.zip'))
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip')
           with zipfile.ZipFile(p) as z:
               names=set(z.namelist())
               m=json.loads(z.read('Cardcha/manifest.json'))
@@ -69,10 +74,13 @@ jobs:
                   assert req in names, req
           print(p)
           PY
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
 
       - name: Upload 0677A TEST artifact
         uses: actions/upload-artifact@v4
         with:
           name: cardcha-alpha28-0677a-system-recheck-hotfix
-          path: out/*0677A_SystemRecheckHotfix_TEST.zip
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip.sha256
           if-no-files-found: error
