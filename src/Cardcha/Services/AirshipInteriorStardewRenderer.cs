@@ -24,11 +24,9 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawDeckStardewDecor(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
         DrawHelmMagic(batch, phase);
-        DrawUpgradeStations(batch, save, phase);
         DrawChaChaMagic(batch, phase);
         DrawDoorwayThreshold(batch, new Point(12, 12), new Color(210, 161, 79) * 0.60f);
         return true;
@@ -39,7 +37,6 @@ internal static class AirshipInteriorStardewRenderer
         if (batch is null || dock is null)
             return false;
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        DrawDockStardewDecor(batch);
         DrawDockMagic(batch, phase);
         DrawDoorwayThreshold(batch, new Point(15, 16), new Color(210, 161, 79) * 0.54f);
         return true;
