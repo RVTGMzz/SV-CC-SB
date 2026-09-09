@@ -1,0 +1,946 @@
+using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using StardewModdingAPI;
+using StardewModdingAPI.Events;
+using StardewValley;
+using StardewValley.Monsters;
+
+namespace Cardcha.Services;
+
+internal enum MilestoneBossKind
+{
+    HollowCurator = 2,
+    TricolorResonance = 3,
+    Mimi = 4,
+}
+
+internal enum MilestoneBossState
+{
+    Dormant,
+    Intro,
+    Decision,
+    Telegraph,
+    PhaseTransition,
+    Defeated,
+    Victory,
+}
+
+/// <summary>
+/// 0670 functional foundation for the 40/60/80-card milestone bosses.
+/// Boss II, III and IV deliberately share one small state-machine owner so milestone rules,
+/// reward persistence and regression guards stay consistent while authored art/arenas can evolve later.
+/// </summary>
+internal sealed class MilestoneBossService
+{
+    public const string BossMarkerKey = "Ronvotri.Cardcha/MilestoneBoss";
+    public const string BossRoleKey = "Ronvotri.Cardcha/MilestoneBossRole";
+
+    public const string HollowCuratorLocationName = "Cardcha_HollowCuratorArena";
+    public const string HollowCuratorMapAssetName = "Maps/Cardcha_HollowCuratorArena";
+    public const string TricolorLocationName = "Cardcha_TricolorResonanceArena";
+    public const string TricolorMapAssetName = "Maps/Cardcha_TricolorResonanceArena";
+    public const string MimiLocationName = "Cardcha_MimiResonanceArena";
+    public const string MimiMapAssetName = "Maps/Cardcha_MimiResonanceArena";
+
+    public const string MirrorArchiveBossCardId = "mirror_archive";
+    public const string TricolorBossCardId = "tricolor_resonance";
+    public const string MimiBossCardId = "mimis_resonance";
+
+    private const string SharedArenaMapPath = "assets/verdant_guardian_arena.tmx";
+    private const int HollowCuratorMaxHealth = 2200;
+    private const int TricolorGuardianMaxHealth = 780;
+    private const int TricolorUnifiedMaxHealth = 1650;
+    private const int MimiMaxHealth = 3600;
+    private const int IntroDurationMs = 1300;
+    private const int PhaseTransitionMs = 1050;
+    private const int DefeatDurationMs = 1800;
+    private const int VictoryReturnMs = 3200;
+
+    private static readonly Point ArrivalTile = new(14, 17);
+    private static readonly Point RetreatTile = new(14, 18);
+    private static readonly Point PrimaryTile = new(14, 7);
+    private static readonly (string Role, Point Tile)[] TricolorGuardianTiles =
+    {
+        ("ignis", new Point(8, 8)),
+        ("vita", new Point(14, 6)),
+        ("aether", new Point(20, 8)),
+    };
+
+    private readonly IModHelper Helper;
+    private readonly IMonitor Monitor;
+    private readonly SaveService Save;
+    private readonly Random Rng = new(0x670B055);
+
+    private MilestoneBossKind? CurrentKind;
+    private MilestoneBossState State = MilestoneBossState.Dormant;
+    private int Phase = 1;
+    private int PendingPhase;
+    private int CurrentAttack = -1;
+    private long StateStartedAtMs;
+    private long NextDecisionAtMs;
+    private long VictoryReturnAtMs;
+    private Point AttackTargetTile;
+    private Point AttackTargetTile2;
+    private bool AttackApplied;
+    private bool VictoryHandled;
+    private int CuratorAdaptationStacks;
+    private int DecisionSerial;
+
+    public MilestoneBossService(IModHelper helper, IMonitor monitor, SaveService save)
+    {
+        this.Helper = helper;
+        this.Monitor = monitor;
+        this.Save = save;
+    }
+
+    public bool IsInArena => this.ResolveCurrentKind(Game1.currentLocation) is not null;
+    internal MilestoneBossKind? VisualKind => this.CurrentKind;
+    internal MilestoneBossState VisualState => this.State;
+    internal int VisualPhase => this.Phase;
+
+    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.NameWithoutLocale.IsEquivalentTo(HollowCuratorMapAssetName)
+            || e.NameWithoutLocale.IsEquivalentTo(TricolorMapAssetName)
+            || e.NameWithoutLocale.IsEquivalentTo(MimiMapAssetName))
+        {
+            e.LoadFromModFile<xTile.Map>(SharedArenaMapPath, AssetLoadPriority.Exclusive);
+        }
+    }
+
+    public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    {
+        this.ResetRuntime(removeActors: true);
+        this.EnsureAllLocations();
+    }
+
+    public void OnDayStarted(object? sender, DayStartedEventArgs e)
+    {
+        this.ResetRuntime(removeActors: true);
+        this.EnsureAllLocations();
+    }
+
+    public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e)
+        => this.ResetRuntime(removeActors: true);
+
+    public void OnWarped(object? sender, WarpedEventArgs e)
+    {
+        MilestoneBossKind? incoming = this.ResolveCurrentKind(e.NewLocation);
+        if (incoming is not null)
+        {
+            this.StartEncounter(e.NewLocation, incoming.Value);
+            return;
+        }
+
+        if (this.ResolveCurrentKind(e.OldLocation) is not null)
+            this.ResetRuntime(removeActors: true);
+    }
+
+    public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
+    {
+        if (!this.IsInArena || !e.Button.IsActionButton() || Game1.activeClickableMenu is not null || Game1.dialogueUp || Game1.eventUp)
+            return;
+        Point p = PlayerTile();
+        if (Math.Abs(p.X - RetreatTile.X) > 1 || Math.Abs(p.Y - RetreatTile.Y) > 1)
+            return;
+
+        this.Helper.Input.Suppress(e.Button);
+        this.ReturnToDeck();
+    }
+
+    public void OnUpdateTicked(object? sender, UpdateTickedEventArgs e)
+    {
+        MilestoneBossKind? locationKind = this.ResolveCurrentKind(Game1.currentLocation);
+        if (locationKind is null)
+            return;
+        if (this.CurrentKind != locationKind)
+            this.StartEncounter(Game1.currentLocation!, locationKind.Value);
+
+        long now = Environment.TickCount64;
+        this.AnchorBossActors();
+
+        if (this.State == MilestoneBossState.Victory)
+        {
+            if (this.VictoryReturnAtMs > 0 && now >= this.VictoryReturnAtMs)
+                this.ReturnToDeck();
+            return;
+        }
+
+        if (this.State == MilestoneBossState.Defeated)
+        {
+            if (now - this.StateStartedAtMs >= DefeatDurationMs)
+                this.CompleteVictory(now);
+            return;
+        }
+
+        if (this.CheckDefeatAndTransitions(now))
+            return;
+
+        switch (this.State)
+        {
+            case MilestoneBossState.Intro:
+                if (now - this.StateStartedAtMs >= IntroDurationMs)
+                    this.EnterDecision(now, 500);
+                break;
+
+            case MilestoneBossState.Decision:
+                if (now >= this.NextDecisionAtMs)
+                    this.SelectAttack(now);
+                break;
+
+            case MilestoneBossState.Telegraph:
+                if (now - this.StateStartedAtMs >= this.CurrentAttackTelegraphMs())
+                {
+                    if (!this.AttackApplied)
+                    {
+                        this.AttackApplied = true;
+                        this.ApplyCurrentAttack();
+                    }
+                    this.EnterDecision(now, this.CurrentDecisionGapMs());
+                }
+                break;
+
+            case MilestoneBossState.PhaseTransition:
+                if (now - this.StateStartedAtMs >= PhaseTransitionMs)
+                {
+                    this.Phase = Math.Max(1, this.PendingPhase);
+                    this.PendingPhase = 0;
+                    if (this.CurrentKind == MilestoneBossKind.TricolorResonance && this.Phase == 4)
+                        this.SpawnTricolorUnified();
+                    Game1.playSound("discoverMineral");
+                    this.EnterDecision(now, 600);
+                }
+                break;
+        }
+    }
+
+    public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+    {
+        MilestoneBossKind? kind = this.ResolveCurrentKind(Game1.currentLocation);
+        if (kind is null)
+            return;
+
+        this.DrawArenaIdentity(e.SpriteBatch, kind.Value);
+        foreach (Monster actor in this.GetBossActors(includeDead: true))
+            this.DrawActor(e.SpriteBatch, actor, kind.Value);
+        this.DrawAttackTelegraph(e.SpriteBatch);
+        this.DrawRetreatGlyph(e.SpriteBatch);
+    }
+
+    public void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+    {
+        if (!this.IsInArena || this.CurrentKind is null)
+            return;
+
+        string title = this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => "THE HOLLOW CURATOR",
+            MilestoneBossKind.TricolorResonance => "THE TRICOLOR RESONANCE",
+            MilestoneBossKind.Mimi => "MIMI • THE RESONANCE MASTER",
+            _ => "CARDCHA BOSS",
+        };
+        string phase = this.DescribePhaseShort();
+        (int hp, int max) = this.GetCombinedHealth();
+        float ratio = max <= 0 ? 0f : Math.Clamp(hp / (float)max, 0f, 1f);
+
+        int width = Math.Min(620, Game1.uiViewport.Width - 80);
+        int x = (Game1.uiViewport.Width - width) / 2;
+        int y = 26;
+        e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(x, y, width, 50), Color.Black * 0.72f);
+        e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(x + 8, y + 30, width - 16, 10), new Color(50, 43, 61) * 0.95f);
+        e.SpriteBatch.Draw(Game1.staminaRect, new Rectangle(x + 8, y + 30, (int)((width - 16) * ratio), 10), this.KindColor(this.CurrentKind.Value) * 0.92f);
+        Vector2 titleSize = Game1.smallFont.MeasureString(title);
+        e.SpriteBatch.DrawString(Game1.smallFont, title, new Vector2(Game1.uiViewport.Width / 2f - titleSize.X / 2f, y + 4), Color.White);
+        Vector2 phaseSize = Game1.smallFont.MeasureString(phase);
+        e.SpriteBatch.DrawString(Game1.smallFont, phase, new Vector2(Game1.uiViewport.Width / 2f - phaseSize.X / 2f, y + 41), new Color(224, 219, 238));
+    }
+
+    public string DebugEnterBoss(int milestone)
+    {
+        if (!Context.IsWorldReady)
+            return "Load a save first.";
+        MilestoneBossKind? kind = milestone switch
+        {
+            2 => MilestoneBossKind.HollowCurator,
+            3 => MilestoneBossKind.TricolorResonance,
+            4 => MilestoneBossKind.Mimi,
+            _ => null,
+        };
+        if (kind is null)
+            return "Unknown milestone boss. Use 2, 3 or 4.";
+
+        GameLocation? arena = this.EnsureLocation(kind.Value);
+        if (arena is null)
+            return $"Couldn't create Boss {milestone} arena.";
+        Game1.warpFarmer(arena.NameOrUniqueName, ArrivalTile.X, ArrivalTile.Y, 0);
+        return $"TEST: entered Boss {milestone} arena. Milestone gate bypassed; save progression unchanged until a real victory.";
+    }
+
+    public string Describe()
+    {
+        string current = this.CurrentKind?.ToString() ?? "none";
+        (int hp, int max) = this.GetCombinedHealth();
+        return $"0670 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
+               $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
+    }
+
+    private void StartEncounter(GameLocation arena, MilestoneBossKind kind)
+    {
+        this.RemoveMarkedActors(arena);
+        this.CurrentKind = kind;
+        this.State = MilestoneBossState.Intro;
+        this.Phase = 1;
+        this.PendingPhase = 0;
+        this.CurrentAttack = -1;
+        this.StateStartedAtMs = Environment.TickCount64;
+        this.NextDecisionAtMs = 0;
+        this.VictoryReturnAtMs = 0;
+        this.AttackApplied = false;
+        this.VictoryHandled = false;
+        this.CuratorAdaptationStacks = 0;
+        this.DecisionSerial = 0;
+        this.AttackTargetTile = PlayerTile();
+        this.AttackTargetTile2 = this.AttackTargetTile;
+
+        switch (kind)
+        {
+            case MilestoneBossKind.HollowCurator:
+                this.SpawnProxy(arena, "curator", PrimaryTile, HollowCuratorMaxHealth);
+                break;
+            case MilestoneBossKind.TricolorResonance:
+                foreach ((string role, Point tile) in TricolorGuardianTiles)
+                    this.SpawnProxy(arena, role, tile, TricolorGuardianMaxHealth);
+                break;
+            case MilestoneBossKind.Mimi:
+                this.SpawnProxy(arena, "mimi", PrimaryTile, MimiMaxHealth);
+                break;
+        }
+
+        Game1.playSound("wand");
+        this.Monitor.Log($"0670 Boss encounter started: {kind}.", LogLevel.Info);
+    }
+
+    private bool CheckDefeatAndTransitions(long now)
+    {
+        if (this.CurrentKind is null)
+            return false;
+
+        if (this.CurrentKind == MilestoneBossKind.TricolorResonance)
+        {
+            if (this.Phase < 4)
+            {
+                if (!this.GetBossActors(includeDead: false).Any(a => this.Role(a) is "ignis" or "vita" or "aether"))
+                {
+                    this.BeginPhaseTransition(4, now);
+                    return true;
+                }
+                return false;
+            }
+
+            Monster? unified = this.FindRole("unified", includeDead: true);
+            if (unified is null || unified.Health <= 0)
+            {
+                this.BeginDefeat(now);
+                return true;
+            }
+            return false;
+        }
+
+        Monster? primary = this.CurrentKind == MilestoneBossKind.HollowCurator
+            ? this.FindRole("curator", includeDead: true)
+            : this.FindRole("mimi", includeDead: true);
+        if (primary is null || primary.Health <= 0)
+        {
+            this.BeginDefeat(now);
+            return true;
+        }
+
+        float ratio = primary.MaxHealth <= 0 ? 0f : primary.Health / (float)primary.MaxHealth;
+        if (this.CurrentKind == MilestoneBossKind.HollowCurator)
+        {
+            if (this.Phase == 1 && ratio <= 0.70f) { this.BeginPhaseTransition(2, now); return true; }
+            if (this.Phase == 2 && ratio <= 0.35f) { this.BeginPhaseTransition(3, now); return true; }
+        }
+        else
+        {
+            if (this.Phase == 1 && ratio <= 0.75f) { this.BeginPhaseTransition(2, now); return true; }
+            if (this.Phase == 2 && ratio <= 0.50f) { this.BeginPhaseTransition(3, now); return true; }
+            if (this.Phase == 3 && ratio <= 0.25f) { this.BeginPhaseTransition(4, now); return true; }
+        }
+        return false;
+    }
+
+    private void SelectAttack(long now)
+    {
+        if (this.CurrentKind is null)
+            return;
+        this.DecisionSerial++;
+        this.AttackTargetTile = PlayerTile();
+        this.AttackTargetTile2 = ClampArenaTile(new Point(this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 2 : -2), this.AttackTargetTile.Y));
+
+        switch (this.CurrentKind.Value)
+        {
+            case MilestoneBossKind.HollowCurator:
+            {
+                int[] pool = this.Phase switch
+                {
+                    1 => new[] { 0, 0, 1 },
+                    2 => new[] { 0, 1, 2, 2 },
+                    _ => new[] { 0, 2, 3, 3 },
+                };
+                this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
+                this.MaybeTeleportPrimary("curator");
+                break;
+            }
+            case MilestoneBossKind.TricolorResonance:
+            {
+                if (this.Phase >= 4)
+                {
+                    this.CurrentAttack = 13;
+                }
+                else
+                {
+                    string[] roles = this.GetBossActors(false)
+                        .Select(this.Role)
+                        .Where(r => r is "ignis" or "vita" or "aether")
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
+                    if (roles.Length == 0)
+                    {
+                        this.BeginPhaseTransition(4, now);
+                        return;
+                    }
+                    string role = roles[this.Rng.Next(roles.Length)];
+                    this.CurrentAttack = role == "ignis" ? 10 : role == "vita" ? 11 : 12;
+                }
+                break;
+            }
+            case MilestoneBossKind.Mimi:
+            {
+                int[] pool = this.Phase switch
+                {
+                    1 => new[] { 20, 20, 21 },
+                    2 => new[] { 20, 22, 23 },
+                    3 => new[] { 22, 23, 24, 24 },
+                    _ => new[] { 23, 24, 25, 25 },
+                };
+                this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
+                this.MaybeTeleportPrimary("mimi");
+                break;
+            }
+        }
+
+        this.State = MilestoneBossState.Telegraph;
+        this.StateStartedAtMs = now;
+        this.AttackApplied = false;
+        Game1.playSound(this.CurrentAttack is 10 or 24 or 25 ? "thudStep" : "Cowboy_gunload");
+    }
+
+    private void ApplyCurrentAttack()
+    {
+        int extra = this.CuratorAdaptationStacks * 2;
+        switch (this.CurrentAttack)
+        {
+            case 0:
+                if (PlayerWithin(this.AttackTargetTile, 1.4f)) DamagePlayer(12 + this.Phase * 2 + extra);
+                break;
+            case 1:
+                this.CuratorAdaptationStacks = Math.Min(3, this.CuratorAdaptationStacks + 1);
+                Game1.showGlobalMessage($"Hollow Curator adapts • {this.CuratorAdaptationStacks}/3");
+                break;
+            case 2:
+                if (PlayerWithin(this.AttackTargetTile, 2.0f) || PlayerWithin(this.AttackTargetTile2, 1.35f)) DamagePlayer(15 + this.Phase * 2 + extra);
+                break;
+            case 3:
+                if (PlayerWithin(this.AttackTargetTile, 2.55f)) DamagePlayer(23 + extra);
+                break;
+            case 10:
+                if (PlayerWithin(this.AttackTargetTile, 2.05f)) DamagePlayer(20);
+                break;
+            case 11:
+                foreach (Monster guardian in this.GetBossActors(false).Where(a => this.Role(a) is "ignis" or "vita" or "aether"))
+                    guardian.Health = Math.Min(guardian.MaxHealth, guardian.Health + 70);
+                if (PlayerWithin(this.AttackTargetTile, 1.5f)) DamagePlayer(8);
+                Game1.playSound("leafrustle");
+                break;
+            case 12:
+                if (PlayerWithin(this.AttackTargetTile, 1.35f)) DamagePlayer(16);
+                break;
+            case 13:
+                if (PlayerWithin(this.AttackTargetTile, 2.35f) || PlayerWithin(this.AttackTargetTile2, 1.6f)) DamagePlayer(25);
+                break;
+            case 20:
+                if (PlayerWithin(this.AttackTargetTile, 1.35f)) DamagePlayer(15 + this.Phase * 2);
+                break;
+            case 21:
+                if (PlayerWithin(this.AttackTargetTile, 1.8f)) DamagePlayer(14);
+                break;
+            case 22:
+                if (PlayerWithin(this.AttackTargetTile, 1.9f) || PlayerWithin(this.AttackTargetTile2, 1.35f)) DamagePlayer(17 + this.Phase * 2);
+                break;
+            case 23:
+                if (PlayerWithin(this.AttackTargetTile, 2.3f)) DamagePlayer(20 + this.Phase);
+                break;
+            case 24:
+                if (PlayerWithin(this.AttackTargetTile, 2.55f) || PlayerWithin(this.AttackTargetTile2, 1.8f)) DamagePlayer(22 + this.Phase * 2);
+                break;
+            case 25:
+                if (PlayerWithin(this.AttackTargetTile, 3.0f)) DamagePlayer(30);
+                Game1.playSound("explosion");
+                break;
+        }
+    }
+
+    private void BeginPhaseTransition(int nextPhase, long now)
+    {
+        if (this.State == MilestoneBossState.PhaseTransition || this.State == MilestoneBossState.Defeated || this.State == MilestoneBossState.Victory)
+            return;
+        this.PendingPhase = nextPhase;
+        this.State = MilestoneBossState.PhaseTransition;
+        this.StateStartedAtMs = now;
+        this.CurrentAttack = -1;
+        this.AttackApplied = false;
+        Game1.playSound("discoverMineral");
+    }
+
+    private void BeginDefeat(long now)
+    {
+        if (this.State is MilestoneBossState.Defeated or MilestoneBossState.Victory)
+            return;
+        this.State = MilestoneBossState.Defeated;
+        this.StateStartedAtMs = now;
+        this.CurrentAttack = -1;
+        this.AttackApplied = false;
+        Game1.playSound("thudStep");
+    }
+
+    private void CompleteVictory(long now)
+    {
+        if (this.VictoryHandled || this.CurrentKind is null)
+            return;
+        this.VictoryHandled = true;
+
+        string reward = this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => MirrorArchiveBossCardId,
+            MilestoneBossKind.TricolorResonance => TricolorBossCardId,
+            MilestoneBossKind.Mimi => MimiBossCardId,
+            _ => string.Empty,
+        };
+        int unlockRegion = this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => 3,
+            MilestoneBossKind.TricolorResonance => 4,
+            _ => this.Save.Data.AirshipHighestRegionUnlocked,
+        };
+
+        this.Save.Data.BossCardsUnlocked ??= new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        bool firstClear = this.Save.Data.BossCardsUnlocked.Add(reward);
+        this.Save.Data.AirshipHighestRegionUnlocked = Math.Max(this.Save.Data.AirshipHighestRegionUnlocked, unlockRegion);
+        this.Save.Save();
+
+        Game1.playSound(firstClear ? "yoba" : "questcomplete");
+        string name = this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => "Mirror Archive",
+            MilestoneBossKind.TricolorResonance => "Tricolor Resonance",
+            MilestoneBossKind.Mimi => "MiMi's Resonance",
+            _ => reward,
+        };
+        Game1.showGlobalMessage(firstClear ? $"Boss Card unlocked: {name}" : $"Rematch complete: {name}");
+        this.State = MilestoneBossState.Victory;
+        this.VictoryReturnAtMs = now + VictoryReturnMs;
+        this.Monitor.Log($"0670 {this.CurrentKind} victory. firstClear={firstClear}, reward={reward}, highestRegion={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
+    }
+
+    private void SpawnTricolorUnified()
+    {
+        GameLocation? arena = Game1.currentLocation;
+        if (arena is null)
+            return;
+        foreach (Monster actor in arena.characters.OfType<Monster>().Where(a => a.modData.ContainsKey(BossMarkerKey)).ToList())
+            arena.characters.Remove(actor);
+        this.SpawnProxy(arena, "unified", PrimaryTile, TricolorUnifiedMaxHealth);
+    }
+
+    private void SpawnProxy(GameLocation arena, string role, Point tile, int maxHealth)
+    {
+        GreenSlime proxy = new(new Vector2(tile.X * 64f, tile.Y * 64f), 0)
+        {
+            MaxHealth = maxHealth,
+            Health = maxHealth,
+            Speed = 0,
+        };
+        proxy.modData[BossMarkerKey] = ((int)(this.CurrentKind ?? MilestoneBossKind.HollowCurator)).ToString();
+        proxy.modData[BossRoleKey] = role;
+        proxy.isInvisible.Value = false;
+        arena.characters.Add(proxy);
+    }
+
+    private void AnchorBossActors()
+    {
+        foreach (Monster actor in this.GetBossActors(false))
+        {
+            string role = this.Role(actor);
+            Point tile = role switch
+            {
+                "ignis" => TricolorGuardianTiles[0].Tile,
+                "vita" => TricolorGuardianTiles[1].Tile,
+                "aether" => TricolorGuardianTiles[2].Tile,
+                _ => new Point((int)(actor.Position.X / 64f), (int)(actor.Position.Y / 64f)),
+            };
+            if (role is "ignis" or "vita" or "aether")
+                actor.Position = new Vector2(tile.X * 64f, tile.Y * 64f);
+            actor.Speed = 0;
+            actor.Halt();
+        }
+    }
+
+    private void MaybeTeleportPrimary(string role)
+    {
+        if (this.DecisionSerial % 3 != 0)
+            return;
+        Monster? actor = this.FindRole(role, false);
+        if (actor is null)
+            return;
+        Point[] pads = { new(9, 7), new(14, 6), new(19, 7), new(11, 10), new(17, 10) };
+        Point p = pads[this.Rng.Next(pads.Length)];
+        actor.Position = new Vector2(p.X * 64f, p.Y * 64f);
+        Game1.playSound("wand");
+    }
+
+    private void EnterDecision(long now, int delayMs)
+    {
+        this.State = MilestoneBossState.Decision;
+        this.StateStartedAtMs = now;
+        this.NextDecisionAtMs = now + delayMs;
+        this.CurrentAttack = -1;
+        this.AttackApplied = false;
+    }
+
+    private int CurrentAttackTelegraphMs() => this.CurrentAttack switch
+    {
+        1 => 900,
+        3 => 1050,
+        10 => 720,
+        11 => 820,
+        12 => 680,
+        13 => 980,
+        25 => 1150,
+        24 => 900,
+        _ => 760,
+    };
+
+    private int CurrentDecisionGapMs() => this.CurrentKind switch
+    {
+        MilestoneBossKind.HollowCurator => this.Phase switch { 1 => 780, 2 => 650, _ => 520 },
+        MilestoneBossKind.TricolorResonance => this.Phase >= 4 ? 520 : 720,
+        MilestoneBossKind.Mimi => this.Phase switch { 1 => 720, 2 => 620, 3 => 520, _ => 430 },
+        _ => 650,
+    };
+
+    private void DrawActor(SpriteBatch batch, Monster actor, MilestoneBossKind kind)
+    {
+        string role = this.Role(actor);
+        Vector2 center = Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(32f, 48f));
+        float pulse = 0.92f + 0.08f * (float)Math.Sin(Environment.TickCount64 / 170d + actor.GetHashCode());
+        Color accent = this.RoleColor(role, kind);
+
+        batch.Draw(Game1.staminaRect, new Rectangle((int)center.X - 34, (int)center.Y + 36, 68, 10), Color.Black * 0.28f);
+
+        if (role == "curator")
+        {
+            DrawRect(batch, new Rectangle((int)center.X - 42, (int)center.Y - 58, 84, 92), new Color(27, 24, 45) * 0.98f);
+            DrawDiamond(batch, center + new Vector2(0, -34), 28, new Color(43, 40, 70));
+            DrawRect(batch, new Rectangle((int)center.X - 11, (int)center.Y - 42, 22, 6), accent * pulse);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = Environment.TickCount64 / 420f + i * MathHelper.PiOver2;
+                Vector2 card = center + new Vector2(MathF.Cos(a) * 58f, -12f + MathF.Sin(a) * 28f);
+                DrawRect(batch, new Rectangle((int)card.X - 8, (int)card.Y - 12, 16, 24), new Color(77, 89, 153) * 0.90f);
+                DrawRect(batch, new Rectangle((int)card.X - 4, (int)card.Y - 6, 8, 12), accent * 0.65f);
+            }
+            return;
+        }
+
+        if (role is "ignis" or "vita" or "aether")
+        {
+            DrawDiamond(batch, center + new Vector2(0, -14), 32, accent * 0.95f);
+            DrawDiamond(batch, center + new Vector2(0, -14), 19, Color.White * 0.72f);
+            DrawRect(batch, new Rectangle((int)center.X - 16, (int)center.Y + 12, 32, 28), accent * 0.78f);
+            return;
+        }
+
+        if (role == "unified")
+        {
+            DrawDiamond(batch, center + new Vector2(0, -18), 40, Color.White * 0.86f);
+            Color[] colors = { new(236, 88, 72), new(102, 212, 118), new(92, 151, 243) };
+            for (int i = 0; i < 3; i++)
+            {
+                float a = Environment.TickCount64 / 360f + i * MathHelper.TwoPi / 3f;
+                Vector2 orb = center + new Vector2(MathF.Cos(a) * 58f, -18f + MathF.Sin(a) * 34f);
+                DrawDiamond(batch, orb, 12, colors[i] * 0.95f);
+            }
+            return;
+        }
+
+        DrawRect(batch, new Rectangle((int)center.X - 28, (int)center.Y - 22, 56, 66), new Color(100, 62, 146) * 0.94f);
+        DrawDiamond(batch, center + new Vector2(0, -48), 28, new Color(201, 157, 232));
+        DrawRect(batch, new Rectangle((int)center.X - 18, (int)center.Y - 53, 36, 24), new Color(245, 224, 229) * 0.94f);
+        DrawRect(batch, new Rectangle((int)center.X - 13, (int)center.Y - 47, 7, 4), new Color(122, 77, 175));
+        DrawRect(batch, new Rectangle((int)center.X + 6, (int)center.Y - 47, 7, 4), new Color(122, 77, 175));
+        DrawDiamond(batch, center + new Vector2(0, -84), 11 + this.Phase * 2, accent * pulse);
+        int glyphCount = Math.Min(6, this.Phase + 2);
+        for (int i = 0; i < glyphCount; i++)
+        {
+            float a = Environment.TickCount64 / 500f + i * MathHelper.TwoPi / glyphCount;
+            Vector2 glyph = center + new Vector2(MathF.Cos(a) * (46 + this.Phase * 7), -24 + MathF.Sin(a) * 30);
+            DrawDiamond(batch, glyph, 6, this.Phase >= 3 ? this.TricolorCycle(i) : accent * 0.72f);
+        }
+    }
+
+    private void DrawAttackTelegraph(SpriteBatch batch)
+    {
+        if (this.State != MilestoneBossState.Telegraph || this.CurrentAttack < 0)
+            return;
+        Color c = this.CurrentKind is null ? Color.White : this.KindColor(this.CurrentKind.Value);
+        float pulse = 0.28f + 0.16f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 90d));
+        int radius = this.CurrentAttack switch { 3 or 25 => 2, 13 or 24 => 2, 23 => 2, _ => 1 };
+        DrawTileZone(batch, this.AttackTargetTile, radius, c * pulse);
+        if (this.CurrentAttack is 2 or 13 or 22 or 24)
+            DrawTileZone(batch, this.AttackTargetTile2, 1, new Color(238, 218, 255) * pulse);
+        if (this.CurrentAttack == 11)
+            DrawTileZone(batch, this.AttackTargetTile, 1, new Color(102, 212, 118) * pulse);
+    }
+
+    private void DrawArenaIdentity(SpriteBatch batch, MilestoneBossKind kind)
+    {
+        Color c = this.KindColor(kind);
+        Point[] corners = { new(3,3), new(24,3), new(3,16), new(24,16) };
+        foreach (Point p in corners)
+        {
+            Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(p.X * 64f + 32, p.Y * 64f + 32));
+            DrawDiamond(batch, local, 12, c * 0.35f);
+            DrawDiamond(batch, local, 5, Color.White * 0.38f);
+        }
+    }
+
+    private void DrawRetreatGlyph(SpriteBatch batch)
+    {
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(RetreatTile.X * 64f + 32, RetreatTile.Y * 64f + 36));
+        DrawRect(batch, new Rectangle((int)local.X - 26, (int)local.Y - 3, 52, 6), new Color(220, 194, 130) * 0.55f);
+    }
+
+    private string DescribePhaseShort()
+    {
+        if (this.CurrentKind is null)
+            return string.Empty;
+        return this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => this.Phase switch
+            {
+                1 => $"Observation • Adapt {this.CuratorAdaptationStacks}/3",
+                2 => $"Reflection • Adapt {this.CuratorAdaptationStacks}/3",
+                _ => $"Curator's Truth • Adapt {this.CuratorAdaptationStacks}/3",
+            },
+            MilestoneBossKind.TricolorResonance => this.Phase < 4
+                ? $"Three Guardians • {this.GetTricolorLivingSummary()}"
+                : "Unified Resonance",
+            MilestoneBossKind.Mimi => this.Phase switch
+            {
+                1 => "Familiar Power",
+                2 => "Refined Control",
+                3 => "True Resonance",
+                _ => "MiMi • Resonance Master",
+            },
+            _ => string.Empty,
+        };
+    }
+
+    private string GetTricolorLivingSummary()
+    {
+        string[] roles = this.GetBossActors(false).Select(this.Role).Where(r => r is "ignis" or "vita" or "aether").ToArray();
+        return $"Ignis:{(roles.Contains("ignis") ? "ON" : "X")} Vita:{(roles.Contains("vita") ? "ON" : "X")} Aether:{(roles.Contains("aether") ? "ON" : "X")}";
+    }
+
+    private (int Hp, int Max) GetCombinedHealth()
+    {
+        Monster[] actors = this.GetBossActors(includeDead: true);
+        int hp = actors.Sum(a => Math.Max(0, a.Health));
+        int max = actors.Sum(a => Math.Max(1, a.MaxHealth));
+        return (hp, max);
+    }
+
+    private Monster[] GetBossActors(bool includeDead)
+    {
+        GameLocation? arena = Game1.currentLocation;
+        if (arena is null)
+            return Array.Empty<Monster>();
+        IEnumerable<Monster> query = arena.characters.OfType<Monster>().Where(a => a.modData.ContainsKey(BossMarkerKey));
+        if (!includeDead)
+            query = query.Where(a => a.Health > 0);
+        return query.ToArray();
+    }
+
+    private Monster? FindRole(string role, bool includeDead)
+        => this.GetBossActors(includeDead).FirstOrDefault(a => this.Role(a).Equals(role, StringComparison.OrdinalIgnoreCase));
+
+    private string Role(Monster actor)
+        => actor.modData.TryGetValue(BossRoleKey, out string? role) ? role : "unknown";
+
+    private MilestoneBossKind? ResolveCurrentKind(GameLocation? location)
+    {
+        string? name = location?.NameOrUniqueName;
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        if (name.Equals(HollowCuratorLocationName, StringComparison.OrdinalIgnoreCase)) return MilestoneBossKind.HollowCurator;
+        if (name.Equals(TricolorLocationName, StringComparison.OrdinalIgnoreCase)) return MilestoneBossKind.TricolorResonance;
+        if (name.Equals(MimiLocationName, StringComparison.OrdinalIgnoreCase)) return MilestoneBossKind.Mimi;
+        return null;
+    }
+
+    private void EnsureAllLocations()
+    {
+        this.EnsureLocation(MilestoneBossKind.HollowCurator);
+        this.EnsureLocation(MilestoneBossKind.TricolorResonance);
+        this.EnsureLocation(MilestoneBossKind.Mimi);
+    }
+
+    private GameLocation? EnsureLocation(MilestoneBossKind kind)
+    {
+        string locationName = kind switch
+        {
+            MilestoneBossKind.HollowCurator => HollowCuratorLocationName,
+            MilestoneBossKind.TricolorResonance => TricolorLocationName,
+            _ => MimiLocationName,
+        };
+        string mapAsset = kind switch
+        {
+            MilestoneBossKind.HollowCurator => HollowCuratorMapAssetName,
+            MilestoneBossKind.TricolorResonance => TricolorMapAssetName,
+            _ => MimiMapAssetName,
+        };
+        GameLocation? existing = Game1.getLocationFromName(locationName);
+        if (existing is not null)
+            return existing;
+        try
+        {
+            GameLocation arena = new(mapAsset, locationName);
+            Game1.locations.Add(arena);
+            return arena;
+        }
+        catch (Exception ex)
+        {
+            this.Monitor.Log($"0670 couldn't create {locationName}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            return null;
+        }
+    }
+
+    private void ReturnToDeck()
+    {
+        GameLocation? deck = Game1.getLocationFromName(AirshipFoundationService.DeckLocationName);
+        if (deck is not null)
+        {
+            this.RemoveMarkedActors(Game1.currentLocation);
+            this.State = MilestoneBossState.Dormant;
+            this.CurrentKind = null;
+            Game1.warpFarmer(AirshipFoundationService.DeckLocationName, 12, 10, 2);
+            return;
+        }
+
+        GameLocation? region1 = Game1.getLocationFromName(AirshipFoundationService.Region1LocationName);
+        if (region1 is not null)
+            Game1.warpFarmer(AirshipFoundationService.Region1LocationName, 20, 4, 2);
+    }
+
+    private void ResetRuntime(bool removeActors)
+    {
+        if (removeActors)
+        {
+            foreach (string name in new[] { HollowCuratorLocationName, TricolorLocationName, MimiLocationName })
+                this.RemoveMarkedActors(Game1.getLocationFromName(name));
+        }
+        this.CurrentKind = null;
+        this.State = MilestoneBossState.Dormant;
+        this.Phase = 1;
+        this.PendingPhase = 0;
+        this.CurrentAttack = -1;
+        this.StateStartedAtMs = 0;
+        this.NextDecisionAtMs = 0;
+        this.VictoryReturnAtMs = 0;
+        this.AttackApplied = false;
+        this.VictoryHandled = false;
+        this.CuratorAdaptationStacks = 0;
+        this.DecisionSerial = 0;
+    }
+
+    private void RemoveMarkedActors(GameLocation? arena)
+    {
+        if (arena is null) return;
+        foreach (NPC actor in arena.characters.Where(a => a.modData.ContainsKey(BossMarkerKey)).ToList())
+            arena.characters.Remove(actor);
+    }
+
+    private static Point PlayerTile() => new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
+
+    private static Point ClampArenaTile(Point p)
+        => new(Math.Clamp(p.X, 2, 25), Math.Clamp(p.Y, 2, 16));
+
+    private static bool PlayerWithin(Point tile, float radiusTiles)
+    {
+        Vector2 center = new(tile.X * 64f + 32, tile.Y * 64f + 32);
+        Vector2 player = Game1.player.Position + new Vector2(32f, 32f);
+        return Vector2.Distance(center, player) / 64f <= radiusTiles;
+    }
+
+    private static void DamagePlayer(int damage)
+    {
+        if (Game1.player.health <= 0) return;
+        Game1.player.takeDamage(Math.Max(1, damage), false, null);
+    }
+
+    private Color KindColor(MilestoneBossKind kind) => kind switch
+    {
+        MilestoneBossKind.HollowCurator => new Color(112, 132, 242),
+        MilestoneBossKind.TricolorResonance => new Color(197, 210, 255),
+        MilestoneBossKind.Mimi => new Color(220, 142, 244),
+        _ => Color.White,
+    };
+
+    private Color RoleColor(string role, MilestoneBossKind kind) => role switch
+    {
+        "ignis" => new Color(238, 92, 78),
+        "vita" => new Color(99, 210, 118),
+        "aether" => new Color(89, 148, 241),
+        "unified" => Color.White,
+        "curator" => new Color(108, 133, 242),
+        "mimi" => new Color(225, 145, 244),
+        _ => this.KindColor(kind),
+    };
+
+    private Color TricolorCycle(int i) => i % 3 switch
+    {
+        0 => new Color(238, 92, 78),
+        1 => new Color(99, 210, 118),
+        _ => new Color(89, 148, 241),
+    };
+
+    private static void DrawTileZone(SpriteBatch batch, Point center, int radius, Color color)
+    {
+        Rectangle world = new((center.X - radius) * 64, (center.Y - radius) * 64, (radius * 2 + 1) * 64, (radius * 2 + 1) * 64);
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(world.X, world.Y));
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X, (int)local.Y, world.Width, world.Height), color);
+    }
+
+    private static void DrawRect(SpriteBatch batch, Rectangle rect, Color color)
+        => batch.Draw(Game1.staminaRect, rect, color);
+
+    private static void DrawDiamond(SpriteBatch batch, Vector2 center, int radius, Color color)
+    {
+        for (int y = -radius; y <= radius; y++)
+        {
+            int half = Math.Max(1, radius - Math.Abs(y));
+            DrawRect(batch, new Rectangle((int)center.X - half, (int)center.Y + y, half * 2 + 1, 1), color);
+        }
+    }
+}
