@@ -367,7 +367,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.44 REGION III / IV AUTHORED VISUAL PASS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45 REGION III / IV TERRAIN DEPTH PASS TEST",
             LogLevel.Info
         );
     }

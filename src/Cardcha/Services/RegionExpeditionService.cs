@@ -14,10 +14,10 @@ internal enum ExpeditionRegion
 }
 
 /// <summary>
-/// 0675 authored visual pass for Region III Mirrorwild and Region IV Resonance Verge.
-/// Three-wave gameplay, rewards, route gates and extraction remain the 0674 contract.
-/// Vanilla monsters are gameplay proxies only; their draw is suppressed and native 32px Cardcha art
-/// is rendered at Stardew's fixed 4x world pixel scale.
+/// 0676 terrain-depth pass for Region III Mirrorwild and Region IV Resonance Verge.
+/// Three-wave gameplay, rewards, route gates, authored enemy silhouettes and extraction remain frozen.
+/// Low-profile 64px terrain clusters deepen the two biomes without screen tinting, fake colliders,
+/// or any per-enemy sprite enlargement.
 /// </summary>
 internal sealed class RegionExpeditionService
 {
@@ -32,6 +32,8 @@ internal sealed class RegionExpeditionService
     private const string Region4EnemyAtlasPath = "assets/region4_resonance_enemies.png";
     private const string Region3DecorAtlasPath = "assets/region3_mirrorwild_decor.png";
     private const string Region4DecorAtlasPath = "assets/region4_resonance_decor.png";
+    private const string Region3TerrainAtlasPath = "assets/region3_mirrorwild_terrain.png";
+    private const string Region4TerrainAtlasPath = "assets/region4_resonance_terrain.png";
     public const string EnemyMarkerKey = "Ronvotri.Cardcha/0674ExpeditionEnemy";
     public const string EnemyRoleKey = "Ronvotri.Cardcha/0674ExpeditionRole";
     private const float AuthoredWorldScale = 4f;
@@ -61,8 +63,12 @@ internal sealed class RegionExpeditionService
     private Texture2D? Region4EnemyAtlas;
     private Texture2D? Region3DecorAtlas;
     private Texture2D? Region4DecorAtlas;
+    private Texture2D? Region3TerrainAtlas;
+    private Texture2D? Region4TerrainAtlas;
     private bool Region3ArtLoadFailed;
     private bool Region4ArtLoadFailed;
+    private bool Region3TerrainLoadFailed;
+    private bool Region4TerrainLoadFailed;
 
     public RegionExpeditionService(IModHelper helper, IMonitor monitor, SaveService save, AirshipFoundationService airship)
     {
@@ -195,7 +201,7 @@ internal sealed class RegionExpeditionService
             bool bypass = this.DebugBypassRegion == (int)region;
             if (!this.CanEnter(region) && !bypass)
             {
-                this.Monitor.Log($"0675 blocked unauthorized Region {(int)region} entry.", LogLevel.Warn);
+                this.Monitor.Log($"0676 blocked unauthorized Region {(int)region} entry.", LogLevel.Warn);
                 this.ReturnToDeckImmediate();
                 return;
             }
@@ -321,7 +327,7 @@ internal sealed class RegionExpeditionService
         this.UnbankedShiny = 0;
         this.ExtractConfirmUntilMs = 0;
         Game1.showGlobalMessage(ModEntry.T("airship.expedition.arrive", new { region = this.RegionDisplayName(region) }));
-        this.Monitor.Log($"0675 expedition started: {region}, authored native-size enemy art, 3-wave gameplay contract unchanged.", LogLevel.Info);
+        this.Monitor.Log($"0676 expedition started: {region}, authored native-size enemy art, 3-wave gameplay contract unchanged.", LogLevel.Info);
     }
 
     private void SpawnWave(GameLocation location, ExpeditionRegion region, int wave)
@@ -353,7 +359,7 @@ internal sealed class RegionExpeditionService
             catch { continue; }
 
             Monster enemy = this.CreateEnemy(region, wave, spawned, tv * 64f);
-            enemy.modData[EnemyMarkerKey] = $"0675:{(int)region}:{wave}";
+            enemy.modData[EnemyMarkerKey] = $"0676:{(int)region}:{wave}";
             location.characters.Add(enemy);
             spawned++;
         }
@@ -366,7 +372,7 @@ internal sealed class RegionExpeditionService
             wave,
             total = WaveCount
         }));
-        this.Monitor.Log($"0675 {region} wave {wave}/{WaveCount}: spawned={spawned}.", LogLevel.Trace);
+        this.Monitor.Log($"0676 {region} wave {wave}/{WaveCount}: spawned={spawned}.", LogLevel.Trace);
     }
 
     private Monster CreateEnemy(ExpeditionRegion region, int wave, int index, Vector2 position)
@@ -505,7 +511,7 @@ internal sealed class RegionExpeditionService
         }
         catch (Exception ex)
         {
-            this.Monitor.Log($"0675 couldn't create {name}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            this.Monitor.Log($"0676 couldn't create {name}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
             return null;
         }
     }
@@ -590,37 +596,109 @@ internal sealed class RegionExpeditionService
     {
         int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
         int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 28;
-        Point extract = ResolveExtractionTile(location);
-        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(extract.X * 64f + 32f, extract.Y * 64f + 32f));
-        Color c = region == ExpeditionRegion.Mirrorwild ? new Color(143, 187, 226) : new Color(197, 135, 218);
-        float pulse = 0.46f + 0.12f * (float)Math.Sin(Environment.TickCount64 / 260d);
-        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 28, (int)local.Y - 2, 56, 4), c * pulse);
-        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 2, (int)local.Y - 28, 4, 56), c * pulse);
+
+        Texture2D? terrain = this.GetTerrainAtlas(region);
+        if (terrain is not null)
+            this.DrawTerrainClusters(batch, terrain, region);
 
         Texture2D? decor = this.GetDecorAtlas(region);
         if (decor is not null)
-        {
-            Point[] anchors = region == ExpeditionRegion.Mirrorwild
-                ? new[] { new Point(4,5),new Point(9,9),new Point(4,18),new Point(11,23),new Point(29,5),new Point(35,11),new Point(34,19),new Point(27,23),new Point(15,5),new Point(24,18),new Point(31,15),new Point(8,14) }
-                : new[] { new Point(4,6),new Point(10,11),new Point(5,20),new Point(13,23),new Point(34,6),new Point(30,12),new Point(35,20),new Point(27,23),new Point(15,7),new Point(25,8),new Point(10,17),new Point(30,18) };
-            for (int i = 0; i < anchors.Length; i++)
-            {
-                Point a = anchors[i];
-                Rectangle src = new((i % 8) * 32, 0, 32, 32);
-                Vector2 world = new(a.X * 64f + 32f, a.Y * 64f + 58f);
-                Vector2 p = Game1.GlobalToLocal(Game1.viewport, world);
-                float layer = Math.Clamp((world.Y + 22f) / 10000f, 0f, 0.92f);
-                batch.Draw(decor, p, src, Color.White, 0f, new Vector2(16f, 28f), AuthoredWorldScale, SpriteEffects.None, layer);
-            }
-        }
+            this.DrawDecorClusters(batch, decor, region);
 
-        // Tiny ambient pixels support the biome without tinting the whole screen.
-        for (int i = 0; i < 10; i++)
+        Point extract = ResolveExtractionTile(location);
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(extract.X * 64f + 32f, extract.Y * 64f + 32f));
+        Color c = region == ExpeditionRegion.Mirrorwild ? new Color(143, 187, 226) : new Color(197, 135, 218);
+        float pulse = 0.44f + 0.11f * (float)Math.Sin(Environment.TickCount64 / 260d);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 25, (int)local.Y - 2, 50, 4), c * pulse);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 2, (int)local.Y - 25, 4, 50), c * pulse);
+
+        // Small ambient flecks only. Terrain identity comes from authored ground forms, not a screen tint.
+        for (int i = 0; i < 12; i++)
         {
             int x = 3 + (i * 11 + (int)region * 7) % Math.Max(4, width - 6);
             int y = 3 + (i * 7 + (int)region * 5) % Math.Max(4, height - 7);
             Vector2 p = Game1.GlobalToLocal(Game1.viewport, new Vector2(x * 64f + 32f, y * 64f + 32f));
-            batch.Draw(Game1.staminaRect, new Rectangle((int)p.X, (int)p.Y, 2, 2), c * 0.26f);
+            int size = i % 4 == 0 ? 3 : 2;
+            batch.Draw(Game1.staminaRect, new Rectangle((int)p.X, (int)p.Y, size, size), c * 0.24f);
+        }
+    }
+
+    private void DrawTerrainClusters(SpriteBatch batch, Texture2D terrain, ExpeditionRegion region)
+    {
+        // Mirrorwild is deliberately bilateral; Resonance Verge reads as a three-pole elemental triad.
+        (Point, int)[] clusters = region == ExpeditionRegion.Mirrorwild
+            ? new (Point, int)[]
+            {
+                (new Point(20,14),0),
+                (new Point(10,7),6),(new Point(30,7),6),
+                (new Point(7,16),2),(new Point(33,16),2),
+                (new Point(12,22),3),(new Point(28,22),3),
+                (new Point(13,4),5),(new Point(27,4),5),
+                (new Point(5,23),7),(new Point(35,23),7),
+                (new Point(17,10),1),(new Point(23,10),1),
+                (new Point(15,18),4),(new Point(25,18),4),
+            }
+            : new (Point, int)[]
+            {
+                (new Point(20,14),3),
+                (new Point(20,6),0),
+                (new Point(8,19),1),(new Point(32,19),2),
+                (new Point(14,11),6),(new Point(26,11),6),
+                (new Point(12,23),4),(new Point(28,23),4),
+                (new Point(6,8),5),(new Point(34,8),5),
+                (new Point(20,22),7),
+                (new Point(8,14),1),(new Point(32,14),2),
+            };
+
+        for (int i = 0; i < clusters.Length; i++)
+        {
+            Point anchor = clusters[i].Item1;
+            int cell = clusters[i].Item2;
+            Rectangle src = new(cell * 64, 0, 64, 64);
+            Vector2 world = new(anchor.X * 64f + 32f, anchor.Y * 64f + 32f);
+            Vector2 p = Game1.GlobalToLocal(Game1.viewport, world);
+            float alpha = i == 0 ? 0.92f : 0.72f;
+            batch.Draw(terrain, p, src, Color.White * alpha, 0f, new Vector2(32f, 32f),
+                AuthoredWorldScale, SpriteEffects.None, 0.001f);
+        }
+    }
+
+    private void DrawDecorClusters(SpriteBatch batch, Texture2D decor, ExpeditionRegion region)
+    {
+        (Point, int)[] anchors = region == ExpeditionRegion.Mirrorwild
+            ? new (Point, int)[]
+            {
+                (new Point(4,5),0),(new Point(36,5),0),
+                (new Point(8,10),3),(new Point(32,10),3),
+                (new Point(4,18),6),(new Point(36,18),6),
+                (new Point(10,23),1),(new Point(30,23),1),
+                (new Point(14,5),2),(new Point(26,5),2),
+                (new Point(8,14),7),(new Point(32,14),7),
+                (new Point(13,19),4),(new Point(27,19),4),
+                (new Point(17,7),5),(new Point(23,7),5),
+            }
+            : new (Point, int)[]
+            {
+                (new Point(4,6),6),(new Point(36,6),6),
+                (new Point(10,10),0),(new Point(30,10),0),
+                (new Point(5,20),3),(new Point(35,20),3),
+                (new Point(13,23),1),(new Point(27,23),1),
+                (new Point(15,7),2),(new Point(25,7),2),
+                (new Point(9,16),7),(new Point(31,16),7),
+                (new Point(14,18),4),(new Point(26,18),4),
+                (new Point(20,5),5),(new Point(20,20),5),
+            };
+
+        for (int i = 0; i < anchors.Length; i++)
+        {
+            Point a = anchors[i].Item1;
+            int cell = anchors[i].Item2;
+            Rectangle src = new(cell * 32, 0, 32, 32);
+            Vector2 world = new(a.X * 64f + 32f, a.Y * 64f + 58f);
+            Vector2 p = Game1.GlobalToLocal(Game1.viewport, world);
+            float layer = Math.Clamp((world.Y + 22f) / 10000f, 0f, 0.92f);
+            batch.Draw(decor, p, src, Color.White, 0f, new Vector2(16f, 28f),
+                AuthoredWorldScale, SpriteEffects.None, layer);
         }
     }
 
@@ -652,6 +730,30 @@ internal sealed class RegionExpeditionService
             new Vector2(16f, 28f), AuthoredWorldScale, SpriteEffects.None, layer);
     }
 
+    private Texture2D? GetTerrainAtlas(ExpeditionRegion region)
+    {
+        try
+        {
+            if (region == ExpeditionRegion.Mirrorwild)
+                return this.Region3TerrainAtlas ??= this.Helper.ModContent.Load<Texture2D>(Region3TerrainAtlasPath);
+            return this.Region4TerrainAtlas ??= this.Helper.ModContent.Load<Texture2D>(Region4TerrainAtlasPath);
+        }
+        catch (Exception ex)
+        {
+            if (region == ExpeditionRegion.Mirrorwild && !this.Region3TerrainLoadFailed)
+            {
+                this.Region3TerrainLoadFailed = true;
+                this.Monitor.Log($"0676 Mirrorwild terrain atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
+            }
+            else if (region == ExpeditionRegion.ResonanceVerge && !this.Region4TerrainLoadFailed)
+            {
+                this.Region4TerrainLoadFailed = true;
+                this.Monitor.Log($"0676 Resonance terrain atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
+            }
+            return null;
+        }
+    }
+
     private Texture2D? GetEnemyAtlas(ExpeditionRegion region)
     {
         try
@@ -665,12 +767,12 @@ internal sealed class RegionExpeditionService
             if (region == ExpeditionRegion.Mirrorwild && !this.Region3ArtLoadFailed)
             {
                 this.Region3ArtLoadFailed = true;
-                this.Monitor.Log($"0675 Mirrorwild enemy atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
+                this.Monitor.Log($"0676 Mirrorwild enemy atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
             }
             else if (region == ExpeditionRegion.ResonanceVerge && !this.Region4ArtLoadFailed)
             {
                 this.Region4ArtLoadFailed = true;
-                this.Monitor.Log($"0675 Resonance enemy atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
+                this.Monitor.Log($"0676 Resonance enemy atlas unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
             }
             return null;
         }
@@ -714,10 +816,10 @@ internal sealed class RegionExpeditionService
     public string Describe()
     {
         if (!Context.IsWorldReady)
-            return "0675 Expedition=<no save>";
+            return "0676 Expedition=<no save>";
         string pending = this.PendingRouteRegion?.ToString() ?? "none";
         double confirm = this.PendingRouteUntilMs > Environment.TickCount64 ? (this.PendingRouteUntilMs - Environment.TickCount64) / 1000d : 0d;
-        return $"0675 Expedition | Available=[{string.Join(',', this.GetAvailableRegions())}] | Current={this.CurrentRegion?.ToString() ?? "none"} | " +
+        return $"0676 Expedition | Available=[{string.Join(',', this.GetAvailableRegions())}] | Current={this.CurrentRegion?.ToString() ?? "none"} | " +
                $"Active={this.Active} Complete={this.Completed} Wave={this.CurrentWave}/{WaveCount} Spawned={this.WaveSpawned} | " +
                $"Unbanked={this.UnbankedScrap} Scrap + {this.UnbankedShiny} Shiny | Pending={pending}:{confirm:0.0}s | Schema=19";
     }
@@ -725,22 +827,22 @@ internal sealed class RegionExpeditionService
     public string DebugEnter(int region)
     {
         if (!Context.IsWorldReady || region is not (3 or 4))
-            return "0675 TEST: load a save and use region 3 or 4.";
+            return "0676 TEST: load a save and use region 3 or 4.";
         ExpeditionRegion target = (ExpeditionRegion)region;
         GameLocation? location = this.EnsureLocation(target);
         if (location is null)
-            return $"0675 TEST: Region {region} map unavailable.";
+            return $"0676 TEST: Region {region} map unavailable.";
         this.DebugBypassRegion = region;
         Point arrival = ResolveArrivalTile(location);
         Game1.warpFarmer(location.NameOrUniqueName, arrival.X, arrival.Y, 0);
-        return $"0675 TEST: entered Region {region} with runtime-only gate bypass. Save unlock state unchanged.";
+        return $"0676 TEST: entered Region {region} with runtime-only gate bypass. Save unlock state unchanged.";
     }
 
     public string DebugClearWave()
     {
         if (!Context.IsWorldReady || !this.Active || Game1.currentLocation is null || ResolveRegion(Game1.currentLocation) is null)
-            return "0675 TEST: enter an active Region III/IV expedition first.";
+            return "0676 TEST: enter an active Region III/IV expedition first.";
         this.ClearMarkedEnemies(Game1.currentLocation);
-        return $"0675 TEST: cleared current wave actors. {this.Describe()}";
+        return $"0676 TEST: cleared current wave actors. {this.Describe()}";
     }
 }
