@@ -1,0 +1,185 @@
+name: Cardcha alpha28.0.4.14.4.5.12.45.1 Expedition Draw Runtime Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0676a-expedition-draw-runtime-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0676A runtime hotfix metadata
+        run: python3 tools/alpha28_0676a_expedition_draw_runtime_hotfix.py
+
+      - name: Validate 0676A launch patch and frozen 0676 contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, subprocess, xml.etree.ElementTree as ET
+
+          root=Path('src/Cardcha')
+          version='0.3.0-alpha.28.0.4.14.4.5.12.45.1'
+          base='origin/cardcha-alpha28-0676-region3-region4-terrain-depth-pass'
+
+          manifest=json.loads((root/'manifest.json').read_text())
+          assert manifest['Version']==version
+          assert version in (root/'Cardcha.csproj').read_text()
+          targets=(root/'Directory.Build.targets').read_text()
+          assert targets.count(version)>=2
+          assert '0.3.0-alpha.28.0.4.14.4.5.12.45\"' not in targets
+
+          patch=(root/'Patches/RegionExpeditionProxyDrawPatch.cs').read_text()
+          required=[
+              'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })',
+              'target.DeclaringType != typeof(Monster)',
+              'harmony.Patch(target, prefix: prefix);',
+              'Prefix(Monster __instance)',
+              'RegionExpeditionService.EnemyMarkerKey',
+          ]
+          for token in required: assert token in patch, token
+          for forbidden in [
+              'typeof(GreenSlime)', 'typeof(Bat)', 'typeof(Bug)',
+              'HashSet<MethodInfo> targets', 'foreach (Type type', 'isInvisible'
+          ]: assert forbidden not in patch, forbidden
+
+          entry=(root/'ModEntry.cs').read_text()
+          assert version in entry
+          assert 'EXPEDITION DRAW HOTFIX TEST' in entry
+          assert 'RegionExpeditionProxyDrawPatch.Apply(harmony);' in entry
+
+          region=(root/'Services/RegionExpeditionService.cs').read_text()
+          for token in [
+              'WaveCount = 3',
+              'wave switch { 1 => 10, 2 => 15, _ => 22 }',
+              'wave switch { 1 => 15, 2 => 22, _ => 32 }',
+              'private const float AuthoredWorldScale = 4f;',
+              'Region3TerrainAtlasPath = "assets/region3_mirrorwild_terrain.png"',
+              'Region4TerrainAtlasPath = "assets/region4_resonance_terrain.png"',
+          ]: assert token in region, token
+
+          save=(root/'Services/SaveService.cs').read_text()
+          assert 'CurrentSchemaVersion = 19' in save and 'CurrentSchemaVersion = 20' not in save
+          cards=json.loads((root/'assets/cards.json').read_text())
+          legacy={'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards)==80 and len([c for c in cards if c.get('Id') not in legacy])==76
+
+          locked=[
+              'src/Cardcha/Services/RegionExpeditionService.cs',
+              'src/Cardcha/Services/AirshipFoundationService.cs',
+              'src/Cardcha/Services/MilestoneBossService.cs',
+              'src/Cardcha/Services/SaveService.cs',
+              'src/Cardcha/assets/cards.json',
+              'src/Cardcha/assets/region3_mirrorwild.tmx',
+              'src/Cardcha/assets/region4_resonance_verge.tmx',
+              'src/Cardcha/assets/region3_mirrorwild_enemies.png',
+              'src/Cardcha/assets/region4_resonance_enemies.png',
+              'src/Cardcha/assets/region3_mirrorwild_decor.png',
+              'src/Cardcha/assets/region4_resonance_decor.png',
+              'src/Cardcha/assets/region3_mirrorwild_terrain.png',
+              'src/Cardcha/assets/region4_resonance_terrain.png',
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+              'src/Cardcha/assets/verdant_guardian_arena.tmx',
+              'src/Cardcha/assets/boss2_hollow_curator_arena.tmx',
+              'src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+              'src/Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+          ]
+          locked += [str(p) for p in sorted((root/'assets/bosses/milestone').glob('*.png'))]
+          for p in locked:
+              assert subprocess.run(['git','diff','--quiet',base,'--',p]).returncode==0, p
+
+          checked=0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              r=ET.parse(tmx).getroot()
+              for layer in r.findall('layer'):
+                  data=layer.find('data')
+                  if data is None or data.attrib.get('encoding')!='csv': continue
+                  vals=[]
+                  for i,token in enumerate((data.text or '').split(',')):
+                      st=token.strip(); assert st!='', f'{tmx}: empty CSV token {i}'
+                      vals.append(int(st))
+                  assert len(vals)==int(layer.attrib['width'])*int(layer.attrib['height'])
+                  checked+=1
+          assert checked>=53
+
+          latest=Path('handoff/LATEST_CARDCHA_HANDOFF.md').read_text()
+          handoff=Path('handoff/ALPHA28_0676A_EXPEDITION_DRAW_RUNTIME_HOTFIX.md').read_text()
+          assert version in latest and version in handoff
+          assert 'cardcha-alpha28-0676a-expedition-draw-runtime-hotfix' in latest
+          print(f'0676A validator PASS; declared Monster.draw target; schema=19 cards=76/80 strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .12.45.1 hotfix source handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.45.1 expedition draw runtime hotfix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0676a-expedition-draw-runtime-hotfix
+          fi
+
+      - name: Package .12.45.1 HOTFIX TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.1_0676A_ExpeditionDrawRuntimeHotfix_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          import json, zipfile
+          z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.1_0676A_ExpeditionDrawRuntimeHotfix_TEST.zip'
+          with zipfile.ZipFile(z) as f:
+              names=set(f.namelist())
+              manifest=json.loads(f.read('Cardcha/manifest.json'))
+              dll=f.read('Cardcha/Cardcha.dll')
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.45.1'
+              assert len(dll)>50000 and dll[:2]==b'MZ'
+              for p in [
+                  'Cardcha/assets/region3_mirrorwild.tmx','Cardcha/assets/region4_resonance_verge.tmx',
+                  'Cardcha/assets/region3_mirrorwild_enemies.png','Cardcha/assets/region4_resonance_enemies.png',
+                  'Cardcha/assets/region3_mirrorwild_terrain.png','Cardcha/assets/region4_resonance_terrain.png',
+                  'Cardcha/assets/mimi_walk.png','Cardcha/i18n/default.json','Cardcha/i18n/vi.json'
+              ]: assert p in names,p
+          print('0676A final package audit PASS')
+          PY
+
+      - name: Upload HOTFIX TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0676a-expedition-draw-runtime-hotfix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.1_0676A_ExpeditionDrawRuntimeHotfix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.1_0676A_ExpeditionDrawRuntimeHotfix_TEST.zip.sha256
+          if-no-files-found: error
