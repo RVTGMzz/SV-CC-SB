@@ -26,7 +26,7 @@ internal enum MilestoneBossState
 }
 
 /// <summary>
-/// 0670 functional foundation for the 40/60/80-card milestone bosses.
+/// 0671 authored visual/arena pass for the 40/60/80-card milestone bosses.
 /// Boss II, III and IV deliberately share one small state-machine owner so milestone rules,
 /// reward persistence and regression guards stay consistent while authored art/arenas can evolve later.
 /// </summary>
@@ -46,7 +46,16 @@ internal sealed class MilestoneBossService
     public const string TricolorBossCardId = "tricolor_resonance";
     public const string MimiBossCardId = "mimis_resonance";
 
-    private const string SharedArenaMapPath = "assets/verdant_guardian_arena.tmx";
+    private const string HollowCuratorMapPath = "assets/boss2_hollow_curator_arena.tmx";
+    private const string TricolorMapPath = "assets/boss3_tricolor_resonance_arena.tmx";
+    private const string MimiMapPath = "assets/boss4_mimi_resonance_arena.tmx";
+    private const string HollowCuratorTexturePath = "assets/bosses/milestone/hollow_curator.png";
+    private const string HollowArenaTexturePath = "assets/bosses/milestone/hollow_curator_arena_tiles.png";
+    private const string TricolorGuardiansTexturePath = "assets/bosses/milestone/tricolor_guardians.png";
+    private const string TricolorUnifiedTexturePath = "assets/bosses/milestone/tricolor_unified.png";
+    private const string TricolorArenaTexturePath = "assets/bosses/milestone/tricolor_arena_tiles.png";
+    private const string MimiTexturePath = "assets/bosses/milestone/mimi_resonance_master.png";
+    private const string MimiArenaTexturePath = "assets/bosses/milestone/mimi_arena_tiles.png";
     private const int HollowCuratorMaxHealth = 2200;
     private const int TricolorGuardianMaxHealth = 780;
     private const int TricolorUnifiedMaxHealth = 1650;
@@ -100,12 +109,18 @@ internal sealed class MilestoneBossService
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
-        if (e.NameWithoutLocale.IsEquivalentTo(HollowCuratorMapAssetName)
-            || e.NameWithoutLocale.IsEquivalentTo(TricolorMapAssetName)
-            || e.NameWithoutLocale.IsEquivalentTo(MimiMapAssetName))
+        if (e.NameWithoutLocale.IsEquivalentTo(HollowCuratorMapAssetName))
         {
-            e.LoadFromModFile<xTile.Map>(SharedArenaMapPath, AssetLoadPriority.Exclusive);
+            e.LoadFromModFile<xTile.Map>(HollowCuratorMapPath, AssetLoadPriority.Exclusive);
+            return;
         }
+        if (e.NameWithoutLocale.IsEquivalentTo(TricolorMapAssetName))
+        {
+            e.LoadFromModFile<xTile.Map>(TricolorMapPath, AssetLoadPriority.Exclusive);
+            return;
+        }
+        if (e.NameWithoutLocale.IsEquivalentTo(MimiMapAssetName))
+            e.LoadFromModFile<xTile.Map>(MimiMapPath, AssetLoadPriority.Exclusive);
     }
 
     public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
@@ -280,7 +295,7 @@ internal sealed class MilestoneBossService
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0670 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+        return $"0671 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
                $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
@@ -318,7 +333,7 @@ internal sealed class MilestoneBossService
         }
 
         Game1.playSound("wand");
-        this.Monitor.Log($"0670 Boss encounter started: {kind}.", LogLevel.Info);
+        this.Monitor.Log($"0671 Boss encounter started: {kind}.", LogLevel.Info);
     }
 
     private bool CheckDefeatAndTransitions(long now)
@@ -551,7 +566,7 @@ internal sealed class MilestoneBossService
         Game1.showGlobalMessage(firstClear ? $"Boss Card unlocked: {name}" : $"Rematch complete: {name}");
         this.State = MilestoneBossState.Victory;
         this.VictoryReturnAtMs = now + VictoryReturnMs;
-        this.Monitor.Log($"0670 {this.CurrentKind} victory. firstClear={firstClear}, reward={reward}, highestRegion={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
+        this.Monitor.Log($"0671 {this.CurrentKind} victory. firstClear={firstClear}, reward={reward}, highestRegion={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
     }
 
     private void SpawnTricolorUnified()
@@ -643,61 +658,46 @@ internal sealed class MilestoneBossService
     private void DrawActor(SpriteBatch batch, Monster actor, MilestoneBossKind kind)
     {
         string role = this.Role(actor);
-        Vector2 center = Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(32f, 48f));
-        float pulse = 0.92f + 0.08f * (float)Math.Sin(Environment.TickCount64 / 170d + actor.GetHashCode());
-        Color accent = this.RoleColor(role, kind);
-
-        batch.Draw(Game1.staminaRect, new Rectangle((int)center.X - 34, (int)center.Y + 36, 68, 10), Color.Black * 0.28f);
-
+        Vector2 feet = Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(32f, 58f));
+        Texture2D texture;
+        Rectangle source;
+        float scale;
+        Vector2 offset = Vector2.Zero;
         if (role == "curator")
         {
-            DrawRect(batch, new Rectangle((int)center.X - 42, (int)center.Y - 58, 84, 92), new Color(27, 24, 45) * 0.98f);
-            DrawDiamond(batch, center + new Vector2(0, -34), 28, new Color(43, 40, 70));
-            DrawRect(batch, new Rectangle((int)center.X - 11, (int)center.Y - 42, 22, 6), accent * pulse);
-            for (int i = 0; i < 4; i++)
-            {
-                float a = Environment.TickCount64 / 420f + i * MathHelper.PiOver2;
-                Vector2 card = center + new Vector2(MathF.Cos(a) * 58f, -12f + MathF.Sin(a) * 28f);
-                DrawRect(batch, new Rectangle((int)card.X - 8, (int)card.Y - 12, 16, 24), new Color(77, 89, 153) * 0.90f);
-                DrawRect(batch, new Rectangle((int)card.X - 4, (int)card.Y - 6, 8, 12), accent * 0.65f);
-            }
-            return;
+            texture = this.Helper.ModContent.Load<Texture2D>(HollowCuratorTexturePath);
+            int frame = this.State == MilestoneBossState.Telegraph || this.Phase >= 3 ? 1 : 0;
+            source = new Rectangle(frame * 48, 0, 48, 64);
+            scale = 2.35f;
+            offset = new Vector2(0f, 10f);
         }
-
-        if (role is "ignis" or "vita" or "aether")
+        else if (role is "ignis" or "vita" or "aether")
         {
-            DrawDiamond(batch, center + new Vector2(0, -14), 32, accent * 0.95f);
-            DrawDiamond(batch, center + new Vector2(0, -14), 19, Color.White * 0.72f);
-            DrawRect(batch, new Rectangle((int)center.X - 16, (int)center.Y + 12, 32, 28), accent * 0.78f);
-            return;
+            texture = this.Helper.ModContent.Load<Texture2D>(TricolorGuardiansTexturePath);
+            int frame = role == "ignis" ? 0 : role == "vita" ? 1 : 2;
+            source = new Rectangle(frame * 48, 0, 48, 48);
+            scale = 2.3f;
         }
-
-        if (role == "unified")
+        else if (role == "unified")
         {
-            DrawDiamond(batch, center + new Vector2(0, -18), 40, Color.White * 0.86f);
-            Color[] colors = { new(236, 88, 72), new(102, 212, 118), new(92, 151, 243) };
-            for (int i = 0; i < 3; i++)
-            {
-                float a = Environment.TickCount64 / 360f + i * MathHelper.TwoPi / 3f;
-                Vector2 orb = center + new Vector2(MathF.Cos(a) * 58f, -18f + MathF.Sin(a) * 34f);
-                DrawDiamond(batch, orb, 12, colors[i] * 0.95f);
-            }
-            return;
+            texture = this.Helper.ModContent.Load<Texture2D>(TricolorUnifiedTexturePath);
+            int frame = this.State == MilestoneBossState.Telegraph ? 1 : 0;
+            source = new Rectangle(frame * 64, 0, 64, 64);
+            scale = 2.2f;
         }
-
-        DrawRect(batch, new Rectangle((int)center.X - 28, (int)center.Y - 22, 56, 66), new Color(100, 62, 146) * 0.94f);
-        DrawDiamond(batch, center + new Vector2(0, -48), 28, new Color(201, 157, 232));
-        DrawRect(batch, new Rectangle((int)center.X - 18, (int)center.Y - 53, 36, 24), new Color(245, 224, 229) * 0.94f);
-        DrawRect(batch, new Rectangle((int)center.X - 13, (int)center.Y - 47, 7, 4), new Color(122, 77, 175));
-        DrawRect(batch, new Rectangle((int)center.X + 6, (int)center.Y - 47, 7, 4), new Color(122, 77, 175));
-        DrawDiamond(batch, center + new Vector2(0, -84), 11 + this.Phase * 2, accent * pulse);
-        int glyphCount = Math.Min(6, this.Phase + 2);
-        for (int i = 0; i < glyphCount; i++)
+        else
         {
-            float a = Environment.TickCount64 / 500f + i * MathHelper.TwoPi / glyphCount;
-            Vector2 glyph = center + new Vector2(MathF.Cos(a) * (46 + this.Phase * 7), -24 + MathF.Sin(a) * 30);
-            DrawDiamond(batch, glyph, 6, this.Phase >= 3 ? this.TricolorCycle(i) : accent * 0.72f);
+            texture = this.Helper.ModContent.Load<Texture2D>(MimiTexturePath);
+            int frame = this.Phase >= 4 ? 2 : this.Phase >= 3 ? 1 : 0;
+            source = new Rectangle(frame * 64, 0, 64, 64);
+            scale = 2.18f;
+            offset = new Vector2(0f, 6f);
         }
+        float pulse = this.State == MilestoneBossState.PhaseTransition ? 0.88f + 0.12f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 75d)) : 1f;
+        Color tint = this.State == MilestoneBossState.Defeated ? Color.White * 0.58f : Color.White;
+        int shadowWidth = (int)(source.Width * scale * 0.62f);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)feet.X - shadowWidth / 2, (int)feet.Y - 7, shadowWidth, 9), Color.Black * 0.28f);
+        batch.Draw(texture, feet + offset, source, tint, 0f, new Vector2(source.Width / 2f, source.Height), scale * pulse, SpriteEffects.None, 0.99f);
     }
 
     private void DrawAttackTelegraph(SpriteBatch batch)
@@ -716,13 +716,26 @@ internal sealed class MilestoneBossService
 
     private void DrawArenaIdentity(SpriteBatch batch, MilestoneBossKind kind)
     {
-        Color c = this.KindColor(kind);
-        Point[] corners = { new(3,3), new(24,3), new(3,16), new(24,16) };
-        foreach (Point p in corners)
+        string path = kind switch
         {
-            Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(p.X * 64f + 32, p.Y * 64f + 32));
-            DrawDiamond(batch, local, 12, c * 0.35f);
-            DrawDiamond(batch, local, 5, Color.White * 0.38f);
+            MilestoneBossKind.HollowCurator => HollowArenaTexturePath,
+            MilestoneBossKind.TricolorResonance => TricolorArenaTexturePath,
+            _ => MimiArenaTexturePath,
+        };
+        Texture2D texture = this.Helper.ModContent.Load<Texture2D>(path);
+        Point[] placements = kind switch
+        {
+            MilestoneBossKind.HollowCurator => new[] { new Point(6,5), new Point(21,5), new Point(6,13), new Point(21,13), new Point(10,4), new Point(17,4), new Point(10,15), new Point(17,15) },
+            MilestoneBossKind.TricolorResonance => new[] { new Point(8,5), new Point(14,3), new Point(20,5), new Point(5,11), new Point(23,11), new Point(9,14), new Point(14,15), new Point(19,14) },
+            _ => new[] { new Point(7,5), new Point(11,4), new Point(16,4), new Point(20,5), new Point(6,12), new Point(21,12), new Point(10,15), new Point(17,15) },
+        };
+        for (int i = 0; i < placements.Length; i++)
+        {
+            Point p = placements[i];
+            Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(p.X * 64f + 32, p.Y * 64f + 48));
+            Rectangle src = new((i % 4) * 32, ((i / 4) % 2) * 32, 32, 32);
+            float scale = kind == MilestoneBossKind.Mimi ? 1.75f : 1.9f;
+            batch.Draw(texture, local, src, Color.White * 0.92f, 0f, new Vector2(16f, 32f), scale, SpriteEffects.None, 0.985f);
         }
     }
 

@@ -15,6 +15,9 @@ namespace Cardcha.Services;
 internal sealed class ChaChaBossFormService
 {
     public const string GuardianRabbitFormId = "guardian_rabbit";
+    public const string MirrorRabbitFormId = "mirror_rabbit";
+    public const string TrinityRabbitFormId = "trinity_rabbit";
+    public const string ResonanceRabbitFormId = "resonance_rabbit";
     public const int BossFormDurationMs = 10000;
     public const int GuardianRootPulseIntervalMs = 2000;
     public const int GuardianRootPulseDamage = 14;
@@ -34,6 +37,7 @@ internal sealed class ChaChaBossFormService
     private long RootPulseVisualUntil;
     private long LastRootPulseAt;
     private bool DebugGuardianUnlock;
+    private string ActiveVisualFormId = GuardianRabbitFormId;
 
     public long GuardianPulseCount { get; private set; }
     public long GuardianPulseHits { get; private set; }
@@ -60,7 +64,7 @@ internal sealed class ChaChaBossFormService
            || this.Save.Data.Region1BossDefeated
            || this.Save.Data.BossCardsUnlocked?.Contains(BossCardService.VerdantCoreId) == true;
 
-    public string ActiveFormId => this.IsActive ? GuardianRabbitFormId : string.Empty;
+    public string ActiveFormId => this.IsActive ? this.ActiveVisualFormId : string.Empty;
     public bool IsActive => this.ActiveUntil > Environment.TickCount64;
     public bool IsReady => !this.IsActive
                            && this.Save.Data.ChaChaLoaned
@@ -98,7 +102,7 @@ internal sealed class ChaChaBossFormService
 
         if (this.IsActive)
         {
-            this.WorldActors.SetChaChaBossVisual(true);
+            this.WorldActors.SetChaChaBossVisual(true, this.ActiveVisualFormId);
             if (now >= this.NextRootPulseAt)
             {
                 this.EmitGuardianRootPulse(now);
@@ -241,16 +245,17 @@ internal sealed class ChaChaBossFormService
 
         long now = Environment.TickCount64;
         this.ReadyAnnounced = false;
+        this.ActiveVisualFormId = this.ResolvePreferredFormId();
         this.ActiveUntil = now + BossFormDurationMs;
         this.NextRootPulseAt = now + 650;
         this.LastRootPulseAt = now;
         this.RootPulseVisualUntil = now + 520;
         this.BossEnergy.SetGainSuppressed(true);
-        this.WorldActors.SetChaChaBossVisual(true);
+        this.WorldActors.SetChaChaBossVisual(true, this.ActiveVisualFormId);
         this.WorldActors.TriggerChaChaEmote(16);
         Game1.playSound("wand");
-        Game1.showGlobalMessage(ModEntry.T("chacha.boss.guardian.activated"));
-        this.Monitor.Log($"Guardian Rabbit activated via {source}; duration={BossFormDurationMs}ms, rootPulse={GuardianRootPulseDamage} every {GuardianRootPulseIntervalMs}ms.", LogLevel.Info);
+        Game1.showGlobalMessage($"ChaCha • {this.DescribeFormName(this.ActiveVisualFormId)}!");
+        this.Monitor.Log($"ChaCha Boss Form {this.ActiveVisualFormId} activated via {source}; duration={BossFormDurationMs}ms, rootPulse={GuardianRootPulseDamage} every {GuardianRootPulseIntervalMs}ms.", LogLevel.Info);
         return true;
     }
 
@@ -316,6 +321,23 @@ internal sealed class ChaChaBossFormService
                $"AuraStage={this.EnergyAuraStage} | ControllerChord={chord} | Keyboard=LeftShift+A | {this.BossEnergy.Describe()}";
     }
 
+    private string ResolvePreferredFormId()
+    {
+        HashSet<string>? unlocked = this.Save.Data.BossCardsUnlocked;
+        if (unlocked?.Contains(MilestoneBossService.MimiBossCardId) == true) return ResonanceRabbitFormId;
+        if (unlocked?.Contains(MilestoneBossService.TricolorBossCardId) == true) return TrinityRabbitFormId;
+        if (unlocked?.Contains(MilestoneBossService.MirrorArchiveBossCardId) == true) return MirrorRabbitFormId;
+        return GuardianRabbitFormId;
+    }
+
+    private string DescribeFormName(string id) => id switch
+    {
+        MirrorRabbitFormId => "Mirror Rabbit",
+        TrinityRabbitFormId => "Trinity Rabbit",
+        ResonanceRabbitFormId => "Resonance Rabbit",
+        _ => "Guardian Rabbit",
+    };
+
     private void EmitGuardianRootPulse(long now)
     {
         this.LastRootPulseAt = now;
@@ -364,6 +386,7 @@ internal sealed class ChaChaBossFormService
         this.GuardianPulseCount = 0;
         this.GuardianPulseHits = 0;
         this.LastPulseTargets = 0;
+        this.ActiveVisualFormId = GuardianRabbitFormId;
         if (clearDebugUnlock)
             this.DebugGuardianUnlock = false;
         this.BossEnergy.SetGainSuppressed(false);

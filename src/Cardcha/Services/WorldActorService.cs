@@ -23,6 +23,9 @@ internal sealed class WorldActorService
     public const string ChaChaCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha";
     public const string ChaChaMachineCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_Machine";
     public const string ChaChaGuardianCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_GuardianRabbit";
+    public const string ChaChaMirrorCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_MirrorRabbit";
+    public const string ChaChaTrinityCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_TrinityRabbit";
+    public const string ChaChaResonanceCharacterAsset = "Characters/Ronvotri.Cardcha_ChaCha_ResonanceRabbit";
 
     private const string MimiBroomSheetPath = "assets/mimi_broom.png";
     private const string MimiProfileSheetPath = "assets/mimi_npc.png";
@@ -30,6 +33,9 @@ internal sealed class WorldActorService
     private const string ChaChaFollowSheetPath = "assets/chacha_follow.png";
     private const string ChaChaMachineSheetPath = "assets/chacha_machine.png";
     private const string ChaChaGuardianSheetPath = "assets/chacha_guardian_rabbit.png";
+    private const string ChaChaMirrorSheetPath = "assets/chacha_mirror_rabbit.png";
+    private const string ChaChaTrinitySheetPath = "assets/chacha_trinity_rabbit.png";
+    private const string ChaChaResonanceSheetPath = "assets/chacha_resonance_rabbit.png";
 
     // Native NPC draw multiplies Character.Scale by 4. These values reproduce the previous
     // approved visual sizes: MiMi 32x48 @ 2.3x, ChaCha 32x32 @ 1.8x.
@@ -48,6 +54,7 @@ internal sealed class WorldActorService
     private long NextChaChaEmoteAtMs;
     private int LastChaChaEmote = -1;
     private bool ChaChaBossVisualActive;
+    private string ChaChaBossVisualForm = "guardian_rabbit";
 
     public WorldActorService(IMonitor monitor)
     {
@@ -81,7 +88,22 @@ internal sealed class WorldActorService
         }
 
         if (e.Name.IsEquivalentTo(ChaChaGuardianCharacterAsset))
+        {
             e.LoadFromModFile<Texture2D>(ChaChaGuardianSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+        if (e.Name.IsEquivalentTo(ChaChaMirrorCharacterAsset))
+        {
+            e.LoadFromModFile<Texture2D>(ChaChaMirrorSheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+        if (e.Name.IsEquivalentTo(ChaChaTrinityCharacterAsset))
+        {
+            e.LoadFromModFile<Texture2D>(ChaChaTrinitySheetPath, AssetLoadPriority.Medium);
+            return;
+        }
+        if (e.Name.IsEquivalentTo(ChaChaResonanceCharacterAsset))
+            e.LoadFromModFile<Texture2D>(ChaChaResonanceSheetPath, AssetLoadPriority.Medium);
     }
 
     public NPC? FindMimiActor()
@@ -262,7 +284,7 @@ internal sealed class WorldActorService
         NPC? actor = this.FindChaChaActor();
         string asset = machine
             ? ChaChaMachineCharacterAsset
-            : (this.ChaChaBossVisualActive ? ChaChaGuardianCharacterAsset : ChaChaCharacterAsset);
+            : (this.ChaChaBossVisualActive ? this.GetChaChaBossCharacterAsset() : ChaChaCharacterAsset);
 
         if (actor is null)
         {
@@ -332,8 +354,12 @@ internal sealed class WorldActorService
     public bool IsChaChaBossVisualActive => this.ChaChaBossVisualActive;
 
     public void SetChaChaBossVisual(bool active)
+        => this.SetChaChaBossVisual(active, "guardian_rabbit");
+
+    public void SetChaChaBossVisual(bool active, string formId)
     {
         this.ChaChaBossVisualActive = active;
+        this.ChaChaBossVisualForm = active && !string.IsNullOrWhiteSpace(formId) ? formId : "guardian_rabbit";
         NPC? actor = this.FindChaChaActor();
         if (actor is null)
             return;
@@ -342,7 +368,7 @@ internal sealed class WorldActorService
             && string.Equals(actor.Sprite.loadedTexture, ChaChaMachineCharacterAsset, StringComparison.OrdinalIgnoreCase);
         if (!machineVisual)
         {
-            string desired = active ? ChaChaGuardianCharacterAsset : ChaChaCharacterAsset;
+            string desired = active ? this.GetChaChaBossCharacterAsset() : ChaChaCharacterAsset;
             int frame = actor.Sprite?.CurrentFrame ?? 0;
             if (actor.Sprite is null
                 || actor.Sprite.SpriteWidth != 32
@@ -352,9 +378,16 @@ internal sealed class WorldActorService
                 actor.Sprite = new AnimatedSprite(desired, Math.Clamp(frame, 0, 15), 32, 32);
             }
         }
-
         actor.Scale = active ? ChaChaBossNativeScale : ChaChaNativeScale;
     }
+
+    private string GetChaChaBossCharacterAsset() => this.ChaChaBossVisualForm switch
+    {
+        "mirror_rabbit" => ChaChaMirrorCharacterAsset,
+        "trinity_rabbit" => ChaChaTrinityCharacterAsset,
+        "resonance_rabbit" => ChaChaResonanceCharacterAsset,
+        _ => ChaChaGuardianCharacterAsset,
+    };
 
     public NPC? FindChaChaActor()
     {
