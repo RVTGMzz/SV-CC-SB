@@ -63,13 +63,15 @@ for name in ['airship_deck.tmx','sky_dock_interior.tmx','region3_mirrorwild.tmx'
         vals=[x.strip() for x in (d.text or '').replace('\n','').split(',') if x.strip()]
         need(len(vals)==w*h,f'{name}:{layer.attrib.get("name")} has {len(vals)} cells, expected {w*h}')
 
-# Frozen save/card contracts.
+# Frozen save/card contracts. cards.json uses PascalCase model property names.
 save=(ROOT/'Services/SaveService.cs').read_text(encoding='utf-8')
 need('19' in save,'save schema 19 token missing')
 cards=json.loads((ROOT/'assets/cards.json').read_text(encoding='utf-8'))
 need(len(cards)==80,f'cards.json expected 80 entries, got {len(cards)}')
 legacy={'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
-ids={str(c.get('id','')) for c in cards}
+ids={str(c.get('Id','')) for c in cards}
+need('' not in ids,'cards.json contains entry without Id')
+need(len(ids)==80,f'cards.json expected 80 unique Id values, got {len(ids)}')
 need(legacy.issubset(ids),'legacy mythic IDs missing')
 need(len(ids-legacy)==76,f'expected 76 normal card IDs, got {len(ids-legacy)}')
 
