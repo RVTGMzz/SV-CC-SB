@@ -2,9 +2,9 @@
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="40" height="28" tilewidth="16" tileheight="16" infinite="0" nextlayerid="4" nextobjectid="1">
  <properties>
   <property name="Outdoors" value="T" />
-  <property name="CardchaRegionVersion" value="0674" />
+  <property name="CardchaRegionVersion" value="0675" />
   <property name="CardchaRegionRole" value="region3-mirrorwild|three-wave-expedition|unbanked-extraction" />
-  <property name="CardchaAssetPolicy" value="cardcha-owned-map|vanilla-tiles-only|native-size-enemies" />
+  <property name="CardchaAssetPolicy" value="cardcha-owned-map|vanilla-tiles|authored-native-enemies|authored-biome-decor" />
   <property name="CardchaLayout" value="mirrored-trails|reflection-crossings|south-airship-pad" />
  </properties>
  <tileset firstgid="1" name="spring_outdoorsTileSheet" tilewidth="16" tileheight="16" tilecount="1975" columns="25">
