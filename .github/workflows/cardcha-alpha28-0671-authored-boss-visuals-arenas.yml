@@ -1,0 +1,195 @@
+name: Cardcha alpha28.0.4.14.4.5.12.40 Authored Boss Visuals Arenas
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0671-authored-boss-visuals-arenas ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0671 authored boss visuals and arenas
+        run: python3 tools/alpha28_0671_authored_boss_visuals_arenas.py
+
+      - name: Validate 0671 visual contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, struct, subprocess, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.40'
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert version in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+          assert 'AUTHORED BOSS VISUALS ARENAS TEST' in (root/'ModEntry.cs').read_text(encoding='utf-8')
+
+          def png_size(path):
+              data = Path(path).read_bytes()
+              assert data[:8] == b'\x89PNG\r\n\x1a\n', path
+              return struct.unpack('>II', data[16:24])
+
+          dims = {
+              'assets/bosses/milestone/hollow_curator.png': (96,64),
+              'assets/bosses/milestone/hollow_curator_arena_tiles.png': (128,64),
+              'assets/bosses/milestone/tricolor_guardians.png': (144,48),
+              'assets/bosses/milestone/tricolor_unified.png': (128,64),
+              'assets/bosses/milestone/tricolor_arena_tiles.png': (128,64),
+              'assets/bosses/milestone/mimi_resonance_master.png': (192,64),
+              'assets/bosses/milestone/mimi_arena_tiles.png': (128,64),
+              'assets/chacha_mirror_rabbit.png': (128,128),
+              'assets/chacha_trinity_rabbit.png': (128,128),
+              'assets/chacha_resonance_rabbit.png': (128,128),
+          }
+          for rel, expected in dims.items():
+              p = root/rel
+              assert p.exists() and p.stat().st_size > 100, rel
+              assert png_size(p) == expected, (rel, png_size(p), expected)
+
+          boss = (root/'Services/MilestoneBossService.cs').read_text(encoding='utf-8')
+          for token in [
+              'HollowCuratorMapPath = "assets/boss2_hollow_curator_arena.tmx"',
+              'TricolorMapPath = "assets/boss3_tricolor_resonance_arena.tmx"',
+              'MimiMapPath = "assets/boss4_mimi_resonance_arena.tmx"',
+              'HollowCuratorTexturePath', 'TricolorGuardiansTexturePath',
+              'TricolorUnifiedTexturePath', 'MimiTexturePath',
+              'this.Helper.ModContent.Load<Texture2D>(HollowCuratorTexturePath)',
+              'this.Helper.ModContent.Load<Texture2D>(TricolorGuardiansTexturePath)',
+              'this.Helper.ModContent.Load<Texture2D>(MimiTexturePath)',
+              'HollowCuratorMaxHealth = 2200', 'TricolorGuardianMaxHealth = 780',
+              'TricolorUnifiedMaxHealth = 1650', 'MimiMaxHealth = 3600',
+              'MirrorArchiveBossCardId = "mirror_archive"',
+              'TricolorBossCardId = "tricolor_resonance"',
+              'MimiBossCardId = "mimis_resonance"',
+          ]:
+              assert token in boss, token
+          assert 'SharedArenaMapPath' not in boss
+
+          world = (root/'Services/WorldActorService.cs').read_text(encoding='utf-8')
+          for token in ['ChaChaMirrorCharacterAsset','ChaChaTrinityCharacterAsset','ChaChaResonanceCharacterAsset',
+                        'ChaChaMirrorSheetPath','ChaChaTrinitySheetPath','ChaChaResonanceSheetPath',
+                        'GetChaChaBossCharacterAsset()', 'SetChaChaBossVisual(bool active, string formId)']:
+              assert token in world, token
+
+          forms = (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          for token in ['MirrorRabbitFormId = "mirror_rabbit"','TrinityRabbitFormId = "trinity_rabbit"',
+                        'ResonanceRabbitFormId = "resonance_rabbit"','ResolvePreferredFormId()',
+                        'MilestoneBossService.MirrorArchiveBossCardId','MilestoneBossService.TricolorBossCardId',
+                        'MilestoneBossService.MimiBossCardId','BossFormDurationMs = 10000',
+                        'GuardianRootPulseDamage = 14','GuardianRootPulseIntervalMs = 2000']:
+              assert token in forms, token
+
+          expected_roles = {
+              'boss2_hollow_curator_arena.tmx': 'boss2|hollow-curator|library-of-forgotten-cards',
+              'boss3_tricolor_resonance_arena.tmx': 'boss3|tricolor-resonance|three-aspects-one-core',
+              'boss4_mimi_resonance_arena.tmx': 'boss4|mimi|resonance-master|final-boss',
+          }
+          for filename, role in expected_roles.items():
+              p = root/'assets'/filename
+              assert p.exists(), filename
+              mr = ET.parse(p).getroot()
+              props = {x.attrib.get('name'): x.attrib.get('value') for x in mr.find('properties').findall('property')}
+              assert props.get('CardchaRegionRole') == role, (filename, props.get('CardchaRegionRole'))
+              assert props.get('CardchaRegionVersion') == version
+
+          save = (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+          assert 'CurrentSchemaVersion = 19' in save and 'CurrentSchemaVersion = 20' not in save
+          cards = json.loads((root/'assets/cards.json').read_text(encoding='utf-8'))
+          legacy = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy]) == 76
+
+          # MiMi social/walk art stays byte-identical to 0670 materialized baseline.
+          diff = subprocess.run(['git','diff','--quiet','origin/cardcha-alpha28-0670-remaining-boss-foundation','--','src/Cardcha/assets/mimi_walk.png'])
+          assert diff.returncode == 0, 'mimi_walk.png changed from 0670 baseline'
+
+          checked = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              mr = ET.parse(tmx).getroot()
+              for layer in mr.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  vals = []
+                  for i, token in enumerate((data.text or '').split(',')):
+                      st = token.strip()
+                      assert st != '', f'{tmx}: empty CSV token {i}'
+                      n = int(st)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      vals.append(n)
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height']), tmx
+                  checked += 1
+          assert checked >= 30, checked
+          print(f'0671 validator PASS authoredPNGs={len(dims)} arenas=3 forms=4 schema=19 cards=76/80 strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.40 source assets handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.40 authored boss visuals arenas [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0671-authored-boss-visuals-arenas
+          fi
+
+      - name: Package .5.12.40 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.40'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              for rel in ['assets/boss2_hollow_curator_arena.tmx','assets/boss3_tricolor_resonance_arena.tmx','assets/boss4_mimi_resonance_arena.tmx',
+                          'assets/bosses/milestone/hollow_curator.png','assets/bosses/milestone/tricolor_guardians.png',
+                          'assets/bosses/milestone/tricolor_unified.png','assets/bosses/milestone/mimi_resonance_master.png',
+                          'assets/chacha_mirror_rabbit.png','assets/chacha_trinity_rabbit.png','assets/chacha_resonance_rabbit.png']:
+                  assert len(f.read('Cardcha/' + rel)) > 100, rel
+          print('0671 final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0671-authored-boss-visuals-arenas
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip.sha256
+          if-no-files-found: error
