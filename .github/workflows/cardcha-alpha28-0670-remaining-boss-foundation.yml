@@ -25,7 +25,7 @@ jobs:
           set -euo pipefail
           python3 - <<'PY'
           from pathlib import Path
-          import hashlib, json, xml.etree.ElementTree as ET
+          import json, subprocess, xml.etree.ElementTree as ET
 
           root = Path('src/Cardcha')
           version = '0.3.0-alpha.28.0.4.14.4.5.12.39'
@@ -47,9 +47,11 @@ jobs:
               'TricolorBossCardId = "tricolor_resonance"',
               'MimiBossCardId = "mimis_resonance"',
               'SpawnTricolorUnified()',
-              'this.SpawnProxy(arena, "ignis"',
-              'this.SpawnProxy(arena, "vita"',
-              'this.SpawnProxy(arena, "aether"',
+              '("ignis", new Point(8, 8))',
+              '("vita", new Point(14, 6))',
+              '("aether", new Point(20, 8))',
+              'foreach ((string role, Point tile) in TricolorGuardianTiles)',
+              'this.SpawnProxy(arena, role, tile, TricolorGuardianMaxHealth)',
               'proxy.isInvisible.Value = false',
               'this.CuratorAdaptationStacks = Math.Min(3',
               'ratio <= 0.75f',
@@ -96,26 +98,27 @@ jobs:
           assert 'CurrentSchemaVersion = 19' in save
           assert 'CurrentSchemaVersion = 20' not in save
 
-          # Locked MiMi walk art: compare against the 0669 baseline committed blob contents.
+          # Locked MiMi walk art must be byte-for-byte unchanged from materialized 0669.
           mimi = root/'assets/mimi_walk.png'
-          assert mimi.exists() and mimi.stat().st_size == 65167, (mimi.exists(), mimi.stat().st_size if mimi.exists() else None)
-          # Ensure the 0670 generator never names/writes the locked asset.
-          generator = Path('tools/alpha28_0670_remaining_boss_foundation.py').read_text(encoding='utf-8')
-          assert 'mimi_walk.png' not in generator
+          assert mimi.exists() and mimi.stat().st_size == 65167
+          diff = subprocess.run([
+              'git', 'diff', '--quiet',
+              'origin/cardcha-alpha28-0669-visual-auth-pass', '--',
+              'src/Cardcha/assets/mimi_walk.png'
+          ])
+          assert diff.returncode == 0, 'mimi_walk.png changed from 0669 baseline'
 
-          # 76 active normal-card / 80 source-entry freeze.
           cards = json.loads((root/'assets/cards.json').read_text(encoding='utf-8'))
           legacy = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
           assert len(cards) == 80
           assert len([c for c in cards if c.get('Id') not in legacy]) == 76
 
-          # Preserve 0669 actor-auth baseline for Boss I.
+          # Preserve 0669 Boss I actor-auth baseline while 0669 is awaiting player acceptance.
           verdant = (root/'Services/VerdantGuardianBossService.cs').read_text(encoding='utf-8')
           assert verdant.count('isInvisible.Value = false') >= 2
           summon_visual = (root/'Services/VerdantGuardianSummonVisualService.cs').read_text(encoding='utf-8')
           assert '2.05f' in summon_visual and '2.20f' in summon_visual
 
-          # Strict TMX CSV validation remains mandatory.
           checked = 0
           for tmx in sorted((root/'assets').rglob('*.tmx')):
               map_root = ET.parse(tmx).getroot()
