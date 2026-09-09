@@ -1,0 +1,85 @@
+name: Cardcha alpha28.0.4.14.4.5.12.40 Authored Boss Visuals Arenas V2
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0671-authored-boss-visuals-arenas ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Reconstruct assets and generate 0671
+        run: python3 tools/alpha28_0671_run_clean.py
+
+      - name: Validate 0671 contract
+        run: python3 tools/alpha28_0671_validate.py
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.40 source assets handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.40 authored boss visuals arenas [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0671-authored-boss-visuals-arenas
+          fi
+
+      - name: Package .5.12.40 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.40'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              required = [
+                  'assets/boss2_hollow_curator_arena.tmx','assets/boss3_tricolor_resonance_arena.tmx','assets/boss4_mimi_resonance_arena.tmx',
+                  'assets/bosses/milestone/hollow_curator.png','assets/bosses/milestone/tricolor_guardians.png',
+                  'assets/bosses/milestone/tricolor_unified.png','assets/bosses/milestone/mimi_resonance_master.png',
+                  'assets/chacha_mirror_rabbit.png','assets/chacha_trinity_rabbit.png','assets/chacha_resonance_rabbit.png'
+              ]
+              for rel in required: assert len(f.read('Cardcha/' + rel)) > 100, rel
+          print('0671 final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0671-authored-boss-visuals-arenas-v2
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.40_AuthoredBossVisualsArenas_TEST.zip.sha256
+          if-no-files-found: error
