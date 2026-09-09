@@ -26,7 +26,7 @@ internal enum MilestoneBossState
 }
 
 /// <summary>
-/// 0671 authored visual/arena pass for the 40/60/80-card milestone bosses.
+/// 0672 encounter-depth pass for the 40/60/80-card milestone bosses.
 /// Boss II, III and IV deliberately share one small state-machine owner so milestone rules,
 /// reward persistence and regression guards stay consistent while authored art/arenas can evolve later.
 /// </summary>
@@ -94,6 +94,10 @@ internal sealed class MilestoneBossService
     private bool VictoryHandled;
     private int CuratorAdaptationStacks;
     private int DecisionSerial;
+    private Point EchoTargetTile;
+    private Point EchoTargetTile2;
+    private int MimiCadenceIndex;
+    private int TricolorMotionSerial;
 
     public MilestoneBossService(IModHelper helper, IMonitor monitor, SaveService save)
     {
@@ -295,7 +299,7 @@ internal sealed class MilestoneBossService
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0671 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+        return $"0672 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
                $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
@@ -317,6 +321,10 @@ internal sealed class MilestoneBossService
         this.DecisionSerial = 0;
         this.AttackTargetTile = PlayerTile();
         this.AttackTargetTile2 = this.AttackTargetTile;
+        this.EchoTargetTile = this.AttackTargetTile;
+        this.EchoTargetTile2 = this.AttackTargetTile2;
+        this.MimiCadenceIndex = 0;
+        this.TricolorMotionSerial = 0;
 
         switch (kind)
         {
@@ -333,7 +341,7 @@ internal sealed class MilestoneBossService
         }
 
         Game1.playSound("wand");
-        this.Monitor.Log($"0671 Boss encounter started: {kind}.", LogLevel.Info);
+        this.Monitor.Log($"0672 Boss encounter started: {kind}.", LogLevel.Info);
     }
 
     private bool CheckDefeatAndTransitions(long now)
@@ -390,9 +398,15 @@ internal sealed class MilestoneBossService
     {
         if (this.CurrentKind is null)
             return;
+
         this.DecisionSerial++;
+        this.EchoTargetTile = this.AttackTargetTile;
+        this.EchoTargetTile2 = this.AttackTargetTile2;
         this.AttackTargetTile = PlayerTile();
-        this.AttackTargetTile2 = ClampArenaTile(new Point(this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 2 : -2), this.AttackTargetTile.Y));
+        this.AttackTargetTile2 = ClampArenaTile(new Point(
+            this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 2 : -2),
+            this.AttackTargetTile.Y + (this.DecisionSerial % 3 == 0 ? 1 : 0)
+        ));
 
         switch (this.CurrentKind.Value)
         {
@@ -401,18 +415,24 @@ internal sealed class MilestoneBossService
                 int[] pool = this.Phase switch
                 {
                     1 => new[] { 0, 0, 1 },
-                    2 => new[] { 0, 1, 2, 2 },
-                    _ => new[] { 0, 2, 3, 3 },
+                    2 => new[] { 0, 1, 2, 4, 4 },
+                    _ => new[] { 0, 2, 3, 4, 4 },
                 };
                 this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
                 this.MaybeTeleportPrimary("curator");
                 break;
             }
+
             case MilestoneBossKind.TricolorResonance:
             {
                 if (this.Phase >= 4)
                 {
-                    this.CurrentAttack = 13;
+                    this.CurrentAttack = this.DecisionSerial % 3 switch
+                    {
+                        0 => 13,
+                        1 => 14,
+                        _ => 15,
+                    };
                 }
                 else
                 {
@@ -426,21 +446,33 @@ internal sealed class MilestoneBossService
                         this.BeginPhaseTransition(4, now);
                         return;
                     }
+
                     string role = roles[this.Rng.Next(roles.Length)];
+                    this.RepositionTricolorGuardian(role);
                     this.CurrentAttack = role == "ignis" ? 10 : role == "vita" ? 11 : 12;
+                    if (role == "aether")
+                    {
+                        this.AttackTargetTile2 = ClampArenaTile(new Point(
+                            this.AttackTargetTile.X,
+                            this.AttackTargetTile.Y + (this.DecisionSerial % 2 == 0 ? 2 : -2)
+                        ));
+                    }
                 }
                 break;
             }
+
             case MilestoneBossKind.Mimi:
             {
                 int[] pool = this.Phase switch
                 {
                     1 => new[] { 20, 20, 21 },
-                    2 => new[] { 20, 22, 23 },
-                    3 => new[] { 22, 23, 24, 24 },
-                    _ => new[] { 23, 24, 25, 25 },
+                    2 => new[] { 20, 22, 26, 26 },
+                    3 => new[] { 22, 23, 27, 27 },
+                    _ => new[] { 24, 25, 26, 27, 28, 28 },
                 };
                 this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
+                if (this.CurrentAttack == 27)
+                    this.MimiCadenceIndex = (this.MimiCadenceIndex + 1) % 3;
                 this.MaybeTeleportPrimary("mimi");
                 break;
             }
@@ -449,7 +481,7 @@ internal sealed class MilestoneBossService
         this.State = MilestoneBossState.Telegraph;
         this.StateStartedAtMs = now;
         this.AttackApplied = false;
-        Game1.playSound(this.CurrentAttack is 10 or 24 or 25 ? "thudStep" : "Cowboy_gunload");
+        Game1.playSound(this.CurrentAttack is 10 or 24 or 25 or 28 ? "thudStep" : "Cowboy_gunload");
     }
 
     private void ApplyCurrentAttack()
@@ -458,50 +490,117 @@ internal sealed class MilestoneBossService
         switch (this.CurrentAttack)
         {
             case 0:
-                if (PlayerWithin(this.AttackTargetTile, 1.4f)) DamagePlayer(12 + this.Phase * 2 + extra);
+                if (PlayerWithin(this.AttackTargetTile, 1.4f))
+                    DamagePlayer(12 + this.Phase * 2 + extra);
                 break;
             case 1:
                 this.CuratorAdaptationStacks = Math.Min(3, this.CuratorAdaptationStacks + 1);
                 Game1.showGlobalMessage($"Hollow Curator adapts • {this.CuratorAdaptationStacks}/3");
                 break;
             case 2:
-                if (PlayerWithin(this.AttackTargetTile, 2.0f) || PlayerWithin(this.AttackTargetTile2, 1.35f)) DamagePlayer(15 + this.Phase * 2 + extra);
+                if (PlayerWithin(this.AttackTargetTile, 2.0f) || PlayerWithin(this.AttackTargetTile2, 1.35f))
+                    DamagePlayer(15 + this.Phase * 2 + extra);
                 break;
             case 3:
-                if (PlayerWithin(this.AttackTargetTile, 2.55f)) DamagePlayer(23 + extra);
+                if (PlayerWithin(this.AttackTargetTile, 2.55f))
+                    DamagePlayer(23 + extra);
                 break;
+            case 4:
+                if (PlayerWithin(this.EchoTargetTile, 1.8f) || PlayerWithin(this.EchoTargetTile2, 1.25f))
+                    DamagePlayer(17 + this.Phase * 2 + extra);
+                Game1.playSound("wand");
+                break;
+
             case 10:
-                if (PlayerWithin(this.AttackTargetTile, 2.05f)) DamagePlayer(20);
+                if (PlayerWithin(this.AttackTargetTile, 2.05f))
+                    DamagePlayer(20);
                 break;
             case 11:
                 foreach (Monster guardian in this.GetBossActors(false).Where(a => this.Role(a) is "ignis" or "vita" or "aether"))
                     guardian.Health = Math.Min(guardian.MaxHealth, guardian.Health + 70);
-                if (PlayerWithin(this.AttackTargetTile, 1.5f)) DamagePlayer(8);
+                if (PlayerWithin(this.AttackTargetTile, 1.5f))
+                    DamagePlayer(8);
                 Game1.playSound("leafrustle");
                 break;
             case 12:
-                if (PlayerWithin(this.AttackTargetTile, 1.35f)) DamagePlayer(16);
+                if (PlayerWithin(this.AttackTargetTile, 1.35f) || PlayerWithin(this.AttackTargetTile2, 1.35f))
+                    DamagePlayer(16);
                 break;
             case 13:
-                if (PlayerWithin(this.AttackTargetTile, 2.35f) || PlayerWithin(this.AttackTargetTile2, 1.6f)) DamagePlayer(25);
+                if (PlayerWithin(this.AttackTargetTile, 2.35f) || PlayerWithin(this.AttackTargetTile2, 1.6f))
+                    DamagePlayer(25);
                 break;
+            case 14:
+                if (PlayerWithin(this.AttackTargetTile, 1.55f) || PlayerWithin(this.EchoTargetTile, 1.55f))
+                    DamagePlayer(21);
+                break;
+            case 15:
+                if (PlayerWithin(this.AttackTargetTile, 2.0f)
+                    || PlayerWithin(this.AttackTargetTile2, 1.35f)
+                    || PlayerWithin(this.EchoTargetTile, 1.35f))
+                    DamagePlayer(23);
+                break;
+
             case 20:
-                if (PlayerWithin(this.AttackTargetTile, 1.35f)) DamagePlayer(15 + this.Phase * 2);
+                if (PlayerWithin(this.AttackTargetTile, 1.35f))
+                    DamagePlayer(15 + this.Phase * 2);
                 break;
             case 21:
-                if (PlayerWithin(this.AttackTargetTile, 1.8f)) DamagePlayer(14);
+                if (PlayerWithin(this.AttackTargetTile, 1.8f))
+                    DamagePlayer(14);
                 break;
             case 22:
-                if (PlayerWithin(this.AttackTargetTile, 1.9f) || PlayerWithin(this.AttackTargetTile2, 1.35f)) DamagePlayer(17 + this.Phase * 2);
+                if (PlayerWithin(this.AttackTargetTile, 1.9f) || PlayerWithin(this.AttackTargetTile2, 1.35f))
+                    DamagePlayer(17 + this.Phase * 2);
                 break;
             case 23:
-                if (PlayerWithin(this.AttackTargetTile, 2.3f)) DamagePlayer(20 + this.Phase);
+                if (PlayerWithin(this.AttackTargetTile, 2.3f))
+                    DamagePlayer(20 + this.Phase);
                 break;
             case 24:
-                if (PlayerWithin(this.AttackTargetTile, 2.55f) || PlayerWithin(this.AttackTargetTile2, 1.8f)) DamagePlayer(22 + this.Phase * 2);
+                if (PlayerWithin(this.AttackTargetTile, 2.55f) || PlayerWithin(this.AttackTargetTile2, 1.8f))
+                    DamagePlayer(22 + this.Phase * 2);
                 break;
             case 25:
-                if (PlayerWithin(this.AttackTargetTile, 3.0f)) DamagePlayer(30);
+                if (PlayerWithin(this.AttackTargetTile, 3.0f))
+                    DamagePlayer(30);
+                Game1.playSound("explosion");
+                break;
+            case 26:
+                if (PlayerWithin(this.EchoTargetTile, 1.7f) || PlayerWithin(this.EchoTargetTile2, 1.2f))
+                    DamagePlayer(18 + this.Phase * 2);
+                Game1.playSound("wand");
+                break;
+            case 27:
+            {
+                if (this.MimiCadenceIndex == 0)
+                {
+                    if (PlayerWithin(this.AttackTargetTile, 2.2f))
+                        DamagePlayer(24);
+                    Game1.playSound("explosion");
+                }
+                else if (this.MimiCadenceIndex == 1)
+                {
+                    Monster? mimi = this.FindRole("mimi", false);
+                    if (mimi is not null)
+                        mimi.Health = Math.Min(mimi.MaxHealth, mimi.Health + 100);
+                    if (PlayerWithin(this.AttackTargetTile, 1.4f))
+                        DamagePlayer(10);
+                    Game1.playSound("leafrustle");
+                }
+                else
+                {
+                    if (PlayerWithin(this.AttackTargetTile, 1.45f) || PlayerWithin(this.AttackTargetTile2, 1.45f))
+                        DamagePlayer(18);
+                    Game1.playSound("wand");
+                }
+                break;
+            }
+            case 28:
+                if (PlayerWithin(this.AttackTargetTile, 2.75f)
+                    || PlayerWithin(this.AttackTargetTile2, 1.75f)
+                    || PlayerWithin(this.EchoTargetTile, 1.5f))
+                    DamagePlayer(32);
                 Game1.playSound("explosion");
                 break;
         }
@@ -566,7 +665,7 @@ internal sealed class MilestoneBossService
         Game1.showGlobalMessage(firstClear ? $"Boss Card unlocked: {name}" : $"Rematch complete: {name}");
         this.State = MilestoneBossState.Victory;
         this.VictoryReturnAtMs = now + VictoryReturnMs;
-        this.Monitor.Log($"0671 {this.CurrentKind} victory. firstClear={firstClear}, reward={reward}, highestRegion={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
+        this.Monitor.Log($"0672 {this.CurrentKind} victory. firstClear={firstClear}, reward={reward}, highestRegion={this.Save.Data.AirshipHighestRegionUnlocked}.", LogLevel.Info);
     }
 
     private void SpawnTricolorUnified()
@@ -597,19 +696,39 @@ internal sealed class MilestoneBossService
     {
         foreach (Monster actor in this.GetBossActors(false))
         {
-            string role = this.Role(actor);
-            Point tile = role switch
-            {
-                "ignis" => TricolorGuardianTiles[0].Tile,
-                "vita" => TricolorGuardianTiles[1].Tile,
-                "aether" => TricolorGuardianTiles[2].Tile,
-                _ => new Point((int)(actor.Position.X / 64f), (int)(actor.Position.Y / 64f)),
-            };
-            if (role is "ignis" or "vita" or "aether")
-                actor.Position = new Vector2(tile.X * 64f, tile.Y * 64f);
             actor.Speed = 0;
             actor.Halt();
         }
+    }
+
+    private void RepositionTricolorGuardian(string role)
+    {
+        Monster? actor = this.FindRole(role, false);
+        if (actor is null)
+            return;
+
+        this.TricolorMotionSerial++;
+        Point target;
+        Point player = PlayerTile();
+        if (role == "ignis")
+        {
+            int sx = player.X < 14 ? 1 : -1;
+            int sy = this.TricolorMotionSerial % 2 == 0 ? 1 : -1;
+            target = ClampArenaTile(new Point(player.X + sx * 2, player.Y + sy));
+        }
+        else if (role == "vita")
+        {
+            Point[] pads = { new(11, 5), new(14, 5), new(17, 5), new(14, 8) };
+            target = pads[this.TricolorMotionSerial % pads.Length];
+        }
+        else
+        {
+            Point[] pads = { new(5, 5), new(22, 5), new(5, 12), new(22, 12), new(14, 4) };
+            target = pads[this.TricolorMotionSerial % pads.Length];
+        }
+
+        actor.Position = new Vector2(target.X * 64f, target.Y * 64f);
+        Game1.playSound(role == "ignis" ? "thudStep" : "wand");
     }
 
     private void MaybeTeleportPrimary(string role)
@@ -638,12 +757,18 @@ internal sealed class MilestoneBossService
     {
         1 => 900,
         3 => 1050,
+        4 => 880,
         10 => 720,
         11 => 820,
-        12 => 680,
+        12 => 760,
         13 => 980,
-        25 => 1150,
+        14 => 900,
+        15 => 960,
         24 => 900,
+        25 => 1150,
+        26 => 900,
+        27 => 900,
+        28 => 1180,
         _ => 760,
     };
 
@@ -704,12 +829,35 @@ internal sealed class MilestoneBossService
     {
         if (this.State != MilestoneBossState.Telegraph || this.CurrentAttack < 0)
             return;
+
         Color c = this.CurrentKind is null ? Color.White : this.KindColor(this.CurrentKind.Value);
         float pulse = 0.28f + 0.16f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 90d));
-        int radius = this.CurrentAttack switch { 3 or 25 => 2, 13 or 24 => 2, 23 => 2, _ => 1 };
+        int radius = this.CurrentAttack switch
+        {
+            3 or 25 or 28 => 2,
+            13 or 24 or 27 => 2,
+            _ => 1,
+        };
+
+        if (this.CurrentAttack is 4 or 26)
+        {
+            Color mirror = new Color(190, 166, 255) * (pulse + 0.08f);
+            DrawTileZone(batch, this.EchoTargetTile, 1, mirror);
+            DrawTileZone(batch, this.EchoTargetTile2, 1, mirror * 0.72f);
+            return;
+        }
+
+        if (this.CurrentAttack == 27)
+            c = this.TricolorCycle(this.MimiCadenceIndex);
+
         DrawTileZone(batch, this.AttackTargetTile, radius, c * pulse);
-        if (this.CurrentAttack is 2 or 13 or 22 or 24)
+
+        if (this.CurrentAttack is 2 or 12 or 13 or 15 or 22 or 24 or 27 or 28)
             DrawTileZone(batch, this.AttackTargetTile2, 1, new Color(238, 218, 255) * pulse);
+
+        if (this.CurrentAttack is 14 or 28)
+            DrawTileZone(batch, this.EchoTargetTile, 1, new Color(190, 166, 255) * pulse);
+
         if (this.CurrentAttack == 11)
             DrawTileZone(batch, this.AttackTargetTile, 1, new Color(102, 212, 118) * pulse);
     }
@@ -885,6 +1033,10 @@ internal sealed class MilestoneBossService
         this.VictoryHandled = false;
         this.CuratorAdaptationStacks = 0;
         this.DecisionSerial = 0;
+        this.EchoTargetTile = Point.Zero;
+        this.EchoTargetTile2 = Point.Zero;
+        this.MimiCadenceIndex = 0;
+        this.TricolorMotionSerial = 0;
     }
 
     private void RemoveMarkedActors(GameLocation? arena)

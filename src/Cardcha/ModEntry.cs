@@ -349,7 +349,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.40 AUTHORED BOSS VISUALS ARENAS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.41 BOSS ENCOUNTER DEPTH PASS TEST",
             LogLevel.Info
         );
     }

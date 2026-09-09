@@ -8,7 +8,7 @@ using StardewValley.Monsters;
 namespace Cardcha.Services;
 
 /// <summary>
-/// ChaCha Boss Form runtime. Boss I unlocks Guardian Rabbit, an actual Verdant transformation
+/// ChaCha Boss Form runtime. 0672 gives Guardian/Mirror/Trinity/Resonance distinct combat pulses
 /// with a dedicated sprite and periodic root pulses. The global Boss Form contract remains
 /// exactly 10 seconds and still spends the existing 100 Boss Energy charge.
 /// </summary>
@@ -22,6 +22,9 @@ internal sealed class ChaChaBossFormService
     public const int GuardianRootPulseIntervalMs = 2000;
     public const int GuardianRootPulseDamage = 14;
     public const float GuardianRootPulseRadius = 176f;
+    public const int MirrorPulseDamage = 12;
+    public const int TrinityPulseDamage = 13;
+    public const int ResonancePulseDamage = 16;
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -38,6 +41,7 @@ internal sealed class ChaChaBossFormService
     private long LastRootPulseAt;
     private bool DebugGuardianUnlock;
     private string ActiveVisualFormId = GuardianRabbitFormId;
+    private int TrinityPulseIndex;
 
     public long GuardianPulseCount { get; private set; }
     public long GuardianPulseHits { get; private set; }
@@ -106,7 +110,7 @@ internal sealed class ChaChaBossFormService
             if (now >= this.NextRootPulseAt)
             {
                 this.EmitGuardianRootPulse(now);
-                this.NextRootPulseAt = now + GuardianRootPulseIntervalMs;
+                this.NextRootPulseAt = now + this.CurrentPulseIntervalMs();
             }
             return;
         }
@@ -124,7 +128,7 @@ internal sealed class ChaChaBossFormService
             this.ReadyAnnounced = true;
             Game1.playSound("yoba");
             this.WorldActors.TriggerChaChaEmote(56);
-            this.Monitor.Log("Guardian Rabbit READY: ChaCha Energy reached 100 and Boss I resonance is unlocked.", LogLevel.Info);
+            this.Monitor.Log($"ChaCha Boss Form READY: next={this.ResolvePreferredFormId()}, Energy=100.", LogLevel.Info);
         }
     }
 
@@ -223,7 +227,7 @@ internal sealed class ChaChaBossFormService
             float t = Math.Clamp((now - this.LastRootPulseAt) / 520f, 0f, 1f);
             float ringScale = 1.55f + 3.65f * t;
             float ringAlpha = (1f - t) * 0.34f;
-            Color pulseColor = new(108, 224, 103);
+            Color pulseColor = this.CurrentPulseColor();
             e.SpriteBatch.Draw(this.AuraTexture, center, null, pulseColor * ringAlpha, 0f, origin, ringScale, SpriteEffects.None, 0.985f);
             for (int i = 0; i < 8; i++)
             {
@@ -250,6 +254,7 @@ internal sealed class ChaChaBossFormService
         this.NextRootPulseAt = now + 650;
         this.LastRootPulseAt = now;
         this.RootPulseVisualUntil = now + 520;
+        this.TrinityPulseIndex = 0;
         this.BossEnergy.SetGainSuppressed(true);
         this.WorldActors.SetChaChaBossVisual(true, this.ActiveVisualFormId);
         this.WorldActors.TriggerChaChaEmote(16);
@@ -286,7 +291,7 @@ internal sealed class ChaChaBossFormService
         }
 
         if (wasActive)
-            this.Monitor.Log($"Guardian Rabbit ended ({reason}).", LogLevel.Trace);
+            this.Monitor.Log($"ChaCha Boss Form {this.ActiveVisualFormId} ended ({reason}).", LogLevel.Trace);
     }
 
     public void OnDayStarted(object? sender, DayStartedEventArgs e)
@@ -314,9 +319,10 @@ internal sealed class ChaChaBossFormService
     public string Describe()
     {
         string chord = $"{this.Controller.GetLabel(ControllerAction.Confirm)}+{this.Controller.GetLabel(ControllerAction.Deselect)}";
-        return $"Form={GuardianRabbitFormId} | Unlocked={this.GuardianRabbitUnlocked} (debug={this.DebugGuardianUnlock}) | " +
+        string preferred = this.ResolvePreferredFormId();
+        return $"Form={preferred} | ActiveForm={this.ActiveFormId} | Unlocked={this.GuardianRabbitUnlocked} (debug={this.DebugGuardianUnlock}) | " +
                $"Ready={this.IsReady} | Active={this.IsActive} | Remaining={this.SecondsRemaining:0.0}s | " +
-               $"RootPulse={GuardianRootPulseDamage} dmg/{GuardianRootPulseIntervalMs / 1000d:0.#}s radius={GuardianRootPulseRadius:0}px | " +
+               $"Pulse={this.CurrentPulseDamage()} dmg/{this.CurrentPulseIntervalMs() / 1000d:0.##}s radius={this.CurrentPulseRadius():0}px | " +
                $"Pulses={this.GuardianPulseCount} Hits={this.GuardianPulseHits} LastTargets={this.LastPulseTargets} | " +
                $"AuraStage={this.EnergyAuraStage} | ControllerChord={chord} | Keyboard=LeftShift+A | {this.BossEnergy.Describe()}";
     }
@@ -351,8 +357,34 @@ internal sealed class ChaChaBossFormService
         if (actor is null || who is null || location is null || actor.currentLocation != location)
             return;
 
+        int damage = this.CurrentPulseDamage();
+        float radius = this.CurrentPulseRadius();
+        int bonusDamage = 0;
+        int heal = 0;
+
+        if (this.ActiveVisualFormId == MirrorRabbitFormId)
+        {
+            bonusDamage = 6;
+        }
+        else if (this.ActiveVisualFormId == TrinityRabbitFormId)
+        {
+            this.TrinityPulseIndex = (this.TrinityPulseIndex + 1) % 3;
+            if (this.TrinityPulseIndex == 0)
+                damage = 19;
+            else if (this.TrinityPulseIndex == 1)
+                heal = 5;
+            else
+                radius = 232f;
+        }
+        else if (this.ActiveVisualFormId == ResonanceRabbitFormId)
+        {
+            bonusDamage = 5;
+            heal = 3;
+            radius = 224f;
+        }
+
         Vector2 center = actor.Position + new Vector2(16f, 16f);
-        float radiusSq = GuardianRootPulseRadius * GuardianRootPulseRadius;
+        float radiusSq = radius * radius;
         List<Monster> targets = location.characters
             .OfType<Monster>()
             .Where(monster => monster.Health > 0
@@ -363,18 +395,68 @@ internal sealed class ChaChaBossFormService
         {
             try
             {
-                monster.takeDamage(GuardianRootPulseDamage, 0, 0, false, 0d, who);
+                monster.takeDamage(damage, 0, 0, false, 0d, who);
+                if (bonusDamage > 0 && monster.Health > 0)
+                    monster.takeDamage(bonusDamage, 0, 0, false, 0d, who);
                 this.GuardianPulseHits++;
                 this.LastPulseTargets++;
             }
             catch (Exception ex)
             {
-                ModEntry.LogOnce("guardian-rabbit-root-pulse", $"Guardian Rabbit Root Pulse couldn't damage a target: {ex.Message}");
+                ModEntry.LogOnce("chacha-boss-form-pulse", $"ChaCha Boss Form pulse couldn't damage a target: {ex.Message}");
             }
         }
 
-        Game1.playSound(targets.Count > 0 ? "leafrustle" : "dirtyHit");
+        if (heal > 0 && who.health > 0)
+            who.health = Math.Min(who.maxHealth, who.health + heal);
+
+        Game1.playSound(this.ActiveVisualFormId switch
+        {
+            MirrorRabbitFormId => "wand",
+            TrinityRabbitFormId when this.TrinityPulseIndex == 1 => "leafrustle",
+            ResonanceRabbitFormId => "discoverMineral",
+            _ => targets.Count > 0 ? "leafrustle" : "dirtyHit",
+        });
     }
+
+    private int CurrentPulseDamage() => this.ActiveVisualFormId switch
+    {
+        MirrorRabbitFormId => MirrorPulseDamage,
+        TrinityRabbitFormId => TrinityPulseDamage,
+        ResonanceRabbitFormId => ResonancePulseDamage,
+        _ => GuardianRootPulseDamage,
+    };
+
+    private int CurrentPulseIntervalMs() => this.ActiveVisualFormId switch
+    {
+        MirrorRabbitFormId => 1900,
+        TrinityRabbitFormId => 1800,
+        ResonanceRabbitFormId => 1700,
+        _ => GuardianRootPulseIntervalMs,
+    };
+
+    private float CurrentPulseRadius() => this.ActiveVisualFormId switch
+    {
+        MirrorRabbitFormId => 192f,
+        TrinityRabbitFormId => 188f,
+        ResonanceRabbitFormId => 224f,
+        _ => GuardianRootPulseRadius,
+    };
+
+    private Color CurrentPulseColor() => this.ActiveVisualFormId switch
+    {
+        MirrorRabbitFormId => new Color(174, 154, 255),
+        TrinityRabbitFormId => this.TricolorPulseColor(),
+        ResonanceRabbitFormId => new Color(238, 171, 255),
+        _ => new Color(108, 224, 103),
+    };
+
+    private Color TricolorPulseColor() => this.TrinityPulseIndex switch
+    {
+        0 => new Color(238, 92, 78),
+        1 => new Color(99, 210, 118),
+        _ => new Color(89, 148, 241),
+    };
 
     private void ResetRuntime(bool clearDebugUnlock)
     {
@@ -387,6 +469,7 @@ internal sealed class ChaChaBossFormService
         this.GuardianPulseHits = 0;
         this.LastPulseTargets = 0;
         this.ActiveVisualFormId = GuardianRabbitFormId;
+        this.TrinityPulseIndex = 0;
         if (clearDebugUnlock)
             this.DebugGuardianUnlock = false;
         this.BossEnergy.SetGainSuppressed(false);
@@ -403,7 +486,7 @@ internal sealed class ChaChaBossFormService
     private Color GetStageColor(int stage)
     {
         if (this.IsActive)
-            return new Color(105, 224, 100);
+            return this.CurrentPulseColor();
 
         return stage switch
         {
