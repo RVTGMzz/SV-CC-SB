@@ -16,8 +16,8 @@ internal static class RegionExpeditionProxyDrawPatch
     public static void Apply(Harmony harmony)
     {
         MethodInfo? target = AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) });
-        if (target is null)
-            throw new MissingMethodException("Could not resolve declared Monster.draw(SpriteBatch) for expedition proxy suppression.");
+        if (target is null || target.DeclaringType != typeof(Monster))
+            throw new MissingMethodException("Could not resolve the draw(SpriteBatch) implementation declared by Monster.");
 
         HarmonyMethod prefix = new(typeof(RegionExpeditionProxyDrawPatch), nameof(Prefix));
         harmony.Patch(target, prefix: prefix);
