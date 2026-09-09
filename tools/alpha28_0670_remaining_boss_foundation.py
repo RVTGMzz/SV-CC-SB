@@ -133,6 +133,17 @@ s = replace_once(
 )
 p.write_text(s, encoding='utf-8')
 
+# Compile fix: switch expressions need the modulo result parenthesized.
+p = ROOT / 'Services' / 'MilestoneBossService.cs'
+s = p.read_text(encoding='utf-8')
+s = s.replace(
+    '    private Color TricolorCycle(int i) => i % 3 switch\n',
+    '    private Color TricolorCycle(int i) => (i % 3) switch\n'
+)
+if 'private Color TricolorCycle(int i) => (i % 3) switch' not in s:
+    raise RuntimeError('0670 tricolor color-switch compile fix missing')
+p.write_text(s, encoding='utf-8')
+
 # Handoff source of truth.
 handoff = Path('handoff')
 handoff.mkdir(exist_ok=True)
