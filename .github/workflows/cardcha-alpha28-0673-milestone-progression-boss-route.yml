@@ -1,0 +1,206 @@
+name: Cardcha alpha28.0.4.14.4.5.12.42 Milestone Progression Boss Route
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0673-milestone-progression-boss-route ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0673 milestone progression route
+        run: python3 tools/alpha28_0673_milestone_progression_boss_route.py
+
+      - name: Validate 0673 progression contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, subprocess, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.42'
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          assert version in (root/'Directory.Build.targets').read_text(encoding='utf-8')
+
+          airship = (root/'Services/AirshipFoundationService.cs').read_text(encoding='utf-8')
+          for token in [
+              'private Func<string>? MilestoneRouteAction;',
+              'BindMilestoneRouteHandler(Func<string> handler)',
+              'if (this.MilestoneRouteAction is not null)',
+              'string message = this.MilestoneRouteAction();',
+              'this.HandleRegion1DepartureRequest();',
+          ]:
+              assert token in airship, token
+          # Helm remains the Hunt Run owner; milestone routing is intentionally on the Sky Dock console.
+          assert airship.count('this.HandleRegion1DepartureRequest();') == 1
+
+          boss = (root/'Services/MilestoneBossService.cs').read_text(encoding='utf-8')
+          for token in [
+              'UseAirshipMilestoneRoute()',
+              'DescribeMilestoneRoute()',
+              'ResolveNextMilestoneRoute()',
+              'MilestoneBossKind.HollowCurator, 40',
+              'MilestoneBossKind.TricolorResonance, 60',
+              'MilestoneBossKind.Mimi, 80',
+              '!this.Save.Data.Region1BossDefeated',
+              'MilestoneBossKind.TricolorResonance => 3',
+              'MilestoneBossKind.Mimi => 4',
+              'RouteConfirmWindowMs = 5000L',
+              'Game1.warpFarmer(arena.NameOrUniqueName, ArrivalTile.X, ArrivalTile.Y, 0)',
+              # Preserve 0672 encounter-depth identities.
+              'EchoTargetTile',
+              'RepositionTricolorGuardian',
+              'MimiCadenceIndex',
+              'case 28:',
+              'HollowCuratorMaxHealth = 2200',
+              'TricolorGuardianMaxHealth = 780',
+              'TricolorUnifiedMaxHealth = 1650',
+              'MimiMaxHealth = 3600',
+              'BossCardsUnlocked.Add(reward)',
+              'AirshipHighestRegionUnlocked = Math.Max',
+          ]:
+              assert token in boss, token
+
+          entry = (root/'ModEntry.cs').read_text(encoding='utf-8')
+          for token in [
+              'this.Airship.BindMilestoneRouteHandler(this.MilestoneBosses.UseAirshipMilestoneRoute);',
+              'cardcha_milestone_route_status',
+              'MILESTONE PROGRESSION BOSS ROUTE TEST',
+          ]:
+              assert token in entry, token
+
+          chacha = (root/'Services/ChaChaBossFormService.cs').read_text(encoding='utf-8')
+          for token in [
+              'MirrorRabbitFormId', 'TrinityRabbitFormId', 'ResonanceRabbitFormId',
+              'MirrorPulseDamage', 'TrinityPulseDamage', 'ResonancePulseDamage',
+              'CurrentPulseIntervalMs()', 'CurrentPulseRadius()',
+          ]:
+              assert token in chacha, token
+          assert 'BossFormDurationMs = 10000' in chacha
+
+          for lang in ['default.json', 'vi.json']:
+              data = json.loads((root/'i18n'/lang).read_text(encoding='utf-8'))
+              for key in [
+                  'airship.milestone.boss1_required',
+                  'airship.milestone.route_sealed',
+                  'airship.milestone.progress',
+                  'airship.milestone.confirm',
+                  'airship.milestone.all_clear',
+                  'airship.milestone.unavailable',
+              ]:
+                  assert key in data, (lang, key)
+
+          save = (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+          assert 'CurrentSchemaVersion = 19' in save
+          assert 'CurrentSchemaVersion = 20' not in save
+
+          cards = json.loads((root/'assets/cards.json').read_text(encoding='utf-8'))
+          legacy = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy]) == 76
+
+          # 0673 is progression-only. Authored boss art/arenas and locked MiMi social art must be byte-identical to 0672.
+          locked_paths = [
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/boss2_hollow_curator_arena.tmx',
+              'src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+              'src/Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+          ]
+          locked_paths += [str(p) for p in sorted((root/'assets/bosses/milestone').glob('*.png'))]
+          for path in locked_paths:
+              diff = subprocess.run(['git','diff','--quiet','origin/cardcha-alpha28-0672-boss-encounter-depth-pass','--',path])
+              assert diff.returncode == 0, f'0673 changed locked visual asset: {path}'
+
+          checked = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              map_root = ET.parse(tmx).getroot()
+              for layer in map_root.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  vals = []
+                  for i, token in enumerate((data.text or '').split(',')):
+                      st = token.strip()
+                      assert st != '', f'{tmx}: empty CSV token {i}'
+                      n = int(st)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      vals.append(n)
+                  assert len(vals) == int(layer.attrib['width']) * int(layer.attrib['height']), tmx
+                  checked += 1
+          assert checked >= 24, checked
+          print(f'0673 validator PASS; real milestone route=40/60/80 schema=19 cards=76/80 strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.42 source handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.42 milestone progression boss route [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0673-milestone-progression-boss-route
+          fi
+
+      - name: Package .5.12.42 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.42_MilestoneProgressionBossRoute_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          z = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.42_MilestoneProgressionBossRoute_TEST.zip')
+          with zipfile.ZipFile(z) as f:
+              assert json.loads(f.read('Cardcha/manifest.json'))['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.42'
+              assert len(f.read('Cardcha/Cardcha.dll')) > 100000
+              assert len(f.read('Cardcha/assets/mimi_walk.png')) == 65167
+              for p in [
+                  'Cardcha/assets/boss2_hollow_curator_arena.tmx',
+                  'Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+                  'Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+              ]:
+                  assert len(f.read(p)) > 100
+          print('0673 final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0673-milestone-progression-boss-route
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.42_MilestoneProgressionBossRoute_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.42_MilestoneProgressionBossRoute_TEST.zip.sha256
+          if-no-files-found: error
