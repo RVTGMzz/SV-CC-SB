@@ -16,7 +16,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Restore entry baseline and normalize 0676B TMX
+      - name: Restore authoritative entry baseline and normalize 0676B TMX
         shell: bash
         run: |
           set -euo pipefail
@@ -32,7 +32,11 @@ jobs:
           if version_old not in s:
               raise SystemExit('0676A ModEntry baseline did not contain expected version')
           s=s.replace(version_old,version_new)
-          s=s.replace('REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST','REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST')
+          s=s.replace('REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST','REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT + WORLD DEPTH SAFETY HOTFIX TEST')
+          anchor='        AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);\n'
+          if anchor not in s:
+              raise SystemExit('0676A ModEntry missing AirshipGateDepthPatch apply anchor')
+          s=s.replace(anchor,anchor+'        WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);\n',1)
           Path('src/Cardcha/ModEntry.cs').write_text(s,encoding='utf-8')
 
           W,H=40,28
@@ -50,6 +54,12 @@ jobs:
               ET.indent(tree,space=' '); tree.write(q,encoding='UTF-8',xml_declaration=True)
           PY
 
+      - name: Validate repository rendering depth contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 tools/validate_render_depth_contract.py
+
       - name: Validate 0676B contracts
         shell: bash
         run: |
@@ -61,20 +71,32 @@ jobs:
           assert json.loads((root/'manifest.json').read_text())['Version']==version
           assert version in (root/'Cardcha.csproj').read_text()
           targets=(root/'Directory.Build.targets').read_text(); assert targets.count(version)>=2 and '.12.45.1' not in targets
-          entry=(root/'ModEntry.cs').read_text(); assert version in entry and 'GATE ALIGNMENT HOTFIX TEST' in entry
+          entry=(root/'ModEntry.cs').read_text(); assert version in entry and 'WORLD DEPTH SAFETY HOTFIX TEST' in entry
+          assert 'WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);' in entry
           base_entry=subprocess.check_output(['git','show',base+':src/Cardcha/ModEntry.cs'],text=True)
-          normalized=entry.replace(version,'0.3.0-alpha.28.0.4.14.4.5.12.45.1').replace('REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST','REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST')
-          assert normalized==base_entry,'ModEntry has changes beyond the approved 0676B version/log delta'
+          normalized=entry.replace('        WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);\n','')
+          normalized=normalized.replace(version,'0.3.0-alpha.28.0.4.14.4.5.12.45.1').replace('REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT + WORLD DEPTH SAFETY HOTFIX TEST','REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST')
+          assert normalized==base_entry,'ModEntry has changes beyond approved 0676B version/log/depth-safety apply delta'
 
           patch=(root/'Patches/RegionExpeditionProxyDrawPatch.cs').read_text()
           for t in ['AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })','MonsterDrawPrefix(Monster __instance, SpriteBatch b)','DrawAuthoredEnemy(b, __instance);','"DrawEnemyIdentity"','SkipLegacyPostWorldEnemyDraw','"DrawRegionIdentity"','DrawSafeExtractionMarker','MarkerActorSafetyRadius = 108f']:
               assert t in patch,t
           for t in ['typeof(GreenSlime)','typeof(Bat)','typeof(Bug)','isInvisible']: assert t not in patch,t
 
+          proxy=(root/'Patches/VerdantGuardianProxyDrawPatch.cs').read_text()
+          assert 'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })' in proxy
+          assert 'Prefix(Monster __instance)' in proxy
+          assert 'AccessTools.Method(typeof(GreenSlime)' not in proxy
+
           gate=(root/'Patches/AirshipGateDepthPatch.cs').read_text()
-          for t in ['"DrawSkyDock"','new Vector2(gate.Width / 2f, gate.Height)','tile.X * 64f + 32f','tile.Y * 64f + 64f','DrawAlignedGatePrefix']:
+          for t in ['"DrawSkyDock"','BeforeFarmerDraw','AfterFarmerDraw','SkipLegacyPostWorldGate','DrawForestGateAtFarmerDepth']:
               assert t in gate,t
-          for t in ['1.48f','tile.Y * 64f + 70f','gate.Height - 10f']: assert t not in gate,t
+          for t in ['DrawAlignedGatePrefix','1.48f','tile.Y * 64f + 70f','gate.Height - 10f','batch.Draw(\n            gate']:
+              assert t not in gate,t
+
+          safety=(root/'Patches/WorldPhysicalOverlaySafetyPatch.cs').read_text()
+          for t in ['"DrawRegion1Details"','typeof(Region1StardewDecorRenderer)','"DrawDeckStardewDecor"','"DrawDockStardewDecor"','"DrawUpgradeStations"','SkipPhysicalOverlay']:
+              assert t in safety,t
 
           frozen=['src/Cardcha/Services/RegionExpeditionService.cs','src/Cardcha/Services/AirshipFoundationService.cs','src/Cardcha/Services/MilestoneBossService.cs','src/Cardcha/Services/SaveService.cs','src/Cardcha/assets/cards.json','src/Cardcha/assets/region3_mirrorwild_enemies.png','src/Cardcha/assets/region4_resonance_enemies.png','src/Cardcha/assets/mimi_walk.png','src/Cardcha/assets/airship_visual.png','src/Cardcha/assets/airship_gate_auth.png']
           for p in frozen: assert subprocess.run(['git','diff','--quiet',base,'--',p]).returncode==0,p
@@ -98,7 +120,8 @@ jobs:
               assert all(v==0 for v in parsed['Front'])
           latest=Path('handoff/LATEST_CARDCHA_HANDOFF.md').read_text(); handoff=Path('handoff/ALPHA28_0676B_REGION_LAYERING_EXTRACTION_HOTFIX.md').read_text()
           assert version in latest and version in handoff and 'cardcha-alpha28-0676b-region-layering-extraction-hotfix' in latest
-          print('0676B validator PASS')
+          assert Path('AGENTS.md').exists() and Path('CARDCHA_RENDERING_DEPTH_CONTRACT.md').exists() and Path('render_depth_audit.json').exists()
+          print('0676B validator PASS: map + Harmony + repo render-depth contract')
           PY
 
       - name: Setup SMAPI build environment
@@ -112,9 +135,9 @@ jobs:
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add -A src/Cardcha handoff
+          git add -A src/Cardcha handoff AGENTS.md CARDCHA_RENDERING_DEPTH_CONTRACT.md render_depth_audit.json tools/validate_render_depth_contract.py
           if ! git diff --cached --quiet; then
-            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.45.2 layering gate hotfix [skip ci]'
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.45.2 world-depth safety hotfix [skip ci]'
             git push origin HEAD:cardcha-alpha28-0676b-region-layering-extraction-hotfix
           fi
 
@@ -125,10 +148,10 @@ jobs:
           OUT="$GITHUB_WORKSPACE/package/Cardcha"; rm -rf "$GITHUB_WORKSPACE/package"; mkdir -p "$OUT"
           cp src/Cardcha/manifest.json "$OUT/"; cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true; cp -R src/Cardcha/assets "$OUT/"; cp -R src/Cardcha/i18n "$OUT/"
           DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1); test -n "$DLL" -a -s "$DLL"; cp "$DLL" "$OUT/Cardcha.dll"
-          cd "$GITHUB_WORKSPACE/package"; ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip"; zip -qr "$ZIP" Cardcha; sha256sum "$ZIP" | tee "$ZIP.sha256"
+          cd "$GITHUB_WORKSPACE/package"; ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_WorldDepthSafetyHotfix_TEST.zip"; zip -qr "$ZIP" Cardcha; sha256sum "$ZIP" | tee "$ZIP.sha256"
           python3 - <<'PY'
           import json,zipfile
-          z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip'
+          z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_WorldDepthSafetyHotfix_TEST.zip'
           with zipfile.ZipFile(z) as f:
               n=set(f.namelist()); m=json.loads(f.read('Cardcha/manifest.json')); dll=f.read('Cardcha/Cardcha.dll')
               assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.45.2' and len(dll)>50000 and dll[:2]==b'MZ'
@@ -139,8 +162,8 @@ jobs:
       - name: Upload 0676B TEST artifact
         uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-0676b-region-layering-extraction-hotfix
+          name: cardcha-alpha28-0676b-world-depth-safety-hotfix
           path: |
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip.sha256
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_WorldDepthSafetyHotfix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_WorldDepthSafetyHotfix_TEST.zip.sha256
           if-no-files-found: error
