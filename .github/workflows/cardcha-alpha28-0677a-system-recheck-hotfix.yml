@@ -1,0 +1,78 @@
+name: Cardcha 0677A System Recheck Hotfix
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0677a-system-recheck-hotfix ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0677A hardening source
+        run: python3 tools/alpha28_0677a_system_recheck_hotfix.py
+
+      - name: Validate render-depth repository contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0677A system contracts
+        run: python3 tools/validate_0677a_system_recheck.py
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --no-restore
+
+      - name: Materialize 0677A source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/Cardcha handoff/ALPHA28_0677A_SYSTEM_RECHECK_HOTFIX.md handoff/LATEST_CARDCHA_HANDOFF.md
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: materialize alpha28.0.4.14.4.5.12.45.3.1 system recheck hotfix [skip ci]"
+            git push origin HEAD:cardcha-alpha28-0677a-system-recheck-hotfix
+          fi
+
+      - name: Package 0677A TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/out"
+          PKG="$OUT/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.3.1_0677A_SystemRecheckHotfix_TEST.zip"
+          mkdir -p "$OUT/stage/Cardcha"
+          cp -R src/Cardcha/bin/Release/net6.0/* "$OUT/stage/Cardcha/"
+          cp src/Cardcha/manifest.json "$OUT/stage/Cardcha/manifest.json"
+          cp -R src/Cardcha/i18n "$OUT/stage/Cardcha/i18n"
+          cp -R src/Cardcha/assets "$OUT/stage/Cardcha/assets"
+          (cd "$OUT/stage" && zip -qr "$PKG" Cardcha)
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          p=next(Path('out').glob('*0677A_SystemRecheckHotfix_TEST.zip'))
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.45.3.1'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              for req in ['Cardcha/assets/airship_deck.tmx','Cardcha/assets/sky_dock_interior.tmx','Cardcha/assets/region3_mirrorwild.tmx','Cardcha/assets/region4_resonance_verge.tmx','Cardcha/i18n/vi.json']:
+                  assert req in names, req
+          print(p)
+          PY
+
+      - name: Upload 0677A TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0677a-system-recheck-hotfix
+          path: out/*0677A_SystemRecheckHotfix_TEST.zip
+          if-no-files-found: error
