@@ -16,41 +16,38 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Normalize 0676B TMX layers deterministically
+      - name: Restore entry baseline and normalize 0676B TMX
         shell: bash
         run: |
           set -euo pipefail
+          git show origin/cardcha-alpha28-0676a-expedition-draw-runtime-hotfix:src/Cardcha/ModEntry.cs > /tmp/ModEntry.0676a.cs
           python3 - <<'PY'
           from pathlib import Path
           import xml.etree.ElementTree as ET
 
+          version_old='0.3.0-alpha.28.0.4.14.4.5.12.45.1'
+          version_new='0.3.0-alpha.28.0.4.14.4.5.12.45.2'
+          p=Path('/tmp/ModEntry.0676a.cs')
+          s=p.read_text(encoding='utf-8')
+          if version_old not in s:
+              raise SystemExit('0676A ModEntry baseline did not contain expected version')
+          s=s.replace(version_old,version_new)
+          s=s.replace('REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST','REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST')
+          Path('src/Cardcha/ModEntry.cs').write_text(s,encoding='utf-8')
+
           W,H=40,28
-          def csv(values):
-              return '\n' + ','.join(str(v) for v in values) + '\n'
-
+          def csv(values): return '\n' + ','.join(str(v) for v in values) + '\n'
           for name in ['region3_mirrorwild.tmx','region4_resonance_verge.tmx']:
-              p=Path('src/Cardcha/assets')/name
-              tree=ET.parse(p)
-              root=tree.getroot()
-              layers={x.attrib['name']:x for x in root.findall('layer')}
-
-              # Keep the authored Back composition, only strip malformed trailing CSV whitespace/tokens.
+              q=Path('src/Cardcha/assets')/name
+              tree=ET.parse(q); root=tree.getroot(); layers={x.attrib['name']:x for x in root.findall('layer')}
               back=layers['Back'].find('data')
               vals=[int(x.strip()) for x in (back.text or '').split(',') if x.strip()]
-              if len(vals) != W*H:
-                  raise SystemExit(f'{name}: Back has {len(vals)} cells, expected {W*H}')
+              if len(vals)!=W*H: raise SystemExit(f'{name}: Back has {len(vals)} cells, expected {W*H}')
               back.text=csv(vals)
-
-              # Buildings is intentionally just a hard map boundary; Front stays empty.
-              buildings=[]
-              for y in range(H):
-                  for x in range(W):
-                      buildings.append(381 if x in (0,W-1) or y in (0,H-1) else 0)
+              buildings=[381 if x in (0,W-1) or y in (0,H-1) else 0 for y in range(H) for x in range(W)]
               layers['Buildings'].find('data').text=csv(buildings)
               layers['Front'].find('data').text=csv([0]*(W*H))
-
-              ET.indent(tree, space=' ')
-              tree.write(p, encoding='UTF-8', xml_declaration=True)
+              ET.indent(tree,space=' '); tree.write(q,encoding='UTF-8',xml_declaration=True)
           PY
 
       - name: Validate 0676B contracts
@@ -60,22 +57,18 @@ jobs:
           python3 - <<'PY'
           from pathlib import Path
           import json,re,subprocess,xml.etree.ElementTree as ET
-          root=Path('src/Cardcha'); version='0.3.0-alpha.28.0.4.14.4.5.12.45.2'
-          base='origin/cardcha-alpha28-0676a-expedition-draw-runtime-hotfix'
-
+          root=Path('src/Cardcha'); version='0.3.0-alpha.28.0.4.14.4.5.12.45.2'; base='origin/cardcha-alpha28-0676a-expedition-draw-runtime-hotfix'
           assert json.loads((root/'manifest.json').read_text())['Version']==version
           assert version in (root/'Cardcha.csproj').read_text()
           targets=(root/'Directory.Build.targets').read_text(); assert targets.count(version)>=2 and '.12.45.1' not in targets
           entry=(root/'ModEntry.cs').read_text(); assert version in entry and 'GATE ALIGNMENT HOTFIX TEST' in entry
+          base_entry=subprocess.check_output(['git','show',base+':src/Cardcha/ModEntry.cs'],text=True)
+          normalized=entry.replace(version,'0.3.0-alpha.28.0.4.14.4.5.12.45.1').replace('REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST','REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST')
+          assert normalized==base_entry,'ModEntry has changes beyond the approved 0676B version/log delta'
 
           patch=(root/'Patches/RegionExpeditionProxyDrawPatch.cs').read_text()
-          for t in [
-              'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })',
-              'MonsterDrawPrefix(Monster __instance, SpriteBatch b)',
-              'DrawAuthoredEnemy(b, __instance);',
-              '"DrawEnemyIdentity"','SkipLegacyPostWorldEnemyDraw',
-              '"DrawRegionIdentity"','DrawSafeExtractionMarker','MarkerActorSafetyRadius = 108f'
-          ]: assert t in patch,t
+          for t in ['AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })','MonsterDrawPrefix(Monster __instance, SpriteBatch b)','DrawAuthoredEnemy(b, __instance);','"DrawEnemyIdentity"','SkipLegacyPostWorldEnemyDraw','"DrawRegionIdentity"','DrawSafeExtractionMarker','MarkerActorSafetyRadius = 108f']:
+              assert t in patch,t
           for t in ['typeof(GreenSlime)','typeof(Bat)','typeof(Bug)','isInvisible']: assert t not in patch,t
 
           gate=(root/'Patches/AirshipGateDepthPatch.cs').read_text()
@@ -83,20 +76,11 @@ jobs:
               assert t in gate,t
           for t in ['1.48f','tile.Y * 64f + 70f','gate.Height - 10f']: assert t not in gate,t
 
-          frozen=[
-              'src/Cardcha/Services/RegionExpeditionService.cs','src/Cardcha/Services/AirshipFoundationService.cs',
-              'src/Cardcha/Services/MilestoneBossService.cs','src/Cardcha/Services/SaveService.cs',
-              'src/Cardcha/assets/cards.json','src/Cardcha/assets/region3_mirrorwild_enemies.png',
-              'src/Cardcha/assets/region4_resonance_enemies.png','src/Cardcha/assets/mimi_walk.png',
-              'src/Cardcha/assets/airship_visual.png','src/Cardcha/assets/airship_gate_auth.png'
-          ]
+          frozen=['src/Cardcha/Services/RegionExpeditionService.cs','src/Cardcha/Services/AirshipFoundationService.cs','src/Cardcha/Services/MilestoneBossService.cs','src/Cardcha/Services/SaveService.cs','src/Cardcha/assets/cards.json','src/Cardcha/assets/region3_mirrorwild_enemies.png','src/Cardcha/assets/region4_resonance_enemies.png','src/Cardcha/assets/mimi_walk.png','src/Cardcha/assets/airship_visual.png','src/Cardcha/assets/airship_gate_auth.png']
           for p in frozen: assert subprocess.run(['git','diff','--quiet',base,'--',p]).returncode==0,p
-
           region=(root/'Services/RegionExpeditionService.cs').read_text()
-          for t in ['WaveCount = 3','wave switch { 1 => 10, 2 => 15, _ => 22 }','wave switch { 1 => 15, 2 => 22, _ => 32 }']:
-              assert t in region,t
-          airship=(root/'Services/AirshipFoundationService.cs').read_text()
-          assert 'Region3Fare = 500' in airship and 'Region4Fare = 1000' in airship
+          for t in ['WaveCount = 3','wave switch { 1 => 10, 2 => 15, _ => 22 }','wave switch { 1 => 15, 2 => 22, _ => 32 }']: assert t in region,t
+          airship=(root/'Services/AirshipFoundationService.cs').read_text(); assert 'Region3Fare = 500' in airship and 'Region4Fare = 1000' in airship
           save=(root/'Services/SaveService.cs').read_text(); assert 'CurrentSchemaVersion = 19' in save and 'CurrentSchemaVersion = 20' not in save
           cards=json.loads((root/'assets/cards.json').read_text()); legacy={'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
           assert len(cards)==80 and len([c for c in cards if c.get('Id') not in legacy])==76
@@ -104,20 +88,14 @@ jobs:
           for name in ['region3_mirrorwild.tmx','region4_resonance_verge.tmx']:
               r=ET.parse(root/'assets'/name).getroot(); assert r.attrib['width']=='40' and r.attrib['height']=='28'
               props={x.attrib.get('name'):x.attrib.get('value') for x in r.findall('./properties/property')}
-              assert props.get('CardchaRegionVersion')=='0676B'
-              assert props.get('CardchaTerrainDepth')=='map-layer-authored|no-postworld-ground-overlays'
-              layers={x.attrib['name']:x for x in r.findall('layer')}; assert set(layers)=={'Back','Buildings','Front'}
-              parsed={}
+              assert props.get('CardchaRegionVersion')=='0676B' and props.get('CardchaTerrainDepth')=='map-layer-authored|no-postworld-ground-overlays'
+              layers={x.attrib['name']:x for x in r.findall('layer')}; assert set(layers)=={'Back','Buildings','Front'}; parsed={}
               for lname,layer in layers.items():
-                  vals=[int(x.strip()) for x in (layer.find('data').text or '').split(',')]
-                  assert len(vals)==1120,f'{name}:{lname}:{len(vals)}'; parsed[lname]=vals
+                  vals=[int(x.strip()) for x in (layer.find('data').text or '').split(',')]; assert len(vals)==1120,f'{name}:{lname}:{len(vals)}'; parsed[lname]=vals
               back=parsed['Back']; count=back.count(457); assert 10<=count<=80,f'{name}:path={count}'
               for y in range(28):
-                  s=''.join('1' if v==457 else '0' for v in back[y*40:(y+1)*40])
-                  longest=max((len(m.group()) for m in re.finditer(r'1+',s)),default=0)
-                  assert longest<=8,f'{name}:row{y}:run{longest}'
+                  seq=''.join('1' if v==457 else '0' for v in back[y*40:(y+1)*40]); longest=max((len(m.group()) for m in re.finditer(r'1+',seq)),default=0); assert longest<=8,f'{name}:row{y}:run{longest}'
               assert all(v==0 for v in parsed['Front'])
-
           latest=Path('handoff/LATEST_CARDCHA_HANDOFF.md').read_text(); handoff=Path('handoff/ALPHA28_0676B_REGION_LAYERING_EXTRACTION_HOTFIX.md').read_text()
           assert version in latest and version in handoff and 'cardcha-alpha28-0676b-region-layering-extraction-hotfix' in latest
           print('0676B validator PASS')
@@ -133,8 +111,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name 'github-actions[bot]'; git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add -A src/Cardcha handoff
           if ! git diff --cached --quiet; then
             git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.45.2 layering gate hotfix [skip ci]'
@@ -146,20 +123,16 @@ jobs:
         run: |
           set -euo pipefail
           OUT="$GITHUB_WORKSPACE/package/Cardcha"; rm -rf "$GITHUB_WORKSPACE/package"; mkdir -p "$OUT"
-          cp src/Cardcha/manifest.json "$OUT/"; cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
-          cp -R src/Cardcha/assets "$OUT/"; cp -R src/Cardcha/i18n "$OUT/"
+          cp src/Cardcha/manifest.json "$OUT/"; cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true; cp -R src/Cardcha/assets "$OUT/"; cp -R src/Cardcha/i18n "$OUT/"
           DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1); test -n "$DLL" -a -s "$DLL"; cp "$DLL" "$OUT/Cardcha.dll"
-          cd "$GITHUB_WORKSPACE/package"
-          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip"
-          zip -qr "$ZIP" Cardcha; sha256sum "$ZIP" | tee "$ZIP.sha256"
+          cd "$GITHUB_WORKSPACE/package"; ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip"; zip -qr "$ZIP" Cardcha; sha256sum "$ZIP" | tee "$ZIP.sha256"
           python3 - <<'PY'
           import json,zipfile
           z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.45.2_0676B_RegionLayeringGateHotfix_TEST.zip'
           with zipfile.ZipFile(z) as f:
               n=set(f.namelist()); m=json.loads(f.read('Cardcha/manifest.json')); dll=f.read('Cardcha/Cardcha.dll')
               assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.45.2' and len(dll)>50000 and dll[:2]==b'MZ'
-              for p in ['Cardcha/assets/region3_mirrorwild.tmx','Cardcha/assets/region4_resonance_verge.tmx','Cardcha/assets/region3_mirrorwild_enemies.png','Cardcha/assets/region4_resonance_enemies.png','Cardcha/assets/airship_gate_auth.png','Cardcha/assets/mimi_walk.png','Cardcha/i18n/default.json','Cardcha/i18n/vi.json']:
-                  assert p in n,p
+              for p in ['Cardcha/assets/region3_mirrorwild.tmx','Cardcha/assets/region4_resonance_verge.tmx','Cardcha/assets/region3_mirrorwild_enemies.png','Cardcha/assets/region4_resonance_enemies.png','Cardcha/assets/airship_gate_auth.png','Cardcha/assets/mimi_walk.png','Cardcha/i18n/default.json','Cardcha/i18n/vi.json']: assert p in n,p
           print('0676B package audit PASS')
           PY
 
