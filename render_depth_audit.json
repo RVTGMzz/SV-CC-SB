@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "branch": "cardcha-alpha28-0676b-region-layering-extraction-hotfix",
+  "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
+  "renderedWorldSubscribers": {
+    "Story": { "classification": "reviewed-vfx-story", "physicalAllowed": false },
+    "BossCards": { "classification": "vfx-only", "physicalAllowed": false },
+    "ChaChaSkills": { "classification": "vfx-only", "physicalAllowed": false },
+    "ChaChaSupport": { "classification": "vfx-only", "physicalAllowed": false },
+    "ChaChaMaterials": { "classification": "vfx-only", "physicalAllowed": false },
+    "ChaChaBossForm": { "classification": "vfx-only", "physicalAllowed": false },
+    "AtticVisual": { "classification": "native-world-mutation-only", "physicalAllowed": false },
+    "Airship": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "VerdantArenaPolish": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "VerdantGuardian": { "classification": "telegraph-vfx-review", "physicalAllowed": false },
+    "VerdantGuardianVisual": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "VerdantSummons": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "MilestoneBosses": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "RegionExpeditions": { "classification": "0676b-migration", "physicalAllowed": false }
+  },
+  "confirmedUnsafePhysicalPostWorld": [
+    "AirshipInteriorStardewRenderer.DrawDeckStardewDecor",
+    "AirshipInteriorStardewRenderer.DrawDockStardewDecor",
+    "AirshipInteriorStardewRenderer.DrawUpgradeStations",
+    "AirshipFoundationService.DrawSkyDock",
+    "AirshipFoundationService.DrawSkyDockInteriorDetails.physical",
+    "AirshipFoundationService.DrawDeckMarkers.physical",
+    "AirshipFoundationService.DrawRegion1Details",
+    "Region1StardewDecorRenderer.Draw",
+    "VerdantGuardianVisualService.boss-body",
+    "VerdantGuardianSummonVisualService.summon-body",
+    "VerdantGuardianArenaPolishService.DrawObelisks",
+    "MilestoneBossService.DrawActor",
+    "RegionExpeditionService.legacy-authored-enemy-body",
+    "RegionExpeditionService.legacy-terrain-decor"
+  ],
+  "safeNativeExamples": [
+    "MimiAtticVisualService.EnsureVanillaFurniture",
+    "MimiAtticVisualService.EnsureWizardStairMapTiles"
+  ]
+}
