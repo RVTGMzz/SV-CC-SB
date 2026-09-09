@@ -3,8 +3,8 @@
     <Version>0.3.0-alpha.28.0.4.14.4.5.12.42</Version>
   </PropertyGroup>
 
-  <!-- .5.6.1.3 hard gate relocation + ChaCha Support Cast readability; .5.6.1.2 typography retained. -->
+  <!-- Keep the packaged SMAPI manifest aligned with the exact 0673 build version. -->
   <Target Name="CardchaAlpha280414456113Manifest" BeforeTargets="BeforeBuild">
-    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.4.5.12.41\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
+    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.4.5.12.42\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
   </Target>
 </Project>
