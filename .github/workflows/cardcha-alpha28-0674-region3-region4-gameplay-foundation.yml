@@ -1,0 +1,227 @@
+name: Cardcha alpha28.0.4.14.4.5.12.43 Region III IV Gameplay Foundation
+
+on:
+  push:
+    branches: [ cardcha-alpha28-0674-region3-region4-gameplay-foundation ]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Generate 0674 Region III IV gameplay foundation
+        run: python3 tools/alpha28_0674_region3_region4_gameplay_foundation.py
+
+      - name: Validate 0674 expedition contract
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, subprocess, xml.etree.ElementTree as ET
+
+          root = Path('src/Cardcha')
+          version = '0.3.0-alpha.28.0.4.14.4.5.12.43'
+          previous = '0.3.0-alpha.28.0.4.14.4.5.12.42'
+          manifest = json.loads((root/'manifest.json').read_text(encoding='utf-8'))
+          assert manifest['Version'] == version
+          assert version in (root/'Cardcha.csproj').read_text(encoding='utf-8')
+          targets = (root/'Directory.Build.targets').read_text(encoding='utf-8')
+          assert targets.count(version) >= 2, 'Directory.Build.targets must update both Version and manifest rewrite target'
+          assert previous not in targets, 'stale .12.42 manifest rewrite target remains'
+
+          region = (root/'Services/RegionExpeditionService.cs').read_text(encoding='utf-8')
+          for token in [
+              'Region3LocationName = "Cardcha_Region3_Mirrorwild"',
+              'Region4LocationName = "Cardcha_Region4_ResonanceVerge"',
+              'UseRouteConsole(int ownedCards, int nextBossRequired, string nextBossName)',
+              'WaveCount = 3',
+              'mirror_wisp', 'glass_scarab', 'echo_slime', 'mirror_sentinel',
+              'ignis_echo', 'vita_husk', 'aether_mite', 'resonant_prime',
+              'CardboardScraps += scrap', 'ShinyScraps += shiny',
+              'StartExternalRegionReturnFlight()',
+              'DebugEnter(int region)', 'DebugClearWave()',
+              'native Stardew sprite scale'
+          ]:
+              assert token in region, token
+          assert 'Scale' not in '\n'.join(line for line in region.splitlines() if 'monster' in line.lower()), 'enemy render scaling must not be introduced'
+
+          airship = (root/'Services/AirshipFoundationService.cs').read_text(encoding='utf-8')
+          for token in [
+              'BeginExternalRegionFlight(int region, string targetLocationName, Point arrivalTile)',
+              'GetRegionFareForExternalRoute(int region)',
+              'StartExternalRegionReturnFlight()',
+              'PendingExternalFlightLocationName',
+              'this.HandleRegion1DepartureRequest();',
+              'Region3Fare = 500', 'Region4Fare = 1000',
+              'GameLocation? firstRoom = this.BeginRegion1HuntRun();'
+          ]:
+              assert token in airship, token
+          assert airship.count('this.HandleRegion1DepartureRequest();') == 1, 'Region I helm flow changed unexpectedly'
+
+          boss = (root/'Services/MilestoneBossService.cs').read_text(encoding='utf-8')
+          for token in [
+              'BindExpeditionRouteHandler(Func<int, int, string, string> handler)',
+              'kind != MilestoneBossKind.HollowCurator && this.ExpeditionRouteAction is not null',
+              'return this.ExpeditionRouteAction(owned, required, name);',
+              'MilestoneBossKind.HollowCurator, 40',
+              'MilestoneBossKind.TricolorResonance, 60',
+              'MilestoneBossKind.Mimi, 80',
+              'RouteConfirmWindowMs = 5000L'
+          ]:
+              assert token in boss, token
+
+          entry = (root/'ModEntry.cs').read_text(encoding='utf-8')
+          for token in [
+              'private RegionExpeditionService RegionExpeditions = null!;',
+              'new RegionExpeditionService(helper, this.Monitor, this.Save, this.Airship)',
+              'this.MilestoneBosses.BindExpeditionRouteHandler(this.RegionExpeditions.UseRouteConsole);',
+              'cardcha_expedition_status', 'cardcha_test_region3', 'cardcha_test_region4', 'cardcha_expedition_clear',
+              'REGION III / IV EXPEDITION FOUNDATION TEST'
+          ]:
+              assert token in entry, token
+
+          for lang in ['default.json', 'vi.json']:
+              data = json.loads((root/'i18n'/lang).read_text(encoding='utf-8'))
+              for key in [
+                  'airship.expedition.region3','airship.expedition.region4','airship.expedition.choose',
+                  'airship.expedition.confirm','airship.expedition.unavailable','airship.expedition.arrive',
+                  'airship.expedition.wave','airship.expedition.wave_clear','airship.expedition.ready',
+                  'airship.expedition.extract_confirm','airship.expedition.bank','airship.expedition.lost'
+              ]:
+                  assert key in data, (lang, key)
+
+          for rel, role in [
+              ('assets/region3_mirrorwild.tmx', 'region3-mirrorwild'),
+              ('assets/region4_resonance_verge.tmx', 'region4-resonance-verge')
+          ]:
+              p = root/rel
+              r = ET.parse(p).getroot()
+              assert r.attrib['width'] == '40' and r.attrib['height'] == '28'
+              props = {x.attrib['name']: x.attrib.get('value','') for x in r.find('properties')}
+              assert role in props['CardchaRegionRole']
+              assert 'native-size-enemies' in props['CardchaAssetPolicy']
+              assert [l.attrib['name'] for l in r.findall('layer')] == ['Back','Buildings','Front']
+
+          save = (root/'Services/SaveService.cs').read_text(encoding='utf-8')
+          assert 'CurrentSchemaVersion = 19' in save
+          assert 'CurrentSchemaVersion = 20' not in save
+
+          cards = json.loads((root/'assets/cards.json').read_text(encoding='utf-8'))
+          legacy = {'endless_hunt','fate_weaver','immortal_echo','worldbreaker'}
+          assert len(cards) == 80
+          assert len([c for c in cards if c.get('Id') not in legacy]) == 76
+
+          # Gameplay-only pass: preserve accepted/locked art and all 0671/0672 milestone boss visuals.
+          locked = [
+              'src/Cardcha/assets/mimi_walk.png',
+              'src/Cardcha/assets/airship_visual.png',
+              'src/Cardcha/assets/airship_deck.tmx',
+              'src/Cardcha/assets/sky_dock_interior.tmx',
+              'src/Cardcha/assets/boss2_hollow_curator_arena.tmx',
+              'src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+              'src/Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+              'src/Cardcha/assets/verdant_guardian_arena.tmx',
+          ]
+          locked += [str(p) for p in sorted((root/'assets/bosses/milestone').glob('*.png'))]
+          for path in locked:
+              rc = subprocess.run(['git','diff','--quiet','origin/cardcha-alpha28-0673-milestone-progression-boss-route','--',path]).returncode
+              assert rc == 0, f'0674 changed locked asset: {path}'
+
+          checked = 0
+          for tmx in sorted((root/'assets').rglob('*.tmx')):
+              r = ET.parse(tmx).getroot()
+              for layer in r.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  vals = []
+                  for i, token in enumerate((data.text or '').split(',')):
+                      st = token.strip()
+                      assert st != '', f'{tmx}: empty CSV token {i}'
+                      n = int(st)
+                      assert 0 <= n <= 0xFFFFFFFF
+                      vals.append(n)
+                  expected = int(layer.attrib['width']) * int(layer.attrib['height'])
+                  assert len(vals) == expected, f'{tmx}: {len(vals)} != {expected}'
+                  checked += 1
+          assert checked >= 53, checked
+          print(f'0674 validator PASS; RegionIII+IV=3-wave expeditions schema=19 cards=76/80 strictTMX={checked}')
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize .5.12.43 source handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.43 Region III IV gameplay foundation [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0674-region3-region4-gameplay-foundation
+          fi
+
+      - name: Package .5.12.43 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name 'Cardcha.dll' | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP="Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.43_Region3Region4GameplayFoundation_TEST.zip"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          import json, zipfile
+          z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.43_Region3Region4GameplayFoundation_TEST.zip'
+          with zipfile.ZipFile(z) as f:
+              names=set(f.namelist())
+              manifest=json.loads(f.read('Cardcha/manifest.json'))
+              dll=f.read('Cardcha/Cardcha.dll')
+              print(f"0674 package diagnostics: version={manifest['Version']} dllBytes={len(dll)} files={len(names)}")
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.43'
+              assert len(dll)>50000 and dll[:2]==b'MZ'
+              for p in [
+                  'Cardcha/assets/region3_mirrorwild.tmx',
+                  'Cardcha/assets/region4_resonance_verge.tmx',
+                  'Cardcha/assets/boss2_hollow_curator_arena.tmx',
+                  'Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+                  'Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+                  'Cardcha/assets/mimi_walk.png',
+                  'Cardcha/i18n/default.json',
+                  'Cardcha/i18n/vi.json'
+              ]:
+                  assert p in names, p
+              assert len(f.read('Cardcha/assets/mimi_walk.png')) == 65167
+          print('0674 final package audit PASS')
+          PY
+
+      - name: Upload TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0674-region3-region4-gameplay-foundation
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.43_Region3Region4GameplayFoundation_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.43_Region3Region4GameplayFoundation_TEST.zip.sha256
+          if-no-files-found: error
