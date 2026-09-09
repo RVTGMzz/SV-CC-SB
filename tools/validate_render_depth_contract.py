@@ -17,10 +17,10 @@ def fail(message: str) -> None:
 
 
 def normalized_markdown(text: str) -> str:
-    """Normalize Markdown decoration/case so policy wording can evolve without weakening the contract."""
-    text = text.lower()
+    """Normalize Markdown decoration/case so formatting can evolve without weakening the contract."""
+    text = text.lower().replace("-", " ")
     text = re.sub(r"[`*_#>|]", "", text)
-    text = re.sub(r"[^a-z0-9./+ -]+", " ", text)
+    text = re.sub(r"[^a-z0-9./+ ]+", " ", text)
     return re.sub(r"\s+", " ", text).strip()
 
 
@@ -33,7 +33,6 @@ agents = AGENTS_PATH.read_text(encoding="utf-8")
 policy_norm = normalized_markdown(policy)
 agents_norm = normalized_markdown(agents)
 
-# Validate the *meaningful contract phrases*, not Markdown punctuation/capitalization.
 for token in (
     "no physical cardcha world object may be rendered as a display.renderedworld overlay",
     "ci success is not visual acceptance",
@@ -73,8 +72,6 @@ for name, meta in audited.items():
     if not classification:
         fail(f"{name}: missing audit classification")
 
-# Concrete regressions which caused real screenshots/runtime failures.
-# These guards deliberately target architectural mistakes, not pixel offsets.
 region_patch = (SRC / "Patches" / "RegionExpeditionProxyDrawPatch.cs").read_text(encoding="utf-8")
 for token in (
     'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })',
@@ -92,8 +89,6 @@ for token in ("Furniture item =", 'map.GetLayer("Buildings")', "new StaticTile(b
     if token not in attic:
         fail(f"MiMi attic lost native-world depth ownership: {token}")
 
-# A future change may remove these debt entries only by updating both source and audit.
-# Until then CI requires every known unsafe location to remain explicitly recorded.
 debt = set(audit.get("confirmedUnsafePhysicalPostWorld", []))
 required_debt = {
     "AirshipInteriorStardewRenderer.DrawDeckStardewDecor",
@@ -109,7 +104,6 @@ missing_debt = sorted(required_debt - debt)
 if missing_debt:
     fail("known physical depth debt was removed from audit without a source migration: " + ", ".join(missing_debt))
 
-# Do not allow the exact Region-I screenshot regression back in after 0676B fixes it.
 airship = (SRC / "Services" / "AirshipFoundationService.cs").read_text(encoding="utf-8")
 if "DrawRegion1Details(e.SpriteBatch, location);" in airship:
     print("RENDER DEPTH AUDIT WARNING: Region I physical overlay debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
