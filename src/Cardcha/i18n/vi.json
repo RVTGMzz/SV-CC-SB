@@ -1125,5 +1125,11 @@
   "boss.verdant.totem.all-broken": "KHIÊN VERDANT ĐÃ VỠ! Guardian choáng rõ rệt trong 1,2 giây khi trụ cuối cùng sụp xuống.",
   "airship.lostfound.empty": "KHO ĐỒ THẤT LẠC\\nHiện chưa có vật phẩm nào được gửi về đây.",
   "boss.verdant.totem.hud": "TRỤ VERDANT {{living}}/4  •  KHIÊN {{barrier}}%",
-  "airship.region1.run.rare.lostcache.opened": "KHO ĐỒ THẤT LẠC\nBạn mở chiếc rương tiếp tế bị bỏ quên. +4 Scrap và +1 Shiny Scrap được cộng vào phần thưởng chưa bank của chuyến săn này."
+  "airship.region1.run.rare.lostcache.opened": "KHO ĐỒ THẤT LẠC\nBạn mở chiếc rương tiếp tế bị bỏ quên. +4 Scrap và +1 Shiny Scrap được cộng vào phần thưởng chưa bank của chuyến săn này.",
+  "airship.milestone.boss1_required": "Tuyến Mốc vẫn đang bị phong ấn. Hãy đánh bại Verdant Guardian trước.",
+  "airship.milestone.route_sealed": "Tuyến cộng hưởng vượt qua Khu Vực {{region}} vẫn bị khóa bởi mốc trước đó.",
+  "airship.milestone.progress": "Tuyến Mốc • {{name}} • {{cards}}/{{required}} lá bài. Hãy tiếp tục sưu tập để ổn định tuyến đường này.",
+  "airship.milestone.confirm": "Tuyến Mốc đã sẵn sàng: {{name}} ({{required}} lá bài). Tương tác với bàn điều hướng lần nữa trong 5 giây để khởi hành.",
+  "airship.milestone.all_clear": "Cả bốn mốc cộng hưởng đã hoàn tất. Bàn điều hướng tạm thời đã yên lặng.",
+  "airship.milestone.unavailable": "Hiện tại chưa thể ổn định đấu trường mốc này."
 }

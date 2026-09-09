@@ -144,6 +144,7 @@ internal sealed class AirshipFoundationService
     private readonly IMonitor Monitor;
     private readonly SaveService Save;
     private readonly ControllerProfileService Controller;
+    private Func<string>? MilestoneRouteAction;
 
     private bool FlybyActive;
     private long FlybyStartedAtMs;
@@ -204,6 +205,9 @@ internal sealed class AirshipFoundationService
         this.Save = save;
         this.Controller = controller;
     }
+
+    public void BindMilestoneRouteHandler(Func<string> handler)
+        => this.MilestoneRouteAction = handler;
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -430,8 +434,17 @@ internal sealed class AirshipFoundationService
             if (interiorAction == route)
             {
                 this.Helper.Input.Suppress(e.Button);
-                int owned = this.Save.Data.OwnedCards?.Count ?? 0;
-                Game1.drawObjectDialogue(ModEntry.T("airship.arcane.route_console", new { cards = owned }));
+                if (this.MilestoneRouteAction is not null)
+                {
+                    string message = this.MilestoneRouteAction();
+                    if (!string.IsNullOrWhiteSpace(message))
+                        Game1.drawObjectDialogue(message);
+                }
+                else
+                {
+                    int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+                    Game1.drawObjectDialogue(ModEntry.T("airship.arcane.route_console", new { cards = owned }));
+                }
                 return;
             }
 

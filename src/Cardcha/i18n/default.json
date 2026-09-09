@@ -1047,5 +1047,11 @@
   "boss.verdant.totem.all-broken": "VERDANT BARRIER BROKEN! The Guardian staggers for 1.2 seconds as the final seed totem collapses.",
   "airship.lostfound.empty": "LOST & FOUND\\nNothing has been returned here right now.",
   "boss.verdant.totem.hud": "TOTEMS {{living}}/4  •  BARRIER {{barrier}}%",
-  "airship.region1.run.rare.lostcache.opened": "LOST CACHE\nYou open the abandoned supply chest. +4 Scrap and +1 Shiny Scrap are added to this run's unbanked rewards."
+  "airship.region1.run.rare.lostcache.opened": "LOST CACHE\nYou open the abandoned supply chest. +4 Scrap and +1 Shiny Scrap are added to this run's unbanked rewards.",
+  "airship.milestone.boss1_required": "The Milestone Route is still sealed. Defeat the Verdant Guardian first.",
+  "airship.milestone.route_sealed": "The resonance route beyond Region {{region}} is still sealed by the previous milestone.",
+  "airship.milestone.progress": "Milestone Route • {{name}} • {{cards}}/{{required}} cards. Keep collecting cards to stabilize this route.",
+  "airship.milestone.confirm": "Milestone Route ready: {{name}} ({{required}} cards). Interact with the route console again within 5 seconds to depart.",
+  "airship.milestone.all_clear": "All four milestone resonances are complete. The route console is quiet for now.",
+  "airship.milestone.unavailable": "The milestone arena cannot be stabilized right now."
 }

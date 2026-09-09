@@ -94,6 +94,9 @@ internal sealed class MilestoneBossService
     private bool VictoryHandled;
     private int CuratorAdaptationStacks;
     private int DecisionSerial;
+    private long RouteConfirmUntilMs;
+    private MilestoneBossKind? RouteConfirmKind;
+    private const long RouteConfirmWindowMs = 5000L;
     private Point EchoTargetTile;
     private Point EchoTargetTile2;
     private int MimiCadenceIndex;
@@ -176,6 +179,11 @@ internal sealed class MilestoneBossService
             this.StartEncounter(Game1.currentLocation!, locationKind.Value);
 
         long now = Environment.TickCount64;
+        if (this.RouteConfirmUntilMs > 0 && now > this.RouteConfirmUntilMs)
+        {
+            this.RouteConfirmUntilMs = 0;
+            this.RouteConfirmKind = null;
+        }
         this.AnchorBossActors();
 
         if (this.State == MilestoneBossState.Victory)
@@ -295,11 +303,91 @@ internal sealed class MilestoneBossService
         return $"TEST: entered Boss {milestone} arena. Milestone gate bypassed; save progression unchanged until a real victory.";
     }
 
+    public string UseAirshipMilestoneRoute()
+    {
+        if (!Context.IsWorldReady)
+            return ModEntry.T("airship.milestone.unavailable");
+
+        int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+        (MilestoneBossKind? kind, int required, string name) = this.ResolveNextMilestoneRoute();
+        if (kind is null)
+        {
+            this.RouteConfirmUntilMs = 0;
+            this.RouteConfirmKind = null;
+            return ModEntry.T("airship.milestone.all_clear");
+        }
+
+        if (kind == MilestoneBossKind.HollowCurator && !this.Save.Data.Region1BossDefeated)
+            return ModEntry.T("airship.milestone.boss1_required");
+
+        int regionRequired = kind switch
+        {
+            MilestoneBossKind.TricolorResonance => 3,
+            MilestoneBossKind.Mimi => 4,
+            _ => 2,
+        };
+        if (this.Save.Data.AirshipHighestRegionUnlocked < regionRequired)
+            return ModEntry.T("airship.milestone.route_sealed", new { region = regionRequired });
+
+        if (owned < required)
+        {
+            this.RouteConfirmUntilMs = 0;
+            this.RouteConfirmKind = null;
+            return ModEntry.T("airship.milestone.progress", new { name, cards = owned, required });
+        }
+
+        long now = Environment.TickCount64;
+        if (this.RouteConfirmKind != kind || this.RouteConfirmUntilMs <= now)
+        {
+            this.RouteConfirmKind = kind;
+            this.RouteConfirmUntilMs = now + RouteConfirmWindowMs;
+            Game1.playSound("smallSelect");
+            return ModEntry.T("airship.milestone.confirm", new { name, required });
+        }
+
+        GameLocation? arena = this.EnsureLocation(kind.Value);
+        if (arena is null)
+        {
+            this.RouteConfirmUntilMs = 0;
+            this.RouteConfirmKind = null;
+            return ModEntry.T("airship.milestone.unavailable");
+        }
+
+        this.RouteConfirmUntilMs = 0;
+        this.RouteConfirmKind = null;
+        Game1.playSound("wand");
+        Game1.warpFarmer(arena.NameOrUniqueName, ArrivalTile.X, ArrivalTile.Y, 0);
+        return string.Empty;
+    }
+
+    public string DescribeMilestoneRoute()
+    {
+        int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+        (MilestoneBossKind? kind, int required, string name) = this.ResolveNextMilestoneRoute();
+        string next = kind is null ? "all-clear" : $"{kind}:{name}:{owned}/{required}";
+        double confirm = this.RouteConfirmUntilMs > Environment.TickCount64
+            ? (this.RouteConfirmUntilMs - Environment.TickCount64) / 1000d
+            : 0d;
+        return $"0673 MilestoneRoute | Next={next} | BossI={this.Save.Data.Region1BossDefeated} | HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | Confirm={this.RouteConfirmKind?.ToString() ?? "none"}:{confirm:0.0}s";
+    }
+
+    private (MilestoneBossKind? Kind, int Required, string Name) ResolveNextMilestoneRoute()
+    {
+        HashSet<string>? unlocked = this.Save.Data.BossCardsUnlocked;
+        if (unlocked?.Contains(MirrorArchiveBossCardId) != true)
+            return (MilestoneBossKind.HollowCurator, 40, "The Hollow Curator");
+        if (unlocked?.Contains(TricolorBossCardId) != true)
+            return (MilestoneBossKind.TricolorResonance, 60, "The Tricolor Resonance");
+        if (unlocked?.Contains(MimiBossCardId) != true)
+            return (MilestoneBossKind.Mimi, 80, "MiMi • The Resonance Master");
+        return (null, 0, string.Empty);
+    }
+
     public string Describe()
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0672 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+        return $"0673 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
                $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
@@ -319,6 +407,8 @@ internal sealed class MilestoneBossService
         this.VictoryHandled = false;
         this.CuratorAdaptationStacks = 0;
         this.DecisionSerial = 0;
+        this.RouteConfirmUntilMs = 0;
+        this.RouteConfirmKind = null;
         this.AttackTargetTile = PlayerTile();
         this.AttackTargetTile2 = this.AttackTargetTile;
         this.EchoTargetTile = this.AttackTargetTile;
@@ -1031,12 +1121,14 @@ internal sealed class MilestoneBossService
         this.VictoryReturnAtMs = 0;
         this.AttackApplied = false;
         this.VictoryHandled = false;
-        this.CuratorAdaptationStacks = 0;
-        this.DecisionSerial = 0;
         this.EchoTargetTile = Point.Zero;
         this.EchoTargetTile2 = Point.Zero;
         this.MimiCadenceIndex = 0;
         this.TricolorMotionSerial = 0;
+        this.CuratorAdaptationStacks = 0;
+        this.DecisionSerial = 0;
+        this.RouteConfirmUntilMs = 0;
+        this.RouteConfirmKind = null;
     }
 
     private void RemoveMarkedActors(GameLocation? arena)
