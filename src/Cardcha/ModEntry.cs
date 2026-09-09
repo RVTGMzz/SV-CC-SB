@@ -368,7 +368,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.3 AIRSHIP TWO-ROOM NATIVE DECOR REBUILD TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.3.1 0677A SYSTEM RECHECK + AIRSHIP LIFECYCLE HOTFIX TEST",
             LogLevel.Info
         );
     }

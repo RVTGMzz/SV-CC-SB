@@ -274,9 +274,11 @@ internal sealed class AirshipFoundationService
     public void OnSaveLoaded()
     {
         this.ResetRuntime();
-        this.EnsureDeckLocation();
-        this.EnsureSkyDockInteriorLocation();
+        GameLocation? deck = this.EnsureDeckLocation();
+        GameLocation? dock = this.EnsureSkyDockInteriorLocation();
         this.EnsureRegion1Location();
+        if (deck is not null) this.EnsureDeckVanillaFurniture(deck);
+        if (dock is not null) this.EnsureSkyDockVanillaFurniture(dock);
         this.EnsureRegion1RunRoomLocations();
         this.ResetRegion1RunState();
         this.MigrateUnlockFromExistingStory();
@@ -295,9 +297,11 @@ internal sealed class AirshipFoundationService
         this.LoggedSkyDockInteriorFailure = false;
         this.Region1CreationFailed = false;
         this.LoggedRegion1Failure = false;
-        this.EnsureDeckLocation();
-        this.EnsureSkyDockInteriorLocation();
+        GameLocation? deck = this.EnsureDeckLocation();
+        GameLocation? dock = this.EnsureSkyDockInteriorLocation();
         this.EnsureRegion1Location();
+        if (deck is not null) this.EnsureDeckVanillaFurniture(deck);
+        if (dock is not null) this.EnsureSkyDockVanillaFurniture(dock);
         this.EnsureRegion1RunRoomLocations();
         this.ResetRegion1RunState();
         this.MigrateUnlockFromExistingStory();
@@ -389,16 +393,10 @@ internal sealed class AirshipFoundationService
 
         GameLocation? location = Game1.currentLocation;
         if (location?.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase) == true)
-        {
-            this.EnsureSkyDockVanillaFurniture(location);
             this.DrawSkyDockInteriorDetails(e.SpriteBatch, location);
-        }
 
         if (location?.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase) == true)
-        {
-            this.EnsureDeckVanillaFurniture(location);
             this.DrawDeckMarkers(e.SpriteBatch, location);
-        }
 
         if (location?.NameOrUniqueName.Equals(Region1LocationName, StringComparison.OrdinalIgnoreCase) == true)
             this.DrawRegion1Details(e.SpriteBatch, location);
@@ -551,6 +549,11 @@ internal sealed class AirshipFoundationService
         if (!Context.IsWorldReady || !Context.IsMainPlayer)
             return;
 
+        if (e.NewLocation.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
+            this.EnsureDeckVanillaFurniture(e.NewLocation);
+        else if (e.NewLocation.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
+            this.EnsureSkyDockVanillaFurniture(e.NewLocation);
+
         if (TryGetRegion1RunRoomIndex(e.NewLocation, out int roomIndex))
         {
             if (!this.Region1RunActive || this.Region1RunStep < 0 || this.Region1RunStep >= this.Region1RunTargetNodes)
@@ -680,13 +683,23 @@ internal sealed class AirshipFoundationService
         bool deckExists = Game1.getLocationFromName(DeckLocationName) is not null;
         bool interiorExists = Game1.getLocationFromName(SkyDockInteriorLocationName) is not null;
         bool region1Exists = Game1.getLocationFromName(Region1LocationName) is not null;
+        GameLocation? deckRoom = Game1.getLocationFromName(DeckLocationName);
+        GameLocation? dockRoom = Game1.getLocationFromName(SkyDockInteriorLocationName);
+        int deckFurniture = deckRoom?.furniture.Count(f => f.modData.ContainsKey(InteriorDecorMarkerKey)) ?? 0;
+        int dockFurniture = dockRoom?.furniture.Count(f => f.modData.ContainsKey(InteriorDecorMarkerKey)) ?? 0;
+        bool lostFoundPresent = false;
+        if (dockRoom is not null)
+        {
+            Point lfTile = ResolveSkyDockLostFoundTile(dockRoom);
+            lostFoundPresent = dockRoom.Objects.TryGetValue(new Vector2(lfTile.X, lfTile.Y), out StardewValley.Object? lf) && lf is Chest;
+        }
         return $"GateTest={this.TestGateAccessActive} | " +
                $"AirshipFlybySeen={this.Save.Data.AirshipFlybySeen} | " +
                $"FlybyActive={this.FlybyActive} | " +
                $"Unlocked={this.Save.Data.AirshipUnlocked} | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | " +
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
-               $"DeckExists={deckExists} | InteriorExists={interiorExists} | Region1Exists={region1Exists} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
+               $"DeckExists={deckExists} | InteriorExists={interiorExists} | Region1Exists={region1Exists} | NativeDecor=Bridge:{deckFurniture},Dock:{dockFurniture},LostFound:{lostFoundPresent} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
                $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | Upgrades=Engine:{this.Save.Data.AirshipEngineLevel}/3,Navigation:{this.Save.Data.AirshipNavigationLevel}/3,Hull:{this.Save.Data.AirshipHullLevel}/3,Reactor:{this.Save.Data.AirshipReactorLevel}/3 | CollisionEdits=NONE";
     }
 
@@ -2410,17 +2423,17 @@ private void EnsureDeckVanillaFurniture(GameLocation deck)
 
     // LEFT: engine / hull workshop. Main x=10..14 spine stays clear.
     TryAddInteriorFurniture(deck, "(F)1443", 3, 5);
-    TryAddInteriorFurniture(deck, "(F)1120", 3, 7, heldId: "(F)1369");
+    TryAddInteriorFurniture(deck, "(F)1120", 1, 6, heldId: "(F)1369");
     TryAddInteriorFurniture(deck, "(F)1399", 2, 10, heldId: "(F)1369");
     TryAddInteriorFurniture(deck, "(F)1390", 5, 10);
-    TryAddInteriorFurniture(deck, "(F)704", 6, 10);
+    TryAddInteriorFurniture(deck, "(F)704", 3, 11);
 
     // RIGHT: navigation / resonance workshop.
     TryAddInteriorFurniture(deck, "(F)1443", 20, 5);
-    TryAddInteriorFurniture(deck, "(F)1132", 18, 7, heldId: "(F)1368");
+    TryAddInteriorFurniture(deck, "(F)1132", 21, 6, heldId: "(F)1368");
     TryAddInteriorFurniture(deck, "(F)1399", 20, 10, heldId: "(F)1369");
     TryAddInteriorFurniture(deck, "(F)1390", 18, 10);
-    TryAddInteriorFurniture(deck, "(F)1132", 15, 10, heldId: "(F)1368");
+    TryAddInteriorFurniture(deck, "(F)1132", 21, 11, heldId: "(F)1368");
 
     // Rugs group functions without blocking movement.
     TryAddInteriorFurniture(deck, "(F)1456", 9, 6);
@@ -2503,18 +2516,30 @@ private static void TryAddInteriorFurniture(
     int rotation = 0,
     string? heldId = null)
 {
+    Furniture item;
     try
     {
-        Furniture item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
-        item.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
-        if (heldId is not null)
-            item.SetHeldObject(ItemRegistry.Create<Furniture>(heldId));
-        location.furniture.Add(item);
+        item = ItemRegistry.Create<Furniture>(itemId).SetPlacement(x, y, rotation);
     }
-    catch
+    catch (Exception ex)
     {
-        // A changed vanilla furniture ID must never make either Airship room unloadable.
+        ModEntry.StaticMonitor?.Log($"0677A skipped invalid Airship furniture {itemId} at {x},{y}: {ex.GetType().Name}: {ex.Message}", StardewModdingAPI.LogLevel.Warn);
+        return;
     }
+
+    item.modData[InteriorDecorMarkerKey] = InteriorDecorVersion;
+    if (heldId is not null)
+    {
+        try
+        {
+            item.SetHeldObject(ItemRegistry.Create<Furniture>(heldId));
+        }
+        catch (Exception ex)
+        {
+            ModEntry.StaticMonitor?.Log($"0677A kept Airship furniture {itemId} but skipped held decor {heldId}: {ex.GetType().Name}", StardewModdingAPI.LogLevel.Trace);
+        }
+    }
+    location.furniture.Add(item);
 }
 
 private static void TryAddInteriorChest(GameLocation location, Point tile)
