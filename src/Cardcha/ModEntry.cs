@@ -327,26 +327,29 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_trigger", "TEST ONLY: force Verdant Guard active for visual/gameplay verification.", (_, _) => this.Monitor.Log(this.BossCards.DebugTrigger(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_card_test", "TEST ONLY: open the visual 76-card Card Test Lab.", this.CommandCardTest);
-        helper.ConsoleCommands.Add("cardcha_card_test_stop", "TEST ONLY: stop Card Test Lab, exit arena, and restore the real loadout.", this.CommandCardTestStop);
-        helper.ConsoleCommands.Add("cardcha_card_auto_run", "TEST ONLY: run deterministic runtime scenarios for all 76 active cards.", this.CommandCardAutoRun);
-        helper.ConsoleCommands.Add("cardcha_chacha_boss_ready", "TEST ONLY: fill Boss Energy to 100 so the ChaCha activation UI can be tested.", this.CommandChaChaBossReady);
-        helper.ConsoleCommands.Add("cardcha_chacha_boss_status", "Show ChaCha Boss Form runtime state.", this.CommandChaChaBossStatus);
-        helper.ConsoleCommands.Add("cardcha_guardian_rabbit_test", "TEST ONLY: runtime-unlock and immediately activate Guardian Rabbit for 10 seconds.", (_, _) => this.Monitor.Log(this.ChaChaBossForm.DebugForceGuardianRabbit() ? "TEST: Guardian Rabbit activated for 10 seconds." : "TEST: Guardian Rabbit could not activate in the current game state.", LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_chacha_skill_unlock", "TEST ONLY: discover the Region I ChaCha skill.", this.CommandChaChaSkillUnlock);
-        helper.ConsoleCommands.Add("cardcha_chacha_skill_level", "TEST ONLY: set the Region I ChaCha skill level 1-5 without spending Magic Dust.", this.CommandChaChaSkillLevel);
-        helper.ConsoleCommands.Add("cardcha_chacha_skill_cast", "TEST ONLY: replay the normal-form ChaCha skill cast visual.", this.CommandChaChaSkillCast);
-        helper.ConsoleCommands.Add("cardcha_chacha_skill_status", "Show persistent ChaCha normal-form skill state.", this.CommandChaChaSkillStatus);
-        helper.ConsoleCommands.Add("cardcha_chacha_materials", "TEST ONLY: give all four ChaCha region upgrade materials: cardcha_chacha_materials [amount]", this.CommandChaChaMaterials);
-        helper.ConsoleCommands.Add("cardcha_chacha_station", "TEST ONLY: open the Airship ChaCha Resonance Pedestal UI directly.", this.CommandChaChaStation);
-        helper.ConsoleCommands.Add("cardcha_chacha_material_status", "Show ChaCha region-material and Airship station state.", this.CommandChaChaMaterialStatus);
-        helper.ConsoleCommands.Add("cardcha_chacha_support_status", "Show ChaCha one-cast support runtime state.", (_, _) => this.Monitor.Log("===== CHACHA SUPPORT CAST =====\n" + this.ChaChaSupport.Describe(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_chacha_support_force", "TEST ONLY: force one ChaCha Support Cast, bypassing cooldown.", (_, args) =>
+        helper.ConsoleCommands.Add("cardcha_boss_form_charge", "TEST ONLY: add Boss Energy: cardcha_boss_form_charge [amount]", (_, args) =>
         {
-            if (!Context.IsWorldReady) return;
-            bool ok = this.ChaChaSupport.DebugForceCast(args.FirstOrDefault() ?? "debug");
-            this.Monitor.Log(ok ? "TEST: ChaCha Support Cast forced." : "TEST: Support Cast unavailable (unlock Vital/ChaCha or leave Boss Form).", ok ? LogLevel.Alert : LogLevel.Warn);
+            int amount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? parsed : 100;
+            this.Monitor.Log(this.ChaChaBossForm.DebugCharge(amount), LogLevel.Alert);
         });
+        helper.ConsoleCommands.Add("cardcha_boss_form_trigger", "TEST ONLY: trigger the highest unlocked ChaCha Boss Form.", (_, _) => this.Monitor.Log(this.ChaChaBossForm.DebugTrigger(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_form_status", "Show ChaCha Boss Form runtime state.", (_, _) => this.Monitor.Log(this.ChaChaBossForm.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_chacha_skills", "Show ChaCha normal-form exploration skill state.", (_, _) => this.Monitor.Log(this.ChaChaSkills.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_chacha_skill_unlock", "TEST ONLY: unlock a ChaCha exploration skill without changing region progression: cardcha_chacha_skill_unlock <vital|guard|spirit|luck>", (_, args) => this.Monitor.Log(this.ChaChaSkills.DebugUnlock(args.FirstOrDefault()), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_chacha_skill_equip", "Equip an unlocked ChaCha exploration skill: cardcha_chacha_skill_equip <vital|guard|spirit|luck|none>", (_, args) => this.Monitor.Log(this.ChaChaSkills.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_chacha_skill_materials", "TEST ONLY: give ChaCha region materials: cardcha_chacha_skill_materials [amount]", (_, args) =>
+        {
+            int amount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? parsed : 20;
+            this.ChaChaMaterials.GiveAllForDebug(amount);
+            this.Monitor.Log(this.ChaChaMaterials.Describe(), LogLevel.Alert);
+        });
+        helper.ConsoleCommands.Add("cardcha_chacha_station_status", "Show ChaCha Resonance Pedestal material and upgrade state.", (_, _) => this.Monitor.Log(this.ChaChaMaterials.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_cards", "Open the dedicated Card Test Lab (local only).", this.CommandTestCards);
+        helper.ConsoleCommands.Add("cardcha_test_run", "Run automated Cardcha card scenarios: cardcha_test_run [batchA|batchB|all|report]", this.CommandTestRun);
+        helper.ConsoleCommands.Add("cardcha_test_arena", "Enter the isolated Card Test Arena without touching story or world state.", this.CommandTestArena);
+        helper.ConsoleCommands.Add("cardcha_test_arena_clear", "Remove all Card Test Arena enemies.", this.CommandTestArenaClear);
+        helper.ConsoleCommands.Add("cardcha_test_arena_spawn", "Spawn Card Test Arena enemies: cardcha_test_arena_spawn [normal|elite|boss] [count]", this.CommandTestArenaSpawn);
+        helper.ConsoleCommands.Add("cardcha_test_arena_exit", "Leave the Card Test Arena and restore the original player location.", this.CommandTestArenaExit);
     }
 
     private void OnGameLaunched(object? sender, GameLaunchedEventArgs e)
@@ -367,7 +370,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.1 REGION III / IV TERRAIN DEPTH + EXPEDITION DRAW HOTFIX TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.2 REGION LAYERING + MAP CLEANUP + GATE ALIGNMENT HOTFIX TEST",
             LogLevel.Info
         );
     }
@@ -521,8 +524,13 @@ internal sealed class ModEntry : Mod
         this.Social.OnReturnedToTitle();
         this.Home.OnReturnedToTitle();
         this.Airship.OnReturnedToTitle();
-        this.CardLab.EndSession();
-        this.Save.Clear();
+        this.NormalizeCardchaMachinePlacement();
+        this.NormalizePortableMachinePlacement();
+    }
+
+    private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
+    {
+        this.CombatHud.Draw(e.SpriteBatch);
     }
 
     private void OnObjectListChanged(object? sender, ObjectListChangedEventArgs e)
@@ -530,31 +538,15 @@ internal sealed class ModEntry : Mod
         if (!Context.IsWorldReady)
             return;
 
-        foreach (var pair in e.Added.ToList())
-        {
-            if (ItemAssetService.IsPortableMachine(pair.Value))
-            {
-                e.Location.Objects.Remove(pair.Key);
-                this.ReturnPortableMachineToPlayer();
-                Game1.showGlobalMessage(ModEntry.T("portable.machine.recovered"));
-                this.Monitor.Log($"Recovered Portable Cardcha Machine placement at {e.Location.NameOrUniqueName}.", LogLevel.Info);
-                continue;
-            }
+        this.Progression.OnObjectListChanged(e);
+        this.NormalizeCardchaMachinePlacement();
+        this.NormalizePortableMachinePlacement();
+    }
 
-            if (IsMainFarmHouse(e.Location) || !MachineInteractionPatch.IsCardchaMachine(pair.Value))
-                continue;
-
-            // The stationary Cardcha machine is intentionally a home appliance, not a field
-            // machine. If a modded map/placement path bypasses BigCraftableData's outdoor flag,
-            // take it straight back into the player's inventory instead of leaving a bad placement.
-            e.Location.Objects.Remove(pair.Key);
-            this.ReturnCardchaMachineToPlayer();
-            Game1.showGlobalMessage(ModEntry.T("machine.place.home-only"));
-            this.Monitor.Log(
-                $"Blocked Cardcha Machine placement outside the main FarmHouse ({e.Location.NameOrUniqueName}).",
-                LogLevel.Info
-            );
-        }
+    private static void TryLogOnce(IMonitor monitor, string key, string message, LogLevel level = LogLevel.Warn)
+    {
+        if (LoggedErrors.Add(key))
+            monitor.Log(message, level);
     }
 
     private void NormalizeCardchaMachinePlacement()
@@ -562,227 +554,186 @@ internal sealed class ModEntry : Mod
         if (!Context.IsWorldReady)
             return;
 
-        GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
-        if (mainHouse is null)
-            return;
-
-        int recovered = 0;
-        foreach (GameLocation location in Game1.locations.ToList())
+        try
         {
-            if (ReferenceEquals(location, mainHouse))
-                continue;
-
-            foreach (var pair in location.Objects.Pairs
-                         .Where(pair => MachineInteractionPatch.IsCardchaMachine(pair.Value))
-                         .ToList())
+            foreach (GameLocation location in Game1.locations)
             {
-                location.Objects.Remove(pair.Key);
-                recovered++;
-                this.ReturnCardchaMachineToPlayer();
+                foreach ((Vector2 tile, StardewValley.Object obj) in location.Objects.Pairs.ToList())
+                {
+                    if (!this.Items.IsCardchaMachine(obj))
+                        continue;
+
+                    if (this.PortableMachine.IsPortableMachine(obj))
+                    {
+                        // Portable machines are inventory-only. Remove legacy placed instances and return
+                        // one copy to the player when the save still owns the portable entitlement.
+                        location.Objects.Remove(tile);
+                        if (this.Save.Data.PortableMachinePurchased || this.Save.Data.PortableMachineGifted)
+                            this.EnsurePortableMachineInInventory();
+                        continue;
+                    }
+
+                    // Stationary Machine remains placeable indoors only.
+                    if (location.IsOutdoors)
+                    {
+                        location.Objects.Remove(tile);
+                        this.Items.EnsureMachineInInventory();
+                    }
+                }
             }
         }
-
-        if (recovered > 0)
+        catch (Exception ex)
         {
-            Game1.showGlobalMessage(ModEntry.T("machine.place.home-only"));
-            this.Monitor.Log(
-                $"Recovered {recovered} Cardcha Machine(s) from non-main-house locations after the placement rule update.",
-                LogLevel.Info
-            );
+            TryLogOnce(this.Monitor, "normalize-machine", $"Cardcha machine placement normalization failed safely: {ex.Message}");
         }
     }
 
     private void NormalizePortableMachinePlacement()
     {
-        if (!Context.IsWorldReady) return;
-        int recovered = 0;
-        foreach (GameLocation location in Game1.locations.ToList())
-        {
-            foreach (var pair in location.Objects.Pairs.Where(pair => ItemAssetService.IsPortableMachine(pair.Value)).ToList())
-            {
-                location.Objects.Remove(pair.Key);
-                recovered++;
-                this.ReturnPortableMachineToPlayer();
-            }
-        }
-        if (recovered > 0)
-        {
-            Game1.showGlobalMessage(ModEntry.T("portable.machine.recovered"));
-            this.Monitor.Log($"Recovered {recovered} misplaced Portable Cardcha Machine(s).", LogLevel.Info);
-        }
-    }
-
-    private void ReturnPortableMachineToPlayer()
-    {
-        Item portable = ItemAssetService.CreatePortableMachineItem();
-        Item? leftover = Game1.player.addItemToInventory(portable);
-        if (leftover is not null && Game1.currentLocation is not null)
-            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
-    }
-
-    private static bool IsMainFarmHouse(GameLocation location)
-    {
-        GameLocation? mainHouse = Game1.getLocationFromName("FarmHouse");
-        return mainHouse is not null && ReferenceEquals(location, mainHouse);
-    }
-
-    private void ReturnCardchaMachineToPlayer()
-    {
-        Item machine = ItemRegistry.Create($"(BC){ItemAssetService.CardchaMachineId}");
-        if (machine is StardewValley.Object machineObject)
-            machineObject.modData[ItemAssetService.MachineMarkerKey] = "1";
-
-        Item? leftover = Game1.player.addItemToInventory(machine);
-        if (leftover is not null && Game1.currentLocation is not null)
-            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
-    }
-
-    private void OnRenderedHud(object? sender, RenderedHudEventArgs e)
-    {
-        this.CombatHud.Draw(e.SpriteBatch);
-        this.Progression.DrawCenteredNotice(e.SpriteBatch);
-    }
-
-    private void OpenMachineMenu()
-    {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+        if (!Context.IsWorldReady)
             return;
 
-        Game1.activeClickableMenu = new CardchaMachineMenu(
-            this.Gacha,
-            this.Resources,
-            this.Save,
-            this.Cards,
-            this.Loadout,
-            this.Upgrades,
-            this.Config,
-            this.Renderer,
-            this.Controller,
-            this.Combat.SyncPassiveBuffs,
-            this.Story.OnPullResolved,
-            CardchaMachineMode.Stationary
-        );
+        try
+        {
+            foreach (GameLocation location in Game1.locations)
+            {
+                foreach ((Vector2 tile, StardewValley.Object obj) in location.Objects.Pairs.ToList())
+                {
+                    if (!this.PortableMachine.IsPortableMachine(obj))
+                        continue;
+
+                    location.Objects.Remove(tile);
+                }
+            }
+
+            if (this.Save.Data.PortableMachinePurchased || this.Save.Data.PortableMachineGifted)
+                this.EnsurePortableMachineInInventory();
+        }
+        catch (Exception ex)
+        {
+            TryLogOnce(this.Monitor, "normalize-portable", $"Portable machine placement normalization failed safely: {ex.Message}");
+        }
     }
 
-    private void OpenMachineFromBinder()
+    private void EnsurePortableMachineInInventory()
     {
         if (!Context.IsWorldReady)
             return;
 
-        // This callback is invoked while the Binder is still the active menu, so the
-        // normal world-interaction guard in OpenMachineMenu() must not reject it.
-        // Replacing the active menu keeps the transition atomic and avoids briefly
-        // returning control to gameplay between the Binder and the machine.
+        bool has = Game1.player.Items.Any(item => item is StardewValley.Object obj && this.PortableMachine.IsPortableMachine(obj));
+        if (!has)
+            Game1.player.addItemToInventory(this.PortableMachine.CreatePortableMachine());
+    }
+
+    private void OpenMachineMenu()
+    {
+        if (!Context.IsWorldReady)
+            return;
+
         Game1.activeClickableMenu = new CardchaMachineMenu(
-            this.Gacha,
-            this.Resources,
-            this.Save,
-            this.Cards,
-            this.Loadout,
-            this.Upgrades,
             this.Config,
-            this.Renderer,
+            this.Save,
+            this.Gacha,
+            this.Cards,
+            this.Upgrades,
+            this.Resources,
+            this.Loadout,
+            this.PortableMachine,
             this.Controller,
-            this.Combat.SyncPassiveBuffs,
-            this.Story.OnPullResolved,
-            CardchaMachineMode.Stationary
+            this.OpenBinderFromMachine,
+            this.OpenBinderFromPortableMachine
         );
     }
 
     private void OpenPortableMachineMenu()
     {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
-            return;
-
-        Game1.activeClickableMenu = new CardchaMachineMenu(
-            this.Gacha,
-            this.Resources,
-            this.Save,
-            this.Cards,
-            this.Loadout,
-            this.Upgrades,
-            this.Config,
-            this.Renderer,
-            this.Controller,
-            this.Combat.SyncPassiveBuffs,
-            this.Story.OnPullResolved,
-            CardchaMachineMode.Portable
-        );
-    }
-
-    private void OpenMimiShop()
-    {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
-            return;
-
-        Game1.activeClickableMenu = new MimiScrapShopMenu(
-            this.Resources,
-            this.Save,
-            this.PortableMachine,
-            this.Controller
-        );
-    }
-
-    private void OpenBinderMenu()
-    {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
-            return;
-
-        Game1.activeClickableMenu = new CardchaBinderMenu(
-            this.Cards,
-            this.Save,
-            this.Resources,
-            this.Loadout,
-            this.Upgrades,
-            this.Renderer,
-            this.Controller,
-            () => Game1.exitActiveMenu(),
-            this.OpenMachineFromBinder,
-            this.Combat.SyncPassiveBuffs,
-            ModEntry.T("binder.back.close")
-        );
-    }
-
-    private void OpenBinderFromMenu(IClickableMenu previousMenu)
-    {
         if (!Context.IsWorldReady)
             return;
 
-        string backLabel = previousMenu is StardewValley.Menus.ItemGrabMenu
-            ? ModEntry.T("binder.back.chest")
-            : ModEntry.T("binder.back.menu");
-
-        Game1.activeClickableMenu = new CardchaBinderMenu(
-            this.Cards,
+        Game1.activeClickableMenu = new CardchaMachineMenu(
+            this.Config,
             this.Save,
+            this.Gacha,
+            this.Cards,
+            this.Upgrades,
             this.Resources,
             this.Loadout,
-            this.Upgrades,
-            this.Renderer,
+            this.PortableMachine,
             this.Controller,
-            () =>
-            {
-                Game1.activeClickableMenu = previousMenu;
-
-                if (Game1.options.SnappyMenus
-                    && previousMenu.currentlySnappedComponent is null)
-                {
-                    previousMenu.snapToDefaultClickableComponent();
-                }
-            },
-            this.OpenMachineFromBinder,
-            this.Combat.SyncPassiveBuffs,
-            backLabel,
-            previousMenu
+            this.OpenBinderFromPortableMachine,
+            this.OpenBinderFromPortableMachine
         );
     }
 
-    private void CommandControllerStatus(string command, string[] args)
+    private void OpenBinderFromMenu()
     {
-        this.Monitor.Log($"Cardcha controller: {this.Controller.Describe()}", LogLevel.Info);
-        this.Monitor.Log(
-            $"Hints: Confirm={this.Controller.GetLabel(ControllerAction.Confirm)}, Favorite={this.Controller.GetLabel(ControllerAction.Favorite)}, Deselect={this.Controller.GetLabel(ControllerAction.Deselect)}, Exit={this.Controller.GetLabel(ControllerAction.Exit)}",
-            LogLevel.Info
+        if (!Context.IsWorldReady)
+            return;
+        Game1.activeClickableMenu = new CardchaBinderMenu(
+            this.Config,
+            this.Save,
+            this.Cards,
+            this.Upgrades,
+            this.Loadout,
+            this.Gacha,
+            this.Resources,
+            this.BossCards,
+            this.ChaChaBossForm,
+            this.ChaChaSkills,
+            this.Controller,
+            onClose: null,
+            openMachine: this.OpenMachineMenu,
+            openPortableMachine: this.OpenPortableMachineMenu,
+            context: BinderReturnContext.PlayerMenu,
+            returnMenu: Game1.activeClickableMenu
+        );
+    }
+
+    private void OpenBinderFromMachine()
+    {
+        if (!Context.IsWorldReady)
+            return;
+        Game1.activeClickableMenu = new CardchaBinderMenu(
+            this.Config,
+            this.Save,
+            this.Cards,
+            this.Upgrades,
+            this.Loadout,
+            this.Gacha,
+            this.Resources,
+            this.BossCards,
+            this.ChaChaBossForm,
+            this.ChaChaSkills,
+            this.Controller,
+            onClose: this.OpenMachineMenu,
+            openMachine: this.OpenMachineMenu,
+            openPortableMachine: this.OpenPortableMachineMenu,
+            context: BinderReturnContext.CardchaMachine,
+            returnMenu: null
+        );
+    }
+
+    private void OpenBinderFromPortableMachine()
+    {
+        if (!Context.IsWorldReady)
+            return;
+        Game1.activeClickableMenu = new CardchaBinderMenu(
+            this.Config,
+            this.Save,
+            this.Cards,
+            this.Upgrades,
+            this.Loadout,
+            this.Gacha,
+            this.Resources,
+            this.BossCards,
+            this.ChaChaBossForm,
+            this.ChaChaSkills,
+            this.Controller,
+            onClose: this.OpenPortableMachineMenu,
+            openMachine: this.OpenMachineMenu,
+            openPortableMachine: this.OpenPortableMachineMenu,
+            context: BinderReturnContext.PortableMachine,
+            returnMenu: null
         );
     }
 
@@ -794,300 +745,246 @@ internal sealed class ModEntry : Mod
             return;
         }
 
-        SaveData d = this.Save.Data;
         this.Monitor.Log(
-            $"Owned: {d.OwnedCards.Count}/{this.Cards.All.Count} | Equipped: [{string.Join(", ", d.EquippedCards)}] | Slots: {d.ActiveCardSlotCount}/5 | Copies: {d.CardCopies.Values.Sum()} | SlotDust: {d.SuspiciousDust} | PullIndex: {d.PullIndex} | Standard Legendary Sympathy: {d.StandardSinceLegendary}/{this.Config.StandardLegendaryPity} | Premium: {d.PremiumSinceLegendary}/{this.Config.PremiumLegendaryPity}",
-            LogLevel.Info
+            $"Cardcha | Schema={this.Save.Data.SchemaVersion} | Cards={this.Save.Data.OwnedCards.Count}/{this.Cards.All.Count} | Equipped={string.Join(',', this.Save.Data.EquippedCards)} | " +
+            $"Scrap={this.Save.Data.CardboardScraps} | Shiny={this.Save.Data.ShinyScraps} | Dust={this.Save.Data.SuspiciousDust} | " +
+            $"BinderUnlocked={this.Save.Data.BinderUnlocked} | MachineDelivered={this.Save.Data.MachineDelivered}",
+            LogLevel.Alert
         );
     }
 
     private void CommandPull(string command, string[] args)
     {
-        if (!Context.IsWorldReady)
-            return;
-
         PullType type = args.FirstOrDefault()?.Equals("premium", StringComparison.OrdinalIgnoreCase) == true
             ? PullType.Premium
             : PullType.Standard;
-        int count = args.Length >= 2 && int.TryParse(args[1], out int parsed) ? Math.Clamp(parsed, 1, 10) : 1;
+        int count = 1;
+        if (args.Length > 1 && int.TryParse(args[1], out int parsed))
+            count = Math.Clamp(parsed, 1, 100);
 
         for (int i = 0; i < count; i++)
         {
-            PullResult result = this.Gacha.Pull(type);
-            string suffix = result.IsNew ? "NEW!" : $"duplicate -> +{result.DuplicateCopiesAwarded} same-card copy";
-            this.Monitor.Log($"[{type}] {result.Card.Rarity}: {result.Card.Name} — {suffix}", LogLevel.Alert);
+            PullResult pull = this.Gacha.Pull(type, free: true);
+            this.Monitor.Log($"{pull.Card.Name} [{pull.Card.Rarity}] duplicate={pull.IsDuplicate} dust={pull.DustGranted}", LogLevel.Info);
         }
     }
 
     private void CommandUnlock(string command, string[] args)
     {
         if (!Context.IsWorldReady)
-            return;
-
-        string id = args.FirstOrDefault() ?? "";
-        if (id.Equals("all", StringComparison.OrdinalIgnoreCase))
-        {
-            foreach (CardDefinition card in this.Cards.All)
-                this.Save.Data.OwnedCards.Add(card.Id);
-
-            this.Save.Save();
-            this.Monitor.Log($"Unlocked all {this.Cards.All.Count} prototype cards. Responsible testing has ended.", LogLevel.Alert);
-            return;
-        }
-
-        CardDefinition? match = this.Cards.Get(id);
-        if (match is null)
-        {
-            this.Monitor.Log($"Unknown card '{id}'.", LogLevel.Warn);
-            return;
-        }
-
-        this.Save.Data.OwnedCards.Add(match.Id);
-        this.Save.Save();
-        this.Monitor.Log($"Unlocked {match.Name} ({match.Id}).", LogLevel.Info);
-    }
-
-    private void CommandEquip(string command, string[] args)
-    {
-        string id = args.FirstOrDefault() ?? "";
-        bool ok = this.Loadout.Equip(id);
-        if (ok)
-            this.Combat.SyncPassiveBuffs();
-
-        int slots = this.Upgrades.GetUnlockedSlotCount();
-        this.Monitor.Log(
-            ok
-                ? $"Equipped {id}."
-                : $"Couldn't equip '{id}' (not owned, unknown, or {slots} active slots full).",
-            ok ? LogLevel.Info : LogLevel.Warn
-        );
-    }
-
-    private void CommandUnequip(string command, string[] args)
-    {
-        string id = args.FirstOrDefault() ?? "";
-        bool ok = this.Loadout.Unequip(id);
-        if (ok)
-            this.Combat.SyncPassiveBuffs();
-
-        this.Monitor.Log(ok ? $"Unequipped {id}." : $"'{id}' wasn't equipped.", ok ? LogLevel.Info : LogLevel.Warn);
-    }
-
-    private void CommandCombatStatus(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        this.Monitor.Log(
-            $"Combat cards: {(this.Config.EnableCombatCards ? "ON" : "OFF")} | Chain Hunter: {this.Combat.CurrentChainHunterStacks}/{this.Config.ChainHunterMaxStacks} stacks ({this.Combat.CurrentChainSecondsRemaining:0.0}s) | Phoenix used today: {this.Save.Data.PhoenixHeartUsedToday} | HP: {Game1.player.health}/{Game1.player.maxHealth}",
-            LogLevel.Info
-        );
-    }
-
-    private void CommandTestReport(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
         {
             this.Monitor.Log("Load a save first.", LogLevel.Warn);
             return;
         }
 
-        SaveData d = this.Save.Data;
-        this.Monitor.Log(
-            "===== CARDCHA TEST REPORT =====\n" +
-            $"Owned: {d.OwnedCards.Count}/{this.Cards.All.Count}\n" +
-            $"Equipped: [{string.Join(", ", d.EquippedCards)}]\n" +
-            $"Dust: {d.SuspiciousDust} | PullIndex: {d.PullIndex}\n" +
-            $"Persistence: {this.Save.DescribePersistence()}\n" +
-            this.Combat.BuildVerificationReport(),
-            LogLevel.Alert
-        );
+        string target = args.FirstOrDefault() ?? "";
+        if (target.Equals("all", StringComparison.OrdinalIgnoreCase))
+        {
+            this.Save.Data.OwnedCards = this.Cards.All.Select(card => card.Id).ToHashSet(StringComparer.OrdinalIgnoreCase);
+            foreach (CardDefinition card in this.Cards.All)
+                this.Save.Data.CardLevels[card.Id] = Math.Max(1, this.Save.Data.CardLevels.GetValueOrDefault(card.Id));
+            this.Save.Save();
+            this.Monitor.Log($"Unlocked all {this.Cards.All.Count} cards.", LogLevel.Alert);
+            return;
+        }
+
+        CardDefinition? card = this.Cards.Get(target);
+        if (card is null)
+        {
+            this.Monitor.Log($"Unknown card '{target}'.", LogLevel.Warn);
+            return;
+        }
+
+        this.Save.Data.OwnedCards.Add(card.Id);
+        this.Save.Data.CardLevels[card.Id] = Math.Max(1, this.Save.Data.CardLevels.GetValueOrDefault(card.Id));
+        this.Save.Save();
+        this.Monitor.Log($"Unlocked {card.Name} ({card.Id}).", LogLevel.Alert);
+    }
+
+    private void CommandEquip(string command, string[] args)
+    {
+        string target = args.FirstOrDefault() ?? "";
+        if (!this.Loadout.TryEquip(target))
+        {
+            this.Monitor.Log($"Couldn't equip '{target}'.", LogLevel.Warn);
+            return;
+        }
+        this.Save.Save();
+        this.Combat.SyncPassiveBuffs();
+        this.Monitor.Log($"Equipped {target}.", LogLevel.Alert);
+    }
+
+    private void CommandUnequip(string command, string[] args)
+    {
+        string target = args.FirstOrDefault() ?? "";
+        if (!this.Loadout.TryUnequip(target))
+        {
+            this.Monitor.Log($"Couldn't unequip '{target}'.", LogLevel.Warn);
+            return;
+        }
+        this.Save.Save();
+        this.Combat.SyncPassiveBuffs();
+        this.Monitor.Log($"Unequipped {target}.", LogLevel.Alert);
+    }
+
+    private void CommandCombatStatus(string command, string[] args)
+    {
+        this.Monitor.Log(this.Combat.DescribeState(), LogLevel.Alert);
+    }
+
+    private void CommandGiveScrap(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        string kind = args.FirstOrDefault() ?? "normal";
+        int amount = args.Length > 1 && int.TryParse(args[1], out int parsed) ? Math.Max(1, parsed) : 10;
+        if (kind.Equals("shiny", StringComparison.OrdinalIgnoreCase))
+            this.Resources.AddShiny(amount);
+        else
+            this.Resources.AddNormal(amount);
+        this.Save.Save();
+        this.Monitor.Log($"Scrap now: normal={this.Resources.GetNormalCount()} shiny={this.Resources.GetShinyCount()}", LogLevel.Alert);
+    }
+
+    private void CommandGiveDust(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        int amount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? Math.Max(1, parsed) : 25;
+        this.Save.Data.SuspiciousDust += amount;
+        this.Save.Save();
+        this.Monitor.Log($"Magic Dust now {this.Save.Data.SuspiciousDust} (+{amount}).", LogLevel.Alert);
+    }
+
+    private void CommandGiveMachine(string command, string[] args)
+    {
+        this.Items.EnsureMachineInInventory();
+        this.Monitor.Log("Cardcha Machine ensured in inventory.", LogLevel.Alert);
+    }
+
+    private void CommandGivePortableMachine(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
+            return;
+        this.Save.Data.PortableMachineGifted = true;
+        this.EnsurePortableMachineInInventory();
+        this.Save.Save();
+        this.Monitor.Log("Portable Cardcha Machine entitlement enabled and item ensured in inventory.", LogLevel.Alert);
+    }
+
+    private void CommandOpenMachine(string command, string[] args)
+    {
+        this.OpenMachineMenu();
+    }
+
+    private void CommandOpenPortableMachine(string command, string[] args)
+    {
+        this.OpenPortableMachineMenu();
+    }
+
+    private void CommandOpenBinder(string command, string[] args)
+    {
+        this.OpenBinderFromMenu();
+    }
+
+    private void CommandTestReport(string command, string[] args)
+    {
+        this.Monitor.Log(this.Combat.GetVerificationReport(), LogLevel.Alert);
     }
 
     private void CommandTestReset(string command, string[] args)
     {
         this.Combat.ResetVerificationTelemetry();
-        this.Monitor.Log("Cardcha combat verification counters reset. Go bonk something.", LogLevel.Info);
+        this.Monitor.Log("Cardcha combat verification telemetry reset.", LogLevel.Alert);
     }
 
     private void CommandPersistenceStatus(string command, string[] args)
     {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
+        this.Monitor.Log(this.Save.LastPersistenceMessage, this.Save.LastPersistenceCheckPassed ? LogLevel.Alert : LogLevel.Warn);
+    }
 
-        this.Monitor.Log(
-            $"Persistence: {this.Save.DescribePersistence()}",
-            this.Save.LastPersistenceCheckPassed ? LogLevel.Info : LogLevel.Warn
-        );
+    private void CommandProgressionStatus(string command, string[] args)
+    {
+        this.Monitor.Log(this.Progression.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandDropStatus(string command, string[] args)
+    {
+        this.Monitor.Log(this.EnemyObserver.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandVersion(string command, string[] args)
+    {
+        this.Monitor.Log($"Cardcha version: {this.ModManifest.Version}", LogLevel.Alert);
+    }
+
+    private void CommandEnemyStatus(string command, string[] args)
+    {
+        this.Monitor.Log(this.EnemyObserver.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandMachineStatus(string command, string[] args)
+    {
+        int inventory = Game1.player.Items.Count(item => item is StardewValley.Object obj && this.Items.IsCardchaMachine(obj));
+        int world = Game1.locations.Sum(location => location.Objects.Pairs.Count(pair => this.Items.IsCardchaMachine(pair.Value)));
+        this.Monitor.Log($"Cardcha Machine inventory={inventory} world={world}.", LogLevel.Alert);
+    }
+
+    private void CommandPortableStatus(string command, string[] args)
+    {
+        this.Monitor.Log(this.PortableMachine.Describe(), LogLevel.Alert);
+    }
+
+    private void CommandLootRates(string command, string[] args)
+    {
+        this.Monitor.Log(this.Drops.DescribeRates(), LogLevel.Alert);
     }
 
     private void CommandHudToggle(string command, string[] args)
     {
         this.Config.EnableCombatHud = !this.Config.EnableCombatHud;
         this.Helper.WriteConfig(this.Config);
-
-        this.Monitor.Log(
-            ModEntry.T(
-                this.Config.EnableCombatHud ? "hud.toggle.on" : "hud.toggle.off"
-            ),
-            LogLevel.Info
-        );
-    }
-
-    private void CommandStoryStatus(string command, string[] args)
-    {
-        this.Monitor.Log(
-            "===== CARDCHA STORY STATUS =====\n" +
-            this.Progression.DescribeState() + "\n" +
-            this.Story.Describe() + "\n" +
-            this.Mystery.Describe() + "\n" +
-            this.Social.Describe() + "\n" +
-            this.Home.Describe() + "\n" +
-            this.PortableMachine.Describe() + "\n" +
-            this.Airship.Describe(),
-            LogLevel.Alert
-        );
+        this.Monitor.Log(this.Config.EnableCombatHud ? T("hud.toggle.on") : T("hud.toggle.off"), LogLevel.Alert);
     }
 
     private void CommandBookStatus(string command, string[] args)
     {
-        this.Monitor.Log(
-            "===== CARDCHA BOOK STATUS =====\n" + this.BookTab.Describe(),
-            LogLevel.Alert
-        );
+        this.Monitor.Log(this.BookTab.Describe(), LogLevel.Alert);
     }
 
-    private void CommandLootRates(string command, string[] args)
+    private void CommandStoryStatus(string command, string[] args)
     {
-        this.Monitor.Log(
-            "===== CARDCHA LOOT RATES v0.3.0-alpha.26.4 =====\n" +
-            "Regular enemy: 12% normal Scrap, amount 1; dry-streak guarantee at 8 kills; Shiny 3%, amount 1.\n" +
-            "Boss-like (boss/elite/apex/champion/raid hint): 65% normal Scrap, amount 2; Shiny 25%, amount 1.\n" +
-            "Raw Max HP is NOT used to classify or scale rewards.",
-            LogLevel.Alert
-        );
+        this.Monitor.Log(this.Story.Describe(), LogLevel.Alert);
     }
 
-    private void CommandMachineStatus(string command, string[] args)
+    private void CommandControllerStatus(string command, string[] args)
     {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
-
-        List<string> lines = new();
-
-        for (int i = 0; i < Game1.player.Items.Count; i++)
-        {
-            Item? item = Game1.player.Items[i];
-            if (item is StardewValley.Object obj
-                && (MachineInteractionPatch.IsCardchaMachine(obj)
-                    || ItemAssetService.IsPortableMachine(obj)
-                    || obj.Name.Contains("Cardcha", StringComparison.OrdinalIgnoreCase)))
-            {
-                lines.Add(
-                    $"Inventory[{i}]: Qualified={obj.QualifiedItemId} | ItemId={obj.ItemId} | " +
-                    $"Name={obj.Name} | StationaryMarker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)} | " +
-                    $"Portable={ItemAssetService.IsPortableMachine(obj)}"
-                );
-            }
-        }
-
-        if (Game1.currentLocation is not null)
-        {
-            foreach ((Microsoft.Xna.Framework.Vector2 tile, StardewValley.Object obj) in Game1.currentLocation.Objects.Pairs)
-            {
-                if (MachineInteractionPatch.IsCardchaMachine(obj)
-                    || obj.Name.Contains("Cardcha", StringComparison.OrdinalIgnoreCase))
-                {
-                    lines.Add(
-                        $"Placed[{tile.X:0},{tile.Y:0}]: Qualified={obj.QualifiedItemId} | ItemId={obj.ItemId} | " +
-                        $"Name={obj.Name} | Marker={obj.modData.ContainsKey(ItemAssetService.MachineMarkerKey)}"
-                    );
-                }
-            }
-        }
-
-        this.Monitor.Log(
-            "===== CARDCHA MACHINE STATUS =====\n" +
-            (lines.Count == 0 ? "No Cardcha-looking machine found." : string.Join("\n", lines)),
-            LogLevel.Alert
-        );
-    }
-
-    private void CommandPortableStatus(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
-
-        this.Monitor.Log(
-            "===== CARDCHA PORTABLE MACHINE STATUS =====\n" +
-            this.PortableMachine.Describe(),
-            LogLevel.Alert
-        );
-    }
-
-    private void CommandEnemyStatus(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
-
-        this.Monitor.Log(
-            "===== CARDCHA UNIVERSAL ENEMY STATUS =====\n" +
-            this.EnemyObserver.Describe() + "\n" +
-            this.Deaths.Describe() + "\n" +
-            this.Drops.Describe(),
-            LogLevel.Alert
-        );
+        this.Monitor.Log(this.Controller.Describe(), LogLevel.Alert);
     }
 
     private void CommandTestAttic(string command, string[] args)
     {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save before using cardcha_test_attic.", LogLevel.Warn);
-            return;
-        }
-
-        bool leaving = Game1.currentLocation?.NameOrUniqueName.Equals(
-            MimiHomeService.AtticLocationName,
-            StringComparison.OrdinalIgnoreCase
-        ) == true;
-
-        this.AtticVisual.SetTestAccess(!leaving);
-        string result = this.Home.DebugToggleAtticAccess();
-        this.Monitor.Log(result, LogLevel.Alert);
+        this.Monitor.Log(this.Home.DebugToggleDirectAccess(), LogLevel.Alert);
     }
 
     private void CommandTestMimiRoutine(string command, string[] args)
     {
-        string mode = args.FirstOrDefault() ?? "auto";
-        this.Monitor.Log(this.Home.DebugForceRoutine(mode), LogLevel.Alert);
+        this.Monitor.Log(this.Home.DebugForceRoutine(args.FirstOrDefault()), LogLevel.Alert);
     }
 
     private void CommandAirshipStatus(string command, string[] args)
     {
-        this.Monitor.Log("===== CARDCHA AIRSHIP STATUS =====\n" + this.Airship.Describe(), LogLevel.Alert);
+        this.Monitor.Log(this.Airship.Describe(), LogLevel.Alert);
     }
 
     private void CommandTestGate(string command, string[] args)
     {
-        this.Monitor.Log(this.Airship.DebugWarpToGate(), LogLevel.Alert);
+        this.Monitor.Log(this.Airship.DebugToggleGateAccess(), LogLevel.Alert);
     }
 
     private void CommandTestAirship(string command, string[] args)
     {
-        this.Monitor.Log(this.Airship.DebugToggleDeck(), LogLevel.Alert);
+        this.Monitor.Log(this.Airship.DebugToggleDirectAirship(), LogLevel.Alert);
     }
 
     private void CommandTestAirshipFlyby(string command, string[] args)
@@ -1095,280 +992,94 @@ internal sealed class ModEntry : Mod
         this.Monitor.Log(this.Airship.DebugReplayFlyby(), LogLevel.Alert);
     }
 
-    private void CommandCardTest(string command, string[] args)
+    private void CommandTestCards(string command, string[] args)
     {
         if (!Context.IsWorldReady)
         {
-            this.Monitor.Log("Load a save before opening Card Test Lab.", LogLevel.Warn);
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
             return;
         }
 
-        if (Game1.activeClickableMenu is not null)
+        Game1.activeClickableMenu = new CardTestLabMenu(
+            this.Cards,
+            this.Save,
+            this.Upgrades,
+            this.Loadout,
+            this.Gacha,
+            this.Resources,
+            this.Combat,
+            this.Drops,
+            this.BossEnergy,
+            this.CardLab,
+            this.CardArena,
+            this.Controller
+        );
+    }
+
+    private void CommandTestRun(string command, string[] args)
+    {
+        string mode = args.FirstOrDefault()?.Trim().ToLowerInvariant() ?? "all";
+        this.CardAutoRunner.Run(mode);
+    }
+
+    private void CommandTestArena(string command, string[] args)
+    {
+        if (!Context.IsWorldReady)
         {
-            this.Monitor.Log("Close the current menu first, then run cardcha_card_test again.", LogLevel.Warn);
+            this.Monitor.Log("Load a save first.", LogLevel.Warn);
             return;
         }
+        this.Monitor.Log(this.CardArena.Enter(), LogLevel.Alert);
+    }
 
-        this.OpenCardTestLab();
-        this.Monitor.Log("Card Test Lab opened. Minimize once, then reopen from CARD LAB tab / F8 / controller right-stick. Arena stays active until END LAB or cardcha_card_test_stop.", LogLevel.Alert);
+    private void CommandTestArenaClear(string command, string[] args)
+    {
+        this.Monitor.Log(this.CardArena.Clear(), LogLevel.Alert);
+    }
+
+    private void CommandTestArenaSpawn(string command, string[] args)
+    {
+        string kind = args.FirstOrDefault() ?? "normal";
+        int count = args.Length > 1 && int.TryParse(args[1], out int parsed) ? parsed : 1;
+        this.Monitor.Log(this.CardArena.Spawn(kind, count), LogLevel.Alert);
+    }
+
+    private void CommandTestArenaExit(string command, string[] args)
+    {
+        this.Monitor.Log(this.CardArena.Exit(), LogLevel.Alert);
     }
 
     private void OpenCardTestLab()
     {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
+        if (!Context.IsWorldReady)
             return;
-        Game1.activeClickableMenu = new CardTestLabMenu(this.CardLab, this.Renderer, this.CardArena, this.CardAutoRunner);
+        Game1.activeClickableMenu = new CardTestLabMenu(
+            this.Cards,
+            this.Save,
+            this.Upgrades,
+            this.Loadout,
+            this.Gacha,
+            this.Resources,
+            this.Combat,
+            this.Drops,
+            this.BossEnergy,
+            this.CardLab,
+            this.CardArena,
+            this.Controller
+        );
     }
 
     private void EndCardTestLabSession()
     {
-        this.CardArena.ExitArena();
         this.CardLab.EndSession();
-        if (Game1.activeClickableMenu is CardTestLabMenu)
-            Game1.exitActiveMenu();
     }
 
-    private void CommandCardTestStop(string command, string[] args)
+    public static string T(string key, object? tokens = null)
     {
-        if (!Context.IsWorldReady)
-            return;
-        this.EndCardTestLabSession();
-        this.Monitor.Log("Card Test Lab stopped. Arena exited and the real loadout was restored.", LogLevel.Alert);
-    }
-
-    private void CommandCardAutoRun(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save before running Card Auto Scenario Runner.", LogLevel.Warn);
-            return;
-        }
-
-        CardScenarioCounts counts = this.CardAutoRunner.RunAll();
-        this.Monitor.Log(
-            $"===== CARD AUTO SCENARIO RUNNER =====\nPASS {counts.Pass} | FAIL {counts.Fail} | BLOCKED {counts.Blocked} | ERROR {counts.Error} | NOT RUN {counts.NotRun}",
-            counts.Fail > 0 || counts.Error > 0 ? LogLevel.Warn : LogLevel.Alert
-        );
-    }
-
-    private void CommandChaChaBossReady(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save before priming ChaCha Boss Form.", LogLevel.Warn);
-            return;
-        }
-
-        this.ChaChaBossForm.DebugPrimeReady();
-        this.Monitor.Log("Guardian Rabbit TEST primed to 100 ChaCha Energy with a runtime-only unlock. Use controller Confirm+Deselect (Switch B+Y) or Left Shift+A.", LogLevel.Alert);
-    }
-
-    private void CommandChaChaBossStatus(string command, string[] args)
-    {
-        this.Monitor.Log("===== CHACHA BOSS FORM =====\n" + this.ChaChaBossForm.Describe(), LogLevel.Alert);
-    }
-
-    private void CommandChaChaSkillUnlock(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save before testing ChaCha skills.", LogLevel.Warn);
-            return;
-        }
-        if (!this.Save.Data.ChaChaLoaned)
-        {
-            this.Monitor.Log("ChaCha has not joined the player yet; normal-form skills stay story-gated.", LogLevel.Warn);
-            return;
-        }
-
-        string arg = args.FirstOrDefault()?.Trim().ToLowerInvariant() ?? "vital";
-        IEnumerable<string> ids = arg == "all"
-            ? ChaChaSkillService.SkillIds
-            : new[]
-            {
-                arg switch
-                {
-                    "guard" or "aegis" or "bunny_aegis" => ChaChaSkillService.GuardSkillId,
-                    "spirit" or "spirit_aid" => ChaChaSkillService.SpiritSkillId,
-                    "luck" or "lucky" or "lucky_echo" => ChaChaSkillService.LuckSkillId,
-                    _ => ChaChaSkillService.VitalSkillId
-                }
-            };
-
-        int fresh = 0;
-        foreach (string id in ids)
-            if (this.ChaChaSkills.DebugDiscoverSkill(id, showPresentation: false))
-                fresh++;
-        this.ChaChaSkills.TriggerCastPresentation();
-        this.Monitor.Log($"TEST: discovered {fresh} new ChaCha skill(s). Found=[{string.Join(",", this.Save.Data.ChaChaSkillsFound)}]", LogLevel.Alert);
-    }
-
-    private void CommandChaChaSkillLevel(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        int level = args.Length > 0 && int.TryParse(args[0], out int parsed)
-            ? Math.Clamp(parsed, 1, ChaChaSkillService.MaxSkillLevel)
-            : 1;
-        string selector = args.Length > 1 ? args[1].Trim().ToLowerInvariant() : "vital";
-        string skillId = selector switch
-        {
-            "guard" or "aegis" => ChaChaSkillService.GuardSkillId,
-            "spirit" => ChaChaSkillService.SpiritSkillId,
-            "luck" or "lucky" => ChaChaSkillService.LuckSkillId,
-            _ => ChaChaSkillService.VitalSkillId
-        };
-
-        if (!this.ChaChaSkills.DebugSetLevel(skillId, level))
-        {
-            this.Monitor.Log("Discover that ChaCha skill first. Use cardcha_chacha_skill_unlock <vital|guard|spirit|luck|all> for TEST.", LogLevel.Warn);
-            return;
-        }
-        this.Monitor.Log($"TEST: {skillId} set to Lv {level}/{ChaChaSkillService.MaxSkillLevel}. No materials or Magic Dust were spent.", LogLevel.Alert);
-    }
-
-    private void CommandChaChaSkillCast(string command, string[] args)
-    {
-        if (!Context.IsWorldReady || !this.Save.Data.ChaChaLoaned)
-            return;
-        this.ChaChaSkills.TriggerCastPresentation();
-        this.Monitor.Log("TEST: replayed ChaCha normal-form skill cast visual. No healing value is applied in this foundation.", LogLevel.Alert);
-    }
-
-    private void CommandChaChaSkillStatus(string command, string[] args)
-    {
-        this.Monitor.Log("===== CHACHA NORMAL-FORM SKILLS =====\n" + this.ChaChaSkills.Describe(), LogLevel.Alert);
-    }
-
-    private void CommandChaChaMaterials(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-        int amount = args.Length > 0 && int.TryParse(args[0], out int parsed) ? Math.Clamp(parsed, 1, 999) : 20;
-        this.ChaChaMaterials.GiveAllForDebug(amount);
-        this.Monitor.Log($"TEST: gave {amount} of each ChaCha skill material to the backpack.", LogLevel.Alert);
-    }
-
-    private void CommandChaChaStation(string command, string[] args)
-    {
-        if (!Context.IsWorldReady || Game1.activeClickableMenu is not null)
-            return;
-        Game1.activeClickableMenu = new ChaChaSkillUpgradeMenu(this.Save, this.ChaChaSkills, this.ChaChaMaterials, this.Controller);
-    }
-
-    private void CommandChaChaMaterialStatus(string command, string[] args)
-    {
-        this.Monitor.Log("===== CHACHA SKILL MATERIALS =====\n" + this.ChaChaMaterials.Describe(), LogLevel.Alert);
-    }
-
-    private void CommandVersion(string command, string[] args)
-    {
-        this.Monitor.Log($"Cardcha! v{this.ModManifest.Version}", LogLevel.Alert);
-    }
-
-    private void CommandDropStatus(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
-
-        this.Monitor.Log(
-            "===== CARDCHA DROP STATUS =====\n" +
-            this.Deaths.Describe() + "\n" +
-            this.Drops.Describe() + "\n" +
-            $"EnableMonsterDrops={this.Config.EnableMonsterDrops} | Multiplier={this.Config.PrototypeDropMultiplier:0.##}",
-            LogLevel.Alert
-        );
-    }
-
-    private void CommandProgressionStatus(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-        {
-            this.Monitor.Log("Load a save first.", LogLevel.Warn);
-            return;
-        }
-
-        this.Monitor.Log(
-            $"Normal gameplay: {this.Progression.DescribeState()}",
-            LogLevel.Info
-        );
-    }
-
-    private void CommandGiveScrap(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        bool shiny = args.FirstOrDefault()?.Equals("shiny", StringComparison.OrdinalIgnoreCase) == true;
-        int amount = args.Length >= 2 && int.TryParse(args[1], out int parsed) ? Math.Clamp(parsed, 1, 999) : 10;
-        string id = shiny ? DropService.ShinyScrapId : DropService.CardboardScrapId;
-        this.Resources.Add(id, amount);
-        string destination = this.Resources.IsBinderWalletActive ? "Binder wallet" : "backpack";
-        this.Monitor.Log($"Added {amount} {(shiny ? "Shiny " : "")}Cardboard Scrap to the {destination}.", LogLevel.Info);
-    }
-
-    private void CommandGiveDust(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        int amount = args.Length >= 1 && int.TryParse(args[0], out int parsed)
-            ? Math.Clamp(parsed, 1, 9999)
-            : 50;
-        this.Save.Data.SuspiciousDust += amount;
-        this.Save.Save();
-        this.Monitor.Log($"Added {amount} Magic Dust for Airship upgrade TEST. Total={this.Save.Data.SuspiciousDust}.", LogLevel.Info);
-    }
-
-    private void CommandGiveMachine(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        Item item = ItemRegistry.Create($"(BC){ItemAssetService.CardchaMachineId}");
-        Item? leftover = Game1.player.addItemToInventory(item);
-        if (leftover is not null)
-            Game1.createItemDebris(leftover, Game1.player.Position, -1, Game1.currentLocation);
-
-        this.Monitor.Log("Gave Cardcha! Machine. Please do not shake it.", LogLevel.Info);
-    }
-
-    private void CommandGivePortableMachine(string command, string[] args)
-    {
-        if (!Context.IsWorldReady)
-            return;
-
-        this.PortableMachine.GiveForDebug();
-        this.Monitor.Log(
-            "Gave Portable Cardcha Machine and marked the entitlement as acquired for this test save.",
-            LogLevel.Info
-        );
-    }
-
-    private void CommandOpenMachine(string command, string[] args)
-        => this.OpenMachineMenu();
-
-    private void CommandOpenPortableMachine(string command, string[] args)
-        => this.OpenPortableMachineMenu();
-
-    private void CommandOpenBinder(string command, string[] args)
-        => this.OpenBinderMenu();
-
-    internal static string T(string key)
-        => StaticHelper?.Translation.Get(key).ToString() ?? key;
-
-    internal static string T(string key, object tokens)
-        => StaticHelper?.Translation.Get(key, tokens).ToString() ?? key;
-
-    internal static void LogOnce(string key, string message)
-    {
-        if (!LoggedErrors.Add(key))
-            return;
-
-        StaticMonitor?.Log(message, LogLevel.Error);
+        if (StaticHelper is null)
+            return key;
+        return tokens is null
+            ? StaticHelper.Translation.Get(key)
+            : StaticHelper.Translation.Get(key, tokens);
     }
 }
