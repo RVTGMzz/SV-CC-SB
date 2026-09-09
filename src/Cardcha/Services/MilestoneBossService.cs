@@ -918,7 +918,7 @@ internal sealed class MilestoneBossService
         _ => this.KindColor(kind),
     };
 
-    private Color TricolorCycle(int i) => i % 3 switch
+    private Color TricolorCycle(int i) => (i % 3) switch
     {
         0 => new Color(238, 92, 78),
         1 => new Color(99, 210, 118),

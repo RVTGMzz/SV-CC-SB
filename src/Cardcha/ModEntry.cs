@@ -54,6 +54,7 @@ internal sealed class ModEntry : Mod
     private VerdantGuardianVisualService VerdantGuardianVisual = null!;
     private VerdantGuardianSummonVisualService VerdantSummons = null!;
     private VerdantGuardianArenaPolishService VerdantArenaPolish = null!;
+    private MilestoneBossService MilestoneBosses = null!;
     private CardTestLabService CardLab = null!;
     private CardTestArenaService CardArena = null!;
     private CardTestLabOverlayService CardLabOverlay = null!;
@@ -159,6 +160,7 @@ internal sealed class ModEntry : Mod
         this.VerdantGuardianVisual = new VerdantGuardianVisualService(helper, this.Monitor, this.VerdantGuardian);
         this.VerdantSummons = new VerdantGuardianSummonVisualService(helper, this.Monitor, this.VerdantGuardian);
         this.VerdantArenaPolish = new VerdantGuardianArenaPolishService(helper, this.Monitor, this.VerdantGuardian);
+        this.MilestoneBosses = new MilestoneBossService(helper, this.Monitor, this.Save);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
         this.CardLabOverlay = new CardTestLabOverlayService(helper, this.CardLab, this.CardArena, this.OpenCardTestLab, this.EndCardTestLabSession);
@@ -173,11 +175,13 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Airship.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.VerdantGuardian.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.MilestoneBosses.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.CardArena.OnAssetRequested;
         helper.Events.GameLoop.GameLaunched += this.OnGameLaunched;
         helper.Events.GameLoop.SaveLoaded += this.OnSaveLoaded;
         helper.Events.GameLoop.SaveLoaded += this.CardArena.OnSaveLoaded;
         helper.Events.GameLoop.SaveLoaded += this.BossCards.OnSaveLoaded;
+        helper.Events.GameLoop.SaveLoaded += this.MilestoneBosses.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
@@ -186,11 +190,13 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.DayStarted += this.ChaChaBossForm.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.ChaChaSupport.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.VerdantGuardian.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.MilestoneBosses.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.BossCards.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.VerdantGuardian.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.MilestoneBosses.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.VerdantArenaPolish.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
@@ -204,6 +210,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantGuardianVisual.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantSummons.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantArenaPolish.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.MilestoneBosses.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.BossCards.OnRenderedHud;
@@ -211,6 +218,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedHud += this.ChaChaSupport.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.VerdantGuardian.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.VerdantArenaPolish.OnRenderedHud;
+        helper.Events.Display.RenderedHud += this.MilestoneBosses.OnRenderedHud;
         helper.Events.Display.RenderedWorld += this.Story.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.BossCards.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.ChaChaSkills.OnRenderedWorld;
@@ -223,6 +231,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.VerdantGuardian.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantGuardianVisual.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.VerdantSummons.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.MilestoneBosses.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
@@ -236,6 +245,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.PortableMachine.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.Airship.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.VerdantGuardian.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.MilestoneBosses.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.CardLabOverlay.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.ChaChaBossForm.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
@@ -243,6 +253,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Player.Warped += this.Airship.OnWarped;
         helper.Events.Player.Warped += this.VerdantGuardian.OnWarped;
         helper.Events.Player.Warped += this.VerdantArenaPolish.OnWarped;
+        helper.Events.Player.Warped += this.MilestoneBosses.OnWarped;
         helper.Events.Player.Warped += this.CardArena.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -291,6 +302,10 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_boss1_balance_status", "Show the 0665 Region I Boss balance profile.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance() + "\n" + this.BossCards.Describe() + "\n" + this.ChaChaBossForm.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_totem_status", "Show destructible Verdant Seed Totem state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_boss2", "TEST ONLY: enter Boss II - The Hollow Curator (40-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(2), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_boss3", "TEST ONLY: enter Boss III - The Tricolor Resonance (60-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(3), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_boss4", "TEST ONLY: enter Boss IV - MiMi (80-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(4), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_boss_milestone_status", "Show Boss II/III/IV runtime and milestone reward state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
@@ -334,7 +349,7 @@ internal sealed class ModEntry : Mod
         AirshipGateDepthPatch.Apply(harmony, this.Airship, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.38 VISUAL AUTH PASS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.39 REMAINING BOSS FOUNDATION TEST",
             LogLevel.Info
         );
     }

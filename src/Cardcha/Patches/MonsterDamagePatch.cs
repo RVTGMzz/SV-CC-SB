@@ -52,6 +52,7 @@ internal static class MonsterDamagePatch
 
             bool isVerdantGuardian = __instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey);
             bool isVerdantTotem = __instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey);
+            bool isMilestoneBoss = __instance.modData.ContainsKey(MilestoneBossService.BossMarkerKey);
 
             if (Combat is not null)
             {
@@ -63,7 +64,7 @@ internal static class MonsterDamagePatch
             if (isVerdantGuardian && VerdantBoss is not null)
                 damage = VerdantBoss.ModifyBossIncomingDamage(damage);
 
-            if (isVerdantTotem) { xTrajectory = 0; yTrajectory = 0; }
+            if (isVerdantTotem || isMilestoneBoss) { xTrajectory = 0; yTrajectory = 0; }
 
             // 0665: receive 8% of final trajectory, then hard-cap it. The boss service recenters
             // toward HeavyAnchor, so repeated party hits cannot walk the Guardian into a wall.
@@ -85,7 +86,9 @@ internal static class MonsterDamagePatch
         {
             Combat?.AfterMonsterTakesDamage(__instance, who, __state);
             VerdantBoss?.NotifyTotemHit(__instance, __state);
-            if (__state > 0 && __instance.Health <= 0 && !__instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey))
+            if (__state > 0 && __instance.Health <= 0
+                && !__instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey)
+                && !__instance.modData.ContainsKey(MilestoneBossService.BossMarkerKey))
                 Deaths?.HandleDeath(__instance, who, __instance.currentLocation);
         }
         catch (Exception ex)
