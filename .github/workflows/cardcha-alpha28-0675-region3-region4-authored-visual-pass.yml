@@ -60,7 +60,7 @@ jobs:
               'public const string EnemyMarkerKey',
               'private const float AuthoredWorldScale = 4f;',
               'RoleIndex(ExpeditionRegion region, string role)',
-              'new Rectangle((roleIndex * 2 + frame) * 32, 0, 32, 32)',
+              'Rectangle src = new((roleIndex * 2 + frame) * 32, 0, 32, 32)',
               'this.GetEnemyAtlas(region)', 'this.GetDecorAtlas(region)',
               'mirror_wisp','glass_scarab','echo_slime','mirror_sentinel',
               'ignis_echo','vita_husk','aether_mite','resonant_prime',
@@ -110,7 +110,6 @@ jobs:
               assert 'authored-biome-decor' in props['CardchaAssetPolicy']
               assert [l.attrib['name'] for l in r.findall('layer')]==['Back','Buildings','Front']
 
-          # Visual pass must not mutate accepted legacy art or boss arenas.
           locked=[
               'src/Cardcha/assets/mimi_walk.png',
               'src/Cardcha/assets/airship_visual.png',
@@ -183,7 +182,7 @@ jobs:
           zip -qr "$ZIP" Cardcha
           sha256sum "$ZIP" | tee "$ZIP.sha256"
           python3 - <<'PY'
-          import json, zipfile, struct
+          import json, zipfile
           z='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.44_Region3Region4AuthoredVisualPass_TEST.zip'
           with zipfile.ZipFile(z) as f:
               names=set(f.namelist())
