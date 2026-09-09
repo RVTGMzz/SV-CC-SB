@@ -16,24 +16,38 @@ def fail(message: str) -> None:
     raise SystemExit(f"RENDER DEPTH CONTRACT FAIL: {message}")
 
 
+def normalized_markdown(text: str) -> str:
+    """Normalize Markdown decoration/case so policy wording can evolve without weakening the contract."""
+    text = text.lower()
+    text = re.sub(r"[`*_#>|]", "", text)
+    text = re.sub(r"[^a-z0-9./+ -]+", " ", text)
+    return re.sub(r"\s+", " ", text).strip()
+
+
 for required in (AUDIT_PATH, POLICY_PATH, AGENTS_PATH):
     if not required.exists():
         fail(f"missing required repository policy file: {required.relative_to(ROOT)}")
 
 policy = POLICY_PATH.read_text(encoding="utf-8")
 agents = AGENTS_PATH.read_text(encoding="utf-8")
+policy_norm = normalized_markdown(policy)
+agents_norm = normalized_markdown(agents)
+
+# Validate the *meaningful contract phrases*, not Markdown punctuation/capitalization.
 for token in (
-    "No physical Cardcha world object may be rendered as a `Display.RenderedWorld` overlay",
-    "CI compile success is NOT visual acceptance",
+    "no physical cardcha world object may be rendered as a display.renderedworld overlay",
+    "ci success is not visual acceptance",
+    "screenshot failure",
 ):
-    if token not in policy:
-        fail(f"policy lost required statement: {token}")
+    if token not in policy_norm:
+        fail(f"policy lost required contract phrase: {token}")
 for token in (
-    "physical world art must never be painted from `Display.RenderedWorld`",
-    "Visual and gameplay anchors MUST be the same source of truth",
+    "physical world art must never be painted from display.renderedworld",
+    "visual and gameplay anchors must be the same source of truth",
+    "renderedworld is allowed only for transient non physical effects",
 ):
-    if token not in agents:
-        fail(f"AGENTS.md lost required statement: {token}")
+    if token not in agents_norm:
+        fail(f"AGENTS.md lost required contract phrase: {token}")
 
 audit = json.loads(AUDIT_PATH.read_text(encoding="utf-8"))
 audited = audit.get("renderedWorldSubscribers", {})
@@ -98,8 +112,8 @@ if missing_debt:
 # Do not allow the exact Region-I screenshot regression back in after 0676B fixes it.
 airship = (SRC / "Services" / "AirshipFoundationService.cs").read_text(encoding="utf-8")
 if "DrawRegion1Details(e.SpriteBatch, location);" in airship:
-    print("RENDER DEPTH AUDIT WARNING: Region I physical overlay debt is still present and must be migrated before visual acceptance.")
+    print("RENDER DEPTH AUDIT WARNING: Region I physical overlay debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
 if "Region1StardewDecorRenderer.Draw(e.SpriteBatch, location, activeRoomIndex);" in airship:
-    print("RENDER DEPTH AUDIT WARNING: Region I post-world decor debt is still present and must be migrated before visual acceptance.")
+    print("RENDER DEPTH AUDIT WARNING: Region I post-world decor debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
 
 print("Render depth contract PASS: every RenderedWorld subscriber is audited; no unaudited physical ownership may be introduced.")
