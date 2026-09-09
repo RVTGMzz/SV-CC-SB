@@ -145,6 +145,8 @@ internal sealed class AirshipFoundationService
     private readonly SaveService Save;
     private readonly ControllerProfileService Controller;
     private Func<string>? MilestoneRouteAction;
+    private string PendingExternalFlightLocationName = string.Empty;
+    private Point PendingExternalFlightArrivalTile;
 
     private bool FlybyActive;
     private long FlybyStartedAtMs;
@@ -208,6 +210,39 @@ internal sealed class AirshipFoundationService
 
     public void BindMilestoneRouteHandler(Func<string> handler)
         => this.MilestoneRouteAction = handler;
+
+    public int GetRegionFareForExternalRoute(int region)
+        => this.GetRegionFare(region);
+
+    public string BeginExternalRegionFlight(int region, string targetLocationName, Point arrivalTile)
+    {
+        if (!Context.IsWorldReady || region is not (3 or 4))
+            return ModEntry.T("airship.expedition.unavailable");
+        GameLocation? target = Game1.getLocationFromName(targetLocationName);
+        if (target is null)
+            return ModEntry.T("airship.expedition.unavailable");
+
+        int fare = this.GetRegionFare(region);
+        if (Game1.player.Money < fare)
+            return ModEntry.T("airship.route.not_enough", new { fare, money = Game1.player.Money });
+        if (fare > 0)
+            Game1.player.Money -= fare;
+
+        this.Save.Data.AirshipFlightsTaken++;
+        this.Save.Data.AirshipTotalFarePaid += fare;
+        this.Save.Save();
+        this.PendingExternalFlightLocationName = targetLocationName;
+        this.PendingExternalFlightArrivalTile = arrivalTile;
+        this.StartFlightCutscene(returning: false);
+        return string.Empty;
+    }
+
+    public void StartExternalRegionReturnFlight()
+    {
+        this.PendingExternalFlightLocationName = string.Empty;
+        this.PendingExternalFlightArrivalTile = Point.Zero;
+        this.StartFlightCutscene(returning: true);
+    }
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -1856,9 +1891,26 @@ internal sealed class AirshipFoundationService
             }
             else
             {
-                GameLocation? firstRoom = this.BeginRegion1HuntRun();
-                if (firstRoom is null)
+                if (!string.IsNullOrWhiteSpace(this.PendingExternalFlightLocationName))
                 {
+                    GameLocation? external = Game1.getLocationFromName(this.PendingExternalFlightLocationName);
+                    if (external is null)
+                    {
+                        this.FlightCutsceneActive = false;
+                        this.PendingExternalFlightLocationName = string.Empty;
+                        this.ReturnToSkyDockExterior();
+                        Game1.drawObjectDialogue(ModEntry.T("airship.expedition.unavailable"));
+                        return;
+                    }
+                    Point arrival = this.PendingExternalFlightArrivalTile;
+                    this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+                    Game1.warpFarmer(external.NameOrUniqueName, arrival.X, arrival.Y, 0);
+                }
+                else
+                {
+                    GameLocation? firstRoom = this.BeginRegion1HuntRun();
+                    if (firstRoom is null)
+                    {
                     // Target was validated before charging; this is a last-resort failure path.
                     this.FlightCutsceneActive = false;
                     this.ReturnToSkyDockExterior();
@@ -1866,9 +1918,10 @@ internal sealed class AirshipFoundationService
                     return;
                 }
 
-                Point arrival = ResolveRegion1RunArrivalTile(firstRoom);
-                this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
-                Game1.warpFarmer(firstRoom.NameOrUniqueName, arrival.X, arrival.Y, 0);
+                    Point arrival = ResolveRegion1RunArrivalTile(firstRoom);
+                    this.WarpGraceUntilMs = Environment.TickCount64 + 850L;
+                    Game1.warpFarmer(firstRoom.NameOrUniqueName, arrival.X, arrival.Y, 0);
+                }
             }
         }
 
@@ -1878,6 +1931,8 @@ internal sealed class AirshipFoundationService
             this.FlightCutsceneReturning = false;
             this.FlightCutsceneWarped = false;
             this.FlightCutsceneStartedAtMs = 0;
+            this.PendingExternalFlightLocationName = string.Empty;
+            this.PendingExternalFlightArrivalTile = Point.Zero;
             this.WarpGraceUntilMs = Environment.TickCount64 + 500L;
         }
     }

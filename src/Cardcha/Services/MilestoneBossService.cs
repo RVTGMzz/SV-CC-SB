@@ -79,6 +79,7 @@ internal sealed class MilestoneBossService
     private readonly IMonitor Monitor;
     private readonly SaveService Save;
     private readonly Random Rng = new(0x670B055);
+    private Func<int, int, string, string>? ExpeditionRouteAction;
 
     private MilestoneBossKind? CurrentKind;
     private MilestoneBossState State = MilestoneBossState.Dormant;
@@ -108,6 +109,9 @@ internal sealed class MilestoneBossService
         this.Monitor = monitor;
         this.Save = save;
     }
+
+    public void BindExpeditionRouteHandler(Func<int, int, string, string> handler)
+        => this.ExpeditionRouteAction = handler;
 
     public bool IsInArena => this.ResolveCurrentKind(Game1.currentLocation) is not null;
     internal MilestoneBossKind? VisualKind => this.CurrentKind;
@@ -314,6 +318,8 @@ internal sealed class MilestoneBossService
         {
             this.RouteConfirmUntilMs = 0;
             this.RouteConfirmKind = null;
+            if (this.ExpeditionRouteAction is not null && this.Save.Data.AirshipHighestRegionUnlocked >= 3)
+                return this.ExpeditionRouteAction(owned, 0, string.Empty);
             return ModEntry.T("airship.milestone.all_clear");
         }
 
@@ -333,6 +339,8 @@ internal sealed class MilestoneBossService
         {
             this.RouteConfirmUntilMs = 0;
             this.RouteConfirmKind = null;
+            if (kind != MilestoneBossKind.HollowCurator && this.ExpeditionRouteAction is not null)
+                return this.ExpeditionRouteAction(owned, required, name);
             return ModEntry.T("airship.milestone.progress", new { name, cards = owned, required });
         }
 
@@ -368,7 +376,7 @@ internal sealed class MilestoneBossService
         double confirm = this.RouteConfirmUntilMs > Environment.TickCount64
             ? (this.RouteConfirmUntilMs - Environment.TickCount64) / 1000d
             : 0d;
-        return $"0673 MilestoneRoute | Next={next} | BossI={this.Save.Data.Region1BossDefeated} | HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | Confirm={this.RouteConfirmKind?.ToString() ?? "none"}:{confirm:0.0}s";
+        return $"0674 MilestoneRoute | Next={next} | BossI={this.Save.Data.Region1BossDefeated} | HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | Confirm={this.RouteConfirmKind?.ToString() ?? "none"}:{confirm:0.0}s";
     }
 
     private (MilestoneBossKind? Kind, int Required, string Name) ResolveNextMilestoneRoute()
@@ -387,7 +395,7 @@ internal sealed class MilestoneBossService
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0673 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+        return $"0674 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
                $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }

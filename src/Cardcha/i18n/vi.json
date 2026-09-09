@@ -1131,5 +1131,21 @@
   "airship.milestone.progress": "Tuyến Mốc • {{name}} • {{cards}}/{{required}} lá bài. Hãy tiếp tục sưu tập để ổn định tuyến đường này.",
   "airship.milestone.confirm": "Tuyến Mốc đã sẵn sàng: {{name}} ({{required}} lá bài). Tương tác với bàn điều hướng lần nữa trong 5 giây để khởi hành.",
   "airship.milestone.all_clear": "Cả bốn mốc cộng hưởng đã hoàn tất. Bàn điều hướng tạm thời đã yên lặng.",
-  "airship.milestone.unavailable": "Hiện tại chưa thể ổn định đấu trường mốc này."
+  "airship.milestone.unavailable": "Hiện tại chưa thể ổn định đấu trường mốc này.",
+  "airship.expedition.region3": "Khu III • Rừng Gương",
+  "airship.expedition.region4": "Khu IV • Rìa Cộng Hưởng",
+  "airship.expedition.choose": "{{boss}} vẫn bị phong ấn ({{cards}}/{{required}} thẻ). Chọn khu thám hiểm đã mở:",
+  "airship.expedition.choose_clear": "Các mốc Boss đã hoàn tất. Chọn khu thám hiểm:",
+  "airship.expedition.cancel": "Ở lại Bến Trời",
+  "airship.expedition.confirm": "Đã định tuyến {{region}}. Phí bay: {{fare}}g. Dùng bảng tuyến lần nữa trong 5 giây để khởi hành.",
+  "airship.expedition.confirm_free": "Đã định tuyến {{region}}. Chuyến này miễn phí. Dùng bảng tuyến lần nữa trong 5 giây để khởi hành.",
+  "airship.expedition.unavailable": "Tuyến thám hiểm này hiện chưa ổn định. Bạn không bị trừ phí.",
+  "airship.expedition.locked": "Khu {{region}} vẫn đang bị khóa bởi tiến trình Cardcha.",
+  "airship.expedition.arrive": "{{region}} • Bắt đầu thám hiểm. Vượt qua 3 đợt cộng hưởng rồi rút về tại bãi Airship phía nam.",
+  "airship.expedition.wave": "{{region}} • Đợt {{wave}}/{{total}} đang tới.",
+  "airship.expedition.wave_clear": "Đã dọn đợt {{wave}}/3 • Hàng chưa ký gửi: {{scrap}} Scrap + {{shiny}} Shiny Scrap.",
+  "airship.expedition.ready": "Hoàn tất thám hiểm. Hãy dùng bãi Airship phía nam để mang chiến lợi phẩm về.",
+  "airship.expedition.extract_confirm": "Rút về sau đợt {{wave}} với {{scrap}} Scrap + {{shiny}} Shiny Scrap? Tương tác lần nữa trong 5 giây để xác nhận.",
+  "airship.expedition.bank": "Đã ký gửi chiến lợi phẩm: +{{scrap}} Scrap, +{{shiny}} Shiny Scrap.",
+  "airship.expedition.lost": "Rời khu khẩn cấp: đã mất {{scrap}} Scrap + {{shiny}} Shiny Scrap chưa kịp ký gửi."
 }

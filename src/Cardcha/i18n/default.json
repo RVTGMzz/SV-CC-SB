@@ -1053,5 +1053,21 @@
   "airship.milestone.progress": "Milestone Route • {{name}} • {{cards}}/{{required}} cards. Keep collecting cards to stabilize this route.",
   "airship.milestone.confirm": "Milestone Route ready: {{name}} ({{required}} cards). Interact with the route console again within 5 seconds to depart.",
   "airship.milestone.all_clear": "All four milestone resonances are complete. The route console is quiet for now.",
-  "airship.milestone.unavailable": "The milestone arena cannot be stabilized right now."
+  "airship.milestone.unavailable": "The milestone arena cannot be stabilized right now.",
+  "airship.expedition.region3": "Region III • Mirrorwild",
+  "airship.expedition.region4": "Region IV • Resonance Verge",
+  "airship.expedition.choose": "{{boss}} is still sealed ({{cards}}/{{required}} cards). Choose an unlocked expedition route:",
+  "airship.expedition.choose_clear": "Milestone route clear. Choose an expedition route:",
+  "airship.expedition.cancel": "Stay at the Sky Dock",
+  "airship.expedition.confirm": "{{region}} is charted. Fare: {{fare}}g. Use the route console again within 5 seconds to depart.",
+  "airship.expedition.confirm_free": "{{region}} is charted. This flight is free. Use the route console again within 5 seconds to depart.",
+  "airship.expedition.unavailable": "That expedition route is unstable right now. No fare was consumed.",
+  "airship.expedition.locked": "Region {{region}} is still sealed by Cardcha progression.",
+  "airship.expedition.arrive": "{{region}} • Expedition started. Clear three resonance waves, then extract from the southern Airship pad.",
+  "airship.expedition.wave": "{{region}} • Wave {{wave}}/{{total}} incoming.",
+  "airship.expedition.wave_clear": "Wave {{wave}}/3 cleared • Unbanked cargo: {{scrap}} Scrap + {{shiny}} Shiny Scrap.",
+  "airship.expedition.ready": "Expedition complete. Use the southern Airship pad to extract your cargo.",
+  "airship.expedition.extract_confirm": "Extract now after wave {{wave}} with {{scrap}} Scrap + {{shiny}} Shiny Scrap? Interact again within 5 seconds.",
+  "airship.expedition.bank": "Expedition cargo secured: +{{scrap}} Scrap, +{{shiny}} Shiny Scrap.",
+  "airship.expedition.lost": "Emergency exit: {{scrap}} Scrap + {{shiny}} Shiny Scrap of unbanked expedition cargo was lost."
 }
