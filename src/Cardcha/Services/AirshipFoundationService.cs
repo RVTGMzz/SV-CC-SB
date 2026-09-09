@@ -118,6 +118,7 @@ internal sealed class AirshipFoundationService
         "airship.region1.run.room.5",
     };
     private const string AirshipVisualPath = "assets/airship_visual.png";
+    private const string AirshipGateVisualPath = "assets/airship_gate_auth.png";
     private const string AirshipUpgradeVisualPath = "assets/airship_upgrade_visuals.png";
     private const string Region1MonsterMarkerKey = "Ronvotri.Cardcha/Region1Spawn";
     private const int Region1GateCardRequirement = 20;
@@ -165,6 +166,8 @@ internal sealed class AirshipFoundationService
     private Point? CachedForestFarmWarpTile;
     private long WarpGraceUntilMs;
     private Texture2D? AirshipVisual;
+    private Texture2D? AirshipGateVisual;
+    private bool AirshipGateVisualLoadFailed;
     private Texture2D? AirshipUpgradeVisuals;
     private bool AirshipUpgradeVisualsLoadFailed;
     private bool AirshipVisualLoadFailed;
@@ -2466,49 +2469,42 @@ internal sealed class AirshipFoundationService
 
     private void DrawSkyDock(SpriteBatch batch, Point tile)
     {
-        Vector2 center = Game1.GlobalToLocal(
-            Game1.viewport,
-            new Vector2(tile.X * 64f + 32f, tile.Y * 64f - 34f)
-        );
+        Texture2D? gate = this.GetAirshipGateVisual();
+        if (gate is null)
+            return;
 
-        (Color skyTop, Color skyMid, Color skyLow) = ResolveOutdoorSkyPalette();
-        Color gold = new Color(199, 151, 78) * 0.94f;
-        Color stoneDark = new Color(57, 48, 51) * 0.98f;
-        Color stone = new Color(90, 77, 74) * 0.98f;
-        Color stoneLight = new Color(126, 111, 102) * 0.86f;
-        Color violet = new Color(148, 112, 166) * 0.62f;
-        Color cyan = new Color(110, 181, 188) * 0.58f;
+        // 0669: one compact authored boarding object. No procedural tower, no giant portal glass.
+        Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 70f);
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+        float pulse = 0.97f + 0.025f * (float)Math.Sin(Environment.TickCount64 / 420d);
+        float layer = Math.Clamp((world.Y + 18f) / 10000f, 0f, 0.94f);
+        batch.Draw(gate, local, null, Color.White, 0f,
+            new Vector2(gate.Width / 2f, gate.Height - 10f), 1.48f * pulse,
+            SpriteEffects.None, layer);
 
-        // Stable presentation: the portal no longer rotates/rebuilds its sigil while the farmer moves.
-        DrawRect(batch, new Rectangle((int)center.X - 104, (int)center.Y + 63, 208, 18), new Color(20, 20, 27) * 0.48f);
-        DrawRect(batch, new Rectangle((int)center.X - 92, (int)center.Y + 49, 184, 18), stoneDark * 0.84f);
-        DrawRect(batch, new Rectangle((int)center.X - 82, (int)center.Y + 40, 164, 13), stone * 0.86f);
-        DrawRect(batch, new Rectangle((int)center.X - 70, (int)center.Y + 32, 140, 10), stoneLight * 0.72f);
+        // Small ground confirmation only. The art itself communicates "boarding gate".
+        Color warm = new Color(231, 190, 111) * 0.42f;
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 42, (int)local.Y - 7, 84, 3), warm);
+    }
 
-        Rectangle aperture = new((int)center.X - 57, (int)center.Y - 105, 114, 143);
-        DrawRect(batch, new Rectangle(aperture.X - 7, aperture.Y - 7, aperture.Width + 14, aperture.Height + 14), new Color(48, 27, 54) * 0.94f);
-        DrawVerticalGradient(batch, aperture, skyTop * 0.94f, skyMid * 0.92f, skyLow * 0.88f);
-        // Fixed magical glass lines. Only brightness gently pulses; geometry never moves.
-        DrawRect(batch, new Rectangle(aperture.X + 13, aperture.Y + 28, aperture.Width - 26, 2), cyan * 0.26f);
-        DrawRect(batch, new Rectangle(aperture.X + 21, aperture.Y + 73, aperture.Width - 42, 2), violet * 0.24f);
-        DrawDiamondRune(batch, new Vector2(aperture.Center.X, aperture.Center.Y), 9f, cyan * 0.42f);
-        DrawDiamondRune(batch, new Vector2(aperture.Center.X - 27f, aperture.Center.Y + 31f), 4f, violet * 0.34f);
-        DrawDiamondRune(batch, new Vector2(aperture.Center.X + 29f, aperture.Center.Y - 35f), 4f, gold * 0.32f);
+    private Texture2D? GetAirshipGateVisual()
+    {
+        if (this.AirshipGateVisual is not null && !this.AirshipGateVisual.IsDisposed)
+            return this.AirshipGateVisual;
+        if (this.AirshipGateVisualLoadFailed)
+            return null;
 
-        DrawRect(batch, new Rectangle((int)center.X - 81, (int)center.Y - 77, 24, 127), stoneDark);
-        DrawRect(batch, new Rectangle((int)center.X + 57, (int)center.Y - 77, 24, 127), stoneDark);
-        DrawRect(batch, new Rectangle((int)center.X - 74, (int)center.Y - 73, 14, 119), stone);
-        DrawRect(batch, new Rectangle((int)center.X + 60, (int)center.Y - 73, 14, 119), stone);
-        DrawEllipticArc(batch, new Vector2(center.X, center.Y - 74f), 69f, 65f, MathHelper.Pi, MathHelper.TwoPi, 18, 17f, stoneDark);
-        DrawEllipticArc(batch, new Vector2(center.X, center.Y - 74f), 61f, 58f, MathHelper.Pi, MathHelper.TwoPi, 18, 9f, stone);
-        DrawEllipticArc(batch, new Vector2(center.X, center.Y - 74f), 53f, 51f, MathHelper.Pi, MathHelper.TwoPi, 18, 4f, gold * 0.82f);
-        DrawRect(batch, new Rectangle((int)center.X - 72, (int)center.Y + 43, 144, 6), gold * 0.72f);
-
-        DrawDiamondRune(batch, new Vector2(center.X, center.Y - 147f), 18f, gold);
-        DrawCrystalPylon(batch, new Vector2(center.X - 102f, center.Y + 48f), 48f, cyan, gold);
-        DrawCrystalPylon(batch, new Vector2(center.X + 102f, center.Y + 48f), 48f, violet, gold);
-        DrawBrassLamp(batch, new Vector2(center.X - 137f, center.Y + 55f), 0f, gold, cyan);
-        DrawBrassLamp(batch, new Vector2(center.X + 137f, center.Y + 55f), 0f, gold, violet);
+        try
+        {
+            this.AirshipGateVisual = this.Helper.ModContent.Load<Texture2D>(AirshipGateVisualPath);
+            return this.AirshipGateVisual;
+        }
+        catch (Exception ex)
+        {
+            this.AirshipGateVisualLoadFailed = true;
+            this.Monitor.Log($"0669 Airship gate visual unavailable: {ex.GetType().Name}: {ex.Message}", LogLevel.Warn);
+            return null;
+        }
     }
 
     private void DrawSkyDockInteriorDetails(SpriteBatch batch, GameLocation interior)

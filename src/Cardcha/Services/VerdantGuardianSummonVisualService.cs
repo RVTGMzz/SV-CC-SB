@@ -91,19 +91,27 @@ internal sealed class VerdantGuardianSummonVisualService
         float floatBob = wisp ? (float)Math.Sin((now + phaseOffset * 83L) / 150d) * 5f : 0f;
         Vector2 feet = add.Position + new Vector2(32f, wisp ? 38f + floatBob : 53f);
         Vector2 local = Game1.GlobalToLocal(Game1.viewport, feet);
-        float scale = wisp ? 3.25f : 3.55f;
+        float scale = wisp ? 2.05f : 2.20f;
         float layer = Math.Clamp((add.Position.Y + 96f) / 10000f, 0f, 0.99f);
 
         Rectangle shadow = new((int)local.X - (wisp ? 24 : 31), (int)local.Y - 5, wisp ? 48 : 62, wisp ? 9 : 12);
         batch.Draw(Game1.staminaRect, shadow, Color.Black * (wisp ? 0.18f : 0.27f));
         batch.Draw(texture, local, src, Color.White, 0f, new Vector2(16f, 27f), scale, SpriteEffects.None, layer);
 
+        // Summons are real killable enemies. A compact bar confirms hits without prop-like clutter.
+        float hp = add.MaxHealth <= 0 ? 0f : Math.Clamp(add.Health / (float)add.MaxHealth, 0f, 1f);
+        int hpW = wisp ? 38 : 44;
+        int hpX = (int)local.X - hpW / 2;
+        int hpY = (int)local.Y + 5;
+        batch.Draw(Game1.staminaRect, new Rectangle(hpX, hpY, hpW, 4), Color.Black * 0.62f);
+        batch.Draw(Game1.staminaRect, new Rectangle(hpX + 1, hpY + 1, Math.Max(1, (int)((hpW - 2) * hp)), 2), new Color(178, 224, 122) * 0.90f);
+
         if (wisp)
         {
             float pulse = 0.35f + 0.18f * (float)Math.Abs(Math.Sin(now / 120d));
             int r = 9 + (int)(3 * Math.Abs(Math.Sin(now / 140d)));
             batch.Draw(Game1.staminaRect, new Rectangle((int)local.X-r, (int)local.Y-48-r, r*2, r*2), new Color(137, 247, 126) * pulse);
-            batch.Draw(texture, local, src, Color.White, 0f, new Vector2(16f, 27f), scale, SpriteEffects.None, Math.Min(0.995f, layer + 0.0003f));
+            batch.Draw(texture, local, src, Color.White * 0.86f, 0f, new Vector2(16f, 27f), scale, SpriteEffects.None, Math.Min(0.995f, layer + 0.0003f));
         }
     }
 
@@ -119,7 +127,7 @@ internal sealed class VerdantGuardianSummonVisualService
     {
         string living = string.Join(",", this.Boss.VisualAdds.Select(m =>
             m.modData.TryGetValue(VerdantGuardianBossService.BossAddTypeKey, out string? kind) ? kind : "unknown"));
-        return $"CustomSummons=ON | Living=[{living}] | Pending={this.Boss.VisualSummonTargets.Length} | ProxyArtHidden=ON | FailedAssets={this.Failed.Count}";
+        return $"CustomSummons=ON | Living=[{living}] | Pending={this.Boss.VisualSummonTargets.Length} | EngineActorsVisible=YES | ProxyDrawHidden=YES | Killable=YES | FailedAssets={this.Failed.Count}";
     }
 
     private Texture2D? Load(string file)

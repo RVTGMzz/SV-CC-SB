@@ -215,6 +215,7 @@ internal sealed class VerdantGuardianBossService
         long now = Environment.TickCount64;
         this.UpdateTotemAnchors();
         this.ObserveTotemBreaks(now);
+        this.ReassertBossActorAuth();
         if (this.State == VerdantGuardianState.Victory)
         {
             if (this.VictoryReturnAtMs > 0 && now >= this.VictoryReturnAtMs)
@@ -644,7 +645,9 @@ internal sealed class VerdantGuardianBossService
             Monster add;
             if (string.Equals(kind, LeafWispId, StringComparison.OrdinalIgnoreCase))
             {
-                add = new Bug(pos, 0);
+                // 0669 auth: use the same stable, targetable GreenSlime actor family for both
+                // custom summon silhouettes. Custom art hides the proxy draw, never the actor.
+                add = new GreenSlime(pos, 0);
                 add.MaxHealth = this.Phase switch { 1 => 34, 2 => 46, _ => 58 };
                 add.Speed = this.Phase switch { 1 => 4, 2 => 5, _ => 5 };
             }
@@ -652,21 +655,52 @@ internal sealed class VerdantGuardianBossService
             {
                 add = new GreenSlime(pos, 0);
                 add.MaxHealth = this.Phase switch { 1 => 50, 2 => 68, _ => 84 };
-                add.Speed = this.Phase switch { 1 => 2, 2 => 3, _ => 3 };
+                add.Speed = this.Phase switch { 1 => 3, 2 => 4, _ => 4 };
                 kind = BriarlingId;
             }
 
             add.Health = add.MaxHealth;
             add.modData[BossAddMarkerKey] = this.Phase.ToString();
             add.modData[BossAddTypeKey] = kind;
-            // Hide only the vanilla proxy art. AI, collision, damage and death routing remain native/stable.
-            add.isInvisible.Value = true;
+            // 0669: invisibility must NEVER disable targetability/AI. Harmony suppresses only draw.
+            add.isInvisible.Value = false;
             arena.characters.Add(add);
         }
 
         if (count > 0) Game1.playSound("debuffSpell");
         this.PendingSummonTiles = Array.Empty<Point>();
         this.PendingSummonKinds = Array.Empty<string>();
+    }
+
+    private void ReassertBossActorAuth()
+    {
+        GameLocation? arena = Game1.getLocationFromName(LocationName);
+        if (arena is null) return;
+
+        foreach (Monster actor in arena.characters.OfType<Monster>())
+        {
+            if (actor.modData.ContainsKey(TotemMarkerKey))
+            {
+                // Stationary objective: targetable/damageable, never an invisible engine actor.
+                actor.isInvisible.Value = false;
+                actor.Speed = 0;
+                continue;
+            }
+
+            if (!actor.modData.ContainsKey(BossAddMarkerKey) || actor.Health <= 0)
+                continue;
+
+            actor.isInvisible.Value = false;
+            if (actor.modData.TryGetValue(BossAddTypeKey, out string? kind)
+                && string.Equals(kind, LeafWispId, StringComparison.OrdinalIgnoreCase))
+            {
+                actor.Speed = Math.Max(actor.Speed, this.Phase switch { 1 => 4, 2 => 5, _ => 5 });
+            }
+            else
+            {
+                actor.Speed = Math.Max(actor.Speed, this.Phase switch { 1 => 3, 2 => 4, _ => 4 });
+            }
+        }
     }
 
     private void BeginDefeat(long now)
@@ -765,7 +799,8 @@ internal sealed class VerdantGuardianBossService
             GreenSlime proxy = new(new Vector2(tile.X * 64f, tile.Y * 64f), 0) { MaxHealth = TotemMaxHealth, Health = TotemMaxHealth, Speed = 0 };
             proxy.modData[TotemMarkerKey] = "verdant-seed-totem";
             proxy.modData[TotemIndexKey] = i.ToString();
-            proxy.isInvisible.Value = true;
+            // 0669: the proxy stays active/targetable; only its vanilla draw is suppressed.
+            proxy.isInvisible.Value = false;
             arena.characters.Add(proxy);
         }
     }

@@ -47,15 +47,42 @@ internal static class AirshipInteriorStardewRenderer
 
     private static void DrawDeckStardewDecor(SpriteBatch batch)
     {
-        Texture2D? atlas = GetHubDecorAtlas(); if (atlas is null) return;
-        DrawDecor(batch, atlas, 2,0, new Point(2,5), 2f); DrawDecor(batch, atlas, 0,1, new Point(11,3), 2f); DrawDecor(batch, atlas, 3,0, new Point(6,7), 2f); DrawDecor(batch, atlas, 3,2, new Point(16,7), 2f);
-        DrawDecor(batch, atlas, 0,0, new Point(2,10), 2f); DrawDecor(batch, atlas, 1,0, new Point(20,10), 2f); DrawDecor(batch, atlas, 2,2, new Point(18,4), 2f); DrawDecor(batch, atlas, 1,2, new Point(4,4), 2f); DrawDecor(batch, atlas, 3,1, new Point(21,5), 2f); DrawDecor(batch, atlas, 1,1, new Point(9,8), 4.1f, 112, 64);
+        Texture2D? atlas = GetHubDecorAtlas();
+        if (atlas is null) return;
+
+        // 0669 foundation: grouped by purpose instead of scattered test props.
+        // Navigation/work cluster.
+        DrawDecor(batch, atlas, 2, 0, new Point(4, 6), 1.75f);
+        DrawDecor(batch, atlas, 0, 1, new Point(7, 6), 1.75f);
+        DrawDecor(batch, atlas, 1, 2, new Point(5, 9), 1.65f);
+
+        // Central communal/helm cluster.
+        DrawDecor(batch, atlas, 1, 1, new Point(12, 8), 2.35f, 92, 56);
+        DrawDecor(batch, atlas, 3, 0, new Point(10, 10), 1.70f);
+
+        // Maintenance/storage cluster.
+        DrawDecor(batch, atlas, 3, 2, new Point(18, 8), 1.75f);
+        DrawDecor(batch, atlas, 0, 0, new Point(20, 10), 1.65f);
+        DrawDecor(batch, atlas, 2, 2, new Point(19, 5), 1.65f);
     }
 
     private static void DrawDockStardewDecor(SpriteBatch batch)
     {
-        Texture2D? atlas = GetHubDecorAtlas(); if (atlas is null) return;
-        DrawDecor(batch, atlas, 0,0, new Point(3,10), 2f); DrawDecor(batch, atlas, 2,1, new Point(5,11), 2f); DrawDecor(batch, atlas, 0,2, new Point(7,12), 2f); DrawDecor(batch, atlas, 2,2, new Point(22,10), 2f); DrawDecor(batch, atlas, 1,0, new Point(24,11), 2f); DrawDecor(batch, atlas, 3,1, new Point(3,6), 2f); DrawDecor(batch, atlas, 3,1, new Point(26,6), 2f); DrawDecor(batch, atlas, 1,2, new Point(8,6), 2f);
+        Texture2D? atlas = GetHubDecorAtlas();
+        if (atlas is null) return;
+
+        // Waiting/storage side.
+        DrawDecor(batch, atlas, 0, 0, new Point(4, 10), 1.70f);
+        DrawDecor(batch, atlas, 2, 1, new Point(6, 10), 1.65f);
+        DrawDecor(batch, atlas, 0, 2, new Point(6, 12), 1.60f);
+
+        // Route desk in one readable cluster.
+        DrawDecor(batch, atlas, 3, 1, new Point(8, 6), 1.70f);
+        DrawDecor(batch, atlas, 1, 2, new Point(9, 8), 1.60f);
+
+        // Boarding side, kept visually open.
+        DrawDecor(batch, atlas, 2, 2, new Point(22, 10), 1.65f);
+        DrawDecor(batch, atlas, 1, 0, new Point(24, 11), 1.65f);
     }
 
     private static void DrawDecor(SpriteBatch batch, Texture2D atlas, int col, int row, Point tile, float scale, int destW = 0, int destH = 0)
@@ -177,9 +204,8 @@ internal static class AirshipInteriorStardewRenderer
         // Boarding pad is deliberately bright so the warp trigger is never invisible.
         Vector2 bay = WorldToScreen(23f * 64f + 32f, 8f * 64f + 34f);
         Color teal = new Color(103,221,214);
-        DrawRect(batch, new Rectangle((int)bay.X - 38, (int)bay.Y - 18, 76, 36), teal * 0.08f);
-        DrawPixelRing(batch, bay, 20, teal * 0.56f);
-        DrawDiamond(batch, bay, 8, teal * 0.70f);
+        DrawRect(batch, new Rectangle((int)bay.X - 30, (int)bay.Y - 7, 60, 3), teal * 0.28f);
+        DrawDiamond(batch, bay + new Vector2(0f, -5f), 5, teal * 0.58f);
         for (int i=0;i<5;i++)
         {
             float a=phase*0.55f+i*MathHelper.TwoPi/5f;

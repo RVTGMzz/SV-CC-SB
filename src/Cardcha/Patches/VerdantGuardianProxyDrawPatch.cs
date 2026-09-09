@@ -19,5 +19,6 @@ internal static class VerdantGuardianProxyDrawPatch
 
     private static bool Prefix(GreenSlime __instance)
         => !__instance.modData.ContainsKey(VerdantGuardianBossService.BossMarkerKey)
-           && !__instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey);
+           && !__instance.modData.ContainsKey(VerdantGuardianBossService.TotemMarkerKey)
+           && !__instance.modData.ContainsKey(VerdantGuardianBossService.BossAddMarkerKey);
 }

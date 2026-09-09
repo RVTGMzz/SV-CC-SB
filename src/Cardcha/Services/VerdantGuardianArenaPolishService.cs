@@ -232,29 +232,62 @@ internal sealed class VerdantGuardianArenaPolishService
     {
         Texture2D? texture = this.Load("verdant_seed_totem.png");
         if (texture is null || texture.Width < 128 || texture.Height < 48) return;
-        Monster[] living = this.Boss.VisualTotems; HashSet<int> livingIndices = new();
+
+        Monster[] living = this.Boss.VisualTotems;
+        HashSet<int> livingIndices = new();
         foreach (Monster totem in living)
         {
-            if (!totem.modData.TryGetValue(VerdantGuardianBossService.TotemIndexKey, out string? raw) || !int.TryParse(raw, out int index)) index = 0;
-            index = Math.Clamp(index, 0, ObeliskTiles.Length - 1); livingIndices.Add(index);
-            float hp = totem.MaxHealth <= 0 ? 0f : Math.Clamp(totem.Health / (float)totem.MaxHealth, 0f, 1f); int frame = hp > 0.66f ? 0 : hp > 0.33f ? 1 : 2;
-            Rectangle src = new(frame * 32, 0, 32, 48); Point tile = ObeliskTiles[index]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
-            float pulse = 0.94f + 0.04f * (float)Math.Sin(Environment.TickCount64 / 240d + index); float flash = index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 520 ? 0.90f : 0f;
-            Color tint = Color.Lerp(Color.White, new Color(255, 237, 156), flash); float layer = Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f);
-            batch.Draw(texture, local, src, tint, 0f, new Vector2(16f, 47f), 2.15f * pulse * (1f + flash * 0.10f), SpriteEffects.None, layer);
-            int barW = 54, barX = (int)local.X - 27, barY = (int)local.Y + 7; batch.Draw(Game1.staminaRect, new Rectangle(barX, barY, barW, 5), Color.Black * 0.65f); batch.Draw(Game1.staminaRect, new Rectangle(barX + 1, barY + 1, Math.Max(1, (int)((barW - 2) * hp)), 3), new Color(119, 211, 92) * 0.92f);
-            if (index == this.Boss.VisualLastTotemHitIndex && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 700 && this.Boss.VisualLastTotemHitDamage > 0)
+            if (!totem.modData.TryGetValue(VerdantGuardianBossService.TotemIndexKey, out string? raw)
+                || !int.TryParse(raw, out int index))
+                index = 0;
+
+            index = Math.Clamp(index, 0, ObeliskTiles.Length - 1);
+            livingIndices.Add(index);
+
+            float hp = totem.MaxHealth <= 0 ? 0f : Math.Clamp(totem.Health / (float)totem.MaxHealth, 0f, 1f);
+            int frame = hp > 0.66f ? 0 : hp > 0.33f ? 1 : 2;
+            Rectangle src = new(frame * 32, 0, 32, 48);
+
+            // Critical 0669 auth rule: art follows the ACTUAL gameplay proxy position.
+            Vector2 world = totem.Position + new Vector2(32f, 64f);
+            Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+            float pulse = 0.97f + 0.025f * (float)Math.Sin(Environment.TickCount64 / 240d + index);
+            float flash = index == this.Boss.VisualLastTotemHitIndex
+                && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 520 ? 0.90f : 0f;
+            Color tint = Color.Lerp(Color.White, new Color(255, 237, 156), flash);
+            float layer = Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f);
+
+            batch.Draw(texture, local, src, tint, 0f, new Vector2(16f, 47f),
+                2.0f * pulse * (1f + flash * 0.08f), SpriteEffects.None, layer);
+
+            // Objective halo, not a monster HP bar. Cracks/glow in the sprite carry durability.
+            int halo = 23 + (int)(2f * Math.Sin(Environment.TickCount64 / 210d + index));
+            Color objective = new Color(137, 225, 103) * (0.30f + flash * 0.26f);
+            batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - halo, (int)local.Y + 4, halo * 2, 2), objective);
+            batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 2, (int)local.Y + 1, 4, 8), objective * 0.72f);
+
+            if (index == this.Boss.VisualLastTotemHitIndex
+                && Environment.TickCount64 - this.Boss.VisualLastTotemHitAtMs < 700
+                && this.Boss.VisualLastTotemHitDamage > 0)
             {
                 string hitText = $"-{this.Boss.VisualLastTotemHitDamage}";
                 Vector2 hitSize = Game1.smallFont.MeasureString(hitText);
-                batch.DrawString(Game1.smallFont, hitText, new Vector2(local.X - hitSize.X / 2f, local.Y - 92f), new Color(255, 237, 156));
+                batch.DrawString(Game1.smallFont, hitText,
+                    new Vector2(local.X - hitSize.X / 2f, local.Y - 78f),
+                    new Color(255, 237, 156));
             }
         }
+
         Rectangle brokenSrc = new(96, 0, 32, 48);
         for (int i = 0; i < ObeliskTiles.Length; i++)
         {
-            if (livingIndices.Contains(i)) continue; Point tile = ObeliskTiles[i]; Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f); Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
-            batch.Draw(texture, local, brokenSrc, Color.White * 0.76f, 0f, new Vector2(16f, 47f), 2.15f, SpriteEffects.None, Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f));
+            if (livingIndices.Contains(i)) continue;
+            Point tile = ObeliskTiles[i];
+            Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 64f);
+            Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
+            batch.Draw(texture, local, brokenSrc, Color.White * 0.78f, 0f,
+                new Vector2(16f, 47f), 2.0f, SpriteEffects.None,
+                Math.Clamp((world.Y + 56f) / 10000f, 0f, 0.94f));
         }
     }
 
