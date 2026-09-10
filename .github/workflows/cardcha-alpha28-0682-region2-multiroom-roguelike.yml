@@ -20,11 +20,16 @@ jobs:
       - name: Integrate 0682 Region II multi-room runtime
         run: python3 tools/alpha28_0682_region2_room_variety.py
 
+      - name: Scope Archive Seal interaction to Warden Vault
+        run: python3 tools/alpha28_0682_gate_scope_hotfix.py
+
       - name: Validate repository rendering depth contract
         run: python3 tools/validate_render_depth_contract.py
 
       - name: Validate 0682 multi-room roguelike contracts
-        run: python3 tools/validate_0682_region2_multiroom.py
+        run: |
+          python3 tools/validate_0682_region2_multiroom.py
+          grep -F 'this.CurrentRoom == Region2RoomKind.WardenVault && (gateClose || gateFacing)' src/Cardcha/Services/Region2RoguelikeRunService.cs
 
       - name: Verify accepted art and later-region assets are untouched
         shell: bash
@@ -86,7 +91,7 @@ jobs:
           sha256sum "$ZIP" | tee "$ZIP.sha256"
           python3 - <<'PY'
           from pathlib import Path
-          import json, zipfile, xml.etree.ElementTree as ET, io
+          import json, zipfile, xml.etree.ElementTree as ET
           p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.50_0682_Region2_MultiRoomRoguelike_TEST.zip')
           with zipfile.ZipFile(p) as z:
               names=set(z.namelist())
