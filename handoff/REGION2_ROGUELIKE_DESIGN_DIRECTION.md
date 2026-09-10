@@ -203,6 +203,10 @@ Recommended development order:
 5. Rebuild Hollow Curator behavior and animation around the recorded-run mechanic.
 6. Playtest pacing, clarity, reward balance and replay value before expanding Region III/IV with the same philosophy.
 
+## 0681 implementation note
+
+0681 implements the first real `Curator Records You` bridge: the dominant 0680 run tendency is handed to Boss II and biases a readable signature attack in phases 2/3. This is intentionally adaptive rather than a hard counter. The design remains open to playtest-driven tuning.
+
 ## Acceptance question
 
 The primary acceptance test is not “did all planned rooms spawn?”

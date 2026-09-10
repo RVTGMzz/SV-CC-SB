@@ -1189,5 +1189,12 @@
   "airship.region2.rogue.record.pressure": "chịu nhiều áp lực sát thương",
   "airship.region2.rogue.record.recovery": "ưu tiên hồi phục",
   "airship.region2.rogue.record.mirror": "tương tác với gương",
-  "airship.region2.rogue.record.debug": "bản ghi test"
+  "airship.region2.rogue.record.debug": "bản ghi test",
+  "boss.curator.record.reveal": "Giám Thủ Rỗng mở hồ sơ của bạn: {{record}}.",
+  "boss.curator.record.short.neutral": "Trung tính",
+  "boss.curator.record.short.risk": "Mạo hiểm",
+  "boss.curator.record.short.precision": "Chuẩn xác",
+  "boss.curator.record.short.pressure": "Áp lực",
+  "boss.curator.record.short.recovery": "Hồi phục",
+  "boss.curator.record.short.mirror": "Phản chiếu"
 }

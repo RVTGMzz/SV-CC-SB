@@ -94,6 +94,10 @@ internal sealed class MilestoneBossService
     private bool AttackApplied;
     private bool VictoryHandled;
     private int CuratorAdaptationStacks;
+    private CuratorRunRecord PendingCuratorRecord = CuratorRunRecord.Neutral;
+    private CuratorRunRecord ActiveCuratorRecord = CuratorRunRecord.Neutral;
+    private bool HasPendingCuratorRecord;
+    private bool CuratorRecordRevealed;
     private int DecisionSerial;
     private long RouteConfirmUntilMs;
     private MilestoneBossKind? RouteConfirmKind;
@@ -112,6 +116,20 @@ internal sealed class MilestoneBossService
 
     public void BindExpeditionRouteHandler(Func<int, int, string, string> handler)
         => this.ExpeditionRouteAction = handler;
+
+    public void SetNextHollowCuratorRecord(CuratorRunRecord record)
+    {
+        this.PendingCuratorRecord = record ?? CuratorRunRecord.Neutral;
+        this.HasPendingCuratorRecord = true;
+        this.Monitor.Log($"0681 Hollow Curator pending run record: {this.PendingCuratorRecord.Describe()}.", LogLevel.Trace);
+    }
+
+    public string DebugEnterBoss2WithRecord(string? tag)
+    {
+        CuratorRunRecord record = CuratorRunRecord.Debug(tag);
+        this.SetNextHollowCuratorRecord(record);
+        return this.DebugEnterBoss(2) + $" Curator record={record.Tag}.";
+    }
 
     public bool IsInArena => this.ResolveCurrentKind(Game1.currentLocation) is not null;
     internal MilestoneBossKind? VisualKind => this.CurrentKind;
@@ -427,8 +445,8 @@ internal sealed class MilestoneBossService
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0679 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
-               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
+        return $"0681 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | CuratorRecord={this.ActiveCuratorRecord.Describe()} | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
 
@@ -446,6 +464,17 @@ internal sealed class MilestoneBossService
         this.AttackApplied = false;
         this.VictoryHandled = false;
         this.CuratorAdaptationStacks = 0;
+        if (kind == MilestoneBossKind.HollowCurator)
+        {
+            this.ActiveCuratorRecord = this.HasPendingCuratorRecord ? this.PendingCuratorRecord : CuratorRunRecord.Neutral;
+            this.PendingCuratorRecord = CuratorRunRecord.Neutral;
+            this.HasPendingCuratorRecord = false;
+        }
+        else
+        {
+            this.ActiveCuratorRecord = CuratorRunRecord.Neutral;
+        }
+        this.CuratorRecordRevealed = false;
         this.DecisionSerial = 0;
         this.RouteConfirmUntilMs = 0;
         this.RouteConfirmKind = null;
@@ -542,13 +571,28 @@ internal sealed class MilestoneBossService
         {
             case MilestoneBossKind.HollowCurator:
             {
+                int recordAttack = this.CuratorRecordAttackId();
                 int[] pool = this.Phase switch
                 {
                     1 => new[] { 0, 0, 1 },
-                    2 => new[] { 0, 1, 2, 4, 4 },
-                    _ => new[] { 0, 2, 3, 4, 4 },
+                    2 => new[] { 0, 1, 2, 4, recordAttack, recordAttack },
+                    _ => new[] { 0, 2, 3, 4, recordAttack, recordAttack, recordAttack },
                 };
                 this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
+                if (this.CurrentAttack == 5)
+                {
+                    this.AttackTargetTile2 = ClampArenaTile(new Point(
+                        this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 3 : -3),
+                        this.AttackTargetTile.Y
+                    ));
+                }
+                else if (this.CurrentAttack == 9)
+                {
+                    this.AttackTargetTile2 = ClampArenaTile(new Point(
+                        this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 2 : -2),
+                        this.AttackTargetTile.Y + (this.DecisionSerial % 3 == 0 ? 2 : -1)
+                    ));
+                }
                 this.MaybeTeleportPrimary("curator");
                 break;
             }
@@ -638,6 +682,38 @@ internal sealed class MilestoneBossService
             case 4:
                 if (PlayerWithin(this.EchoTargetTile, 1.8f) || PlayerWithin(this.EchoTargetTile2, 1.25f))
                     DamagePlayer(17 + this.Phase * 2 + extra);
+                Game1.playSound("wand");
+                break;
+            case 5: // RISK: two collapsing archive zones, strong but clearly telegraphed.
+                if (PlayerWithin(this.AttackTargetTile, 2.15f) || PlayerWithin(this.AttackTargetTile2, 1.25f))
+                    DamagePlayer(20 + this.Phase + extra);
+                Game1.playSound("thudStep");
+                break;
+            case 6: // PRECISION: narrow current + remembered strike.
+                if (PlayerWithin(this.AttackTargetTile, 0.95f) || PlayerWithin(this.EchoTargetTile, 0.95f))
+                    DamagePlayer(22 + extra);
+                Game1.playSound("Cowboy_gunload");
+                break;
+            case 7: // PRESSURE: wider, lower-damage compression pulse.
+                if (PlayerWithin(this.AttackTargetTile, 2.65f))
+                    DamagePlayer(18 + this.Phase + extra);
+                Game1.playSound("thudStep");
+                break;
+            case 8: // RECOVERY: Curator reflects restoration without disabling player healing.
+            {
+                Monster? curator = this.FindRole("curator", false);
+                if (curator is not null)
+                    curator.Health = Math.Min(curator.MaxHealth, curator.Health + 55 + this.CuratorAdaptationStacks * 10);
+                if (PlayerWithin(this.AttackTargetTile, 1.35f))
+                    DamagePlayer(10 + extra);
+                Game1.playSound("healSound");
+                break;
+            }
+            case 9: // MIRROR: current + secondary + previous position echo.
+                if (PlayerWithin(this.AttackTargetTile, 1.55f)
+                    || PlayerWithin(this.AttackTargetTile2, 1.25f)
+                    || PlayerWithin(this.EchoTargetTile, 1.25f))
+                    DamagePlayer(18 + this.Phase + extra);
                 Game1.playSound("wand");
                 break;
 
@@ -741,6 +817,11 @@ internal sealed class MilestoneBossService
         if (this.State == MilestoneBossState.PhaseTransition || this.State == MilestoneBossState.Defeated || this.State == MilestoneBossState.Victory)
             return;
         this.PendingPhase = nextPhase;
+        if (this.CurrentKind == MilestoneBossKind.HollowCurator && nextPhase == 2 && !this.CuratorRecordRevealed)
+        {
+            this.CuratorRecordRevealed = true;
+            Game1.showGlobalMessage(ModEntry.T("boss.curator.record.reveal", new { record = this.CuratorRecordShort() }));
+        }
         this.State = MilestoneBossState.PhaseTransition;
         this.StateStartedAtMs = now;
         this.CurrentAttack = -1;
@@ -888,6 +969,11 @@ internal sealed class MilestoneBossService
         1 => 900,
         3 => 1050,
         4 => 880,
+        5 => 980,
+        6 => 1150,
+        7 => 1050,
+        8 => 1050,
+        9 => 1000,
         10 => 720,
         11 => 820,
         12 => 760,
@@ -928,13 +1014,15 @@ internal sealed class MilestoneBossService
         if (role == "curator")
         {
             texture = this.Helper.ModContent.Load<Texture2D>(HollowCuratorTexturePath);
-            int frame = this.State == MilestoneBossState.PhaseTransition ? 2
-                : this.Phase >= 3 ? 3
-                : this.State == MilestoneBossState.Telegraph ? 1
-                : 0;
+            int family = this.CuratorAnimationFamily();
+            int anim = (int)((Environment.TickCount64 / 190L + this.DecisionSerial) & 1L);
+            int frame = family * 2 + anim;
             source = new Rectangle(frame * 48, 0, 48, 64);
             scale = 1.95f;
-            offset = new Vector2(0f, 6f);
+            float hover = this.State is MilestoneBossState.Intro or MilestoneBossState.Decision
+                ? (float)Math.Sin(Environment.TickCount64 / 240d) * 2f
+                : 0f;
+            offset = new Vector2(0f, 6f + hover);
         }
         else if (role is "ignis" or "vita" or "aether")
         {
@@ -978,6 +1066,52 @@ internal sealed class MilestoneBossService
             SpriteEffects.None, actorLayer);
     }
 
+    private int CuratorRecordAttackId()
+        => this.ActiveCuratorRecord.Tag switch
+        {
+            "risk" => 5,
+            "precision" => 6,
+            "pressure" => 7,
+            "recovery" => 8,
+            "mirror" => 9,
+            _ => 4,
+        };
+
+    private string CuratorRecordShort()
+        => ModEntry.T($"boss.curator.record.short.{this.ActiveCuratorRecord.Tag}");
+
+    private Color CuratorRecordColor()
+        => this.ActiveCuratorRecord.Tag switch
+        {
+            "risk" => new Color(232, 146, 93),
+            "precision" => new Color(166, 218, 246),
+            "pressure" => new Color(210, 112, 154),
+            "recovery" => new Color(112, 207, 151),
+            "mirror" => new Color(171, 150, 242),
+            _ => new Color(166, 190, 232),
+        };
+
+    private int CuratorAnimationFamily()
+    {
+        if (this.State == MilestoneBossState.Defeated)
+            return 8;
+        if (this.State == MilestoneBossState.PhaseTransition || this.Phase >= 3 && this.State != MilestoneBossState.Telegraph)
+            return 7;
+        if (this.State != MilestoneBossState.Telegraph)
+            return 0;
+        return this.CurrentAttack switch
+        {
+            1 => 1,
+            5 => 2,
+            6 => 3,
+            7 => 4,
+            8 => 5,
+            4 or 9 => 6,
+            3 => 7,
+            _ => 1,
+        };
+    }
+
     private void DrawBossAuraVfx(SpriteBatch batch, MilestoneBossKind kind)
     {
         // VFX only. Low-alpha accents may overlap actors but never pretend to be solid scenery.
@@ -994,6 +1128,7 @@ internal sealed class MilestoneBossService
                 "aether" => new Color(105, 174, 235),
                 "unified" => new Color(212, 161, 232),
                 "mimi" => new Color(199, 139, 218),
+                "curator" => this.CuratorRecordColor(),
                 _ => new Color(166, 190, 232),
             };
             float pulse = 0.16f + 0.07f * (float)Math.Sin(now / 180d + actor.GetHashCode() * 0.01d);
@@ -1015,10 +1150,18 @@ internal sealed class MilestoneBossService
         float pulse = 0.28f + 0.16f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 90d));
         int radius = this.CurrentAttack switch
         {
-            3 or 25 or 28 => 2,
+            3 or 5 or 7 or 25 or 28 => 2,
             13 or 24 or 27 => 2,
             _ => 1,
         };
+
+        if (this.CurrentAttack == 6)
+        {
+            Color precision = new Color(185, 224, 255) * (pulse + 0.08f);
+            DrawTileZone(batch, this.AttackTargetTile, 0, precision);
+            DrawTileZone(batch, this.EchoTargetTile, 0, precision * 0.78f);
+            return;
+        }
 
         if (this.CurrentAttack is 4 or 26)
         {
@@ -1030,13 +1173,15 @@ internal sealed class MilestoneBossService
 
         if (this.CurrentAttack == 27)
             c = this.TricolorCycle(this.MimiCadenceIndex);
+        else if (this.CurrentKind == MilestoneBossKind.HollowCurator && this.CurrentAttack is >= 5 and <= 9)
+            c = this.CuratorRecordColor();
 
         DrawTileZone(batch, this.AttackTargetTile, radius, c * pulse);
 
-        if (this.CurrentAttack is 2 or 12 or 13 or 15 or 22 or 24 or 27 or 28)
+        if (this.CurrentAttack is 2 or 5 or 9 or 12 or 13 or 15 or 22 or 24 or 27 or 28)
             DrawTileZone(batch, this.AttackTargetTile2, 1, new Color(238, 218, 255) * pulse);
 
-        if (this.CurrentAttack is 14 or 28)
+        if (this.CurrentAttack is 9 or 14 or 28)
             DrawTileZone(batch, this.EchoTargetTile, 1, new Color(190, 166, 255) * pulse);
 
         if (this.CurrentAttack == 11)
@@ -1057,9 +1202,9 @@ internal sealed class MilestoneBossService
         {
             MilestoneBossKind.HollowCurator => this.Phase switch
             {
-                1 => $"Observation • Adapt {this.CuratorAdaptationStacks}/3",
-                2 => $"Reflection • Adapt {this.CuratorAdaptationStacks}/3",
-                _ => $"Curator's Truth • Adapt {this.CuratorAdaptationStacks}/3",
+                1 => $"Observation • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
+                2 => $"Reflection • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
+                _ => $"Curator's Truth • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
             },
             MilestoneBossKind.TricolorResonance => this.Phase < 4
                 ? $"Three Guardians • {this.GetTricolorLivingSummary()}"
@@ -1192,6 +1337,8 @@ internal sealed class MilestoneBossService
         this.MimiCadenceIndex = 0;
         this.TricolorMotionSerial = 0;
         this.CuratorAdaptationStacks = 0;
+        this.ActiveCuratorRecord = CuratorRunRecord.Neutral;
+        this.CuratorRecordRevealed = false;
         this.DecisionSerial = 0;
         this.RouteConfirmUntilMs = 0;
         this.RouteConfirmKind = null;

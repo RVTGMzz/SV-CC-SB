@@ -169,6 +169,7 @@ internal sealed class ModEntry : Mod
         this.RegionExpeditions.BindRegion2BossGateHandler(this.MilestoneBosses.EnterBoss2FromRegion2);
         this.RegionExpeditions.BindRegion2BossGateDebugHandler(() => this.MilestoneBosses.DebugEnterBoss(2));
         this.Region2Rogue.BindBossGateHandlers(this.MilestoneBosses.EnterBoss2FromRegion2, () => this.MilestoneBosses.DebugEnterBoss(2));
+        this.Region2Rogue.BindCuratorRecordSink(this.MilestoneBosses.SetNextHollowCuratorRecord);
         this.Airship.BindMilestoneRouteHandler(this.MilestoneBosses.UseAirshipMilestoneRoute);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
@@ -326,6 +327,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_boss1_totem_status", "Show destructible Verdant Seed Totem state.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DescribeBalance(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss1_summons", "TEST ONLY: replace current Boss I adds with one custom summon wave.", (_, _) => this.Monitor.Log(this.VerdantGuardian.DebugSummonWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_boss2", "TEST ONLY: enter Boss II - The Hollow Curator (40-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(2), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_boss2_record", "TEST ONLY: enter Boss II with a Curator record: risk|precision|pressure|recovery|mirror|neutral.", (_, args) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss2WithRecord(args.FirstOrDefault()), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_boss3", "TEST ONLY: enter Boss III - The Tricolor Resonance (60-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(3), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_boss4", "TEST ONLY: enter Boss IV - MiMi (80-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(4), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_milestone_status", "Show Boss II/III/IV runtime and milestone reward state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.Describe(), LogLevel.Alert));
@@ -391,7 +393,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.48 0680 REGION II 6-9 NODE ROGUELIKE ROUTE TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.49 0681 HOLLOW CURATOR RECORDS YOU TEST",
             LogLevel.Info
         );
     }

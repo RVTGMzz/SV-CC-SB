@@ -46,6 +46,7 @@ internal sealed class Region2RoguelikeRunService
 
     private Func<string>? BossGateAction;
     private Func<string>? BossGateDebugAction;
+    private Action<CuratorRunRecord>? CuratorRecordSink;
 
     private bool Active;
     private bool LeavingForBoss;
@@ -95,6 +96,9 @@ internal sealed class Region2RoguelikeRunService
         this.BossGateAction = realHandler;
         this.BossGateDebugAction = debugHandler;
     }
+
+    public void BindCuratorRecordSink(Action<CuratorRunRecord> sink)
+        => this.CuratorRecordSink = sink;
 
     public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e) => this.ResetRuntime(clearEnemies: true);
     public void OnDayStarted(object? sender, DayStartedEventArgs e) => this.ResetRuntime(clearEnemies: true);
@@ -210,7 +214,7 @@ internal sealed class Region2RoguelikeRunService
 
     public string Describe()
     {
-        return $"0680 Region II Rogue: active={this.Active}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, "
+        return $"0681 Region II Rogue: active={this.Active}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, "
             + $"choicePending={this.ChoicePending}, bossGate={this.BossGateReady}, complete={this.RouteComplete}, "
             + $"unbanked={this.UnbankedScrap}S/{this.UnbankedShiny}Sh, banked={this.TotalBankedScrap}S/{this.TotalBankedShiny}Sh, "
             + $"record={this.CurrentRecordTag()} [risk={this.RiskRecord}, precision={this.PrecisionRecord}, pressure={this.PressureRecord}, recovery={this.RecoveryRecord}, mirror={this.MirrorRecord}], "
@@ -673,7 +677,8 @@ internal sealed class Region2RoguelikeRunService
             return;
         }
 
-        this.LastCuratorRecord = debug ? "debug" : this.CurrentRecordTag();
+        CuratorRunRecord record = this.BuildCuratorRunRecord(debug);
+        this.CuratorRecordSink?.Invoke(record);
         this.BankAllRemaining();
         this.LeavingForBoss = true;
         string result = handler();
@@ -683,8 +688,9 @@ internal sealed class Region2RoguelikeRunService
             Game1.drawObjectDialogue(result);
             return;
         }
+        this.LastCuratorRecord = record.Tag;
         this.Active = false;
-        this.Monitor.Log($"0680 Region II -> Hollow Curator. Curator record={this.LastCuratorRecord}.", LogLevel.Info);
+        this.Monitor.Log($"0681 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
     }
 
     private void TryExtract()
@@ -734,6 +740,21 @@ internal sealed class Region2RoguelikeRunService
         if ((this.Save.Data.OwnedCards?.Count ?? 0) < 40)
             return false;
         return this.Save.Data.BossCardsUnlocked?.Contains(MilestoneBossService.MirrorArchiveBossCardId) != true;
+    }
+
+    private CuratorRunRecord BuildCuratorRunRecord(bool debug)
+    {
+        if (debug)
+            return CuratorRunRecord.Debug("neutral");
+        return new CuratorRunRecord(
+            this.CurrentRecordTag(),
+            this.RiskRecord,
+            this.PrecisionRecord,
+            this.PressureRecord,
+            this.RecoveryRecord,
+            this.MirrorRecord,
+            this.CurrentNode
+        );
     }
 
     private string CurrentRecordTag()

@@ -1111,5 +1111,12 @@
   "airship.region2.rogue.record.pressure": "damage taken under pressure",
   "airship.region2.rogue.record.recovery": "recovery choices",
   "airship.region2.rogue.record.mirror": "mirror interactions",
-  "airship.region2.rogue.record.debug": "debug record"
+  "airship.region2.rogue.record.debug": "debug record",
+  "boss.curator.record.reveal": "The Hollow Curator opens your record: {{record}}.",
+  "boss.curator.record.short.neutral": "Neutral",
+  "boss.curator.record.short.risk": "Risk",
+  "boss.curator.record.short.precision": "Precision",
+  "boss.curator.record.short.pressure": "Pressure",
+  "boss.curator.record.short.recovery": "Recovery",
+  "boss.curator.record.short.mirror": "Mirror"
 }
