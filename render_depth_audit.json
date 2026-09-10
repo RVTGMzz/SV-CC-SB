@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation",
+  "branch": "cardcha-alpha28-0687-tmx-csv-runtime-load-fix",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
