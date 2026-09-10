@@ -10,7 +10,7 @@ Boss II/III/IV are the bosses of Region II/III/IV respectively. They are not one
 
 - Boss I real clear unlocks Region II.
 - 21-39 cards: Airship route console offers Region II • Forgotten Archive as the active progression biome.
-- Region II has 3 combat waves and extraction.
+- Region II currently has 3 combat waves and extraction.
 - Region II fare uses the existing 250g fare constant.
 - At 40 cards, the Airship lands in Region II Boss Approach instead of teleporting directly to Hollow Curator.
 - The physical north Archive Seal is the Boss II entrance.
@@ -34,12 +34,32 @@ Region III and IV reward contracts remain unchanged.
 
 ## Test
 
-1. `cardcha_test_region2` - normal Region II 3-wave run regardless of real unlocks.
+1. `cardcha_test_region2` - normal Region II 3-wave foundation run regardless of real unlocks.
 2. `cardcha_expedition_clear` - clear current wave quickly.
 3. Verify south extraction banks 34 Scrap + 1 Shiny on full clear.
 4. `cardcha_test_region2_bossgate` - Region II Boss Approach test.
-5. Walk north to the Archive Seal and interact. In real progression it requires Boss I clear + 40 cards. Debug approach bypasses only the Region II entry, not persistent save progression.
+5. Walk north to the Archive Seal and interact. In real progression it requires Boss I clear + 40 cards. Debug approach is runtime-only and must not mutate persistent progression.
 6. `cardcha_test_boss2` remains available for direct boss visual testing.
+
+## Important: 0679 is a foundation, not the final Region II loop
+
+The current single-map / three-wave structure should **not** be treated as the locked final design.
+
+The next Region II direction is documented in:
+
+`handoff/REGION2_ROGUELIKE_DESIGN_DIRECTION.md`
+
+Key intent:
+
+- Region II should become a replayable branching roguelike route rather than a linear mini-campaign.
+- User examples such as “2-3 maps / 2-3 waves” are discussion examples, not hard requirements.
+- Future work should use design judgment and may challenge the example if a better structure serves replayability.
+- Candidate runs should mix combat, elites, events, rewards, Mirror choices, curses, shortcuts and Boss Gate decisions rather than repeating fixed waves.
+- Forgotten Archive’s signature identity is observation / recording / reflection.
+- Hollow Curator should be foreshadowed during the run and eventually react to a small set of readable player tendencies recorded during that run.
+- More boss animation frames are not sufficient by themselves; animation should support actual states, telegraphs, recording, reflection, phase transitions and defeat presentation.
+
+The acceptance question for the future roguelike pass is whether a second Region II run feels meaningfully different enough to make the player curious about a third.
 
 ## Frozen contracts
 
