@@ -52,6 +52,7 @@ internal sealed class RegionExpeditionService
     private readonly SaveService Save;
     private readonly AirshipFoundationService Airship;
     private Func<string>? Region2BossGateAction;
+    private Func<string>? Region2BossGateDebugAction;
 
     private static readonly Point Region2BossGateTile = new(20, 4);
     private ExpeditionRegion? CurrentRegion;
@@ -92,6 +93,9 @@ internal sealed class RegionExpeditionService
 
     public void BindRegion2BossGateHandler(Func<string> handler)
         => this.Region2BossGateAction = handler;
+
+    public void BindRegion2BossGateDebugHandler(Func<string> handler)
+        => this.Region2BossGateDebugAction = handler;
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -353,7 +357,7 @@ internal sealed class RegionExpeditionService
         this.Helper.Input.Suppress(button);
         int owned = this.Save.Data.OwnedCards?.Count ?? 0;
         bool cleared = this.Save.Data.BossCardsUnlocked?.Contains(MilestoneBossService.MirrorArchiveBossCardId) == true;
-        if (cleared)
+        if (cleared && !this.DebugBossGateBypassRegion2)
         {
             Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.cleared"));
             return true;
@@ -373,15 +377,21 @@ internal sealed class RegionExpeditionService
             Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.echoes"));
             return true;
         }
-        if (this.Region2BossGateAction is null)
+        Func<string>? bossAction = this.DebugBossGateBypassRegion2
+            ? this.Region2BossGateDebugAction
+            : this.Region2BossGateAction;
+        bool debugGate = this.DebugBossGateBypassRegion2;
+        this.DebugBossGateBypassRegion2 = false;
+        if (bossAction is null)
         {
             Game1.drawObjectDialogue(ModEntry.T("airship.expedition.unavailable"));
             return true;
         }
 
-        string result = this.Region2BossGateAction();
+        string result = bossAction();
         if (!string.IsNullOrWhiteSpace(result))
             Game1.drawObjectDialogue(result);
+        this.Monitor.Log($"0679 Region II Archive Seal used. debug={debugGate}.", LogLevel.Info);
         return true;
     }
 
