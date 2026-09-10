@@ -1,0 +1,142 @@
+name: Cardcha 0686 Hollow Curator Archive Rule Adaptation
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Integrate 0686 Hollow Curator Archive Rule adaptation
+        run: python3 tools/alpha28_0686_hollow_curator_archive_rule_adaptation.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0686 Archive Rule adaptation contracts
+        run: python3 tools/validate_0686_hollow_curator_archive_rule_adaptation.py
+
+      - name: Verify accepted maps and art are untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/cardcha-alpha28-0685-region2-encounter-composition-run-modifiers -- \
+            src/Cardcha/assets/mimi_walk.png \
+            src/Cardcha/assets/airship_visual.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region2_forgotten_archive_tiles.png \
+            src/Cardcha/assets/region2_forgotten_archive_enemies.png \
+            src/Cardcha/assets/region2_interaction_stations.png \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses/milestone/hollow_curator.png \
+            src/Cardcha/assets/bosses/milestone/hollow_curator_arena_tiles.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_guardians.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_unified.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_arena_tiles.png \
+            src/Cardcha/assets/bosses/milestone/mimi_resonance_master.png \
+            src/Cardcha/assets/bosses/milestone/mimi_arena_tiles.png
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0686 source, audit and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json tools/alpha28_0686_hollow_curator_archive_rule_adaptation.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.54 Hollow Curator Archive Rule adaptation [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation
+          fi
+
+      - name: Package 0686 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.54_0686_HollowCurator_ArchiveRuleAdaptation_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, xml.etree.ElementTree as ET
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.54_0686_HollowCurator_ArchiveRuleAdaptation_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              manifest=json.loads(z.read('Cardcha/manifest.json'))
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.54'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              required=[
+                  'Cardcha/assets/region2_forgotten_archive.tmx',
+                  'Cardcha/assets/region2_inkbound_stacks.tmx',
+                  'Cardcha/assets/region2_mirror_gallery.tmx',
+                  'Cardcha/assets/region2_warden_vault.tmx',
+                  'Cardcha/assets/region2_interaction_stations.png',
+                  'Cardcha/assets/region2_forgotten_archive_enemies.png',
+                  'Cardcha/assets/boss2_hollow_curator_arena.tmx',
+                  'Cardcha/assets/bosses/milestone/hollow_curator.png',
+                  'Cardcha/assets/mimi_walk.png',
+                  'Cardcha/i18n/default.json',
+                  'Cardcha/i18n/vi.json',
+              ]
+              for req in required:
+                  assert req in names, req
+              for req in required[:4]:
+                  root=ET.fromstring(z.read(req))
+                  assert (int(root.attrib['width']),int(root.attrib['height']))==(40,28), req
+                  for layer in root.findall('layer'):
+                      vals=[x.strip() for x in (layer.find('data').text or '').split(',') if x.strip()]
+                      assert len(vals)==1120,(req,layer.attrib.get('name'),len(vals))
+              en=json.loads(z.read('Cardcha/i18n/default.json'))
+              vi=json.loads(z.read('Cardcha/i18n/vi.json'))
+              for data in (en,vi):
+                  assert '{{record}}' in data['boss.curator.record_rule.reveal']
+                  assert '{{rule}}' in data['boss.curator.record_rule.reveal']
+                  for key in ['none','loose_folios','iron_bindings','mirror_draft','redacted_ledger']:
+                      assert 'boss.curator.rule.short.'+key in data
+          print('0686 package audit PASS:',p)
+          PY
+
+      - name: Upload 0686 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.54_0686_HollowCurator_ArchiveRuleAdaptation_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.54_0686_HollowCurator_ArchiveRuleAdaptation_TEST.zip.sha256
+          if-no-files-found: error
