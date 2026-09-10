@@ -1069,5 +1069,12 @@
   "airship.expedition.ready": "Expedition complete. Use the southern Airship pad to extract your cargo.",
   "airship.expedition.extract_confirm": "Extract now after wave {{wave}} with {{scrap}} Scrap + {{shiny}} Shiny Scrap? Interact again within 5 seconds.",
   "airship.expedition.bank": "Expedition cargo secured: +{{scrap}} Scrap, +{{shiny}} Shiny Scrap.",
-  "airship.expedition.lost": "Emergency exit: {{scrap}} Scrap + {{shiny}} Shiny Scrap of unbanked expedition cargo was lost."
+  "airship.expedition.lost": "Emergency exit: {{scrap}} Scrap + {{shiny}} Shiny Scrap of unbanked expedition cargo was lost.",
+  "airship.expedition.region2": "Region II • Forgotten Archive",
+  "airship.region2.boss_approach": "The Archive route has stabilized. Hollow Curator waits beyond the north Archive Seal.",
+  "airship.region2.boss_gate.cards": "The Archive Seal is dormant. Own 40 cards to reach Hollow Curator. Current: {{cards}}/40.",
+  "airship.region2.boss_gate.echoes": "Living echoes are disrupting the Archive Seal. Clear the enemies first.",
+  "airship.region2.boss_gate.boss1": "The route to Hollow Curator appears only after Verdant Guardian is truly defeated.",
+  "airship.region2.boss_gate.cleared": "Hollow Curator has already been defeated. The Archive Seal is quiet now.",
+  "airship.region2.boss_gate.location": "Hollow Curator can only be entered through Region II • Forgotten Archive."
 }

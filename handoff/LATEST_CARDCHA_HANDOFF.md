@@ -1,7 +1,7 @@
 # Latest Cardcha Handoff
 
-Current branch: `cardcha-alpha28-0678-boss234-visual-completion`
-Current build: `0.3.0-alpha.28.0.4.14.4.5.12.46`
-Continue from: `handoff/ALPHA28_0678_BOSS234_VISUAL_COMPLETION.md`
+Current branch: `cardcha-alpha28-0679-region2-21-40-foundation`
+Current build: `0.3.0-alpha.28.0.4.14.4.5.12.47`
+Continue from: `handoff/ALPHA28_0679_REGION2_21_40_FOUNDATION.md`
 
-0678 is the Boss II-IV visual completion/depth migration pass. In-game visual acceptance is pending. `mimi_walk.png` remains locked.
+0679 establishes Region II as the 21-40 card progression biome and routes the 40-card Hollow Curator milestone through its physical north Archive Seal. In-game visual/gameplay acceptance is pending.

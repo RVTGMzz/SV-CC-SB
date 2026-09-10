@@ -307,6 +307,28 @@ internal sealed class MilestoneBossService
         return $"TEST: entered Boss {milestone} arena. Milestone gate bypassed; save progression unchanged until a real victory.";
     }
 
+    public string EnterBoss2FromRegion2()
+    {
+        if (!Context.IsWorldReady)
+            return ModEntry.T("airship.milestone.unavailable");
+        if (Game1.currentLocation?.NameOrUniqueName.Equals(RegionExpeditionService.Region2LocationName, StringComparison.OrdinalIgnoreCase) != true)
+            return ModEntry.T("airship.region2.boss_gate.location");
+        if (!this.Save.Data.Region1BossDefeated)
+            return ModEntry.T("airship.milestone.boss1_required");
+        int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+        if (owned < 40)
+            return ModEntry.T("airship.region2.boss_gate.cards", new { cards = owned });
+        if (this.Save.Data.BossCardsUnlocked?.Contains(MirrorArchiveBossCardId) == true)
+            return ModEntry.T("airship.region2.boss_gate.cleared");
+
+        GameLocation? arena = this.EnsureLocation(MilestoneBossKind.HollowCurator);
+        if (arena is null)
+            return ModEntry.T("airship.milestone.unavailable");
+        Game1.playSound("wand");
+        Game1.warpFarmer(arena.NameOrUniqueName, ArrivalTile.X, ArrivalTile.Y, 0);
+        return string.Empty;
+    }
+
     public string UseAirshipMilestoneRoute()
     {
         if (!Context.IsWorldReady)
@@ -339,9 +361,19 @@ internal sealed class MilestoneBossService
         {
             this.RouteConfirmUntilMs = 0;
             this.RouteConfirmKind = null;
-            if (kind != MilestoneBossKind.HollowCurator && this.ExpeditionRouteAction is not null)
+            if (this.ExpeditionRouteAction is not null)
                 return this.ExpeditionRouteAction(owned, required, name);
             return ModEntry.T("airship.milestone.progress", new { name, cards = owned, required });
+        }
+
+        // 0679: the 40-card milestone no longer teleports straight into Boss II.
+        // Hollow Curator belongs to Region II, so the Airship lands in the Forgotten Archive;
+        // the physical north Archive Seal is the boss entrance.
+        if (kind == MilestoneBossKind.HollowCurator && this.ExpeditionRouteAction is not null)
+        {
+            this.RouteConfirmUntilMs = 0;
+            this.RouteConfirmKind = null;
+            return this.ExpeditionRouteAction(owned, required, name);
         }
 
         long now = Environment.TickCount64;
@@ -376,7 +408,7 @@ internal sealed class MilestoneBossService
         double confirm = this.RouteConfirmUntilMs > Environment.TickCount64
             ? (this.RouteConfirmUntilMs - Environment.TickCount64) / 1000d
             : 0d;
-        return $"0674 MilestoneRoute | Next={next} | BossI={this.Save.Data.Region1BossDefeated} | HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | Confirm={this.RouteConfirmKind?.ToString() ?? "none"}:{confirm:0.0}s";
+        return $"0679 MilestoneRoute | Next={next} | BossI={this.Save.Data.Region1BossDefeated} | HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked} | Confirm={this.RouteConfirmKind?.ToString() ?? "none"}:{confirm:0.0}s";
     }
 
     private (MilestoneBossKind? Kind, int Required, string Name) ResolveNextMilestoneRoute()
@@ -395,7 +427,7 @@ internal sealed class MilestoneBossService
     {
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
-        return $"0674 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
+        return $"0679 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
                $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }

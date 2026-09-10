@@ -1147,5 +1147,12 @@
   "airship.expedition.ready": "Hoàn tất thám hiểm. Hãy dùng bãi Airship phía nam để mang chiến lợi phẩm về.",
   "airship.expedition.extract_confirm": "Rút về sau đợt {{wave}} với {{scrap}} Scrap + {{shiny}} Shiny Scrap? Tương tác lần nữa trong 5 giây để xác nhận.",
   "airship.expedition.bank": "Đã ký gửi chiến lợi phẩm: +{{scrap}} Scrap, +{{shiny}} Shiny Scrap.",
-  "airship.expedition.lost": "Rời khu khẩn cấp: đã mất {{scrap}} Scrap + {{shiny}} Shiny Scrap chưa kịp ký gửi."
+  "airship.expedition.lost": "Rời khu khẩn cấp: đã mất {{scrap}} Scrap + {{shiny}} Shiny Scrap chưa kịp ký gửi.",
+  "airship.expedition.region2": "Khu II • Kho Lưu Trữ Lãng Quên",
+  "airship.region2.boss_approach": "Kho Lưu Trữ đã mở đường đến cánh cổng phía bắc. Hollow Curator đang chờ sau Ấn Lưu Trữ.",
+  "airship.region2.boss_gate.cards": "Ấn Lưu Trữ chưa phản hồi. Cần đủ 40 lá bài để mở đường đến Hollow Curator. Hiện có {{cards}}/40.",
+  "airship.region2.boss_gate.echoes": "Ấn Lưu Trữ bị nhiễu bởi những Echo còn sống. Hãy dọn sạch kẻ địch trước.",
+  "airship.region2.boss_gate.boss1": "Đường đến Hollow Curator chỉ xuất hiện sau khi Verdant Guardian đã thực sự bị đánh bại.",
+  "airship.region2.boss_gate.cleared": "Hollow Curator đã bị đánh bại. Ấn Lưu Trữ giờ chỉ còn là một cánh cổng im lặng.",
+  "airship.region2.boss_gate.location": "Cổng Hollow Curator chỉ có thể được mở từ Khu II • Kho Lưu Trữ Lãng Quên."
 }

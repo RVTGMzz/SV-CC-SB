@@ -11,7 +11,7 @@ namespace Cardcha.Patches;
 /// <summary>
 /// 0676B world-depth correctness hotfix.
 ///
-/// Region III/IV previously rendered authored enemies, terrain and decor from RenderedWorld.
+/// Region II/III/IV previously rendered authored enemies, terrain and decor from RenderedWorld.
 /// That event runs after Stardew has already drawn the Farmer/NPC layer, so even art intended
 /// to sit on the ground could cover characters. The fix is architectural rather than another
 /// offset tweak:
@@ -28,11 +28,14 @@ internal static class RegionExpeditionProxyDrawPatch
     private const float EnemyWorldScale = 4f;
     private const float MarkerActorSafetyRadius = 108f;
 
+    private const string Region2EnemyAtlasPath = "assets/region2_forgotten_archive_enemies.png";
     private const string Region3EnemyAtlasPath = "assets/region3_mirrorwild_enemies.png";
     private const string Region4EnemyAtlasPath = "assets/region4_resonance_enemies.png";
 
+    private static Texture2D? Region2EnemyAtlas;
     private static Texture2D? Region3EnemyAtlas;
     private static Texture2D? Region4EnemyAtlas;
+    private static bool Region2AtlasFailed;
     private static bool Region3AtlasFailed;
     private static bool Region4AtlasFailed;
 
@@ -104,7 +107,7 @@ internal static class RegionExpeditionProxyDrawPatch
         Vector2 world = monster.Position + new Vector2(32f, 64f);
         Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
         float layer = Math.Clamp((world.Y + 32f) / 10000f, 0f, 0.94f);
-        bool floating = role is "mirror_wisp" or "ignis_echo" or "aether_mite";
+        bool floating = role is "ink_moth" or "mirror_wisp" or "ignis_echo" or "aether_mite";
         float bob = floating
             ? (float)Math.Sin(Environment.TickCount64 / 210d + monster.GetHashCode() * 0.01) * 4f
             : 0f;
@@ -117,9 +120,12 @@ internal static class RegionExpeditionProxyDrawPatch
 
         if (atlas is null || roleIndex < 0)
         {
-            Color fallback = region == ExpeditionRegion.Mirrorwild
-                ? new Color(139, 201, 226)
-                : new Color(203, 137, 211);
+            Color fallback = region switch
+            {
+                ExpeditionRegion.ForgottenArchive => new Color(187, 164, 122),
+                ExpeditionRegion.Mirrorwild => new Color(139, 201, 226),
+                _ => new Color(203, 137, 211),
+            };
             batch.Draw(
                 Game1.staminaRect,
                 new Rectangle((int)local.X - 18, (int)local.Y - 52, 36, 48),
@@ -165,9 +171,12 @@ internal static class RegionExpeditionProxyDrawPatch
         }
 
         Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
-        Color accent = region == ExpeditionRegion.Mirrorwild
-            ? new Color(143, 187, 226)
-            : new Color(197, 135, 218);
+        Color accent = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => new Color(208, 174, 112),
+            ExpeditionRegion.Mirrorwild => new Color(143, 187, 226),
+            _ => new Color(197, 135, 218),
+        };
         float pulse = 0.50f + 0.12f * (float)Math.Sin(Environment.TickCount64 / 240d);
         Color c = accent * pulse;
 
@@ -189,6 +198,8 @@ internal static class RegionExpeditionProxyDrawPatch
     private static ExpeditionRegion? ResolveRegion(GameLocation? location)
     {
         string? name = location?.NameOrUniqueName;
+        if (name?.Equals(RegionExpeditionService.Region2LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            return ExpeditionRegion.ForgottenArchive;
         if (name?.Equals(RegionExpeditionService.Region3LocationName, StringComparison.OrdinalIgnoreCase) == true)
             return ExpeditionRegion.Mirrorwild;
         if (name?.Equals(RegionExpeditionService.Region4LocationName, StringComparison.OrdinalIgnoreCase) == true)
@@ -200,6 +211,12 @@ internal static class RegionExpeditionProxyDrawPatch
     {
         try
         {
+            if (region == ExpeditionRegion.ForgottenArchive)
+            {
+                if (Region2AtlasFailed)
+                    return null;
+                return Region2EnemyAtlas ??= ModEntry.StaticHelper?.ModContent.Load<Texture2D>(Region2EnemyAtlasPath);
+            }
             if (region == ExpeditionRegion.Mirrorwild)
             {
                 if (Region3AtlasFailed)
@@ -213,7 +230,9 @@ internal static class RegionExpeditionProxyDrawPatch
         }
         catch (Exception ex)
         {
-            if (region == ExpeditionRegion.Mirrorwild)
+            if (region == ExpeditionRegion.ForgottenArchive)
+                Region2AtlasFailed = true;
+            else if (region == ExpeditionRegion.Mirrorwild)
                 Region3AtlasFailed = true;
             else
                 Region4AtlasFailed = true;
@@ -229,6 +248,14 @@ internal static class RegionExpeditionProxyDrawPatch
     private static int RoleIndex(ExpeditionRegion region, string role)
         => region switch
         {
+            ExpeditionRegion.ForgottenArchive => role switch
+            {
+                "ink_moth" => 0,
+                "paper_scarab" => 1,
+                "dust_slime" => 2,
+                "archive_warden" => 3,
+                _ => -1,
+            },
             ExpeditionRegion.Mirrorwild => role switch
             {
                 "mirror_wisp" => 0,

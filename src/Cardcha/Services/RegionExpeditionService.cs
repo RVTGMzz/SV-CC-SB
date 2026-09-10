@@ -9,6 +9,7 @@ namespace Cardcha.Services;
 
 internal enum ExpeditionRegion
 {
+    ForgottenArchive = 2,
     Mirrorwild = 3,
     ResonanceVerge = 4,
 }
@@ -21,11 +22,15 @@ internal enum ExpeditionRegion
 /// </summary>
 internal sealed class RegionExpeditionService
 {
+    public const string Region2LocationName = "Cardcha_Region2_ForgottenArchive";
+    public const string Region2MapAssetName = "Maps/Cardcha_Region2_ForgottenArchive";
     public const string Region3LocationName = "Cardcha_Region3_Mirrorwild";
     public const string Region3MapAssetName = "Maps/Cardcha_Region3_Mirrorwild";
     public const string Region4LocationName = "Cardcha_Region4_ResonanceVerge";
     public const string Region4MapAssetName = "Maps/Cardcha_Region4_ResonanceVerge";
 
+    private const string Region2MapPath = "assets/region2_forgotten_archive.tmx";
+    private const string Region2EnemyAtlasPath = "assets/region2_forgotten_archive_enemies.png";
     private const string Region3MapPath = "assets/region3_mirrorwild.tmx";
     private const string Region4MapPath = "assets/region4_resonance_verge.tmx";
     private const string Region3EnemyAtlasPath = "assets/region3_mirrorwild_enemies.png";
@@ -46,7 +51,9 @@ internal sealed class RegionExpeditionService
     private readonly IMonitor Monitor;
     private readonly SaveService Save;
     private readonly AirshipFoundationService Airship;
+    private Func<string>? Region2BossGateAction;
 
+    private static readonly Point Region2BossGateTile = new(20, 4);
     private ExpeditionRegion? CurrentRegion;
     private ExpeditionRegion? PendingRouteRegion;
     private long PendingRouteUntilMs;
@@ -59,6 +66,11 @@ internal sealed class RegionExpeditionService
     private int UnbankedShiny;
     private long ExtractConfirmUntilMs;
     private int DebugBypassRegion;
+    private bool BossApproachMode;
+    private bool DebugForceNormalRegion2;
+    private bool DebugForceBossApproachRegion2;
+    private bool DebugBossGateBypassRegion2;
+    private Texture2D? Region2EnemyAtlas;
     private Texture2D? Region3EnemyAtlas;
     private Texture2D? Region4EnemyAtlas;
     private Texture2D? Region3DecorAtlas;
@@ -78,8 +90,16 @@ internal sealed class RegionExpeditionService
         this.Airship = airship;
     }
 
+    public void BindRegion2BossGateHandler(Func<string> handler)
+        => this.Region2BossGateAction = handler;
+
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
+        if (e.NameWithoutLocale.IsEquivalentTo(Region2MapAssetName))
+        {
+            e.LoadFromModFile<xTile.Map>(Region2MapPath, AssetLoadPriority.Exclusive);
+            return;
+        }
         if (e.NameWithoutLocale.IsEquivalentTo(Region3MapAssetName))
         {
             e.LoadFromModFile<xTile.Map>(Region3MapPath, AssetLoadPriority.Exclusive);
@@ -92,6 +112,7 @@ internal sealed class RegionExpeditionService
     public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
     {
         this.ResetRuntime(clearEnemies: true);
+        this.EnsureLocation(ExpeditionRegion.ForgottenArchive);
         this.EnsureLocation(ExpeditionRegion.Mirrorwild);
         this.EnsureLocation(ExpeditionRegion.ResonanceVerge);
     }
@@ -99,6 +120,7 @@ internal sealed class RegionExpeditionService
     public void OnDayStarted(object? sender, DayStartedEventArgs e)
     {
         this.ResetRuntime(clearEnemies: true);
+        this.EnsureLocation(ExpeditionRegion.ForgottenArchive);
         this.EnsureLocation(ExpeditionRegion.Mirrorwild);
         this.EnsureLocation(ExpeditionRegion.ResonanceVerge);
     }
@@ -148,7 +170,7 @@ internal sealed class RegionExpeditionService
                 || answer.Equals("cardcha_expedition_cancel", StringComparison.OrdinalIgnoreCase))
                 return;
             if (!int.TryParse(answer["cardcha_expedition_".Length..], out int raw)
-                || raw is not (3 or 4))
+                || raw is not (2 or 3 or 4))
                 return;
             ExpeditionRegion selected = (ExpeditionRegion)raw;
             if (!this.CanEnter(selected))
@@ -225,6 +247,8 @@ internal sealed class RegionExpeditionService
             return;
         if (ResolveRegion(Game1.currentLocation) != this.CurrentRegion)
             return;
+        if (this.BossApproachMode)
+            return;
 
         long now = Environment.TickCount64;
         if (!this.WaveSpawned)
@@ -265,6 +289,9 @@ internal sealed class RegionExpeditionService
             || Game1.activeClickableMenu is not null || Game1.dialogueUp || Game1.eventUp || Game1.currentLocation is null)
             return;
         if (ResolveRegion(Game1.currentLocation) != this.CurrentRegion)
+            return;
+
+        if (this.CurrentRegion == ExpeditionRegion.ForgottenArchive && this.TryUseRegion2BossGate(e.Button, Game1.currentLocation))
             return;
 
         Point extract = ResolveExtractionTile(Game1.currentLocation);
@@ -314,20 +341,85 @@ internal sealed class RegionExpeditionService
         }
     }
 
+    private bool TryUseRegion2BossGate(SButton button, GameLocation location)
+    {
+        Point player = PlayerTile();
+        Point action = Game1.player.GetGrabTile().ToPoint();
+        bool close = Math.Abs(player.X - Region2BossGateTile.X) <= 2 && Math.Abs(player.Y - Region2BossGateTile.Y) <= 2;
+        bool facing = Math.Abs(action.X - Region2BossGateTile.X) <= 1 && Math.Abs(action.Y - Region2BossGateTile.Y) <= 1;
+        if (!close && !facing)
+            return false;
+
+        this.Helper.Input.Suppress(button);
+        int owned = this.Save.Data.OwnedCards?.Count ?? 0;
+        bool cleared = this.Save.Data.BossCardsUnlocked?.Contains(MilestoneBossService.MirrorArchiveBossCardId) == true;
+        if (cleared)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.cleared"));
+            return true;
+        }
+        if (!this.Save.Data.Region1BossDefeated && this.DebugBypassRegion != 2)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.boss1"));
+            return true;
+        }
+        if (owned < 40 && !this.DebugBossGateBypassRegion2)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.cards", new { cards = owned }));
+            return true;
+        }
+        if (CountMarkedEnemies(location) > 0)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.boss_gate.echoes"));
+            return true;
+        }
+        if (this.Region2BossGateAction is null)
+        {
+            Game1.drawObjectDialogue(ModEntry.T("airship.expedition.unavailable"));
+            return true;
+        }
+
+        string result = this.Region2BossGateAction();
+        if (!string.IsNullOrWhiteSpace(result))
+            Game1.drawObjectDialogue(result);
+        return true;
+    }
+
     private void StartExpedition(GameLocation location, ExpeditionRegion region)
     {
         this.ClearMarkedEnemies(location);
         this.CurrentRegion = region;
         this.Active = true;
-        this.Completed = false;
         this.WaveSpawned = false;
         this.CurrentWave = 1;
-        this.NextWaveAtMs = Environment.TickCount64 + 700L;
         this.UnbankedScrap = 0;
         this.UnbankedShiny = 0;
         this.ExtractConfirmUntilMs = 0;
+
+        bool progressionBossApproach = region == ExpeditionRegion.ForgottenArchive
+            && this.Save.Data.Region1BossDefeated
+            && (this.Save.Data.OwnedCards?.Count ?? 0) >= 40
+            && this.Save.Data.BossCardsUnlocked?.Contains(MilestoneBossService.MirrorArchiveBossCardId) != true;
+        this.BossApproachMode = region == ExpeditionRegion.ForgottenArchive
+            && (this.DebugForceBossApproachRegion2 || (progressionBossApproach && !this.DebugForceNormalRegion2));
+        this.DebugForceNormalRegion2 = false;
+        this.DebugForceBossApproachRegion2 = false;
+
+        if (this.BossApproachMode)
+        {
+            this.Completed = true;
+            this.CurrentWave = 0;
+            this.NextWaveAtMs = 0;
+            Game1.playSound("discoverMineral");
+            Game1.showGlobalMessage(ModEntry.T("airship.region2.boss_approach"));
+            this.Monitor.Log("0679 Region II Boss Approach active: north Archive Seal leads to Hollow Curator.", LogLevel.Info);
+            return;
+        }
+
+        this.Completed = false;
+        this.NextWaveAtMs = Environment.TickCount64 + 700L;
         Game1.showGlobalMessage(ModEntry.T("airship.expedition.arrive", new { region = this.RegionDisplayName(region) }));
-        this.Monitor.Log($"0676 expedition started: {region}, authored native-size enemy art, 3-wave gameplay contract unchanged.", LogLevel.Info);
+        this.Monitor.Log($"0679 expedition started: {region}, 3-wave gameplay with actor-depth enemy art.", LogLevel.Info);
     }
 
     private void SpawnWave(GameLocation location, ExpeditionRegion region, int wave)
@@ -343,7 +435,12 @@ internal sealed class RegionExpeditionService
         int seed = unchecked((int)Game1.uniqueIDForThisGame + Game1.Date.TotalDays * 1009 + (int)region * 65537 + wave * 7919 + this.Save.Data.AirshipFlightsTaken * 31);
         Random random = new(seed);
         Point[] shuffled = candidates.OrderBy(_ => random.Next()).ToArray();
-        int targetCount = region == ExpeditionRegion.Mirrorwild ? 3 + wave * 2 : 4 + wave * 2;
+        int targetCount = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => 3 + wave,
+            ExpeditionRegion.Mirrorwild => 3 + wave * 2,
+            _ => 4 + wave * 2,
+        };
         int spawned = 0;
 
         foreach (Point tile in shuffled)
@@ -383,7 +480,38 @@ internal sealed class RegionExpeditionService
         int hp;
         int speed;
 
-        if (region == ExpeditionRegion.Mirrorwild)
+        if (region == ExpeditionRegion.ForgottenArchive)
+        {
+            if (wave == 3 && index == 0)
+            {
+                monster = new GreenSlime(position, 0);
+                role = "archive_warden";
+                hp = 390;
+                speed = 3;
+            }
+            else if (archetype == 0)
+            {
+                monster = new Bat(position);
+                role = "ink_moth";
+                hp = 85 + wave * 15;
+                speed = 4;
+            }
+            else if (archetype == 1)
+            {
+                monster = new Bug(position, 0);
+                role = "paper_scarab";
+                hp = 120 + wave * 20;
+                speed = 3;
+            }
+            else
+            {
+                monster = new GreenSlime(position, 0);
+                role = "dust_slime";
+                hp = 160 + wave * 26;
+                speed = 2;
+            }
+        }
+        else if (region == ExpeditionRegion.Mirrorwild)
         {
             if (wave == 3 && index == 0)
             {
@@ -455,12 +583,18 @@ internal sealed class RegionExpeditionService
 
     private void AwardWave(ExpeditionRegion region, int wave)
     {
-        int scrap = region == ExpeditionRegion.Mirrorwild
-            ? wave switch { 1 => 10, 2 => 15, _ => 22 }
-            : wave switch { 1 => 15, 2 => 22, _ => 32 };
-        int shiny = region == ExpeditionRegion.Mirrorwild
-            ? (wave == 3 ? 2 : wave == 2 ? 1 : 0)
-            : (wave == 1 ? 1 : wave == 2 ? 2 : 3);
+        int scrap = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => wave switch { 1 => 7, 2 => 11, _ => 16 },
+            ExpeditionRegion.Mirrorwild => wave switch { 1 => 10, 2 => 15, _ => 22 },
+            _ => wave switch { 1 => 15, 2 => 22, _ => 32 },
+        };
+        int shiny = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => wave == 3 ? 1 : 0,
+            ExpeditionRegion.Mirrorwild => wave == 3 ? 2 : wave == 2 ? 1 : 0,
+            _ => wave == 1 ? 1 : wave == 2 ? 2 : 3,
+        };
         this.UnbankedScrap += scrap;
         this.UnbankedShiny += shiny;
     }
@@ -484,6 +618,8 @@ internal sealed class RegionExpeditionService
     {
         List<ExpeditionRegion> result = new();
         HashSet<string> bossCards = this.Save.Data.BossCardsUnlocked ?? new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (this.Save.Data.Region1BossDefeated && this.Save.Data.AirshipHighestRegionUnlocked >= 2)
+            result.Add(ExpeditionRegion.ForgottenArchive);
         if (this.Save.Data.AirshipHighestRegionUnlocked >= 3 && bossCards.Contains(MilestoneBossService.MirrorArchiveBossCardId))
             result.Add(ExpeditionRegion.Mirrorwild);
         if (this.Save.Data.AirshipHighestRegionUnlocked >= 4 && bossCards.Contains(MilestoneBossService.TricolorBossCardId))
@@ -498,8 +634,18 @@ internal sealed class RegionExpeditionService
     {
         if (!Context.IsWorldReady)
             return null;
-        string name = region == ExpeditionRegion.Mirrorwild ? Region3LocationName : Region4LocationName;
-        string asset = region == ExpeditionRegion.Mirrorwild ? Region3MapAssetName : Region4MapAssetName;
+        string name = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => Region2LocationName,
+            ExpeditionRegion.Mirrorwild => Region3LocationName,
+            _ => Region4LocationName,
+        };
+        string asset = region switch
+        {
+            ExpeditionRegion.ForgottenArchive => Region2MapAssetName,
+            ExpeditionRegion.Mirrorwild => Region3MapAssetName,
+            _ => Region4MapAssetName,
+        };
         GameLocation? existing = Game1.getLocationFromName(name);
         if (existing is not null)
             return existing;
@@ -511,7 +657,7 @@ internal sealed class RegionExpeditionService
         }
         catch (Exception ex)
         {
-            this.Monitor.Log($"0676 couldn't create {name}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            this.Monitor.Log($"0679 couldn't create {name}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
             return null;
         }
     }
@@ -519,6 +665,8 @@ internal sealed class RegionExpeditionService
     private static ExpeditionRegion? ResolveRegion(GameLocation? location)
     {
         string? name = location?.NameOrUniqueName;
+        if (name?.Equals(Region2LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            return ExpeditionRegion.ForgottenArchive;
         if (name?.Equals(Region3LocationName, StringComparison.OrdinalIgnoreCase) == true)
             return ExpeditionRegion.Mirrorwild;
         if (name?.Equals(Region4LocationName, StringComparison.OrdinalIgnoreCase) == true)
@@ -527,7 +675,12 @@ internal sealed class RegionExpeditionService
     }
 
     private string RegionDisplayName(ExpeditionRegion region)
-        => ModEntry.T(region == ExpeditionRegion.Mirrorwild ? "airship.expedition.region3" : "airship.expedition.region4");
+        => ModEntry.T(region switch
+        {
+            ExpeditionRegion.ForgottenArchive => "airship.expedition.region2",
+            ExpeditionRegion.Mirrorwild => "airship.expedition.region3",
+            _ => "airship.expedition.region4",
+        });
 
     private static Point ResolveArrivalTile(GameLocation location)
     {
@@ -561,6 +714,7 @@ internal sealed class RegionExpeditionService
     {
         if (clearEnemies)
         {
+            this.ClearMarkedEnemies(Game1.getLocationFromName(Region2LocationName));
             this.ClearMarkedEnemies(Game1.getLocationFromName(Region3LocationName));
             this.ClearMarkedEnemies(Game1.getLocationFromName(Region4LocationName));
         }
@@ -575,6 +729,10 @@ internal sealed class RegionExpeditionService
         this.UnbankedScrap = 0;
         this.UnbankedShiny = 0;
         this.ExtractConfirmUntilMs = 0;
+        this.BossApproachMode = false;
+        this.DebugForceNormalRegion2 = false;
+        this.DebugForceBossApproachRegion2 = false;
+        this.DebugBossGateBypassRegion2 = false;
     }
 
     private void ReturnToDeckImmediate()
@@ -816,33 +974,50 @@ internal sealed class RegionExpeditionService
     public string Describe()
     {
         if (!Context.IsWorldReady)
-            return "0676 Expedition=<no save>";
+            return "0679 Expedition=<no save>";
         string pending = this.PendingRouteRegion?.ToString() ?? "none";
         double confirm = this.PendingRouteUntilMs > Environment.TickCount64 ? (this.PendingRouteUntilMs - Environment.TickCount64) / 1000d : 0d;
-        return $"0676 Expedition | Available=[{string.Join(',', this.GetAvailableRegions())}] | Current={this.CurrentRegion?.ToString() ?? "none"} | " +
-               $"Active={this.Active} Complete={this.Completed} Wave={this.CurrentWave}/{WaveCount} Spawned={this.WaveSpawned} | " +
+        return $"0679 Expedition | Available=[{string.Join(',', this.GetAvailableRegions())}] | Current={this.CurrentRegion?.ToString() ?? "none"} | " +
+               $"Active={this.Active} Complete={this.Completed} BossApproach={this.BossApproachMode} Wave={this.CurrentWave}/{WaveCount} Spawned={this.WaveSpawned} | " +
                $"Unbanked={this.UnbankedScrap} Scrap + {this.UnbankedShiny} Shiny | Pending={pending}:{confirm:0.0}s | Schema=19";
     }
 
     public string DebugEnter(int region)
     {
-        if (!Context.IsWorldReady || region is not (3 or 4))
-            return "0676 TEST: load a save and use region 3 or 4.";
+        if (!Context.IsWorldReady || region is not (2 or 3 or 4))
+            return "0679 TEST: load a save and use region 2, 3 or 4.";
         ExpeditionRegion target = (ExpeditionRegion)region;
         GameLocation? location = this.EnsureLocation(target);
         if (location is null)
-            return $"0676 TEST: Region {region} map unavailable.";
+            return $"0679 TEST: Region {region} map unavailable.";
         this.DebugBypassRegion = region;
+        if (region == 2)
+            this.DebugForceNormalRegion2 = true;
         Point arrival = ResolveArrivalTile(location);
         Game1.warpFarmer(location.NameOrUniqueName, arrival.X, arrival.Y, 0);
-        return $"0676 TEST: entered Region {region} with runtime-only gate bypass. Save unlock state unchanged.";
+        return $"0679 TEST: entered Region {region} with runtime-only gate bypass. Save unlock state unchanged.";
+    }
+
+    public string DebugEnterRegion2BossApproach()
+    {
+        if (!Context.IsWorldReady)
+            return "0679 TEST: load a save first.";
+        GameLocation? location = this.EnsureLocation(ExpeditionRegion.ForgottenArchive);
+        if (location is null)
+            return "0679 TEST: Region II map unavailable.";
+        this.DebugBypassRegion = 2;
+        this.DebugForceBossApproachRegion2 = true;
+        this.DebugBossGateBypassRegion2 = true;
+        Point arrival = ResolveArrivalTile(location);
+        Game1.warpFarmer(location.NameOrUniqueName, arrival.X, arrival.Y, 0);
+        return "0679 TEST: entered Region II Boss Approach. Walk north to the Archive Seal; save progression is unchanged.";
     }
 
     public string DebugClearWave()
     {
         if (!Context.IsWorldReady || !this.Active || Game1.currentLocation is null || ResolveRegion(Game1.currentLocation) is null)
-            return "0676 TEST: enter an active Region III/IV expedition first.";
+            return "0679 TEST: enter an active Region II/III/IV expedition first.";
         this.ClearMarkedEnemies(Game1.currentLocation);
-        return $"0676 TEST: cleared current wave actors. {this.Describe()}";
+        return $"0679 TEST: cleared current wave actors. {this.Describe()}";
     }
 }

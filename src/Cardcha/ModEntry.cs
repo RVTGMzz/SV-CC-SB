@@ -164,6 +164,7 @@ internal sealed class ModEntry : Mod
         this.VerdantArenaPolish = new VerdantGuardianArenaPolishService(helper, this.Monitor, this.VerdantGuardian);
         this.MilestoneBosses = new MilestoneBossService(helper, this.Monitor, this.Save);
         this.MilestoneBosses.BindExpeditionRouteHandler(this.RegionExpeditions.UseRouteConsole);
+        this.RegionExpeditions.BindRegion2BossGateHandler(this.MilestoneBosses.EnterBoss2FromRegion2);
         this.Airship.BindMilestoneRouteHandler(this.MilestoneBosses.UseAirshipMilestoneRoute);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
@@ -319,10 +320,12 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_boss4", "TEST ONLY: enter Boss IV - MiMi (80-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(4), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_milestone_status", "Show Boss II/III/IV runtime and milestone reward state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_milestone_route_status", "Show the real 40/60/80-card milestone route state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.DescribeMilestoneRoute(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_expedition_status", "Show Region III/IV expedition runtime and route state.", (_, _) => this.Monitor.Log(this.RegionExpeditions.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_expedition_status", "Show Region II/III/IV expedition runtime and route state.", (_, _) => this.Monitor.Log(this.RegionExpeditions.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_region2", "TEST ONLY: enter Region II Forgotten Archive as a normal 21-40 progression run.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(2), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_region2_bossgate", "TEST ONLY: enter Region II Boss Approach and test the north Archive Seal.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnterRegion2BossApproach(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_region3", "TEST ONLY: enter Region III Mirrorwild without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(3), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_region4", "TEST ONLY: enter Region IV Resonance Verge without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(4), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear current Region III/IV expedition wave.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear current Region II/III/IV expedition wave.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
@@ -369,7 +372,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.46 0677A SYSTEM RECHECK + AIRSHIP LIFECYCLE HOTFIX TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.47 0679 REGION II 21-40 + BOSS II APPROACH TEST",
             LogLevel.Info
         );
     }

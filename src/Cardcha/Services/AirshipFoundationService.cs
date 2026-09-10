@@ -216,7 +216,7 @@ internal sealed class AirshipFoundationService
 
     public string BeginExternalRegionFlight(int region, string targetLocationName, Point arrivalTile)
     {
-        if (!Context.IsWorldReady || region is not (3 or 4))
+        if (!Context.IsWorldReady || region is not (2 or 3 or 4))
             return ModEntry.T("airship.expedition.unavailable");
         GameLocation? target = Game1.getLocationFromName(targetLocationName);
         if (target is null)
