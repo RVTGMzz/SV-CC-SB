@@ -20,8 +20,16 @@ jobs:
       - name: Install visual generator dependency
         run: python3 -m pip install --quiet Pillow
 
-      - name: Generate Region II progression map and runtime
-        run: python3 tools/alpha28_0679_region2_21_40_foundation.py
+      - name: Generate Region II progression map and runtime when needed
+        shell: bash
+        run: |
+          set -euo pipefail
+          if grep -q 'Region2LocationName = "Cardcha_Region2_ForgottenArchive"' src/Cardcha/Services/RegionExpeditionService.cs \
+             && grep -q '0.3.0-alpha.28.0.4.14.4.5.12.47' src/Cardcha/manifest.json; then
+            echo '0679 source already materialized; generator skipped.'
+          else
+            python3 tools/alpha28_0679_region2_21_40_foundation.py
+          fi
 
       - name: Apply Region II runtime safety guard
         run: python3 tools/alpha28_0679_runtime_guard.py
