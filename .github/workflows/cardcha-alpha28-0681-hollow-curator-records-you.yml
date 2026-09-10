@@ -17,6 +17,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install Pillow for native-pixel atlas generation
+        run: python3 -m pip install --disable-pip-version-check pillow
+
       - name: Integrate 0681 Curator Records You
         run: python3 tools/alpha28_0681_hollow_curator_records_you.py
 
