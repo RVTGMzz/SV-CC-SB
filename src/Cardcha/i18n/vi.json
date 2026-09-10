@@ -1196,5 +1196,9 @@
   "boss.curator.record.short.precision": "Chuẩn xác",
   "boss.curator.record.short.pressure": "Áp lực",
   "boss.curator.record.short.recovery": "Hồi phục",
-  "boss.curator.record.short.mirror": "Phản chiếu"
+  "boss.curator.record.short.mirror": "Phản chiếu",
+  "airship.region2.room.vestibule": "Tiền Sảnh Kho Lưu Trữ",
+  "airship.region2.room.inkbound": "Dãy Kệ Nhuốm Mực",
+  "airship.region2.room.mirror": "Hành Lang Gương",
+  "airship.region2.room.vault": "Kho Niêm Phong Hộ Vệ"
 }

@@ -329,7 +329,7 @@ internal sealed class MilestoneBossService
     {
         if (!Context.IsWorldReady)
             return ModEntry.T("airship.milestone.unavailable");
-        if (Game1.currentLocation?.NameOrUniqueName.Equals(RegionExpeditionService.Region2LocationName, StringComparison.OrdinalIgnoreCase) != true)
+        if (!Region2RoguelikeRunService.IsRegion2(Game1.currentLocation))
             return ModEntry.T("airship.region2.boss_gate.location");
         if (!this.Save.Data.Region1BossDefeated)
             return ModEntry.T("airship.milestone.boss1_required");

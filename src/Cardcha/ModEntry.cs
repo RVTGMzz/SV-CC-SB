@@ -185,6 +185,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Content.AssetRequested += this.AtticVisual.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.Airship.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.RegionExpeditions.OnAssetRequested;
+        helper.Events.Content.AssetRequested += this.Region2Rogue.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.VerdantGuardian.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.MilestoneBosses.OnAssetRequested;
         helper.Events.Content.AssetRequested += this.CardArena.OnAssetRequested;
@@ -393,7 +394,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.49 0681 HOLLOW CURATOR RECORDS YOU TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.50 0682 REGION II MULTI-ROOM ROGUELIKE TEST",
             LogLevel.Info
         );
     }

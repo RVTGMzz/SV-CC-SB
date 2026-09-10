@@ -6,6 +6,14 @@ using StardewValley.Monsters;
 
 namespace Cardcha.Services;
 
+internal enum Region2RoomKind
+{
+    Vestibule,
+    InkboundStacks,
+    MirrorGallery,
+    WardenVault,
+}
+
 internal enum Region2NodeKind
 {
     Combat,
@@ -36,7 +44,16 @@ internal sealed class Region2RoguelikeRunService
 {
     private const string NodeMarkerKey = "Ronvotri.Cardcha/0680Region2Node";
     private const long ExtractConfirmWindowMs = 5000L;
-    private static readonly Point BossGateTile = new(20, 4);
+    private static readonly Point BossGateTile = new(20, 5);
+    public const string InkboundStacksLocationName = "Cardcha_Region2_InkboundStacks";
+    public const string InkboundStacksMapAssetName = "Maps/Cardcha_Region2_InkboundStacks";
+    public const string MirrorGalleryLocationName = "Cardcha_Region2_MirrorGallery";
+    public const string MirrorGalleryMapAssetName = "Maps/Cardcha_Region2_MirrorGallery";
+    public const string WardenVaultLocationName = "Cardcha_Region2_WardenVault";
+    public const string WardenVaultMapAssetName = "Maps/Cardcha_Region2_WardenVault";
+    private const string InkboundStacksMapPath = "assets/region2_inkbound_stacks.tmx";
+    private const string MirrorGalleryMapPath = "assets/region2_mirror_gallery.tmx";
+    private const string WardenVaultMapPath = "assets/region2_warden_vault.tmx";
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -56,6 +73,9 @@ internal sealed class Region2RoguelikeRunService
     private bool ChoiceDeferred;
     private bool DebugBossGateEntry;
     private bool NodeSpawned;
+    private bool PendingInternalRoomWarp;
+    private Region2NodeKind PendingNodeKind;
+    private Region2RoomKind CurrentRoom = Region2RoomKind.Vestibule;
     private int CurrentNode;
     private int TargetNodes;
     private int RunSeed;
@@ -100,8 +120,26 @@ internal sealed class Region2RoguelikeRunService
     public void BindCuratorRecordSink(Action<CuratorRunRecord> sink)
         => this.CuratorRecordSink = sink;
 
-    public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e) => this.ResetRuntime(clearEnemies: true);
-    public void OnDayStarted(object? sender, DayStartedEventArgs e) => this.ResetRuntime(clearEnemies: true);
+    public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
+    {
+        if (e.NameWithoutLocale.IsEquivalentTo(InkboundStacksMapAssetName))
+            e.LoadFromModFile<xTile.Map>(InkboundStacksMapPath, AssetLoadPriority.Exclusive);
+        else if (e.NameWithoutLocale.IsEquivalentTo(MirrorGalleryMapAssetName))
+            e.LoadFromModFile<xTile.Map>(MirrorGalleryMapPath, AssetLoadPriority.Exclusive);
+        else if (e.NameWithoutLocale.IsEquivalentTo(WardenVaultMapAssetName))
+            e.LoadFromModFile<xTile.Map>(WardenVaultMapPath, AssetLoadPriority.Exclusive);
+    }
+
+    public void OnSaveLoaded(object? sender, SaveLoadedEventArgs e)
+    {
+        this.ResetRuntime(clearEnemies: true);
+        this.EnsureRoomLocations();
+    }
+    public void OnDayStarted(object? sender, DayStartedEventArgs e)
+    {
+        this.ResetRuntime(clearEnemies: true);
+        this.EnsureRoomLocations();
+    }
     public void OnReturnedToTitle(object? sender, ReturnedToTitleEventArgs e) => this.ResetRuntime(clearEnemies: false);
 
     public void PrepareNormalDebugEntry()
@@ -119,11 +157,23 @@ internal sealed class Region2RoguelikeRunService
         bool incoming = IsRegion2(e.NewLocation);
         bool outgoing = IsRegion2(e.OldLocation);
 
+        if (incoming && outgoing)
+        {
+            this.CurrentRoom = ResolveRoom(e.NewLocation);
+            this.ClearRunEnemies(e.OldLocation);
+            if (this.PendingInternalRoomWarp)
+            {
+                this.PendingInternalRoomWarp = false;
+                Region2NodeKind kind = this.PendingNodeKind;
+                this.BeginNodeHere(e.NewLocation, kind);
+            }
+            return;
+        }
+
         if (incoming)
         {
-            // The legacy service still owns the Airship route and permission gate. Once that warp
-            // succeeds, 0680 takes runtime ownership and cancels the old three-wave state.
             this.LegacyExpeditions.SuspendLegacyRegion2RuntimeForRoguelike();
+            this.CurrentRoom = ResolveRoom(e.NewLocation);
             this.StartRun(e.NewLocation, this.DebugBossGateEntry);
             this.DebugBossGateEntry = false;
             return;
@@ -214,7 +264,7 @@ internal sealed class Region2RoguelikeRunService
 
     public string Describe()
     {
-        return $"0681 Region II Rogue: active={this.Active}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, "
+        return $"0682 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, "
             + $"choicePending={this.ChoicePending}, bossGate={this.BossGateReady}, complete={this.RouteComplete}, "
             + $"unbanked={this.UnbankedScrap}S/{this.UnbankedShiny}Sh, banked={this.TotalBankedScrap}S/{this.TotalBankedShiny}Sh, "
             + $"record={this.CurrentRecordTag()} [risk={this.RiskRecord}, precision={this.PrecisionRecord}, pressure={this.PressureRecord}, recovery={this.RecoveryRecord}, mirror={this.MirrorRecord}], "
@@ -253,10 +303,9 @@ internal sealed class Region2RoguelikeRunService
         {
             this.CurrentNode = 6;
             this.TargetNodes = Math.Max(6, this.TargetNodes);
-            this.CurrentKind = Region2NodeKind.BossGate;
-            this.BossGateReady = true;
             this.LastCuratorRecord = "debug";
             Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.debug_bossgate"));
+            this.BeginNode(location, Region2NodeKind.BossGate);
             return;
         }
 
@@ -265,6 +314,27 @@ internal sealed class Region2RoguelikeRunService
     }
 
     private void BeginNode(GameLocation location, Region2NodeKind kind)
+    {
+        Region2RoomKind targetRoom = this.ResolveRoomForNode(kind);
+        string targetName = RoomLocationName(targetRoom);
+        if (!location.NameOrUniqueName.Equals(targetName, StringComparison.OrdinalIgnoreCase))
+        {
+            GameLocation? target = this.EnsureRoomLocation(targetRoom);
+            if (target is not null)
+            {
+                this.PendingInternalRoomWarp = true;
+                this.PendingNodeKind = kind;
+                this.ClearRunEnemies(location);
+                Point arrival = RoomArrivalTile(targetRoom);
+                Game1.warpFarmer(target.NameOrUniqueName, arrival.X, arrival.Y, 0);
+                return;
+            }
+        }
+        this.CurrentRoom = targetRoom;
+        this.BeginNodeHere(location, kind);
+    }
+
+    private void BeginNodeHere(GameLocation location, Region2NodeKind kind)
     {
         this.CurrentKind = kind;
         this.ChoicePending = false;
@@ -476,13 +546,7 @@ internal sealed class Region2RoguelikeRunService
     private void SpawnNodeEnemies(GameLocation location, Region2NodeKind kind)
     {
         this.ClearRunEnemies(location);
-        Point[] candidates =
-        {
-            new(6,5), new(11,5), new(18,5), new(22,5), new(29,5), new(34,5),
-            new(7,10), new(13,10), new(20,9), new(27,10), new(33,10),
-            new(6,16), new(12,17), new(18,15), new(22,15), new(28,17), new(34,16),
-            new(9,22), new(15,21), new(25,21), new(31,22)
-        };
+        Point[] candidates = SpawnCandidatesForRoom(this.CurrentRoom);
         Random random = new(unchecked(this.RunSeed + this.CurrentNode * 65537 + (int)kind * 7919));
         Point[] shuffled = candidates.OrderBy(_ => random.Next()).ToArray();
 
@@ -519,7 +583,7 @@ internal sealed class Region2RoguelikeRunService
         }
 
         Game1.playSound(kind == Region2NodeKind.Ambush ? "batScreech" : "wand");
-        this.Monitor.Log($"0680 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: spawned={spawned}.", LogLevel.Trace);
+        this.Monitor.Log($"0682 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: spawned={spawned}.", LogLevel.Trace);
     }
 
     private Monster CreateEnemy(Region2NodeKind kind, int index, Vector2 position, bool forceElite)
@@ -690,7 +754,7 @@ internal sealed class Region2RoguelikeRunService
         }
         this.LastCuratorRecord = record.Tag;
         this.Active = false;
-        this.Monitor.Log($"0681 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
+        this.Monitor.Log($"0682 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
     }
 
     private void TryExtract()
@@ -807,8 +871,120 @@ internal sealed class Region2RoguelikeRunService
     private static bool IsRiskKind(Region2NodeKind kind)
         => kind is Region2NodeKind.Elite or Region2NodeKind.CursedArchive or Region2NodeKind.BossGate;
 
-    private static bool IsRegion2(GameLocation? location)
-        => location?.NameOrUniqueName.Equals(RegionExpeditionService.Region2LocationName, StringComparison.OrdinalIgnoreCase) == true;
+    internal static bool IsRegion2(GameLocation? location)
+        => location is not null && IsRegion2Name(location.NameOrUniqueName);
+
+    internal static bool IsRegion2Name(string? name)
+        => !string.IsNullOrWhiteSpace(name) && (
+            name.Equals(RegionExpeditionService.Region2LocationName, StringComparison.OrdinalIgnoreCase)
+            || name.Equals(InkboundStacksLocationName, StringComparison.OrdinalIgnoreCase)
+            || name.Equals(MirrorGalleryLocationName, StringComparison.OrdinalIgnoreCase)
+            || name.Equals(WardenVaultLocationName, StringComparison.OrdinalIgnoreCase));
+
+    private Region2RoomKind ResolveRoomForNode(Region2NodeKind kind)
+    {
+        if (kind is Region2NodeKind.BossGate or Region2NodeKind.Elite or Region2NodeKind.FinalCache)
+            return Region2RoomKind.WardenVault;
+        if (kind == Region2NodeKind.MirrorChoice)
+            return Region2RoomKind.MirrorGallery;
+        if (kind is Region2NodeKind.Ambush or Region2NodeKind.CursedArchive)
+            return Region2RoomKind.InkboundStacks;
+        if (kind == Region2NodeKind.Restoration)
+            return this.CurrentNode >= 5 ? Region2RoomKind.MirrorGallery : Region2RoomKind.Vestibule;
+        if (kind == Region2NodeKind.Cache)
+            return ((this.RunSeed + this.CurrentNode) & 1) == 0 ? Region2RoomKind.MirrorGallery : Region2RoomKind.InkboundStacks;
+        if (kind == Region2NodeKind.ArchiveEvent)
+            return this.CurrentNode <= 3 ? Region2RoomKind.Vestibule : Region2RoomKind.MirrorGallery;
+        return (this.CurrentNode % 3) switch
+        {
+            0 => Region2RoomKind.MirrorGallery,
+            1 => Region2RoomKind.Vestibule,
+            _ => Region2RoomKind.InkboundStacks,
+        };
+    }
+
+    private static string RoomLocationName(Region2RoomKind room) => room switch
+    {
+        Region2RoomKind.InkboundStacks => InkboundStacksLocationName,
+        Region2RoomKind.MirrorGallery => MirrorGalleryLocationName,
+        Region2RoomKind.WardenVault => WardenVaultLocationName,
+        _ => RegionExpeditionService.Region2LocationName,
+    };
+
+    private static string RoomMapAssetName(Region2RoomKind room) => room switch
+    {
+        Region2RoomKind.InkboundStacks => InkboundStacksMapAssetName,
+        Region2RoomKind.MirrorGallery => MirrorGalleryMapAssetName,
+        Region2RoomKind.WardenVault => WardenVaultMapAssetName,
+        _ => RegionExpeditionService.Region2MapAssetName,
+    };
+
+    private static Point RoomArrivalTile(Region2RoomKind room)
+        => room == Region2RoomKind.WardenVault ? new Point(20, 23) : new Point(20, 24);
+
+    private static string[] Region2RoomNames()
+        => new[] { RegionExpeditionService.Region2LocationName, InkboundStacksLocationName, MirrorGalleryLocationName, WardenVaultLocationName };
+
+    private void EnsureRoomLocations()
+    {
+        foreach (Region2RoomKind room in Enum.GetValues<Region2RoomKind>())
+            this.EnsureRoomLocation(room);
+    }
+
+    private GameLocation? EnsureRoomLocation(Region2RoomKind room)
+    {
+        string name = RoomLocationName(room);
+        GameLocation? existing = Game1.getLocationFromName(name);
+        if (existing is not null) return existing;
+        try
+        {
+            GameLocation created = new(RoomMapAssetName(room), name);
+            Game1.locations.Add(created);
+            return created;
+        }
+        catch (Exception ex)
+        {
+            this.Monitor.Log($"0682 couldn't create Region II room {room}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            return null;
+        }
+    }
+
+    private static Region2RoomKind ResolveRoom(GameLocation? location)
+    {
+        string? name = location?.NameOrUniqueName;
+        if (name?.Equals(InkboundStacksLocationName, StringComparison.OrdinalIgnoreCase) == true) return Region2RoomKind.InkboundStacks;
+        if (name?.Equals(MirrorGalleryLocationName, StringComparison.OrdinalIgnoreCase) == true) return Region2RoomKind.MirrorGallery;
+        if (name?.Equals(WardenVaultLocationName, StringComparison.OrdinalIgnoreCase) == true) return Region2RoomKind.WardenVault;
+        return Region2RoomKind.Vestibule;
+    }
+
+    private static Point[] SpawnCandidatesForRoom(Region2RoomKind room) => room switch
+    {
+        Region2RoomKind.InkboundStacks => new[]
+        {
+            new Point(5,5), new Point(13,5), new Point(27,5), new Point(35,5), new Point(7,10), new Point(16,10),
+            new Point(24,10), new Point(33,10), new Point(6,15), new Point(14,15), new Point(26,15), new Point(34,15),
+            new Point(9,20), new Point(17,20), new Point(23,20), new Point(31,20)
+        },
+        Region2RoomKind.MirrorGallery => new[]
+        {
+            new Point(8,6), new Point(14,6), new Point(20,7), new Point(26,6), new Point(32,6), new Point(10,11),
+            new Point(16,12), new Point(24,12), new Point(30,11), new Point(8,17), new Point(14,18), new Point(20,17),
+            new Point(26,18), new Point(32,17), new Point(12,22), new Point(28,22)
+        },
+        Region2RoomKind.WardenVault => new[]
+        {
+            new Point(10,8), new Point(15,8), new Point(25,8), new Point(30,8), new Point(9,13), new Point(15,13),
+            new Point(25,13), new Point(31,13), new Point(10,18), new Point(16,18), new Point(24,18), new Point(30,18)
+        },
+        _ => new[]
+        {
+            new Point(6,5), new Point(11,5), new Point(18,5), new Point(22,5), new Point(29,5), new Point(34,5),
+            new Point(7,10), new Point(13,10), new Point(20,9), new Point(27,10), new Point(33,10),
+            new Point(6,16), new Point(12,17), new Point(18,15), new Point(22,15), new Point(28,17), new Point(34,16),
+            new Point(9,22), new Point(15,21), new Point(25,21), new Point(31,22)
+        }
+    };
 
     private static Point PlayerTile()
         => new((int)(Game1.player.Position.X / 64f), (int)(Game1.player.Position.Y / 64f));
@@ -839,8 +1015,14 @@ internal sealed class Region2RoguelikeRunService
 
     private void ResetRuntime(bool clearEnemies)
     {
-        if (clearEnemies && Context.IsWorldReady && IsRegion2(Game1.currentLocation) && Game1.currentLocation is not null)
-            this.ClearRunEnemies(Game1.currentLocation);
+        if (clearEnemies && Context.IsWorldReady)
+        {
+            foreach (string name in Region2RoomNames())
+            {
+                GameLocation? room = Game1.getLocationFromName(name);
+                if (room is not null) this.ClearRunEnemies(room);
+            }
+        }
         this.Active = false;
         this.LeavingForBoss = false;
         this.RouteComplete = false;
@@ -848,6 +1030,8 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.ChoiceDeferred = false;
         this.NodeSpawned = false;
+        this.PendingInternalRoomWarp = false;
+        this.CurrentRoom = Region2RoomKind.Vestibule;
         this.CurrentNode = 0;
         this.TargetNodes = 0;
         this.UnbankedScrap = 0;

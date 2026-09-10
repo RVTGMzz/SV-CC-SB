@@ -1118,5 +1118,9 @@
   "boss.curator.record.short.precision": "Precision",
   "boss.curator.record.short.pressure": "Pressure",
   "boss.curator.record.short.recovery": "Recovery",
-  "boss.curator.record.short.mirror": "Mirror"
+  "boss.curator.record.short.mirror": "Mirror",
+  "airship.region2.room.vestibule": "Archive Vestibule",
+  "airship.region2.room.inkbound": "Inkbound Stacks",
+  "airship.region2.room.mirror": "Mirror Gallery",
+  "airship.region2.room.vault": "Warden Vault"
 }
