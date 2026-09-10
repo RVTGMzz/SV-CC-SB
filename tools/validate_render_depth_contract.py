@@ -102,8 +102,8 @@ except ValueError:
     fail("could not inspect MilestoneBossService.RenderedWorld section")
 if "DrawActor" in rw or "DrawArenaIdentity" in rw:
     fail("milestone physical body/arena art returned to RenderedWorld")
-if "actor.getStandingY() / 10000f" not in milestone:
-    fail("milestone actor renderer lost standing-Y depth")
+if "(actor.Position.Y + 64f) / 10000f" not in milestone:
+    fail("milestone actor renderer lost compile-safe feet depth")
 
 attic = (SRC / "Services" / "MimiAtticVisualService.cs").read_text(encoding="utf-8")
 for token in ("Furniture item =", 'map.GetLayer("Buildings")', "new StaticTile(buildings"):
