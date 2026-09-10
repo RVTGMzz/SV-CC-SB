@@ -347,7 +347,7 @@ internal sealed class ModEntry : Mod
         });
         helper.ConsoleCommands.Add("cardcha_test_region3", "TEST ONLY: enter Region III Mirrorwild without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(3), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_region4", "TEST ONLY: enter Region IV Resonance Verge without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(4), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear current Region II node or Region III/IV expedition wave.", (_, _) => this.Monitor.Log(this.Region2Rogue.IsActive ? this.Region2Rogue.DebugClearCurrentNode() : this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear/resolve current Region II node or Region III/IV expedition wave.", (_, _) => this.Monitor.Log(this.Region2Rogue.IsActive ? this.Region2Rogue.DebugClearCurrentNode() : this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
@@ -394,7 +394,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.50 0682 REGION II MULTI-ROOM ROGUELIKE TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.51 0683 REGION II ROOM INTERACTION TEST",
             LogLevel.Info
         );
     }

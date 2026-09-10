@@ -3,6 +3,7 @@ using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
 using StardewValley.Monsters;
+using StardewValley.Objects;
 
 namespace Cardcha.Services;
 
@@ -43,6 +44,7 @@ internal enum Region2NodeKind
 internal sealed class Region2RoguelikeRunService
 {
     private const string NodeMarkerKey = "Ronvotri.Cardcha/0680Region2Node";
+    private const string InteractionMarkerKey = "Ronvotri.Cardcha/0683Region2Interaction";
     private const long ExtractConfirmWindowMs = 5000L;
     private static readonly Point BossGateTile = new(20, 5);
     public const string InkboundStacksLocationName = "Cardcha_Region2_InkboundStacks";
@@ -73,6 +75,8 @@ internal sealed class Region2RoguelikeRunService
     private bool ChoiceDeferred;
     private bool DebugBossGateEntry;
     private bool NodeSpawned;
+    private bool AwaitingRoomInteraction;
+    private Point ActiveInteractionTile;
     private bool PendingInternalRoomWarp;
     private Region2NodeKind PendingNodeKind;
     private Region2RoomKind CurrentRoom = Region2RoomKind.Vestibule;
@@ -159,6 +163,7 @@ internal sealed class Region2RoguelikeRunService
 
         if (incoming && outgoing)
         {
+            this.ClearInteractionObject(e.OldLocation);
             this.CurrentRoom = ResolveRoom(e.NewLocation);
             this.ClearRunEnemies(e.OldLocation);
             if (this.PendingInternalRoomWarp)
@@ -223,6 +228,12 @@ internal sealed class Region2RoguelikeRunService
         Point player = PlayerTile();
         Point action = Game1.player.GetGrabTile().ToPoint();
 
+        if (this.AwaitingRoomInteraction && this.TryHandleRoomInteraction(e, Game1.currentLocation, action))
+        {
+            this.Helper.Input.Suppress(e.Button);
+            return;
+        }
+
         bool gateClose = Math.Abs(player.X - BossGateTile.X) <= 2 && Math.Abs(player.Y - BossGateTile.Y) <= 2;
         bool gateFacing = Math.Abs(action.X - BossGateTile.X) <= 1 && Math.Abs(action.Y - BossGateTile.Y) <= 1;
         if (this.CurrentRoom == Region2RoomKind.WardenVault && (gateClose || gateFacing))
@@ -246,6 +257,8 @@ internal sealed class Region2RoguelikeRunService
     {
         if (!Context.IsWorldReady || !this.Active || !IsRegion2(Game1.currentLocation) || Game1.currentLocation is null)
             return "No active Region II roguelike node.";
+        if (this.AwaitingRoomInteraction)
+            return this.DebugResolveRoomInteraction();
         if (!IsCombatKind(this.CurrentKind))
             return $"Region II node {this.CurrentNode}/{this.TargetNodes} is {this.CurrentKind}; there are no combat enemies to clear.";
 
@@ -264,7 +277,7 @@ internal sealed class Region2RoguelikeRunService
 
     public string Describe()
     {
-        return $"0682 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, "
+        return $"0683 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, interaction={this.AwaitingRoomInteraction}, "
             + $"choicePending={this.ChoicePending}, bossGate={this.BossGateReady}, complete={this.RouteComplete}, "
             + $"unbanked={this.UnbankedScrap}S/{this.UnbankedShiny}Sh, banked={this.TotalBankedScrap}S/{this.TotalBankedShiny}Sh, "
             + $"record={this.CurrentRecordTag()} [risk={this.RiskRecord}, precision={this.PrecisionRecord}, pressure={this.PressureRecord}, recovery={this.RecoveryRecord}, mirror={this.MirrorRecord}], "
@@ -281,6 +294,8 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.ChoiceDeferred = false;
         this.NodeSpawned = false;
+        this.AwaitingRoomInteraction = false;
+        this.ActiveInteractionTile = Point.Zero;
         this.CurrentNode = 1;
         this.UnbankedScrap = 0;
         this.UnbankedShiny = 0;
@@ -340,6 +355,9 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.BossGateReady = false;
         this.NodeSpawned = false;
+        this.AwaitingRoomInteraction = false;
+        this.ActiveInteractionTile = Point.Zero;
+        this.ClearInteractionObject(location);
         this.ExtractConfirmUntilMs = 0;
         this.NodeStartHealth = Math.Max(1, Game1.player.health);
 
@@ -352,12 +370,15 @@ internal sealed class Region2RoguelikeRunService
             return;
         }
 
-        if (kind == Region2NodeKind.FinalCache)
+        if (kind == Region2NodeKind.FinalCache || IsManualInteractionKind(kind))
         {
-            this.AwardNode(kind);
-            this.RouteComplete = true;
-            Game1.playSound("discoverMineral");
-            Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.complete", new { scrap = this.UnbankedScrap, shiny = this.UnbankedShiny }));
+            this.PrepareRoomInteraction(location, kind);
+            return;
+        }
+
+        if (kind == Region2NodeKind.CursedArchive)
+        {
+            this.PrepareRoomInteraction(location, kind);
             return;
         }
 
@@ -373,9 +394,6 @@ internal sealed class Region2RoguelikeRunService
             }));
             return;
         }
-
-        this.ResolveNonCombatNode(kind);
-        this.CompleteCurrentNode(location);
     }
 
     private void CompleteCurrentNode(GameLocation location)
@@ -543,6 +561,169 @@ internal sealed class Region2RoguelikeRunService
         }
     }
 
+    private void PrepareRoomInteraction(GameLocation location, Region2NodeKind kind)
+    {
+        this.AwaitingRoomInteraction = true;
+        this.ActiveInteractionTile = ResolveInteractionTile(kind, this.CurrentRoom);
+        if (kind is Region2NodeKind.Cache or Region2NodeKind.FinalCache)
+            this.EnsureInteractionChest(location, this.ActiveInteractionTile);
+
+        Game1.showGlobalMessage(ModEntry.T("airship.region2.interaction.ready", new
+        {
+            node = this.CurrentNode,
+            total = this.TargetNodes,
+            target = this.InteractionDisplayName(kind)
+        }));
+    }
+
+    private bool TryHandleRoomInteraction(ButtonPressedEventArgs e, GameLocation location, Point actionTile)
+    {
+        if (!this.AwaitingRoomInteraction)
+            return false;
+
+        Point cursorTile = new((int)e.Cursor.GrabTile.X, (int)e.Cursor.GrabTile.Y);
+        bool mouseDirect = e.Button == SButton.MouseRight && Touches(cursorTile, this.ActiveInteractionTile);
+        if (!Touches(actionTile, this.ActiveInteractionTile) && !mouseDirect)
+            return false;
+
+        this.ResolveRoomInteraction(location, debug: false);
+        return true;
+    }
+
+    private void ResolveRoomInteraction(GameLocation location, bool debug)
+    {
+        if (!this.AwaitingRoomInteraction)
+            return;
+
+        Region2NodeKind kind = this.CurrentKind;
+        this.AwaitingRoomInteraction = false;
+
+        if (kind is Region2NodeKind.Cache or Region2NodeKind.FinalCache)
+        {
+            this.ClearInteractionObject(location);
+            Game1.playSound("openBox");
+        }
+
+        if (kind == Region2NodeKind.CursedArchive)
+        {
+            Game1.playSound("wand");
+            this.SpawnNodeEnemies(location, kind);
+            this.NodeSpawned = true;
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.interaction.cursed_awakened"));
+            return;
+        }
+
+        if (kind == Region2NodeKind.FinalCache)
+        {
+            this.AwardNode(kind);
+            this.RouteComplete = true;
+            Game1.playSound("discoverMineral");
+            Game1.drawObjectDialogue(ModEntry.T("airship.region2.interaction.final_opened", new
+            {
+                scrap = this.UnbankedScrap,
+                shiny = this.UnbankedShiny
+            }));
+            return;
+        }
+
+        this.ResolveNonCombatNode(kind);
+        this.CompleteCurrentNode(location);
+    }
+
+    private string DebugResolveRoomInteraction()
+    {
+        if (!Context.IsWorldReady || !this.AwaitingRoomInteraction || Game1.currentLocation is null)
+            return "No pending Region II room interaction.";
+
+        Region2NodeKind kind = this.CurrentKind;
+        this.ResolveRoomInteraction(Game1.currentLocation, debug: true);
+        if (kind == Region2NodeKind.CursedArchive && this.NodeSpawned)
+        {
+            int removed = 0;
+            for (int i = Game1.currentLocation.characters.Count - 1; i >= 0; i--)
+            {
+                if (Game1.currentLocation.characters[i] is Monster monster && monster.modData.ContainsKey(NodeMarkerKey))
+                {
+                    monster.Health = 0;
+                    Game1.currentLocation.characters.RemoveAt(i);
+                    removed++;
+                }
+            }
+            return $"TEST: activated Cursed Archive and cleared {removed} awakened enemy/enemies; completion resolves next tick.";
+        }
+        return $"TEST: resolved Region II interaction node {this.CurrentNode}/{this.TargetNodes} ({kind}).";
+    }
+
+    private void EnsureInteractionChest(GameLocation room, Point tile)
+    {
+        Vector2 key = new(tile.X, tile.Y);
+        if (room.Objects.TryGetValue(key, out StardewValley.Object? existing))
+        {
+            if (existing is Chest && existing.modData.ContainsKey(InteractionMarkerKey))
+                return;
+            this.Monitor.Log($"0683 Region II interaction chest tile {tile} is occupied; node remains interactable by tile.", LogLevel.Warn);
+            return;
+        }
+
+        Chest chest = new(true);
+        chest.modData[InteractionMarkerKey] = $"0683:{this.CurrentNode}:{this.CurrentKind}";
+        room.setObject(key, chest);
+    }
+
+    private void ClearInteractionObject(GameLocation? room)
+    {
+        if (room is null)
+            return;
+        Point tile = ResolveCacheTile(ResolveRoom(room));
+        Vector2 key = new(tile.X, tile.Y);
+        if (room.Objects.TryGetValue(key, out StardewValley.Object? existing)
+            && existing.modData.ContainsKey(InteractionMarkerKey))
+            room.Objects.Remove(key);
+    }
+
+    private static bool IsManualInteractionKind(Region2NodeKind kind)
+        => kind is Region2NodeKind.MirrorChoice or Region2NodeKind.ArchiveEvent or Region2NodeKind.Cache or Region2NodeKind.Restoration;
+
+    private static Point ResolveInteractionTile(Region2NodeKind kind, Region2RoomKind room)
+    {
+        if (kind is Region2NodeKind.Cache or Region2NodeKind.FinalCache)
+            return ResolveCacheTile(room);
+        if (kind == Region2NodeKind.CursedArchive)
+            return new Point(20, 12);
+        if (kind == Region2NodeKind.MirrorChoice)
+            return new Point(20, 11);
+        if (kind == Region2NodeKind.Restoration)
+            return room == Region2RoomKind.MirrorGallery ? new Point(9, 18) : new Point(30, 18);
+        if (kind == Region2NodeKind.ArchiveEvent)
+            return room == Region2RoomKind.MirrorGallery ? new Point(30, 18) : new Point(9, 11);
+        return new Point(20, 14);
+    }
+
+    private static Point ResolveCacheTile(Region2RoomKind room) => room switch
+    {
+        Region2RoomKind.WardenVault => new Point(20, 16),
+        Region2RoomKind.MirrorGallery => new Point(20, 17),
+        Region2RoomKind.InkboundStacks => new Point(20, 17),
+        _ => new Point(20, 16),
+    };
+
+    private string InteractionDisplayName(Region2NodeKind kind)
+        => ModEntry.T($"airship.region2.interaction.object.{InteractionKey(kind)}");
+
+    private static string InteractionKey(Region2NodeKind kind) => kind switch
+    {
+        Region2NodeKind.MirrorChoice => "mirror",
+        Region2NodeKind.ArchiveEvent => "lectern",
+        Region2NodeKind.Cache => "cache",
+        Region2NodeKind.Restoration => "restoration",
+        Region2NodeKind.CursedArchive => "cursed",
+        Region2NodeKind.FinalCache => "finalcache",
+        _ => "archive",
+    };
+
+    private static bool Touches(Point a, Point b)
+        => Math.Abs(a.X - b.X) <= 1 && Math.Abs(a.Y - b.Y) <= 1;
+
     private void SpawnNodeEnemies(GameLocation location, Region2NodeKind kind)
     {
         this.ClearRunEnemies(location);
@@ -583,7 +764,7 @@ internal sealed class Region2RoguelikeRunService
         }
 
         Game1.playSound(kind == Region2NodeKind.Ambush ? "batScreech" : "wand");
-        this.Monitor.Log($"0682 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: spawned={spawned}.", LogLevel.Trace);
+        this.Monitor.Log($"0683 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: spawned={spawned}.", LogLevel.Trace);
     }
 
     private Monster CreateEnemy(Region2NodeKind kind, int index, Vector2 position, bool forceElite)
@@ -754,7 +935,7 @@ internal sealed class Region2RoguelikeRunService
         }
         this.LastCuratorRecord = record.Tag;
         this.Active = false;
-        this.Monitor.Log($"0682 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
+        this.Monitor.Log($"0683 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
     }
 
     private void TryExtract()
@@ -944,7 +1125,7 @@ internal sealed class Region2RoguelikeRunService
         }
         catch (Exception ex)
         {
-            this.Monitor.Log($"0682 couldn't create Region II room {room}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
+            this.Monitor.Log($"0683 couldn't create Region II room {room}: {ex.GetType().Name}: {ex.Message}", LogLevel.Error);
             return null;
         }
     }
@@ -1020,7 +1201,11 @@ internal sealed class Region2RoguelikeRunService
             foreach (string name in Region2RoomNames())
             {
                 GameLocation? room = Game1.getLocationFromName(name);
-                if (room is not null) this.ClearRunEnemies(room);
+                if (room is not null)
+                {
+                    this.ClearRunEnemies(room);
+                    this.ClearInteractionObject(room);
+                }
             }
         }
         this.Active = false;
@@ -1030,6 +1215,8 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.ChoiceDeferred = false;
         this.NodeSpawned = false;
+        this.AwaitingRoomInteraction = false;
+        this.ActiveInteractionTile = Point.Zero;
         this.PendingInternalRoomWarp = false;
         this.CurrentRoom = Region2RoomKind.Vestibule;
         this.CurrentNode = 0;

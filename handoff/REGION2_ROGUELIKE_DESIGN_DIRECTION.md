@@ -216,3 +216,8 @@ It is:
 > **Does a second Region II run create a genuinely different tactical/story rhythm and make the player curious about a third run?**
 
 If the answer is no, the roguelike layer is not finished yet.
+
+
+### 0683 implementation note
+
+Room variety must be functional, not decorative only. Non-combat nodes should ask the player to physically read the room: walk to a mirror, lectern, restorative focus, cursed object, or cache and interact. Physical objects belong in TMX/native Stardew object systems, never post-world overlays. This is presentation architecture, not a mandate that every future node use the same station or reward.

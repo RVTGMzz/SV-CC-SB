@@ -1200,5 +1200,15 @@
   "airship.region2.room.vestibule": "Tiền Sảnh Kho Lưu Trữ",
   "airship.region2.room.inkbound": "Dãy Kệ Nhuốm Mực",
   "airship.region2.room.mirror": "Hành Lang Gương",
-  "airship.region2.room.vault": "Kho Niêm Phong Hộ Vệ"
+  "airship.region2.room.vault": "Kho Niêm Phong Hộ Vệ",
+  "airship.region2.interaction.ready": "Node {{node}}/{{total}}: {{target}} đang chờ trong phòng. Hãy tới gần và tương tác để hoàn tất node này.",
+  "airship.region2.interaction.object.mirror": "Gương Lưu Trữ",
+  "airship.region2.interaction.object.lectern": "Bục Sách Lưu Trữ",
+  "airship.region2.interaction.object.cache": "rương lưu trữ niêm phong",
+  "airship.region2.interaction.object.restoration": "Suối Phục Hồi",
+  "airship.region2.interaction.object.cursed": "Quyển Sách Nguyền",
+  "airship.region2.interaction.object.finalcache": "rương sâu trong kho lưu trữ",
+  "airship.region2.interaction.object.archive": "điểm cộng hưởng lưu trữ",
+  "airship.region2.interaction.cursed_awakened": "Quyển Sách Nguyền tự bật mở. Những trang giấy đen như mực tung ra, cả kho lưu trữ thức giấc quanh bạn.",
+  "airship.region2.interaction.final_opened": "Rương sâu trong kho lưu trữ đã mở. Hàng chưa gửi kho: {{scrap}} Scrap + {{shiny}} Shiny."
 }

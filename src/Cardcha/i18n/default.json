@@ -1122,5 +1122,15 @@
   "airship.region2.room.vestibule": "Archive Vestibule",
   "airship.region2.room.inkbound": "Inkbound Stacks",
   "airship.region2.room.mirror": "Mirror Gallery",
-  "airship.region2.room.vault": "Warden Vault"
+  "airship.region2.room.vault": "Warden Vault",
+  "airship.region2.interaction.ready": "Node {{node}}/{{total}}: {{target}} is waiting here. Interact with it to resolve this node.",
+  "airship.region2.interaction.object.mirror": "the Archive Mirror",
+  "airship.region2.interaction.object.lectern": "the Archive Lectern",
+  "airship.region2.interaction.object.cache": "the sealed cache",
+  "airship.region2.interaction.object.restoration": "the Restoration Font",
+  "airship.region2.interaction.object.cursed": "the Cursed Tome",
+  "airship.region2.interaction.object.finalcache": "the deep archive cache",
+  "airship.region2.interaction.object.archive": "the archive focus",
+  "airship.region2.interaction.cursed_awakened": "The Cursed Tome opens by itself. Ink-black pages scatter, and the archive wakes around you.",
+  "airship.region2.interaction.final_opened": "The deep archive cache opens. Unbanked cargo: {{scrap}} Scrap + {{shiny}} Shiny."
 }
