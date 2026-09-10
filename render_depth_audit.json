@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0676b-region-layering-extraction-hotfix",
+  "branch": "cardcha-alpha28-0678-boss234-visual-completion",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": { "classification": "reviewed-vfx-story", "physicalAllowed": false },
@@ -15,7 +15,7 @@
     "VerdantGuardian": { "classification": "telegraph-vfx-review", "physicalAllowed": false },
     "VerdantGuardianVisual": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
     "VerdantSummons": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
-    "MilestoneBosses": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
+    "MilestoneBosses": { "classification": "0678-actor-depth-vfx-only", "physicalAllowed": false },
     "RegionExpeditions": { "classification": "0676b-migration", "physicalAllowed": false }
   },
   "confirmedUnsafePhysicalPostWorld": [
@@ -30,9 +30,13 @@
     "VerdantGuardianVisualService.boss-body",
     "VerdantGuardianSummonVisualService.summon-body",
     "VerdantGuardianArenaPolishService.DrawObelisks",
-    "MilestoneBossService.DrawActor",
     "RegionExpeditionService.legacy-authored-enemy-body",
     "RegionExpeditionService.legacy-terrain-decor"
+  ],
+  "completedDepthMigrations": [
+    "RegionExpeditionService.enemy-body->Monster.draw",
+    "MilestoneBossService.boss-body->Monster.draw",
+    "MilestoneBossService.arena-identity->TMX.CardchaArenaGround"
   ],
   "safeNativeExamples": [
     "MimiAtticVisualService.EnsureVanillaFurniture",
