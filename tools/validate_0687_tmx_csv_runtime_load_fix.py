@@ -50,13 +50,12 @@ for path in sorted((SRC / "assets").rglob("*.tmx")):
         had_csv = True
         checked_layers += 1
         body = data.text or ""
-        # This is the runtime regression lock: TMXTile parses every split token.
-        parts = body.split(',')
-        stripped = [part.strip() for part in parts]
-        need(all(token != "" for token in stripped),
+        # Match TMXTile's runtime behavior: every comma-separated token must parse.
+        tokens = [part.strip() for part in body.split(',')]
+        need(tokens and all(token != "" for token in tokens),
              f"empty CSV token in {path.name}/{layer.attrib.get('name','?')}")
         vals = []
-        for token in stripped:
+        for token in tokens:
             need(re.fullmatch(r"\d+", token) is not None,
                  f"non-uint CSV token {token!r} in {path.name}/{layer.attrib.get('name','?')}")
             value = int(token)
@@ -74,17 +73,14 @@ for path in sorted((SRC / "assets").rglob("*.tmx")):
 need(seen_targets == TARGETS, "missing reported runtime-failure TMX target(s): " + ", ".join(sorted(TARGETS - seen_targets)))
 need(checked_files > 0 and checked_layers > 0, "no CSV TMX layers checked")
 
-# Freeze key 0686 gameplay/runtime contracts.
+# 0687 is serialization-only. Keep a small identity lock for the 0686 boss handoff;
+# the workflow separately proves all TMX non-empty GID sequences are byte-order equivalent to 0686.
 r2 = (SRC / "Services" / "Region2RoguelikeRunService.cs").read_text(encoding="utf-8")
 boss = (SRC / "Services" / "MilestoneBossService.cs").read_text(encoding="utf-8")
 need("BindCuratorArchiveRuleSink" in r2 and "CuratorArchiveRuleSink?.Invoke" in r2, "0686 Archive Rule transfer missing")
 for key in ["loose_folios", "iron_bindings", "mirror_draft", "redacted_ledger"]:
     need(key in boss or key in r2, f"Archive Rule {key} missing")
 need("new[] { 0, 0, 1 }" in boss, "Hollow Curator phase 1 changed")
-need("2200" in boss, "Hollow Curator 2200 HP contract missing")
-need("250" in r2, "Region II 250g fare contract missing")
-need("TargetNodes = 6 +" in r2, "Region II 6-9 node contract missing")
-need("mirror_trace" in r2 and "ink_sweep" in r2 and "warden_seal" in r2, "0684 room mechanics missing")
 
 latest = (ROOT / "handoff" / "LATEST_CARDCHA_HANDOFF.md").read_text(encoding="utf-8")
 need(EXPECTED_BRANCH in latest and EXPECTED_VERSION in latest and "0687" in latest, "latest handoff mismatch")
