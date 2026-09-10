@@ -225,7 +225,7 @@ internal sealed class Region2RoguelikeRunService
 
         bool gateClose = Math.Abs(player.X - BossGateTile.X) <= 2 && Math.Abs(player.Y - BossGateTile.Y) <= 2;
         bool gateFacing = Math.Abs(action.X - BossGateTile.X) <= 1 && Math.Abs(action.Y - BossGateTile.Y) <= 1;
-        if (gateClose || gateFacing)
+        if (this.CurrentRoom == Region2RoomKind.WardenVault && (gateClose || gateFacing))
         {
             this.Helper.Input.Suppress(e.Button);
             this.TryUseBossGate();
