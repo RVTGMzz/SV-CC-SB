@@ -1,0 +1,112 @@
+name: Cardcha 0678 Boss II-IV Visual Completion
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0678-boss234-visual-completion
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install visual generator dependency
+        run: python3 -m pip install --quiet Pillow
+
+      - name: Materialize 0678 Boss II-IV visuals
+        run: python3 tools/alpha28_0678_boss234_visual_completion.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0678 Boss II-IV visual contracts
+        run: python3 tools/validate_0678_boss234_visual_completion.py
+
+      - name: Verify unrelated locked assets are untouched
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/cardcha-alpha28-0677a-system-recheck-hotfix -- \
+            src/Cardcha/assets/mimi_walk.png \
+            src/Cardcha/assets/airship_visual.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0678 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.46 boss II-IV visuals [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0678-boss234-visual-completion
+          fi
+
+      - name: Package 0678 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.46_0678_Boss234VisualCompletion_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          p=next(Path('.').glob('*0678_Boss234VisualCompletion_TEST.zip'))
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.46'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              for req in [
+                  'Cardcha/assets/boss2_hollow_curator_arena.tmx',
+                  'Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+                  'Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+                  'Cardcha/assets/bosses/milestone/hollow_curator.png',
+                  'Cardcha/assets/bosses/milestone/tricolor_guardians.png',
+                  'Cardcha/assets/bosses/milestone/tricolor_unified.png',
+                  'Cardcha/assets/bosses/milestone/mimi_resonance_master.png',
+                  'Cardcha/assets/bosses/milestone/hollow_curator_ground_tiles.png',
+                  'Cardcha/assets/bosses/milestone/tricolor_ground_tiles.png',
+                  'Cardcha/assets/bosses/milestone/mimi_ground_tiles.png',
+                  'Cardcha/assets/mimi_walk.png',
+                  'Cardcha/i18n/vi.json']:
+                  assert req in names, req
+          print('0678 package audit PASS:', p)
+          PY
+
+      - name: Upload 0678 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0678-boss234-visual-completion
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.46_0678_Boss234VisualCompletion_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.46_0678_Boss234VisualCompletion_TEST.zip.sha256
+          if-no-files-found: error
