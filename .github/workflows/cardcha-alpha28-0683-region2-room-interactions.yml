@@ -20,6 +20,9 @@ jobs:
       - name: Install Pillow for native-pixel station atlas
         run: python3 -m pip install --user pillow
 
+      - name: Align 0683 generator with materialized 0682 reset runtime
+        run: python3 tools/0683_fix_generator_reset_anchor.py
+
       - name: Integrate 0683 Region II room interactions
         run: python3 tools/alpha28_0683_region2_room_interactions.py
 
