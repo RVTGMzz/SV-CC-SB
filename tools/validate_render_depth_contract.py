@@ -17,7 +17,6 @@ def fail(message: str) -> None:
 
 
 def normalized_markdown(text: str) -> str:
-    """Normalize Markdown decoration/case so formatting can evolve without weakening the contract."""
     text = text.lower().replace("-", " ")
     text = re.sub(r"[`*_#>|]", "", text)
     text = re.sub(r"[^a-z0-9./+ ]+", " ", text)
@@ -68,8 +67,7 @@ if stale:
 for name, meta in audited.items():
     if meta.get("physicalAllowed") is not False:
         fail(f"{name}: physicalAllowed must remain false for every RenderedWorld subscriber")
-    classification = str(meta.get("classification", ""))
-    if not classification:
+    if not str(meta.get("classification", "")):
         fail(f"{name}: missing audit classification")
 
 region_patch = (SRC / "Patches" / "RegionExpeditionProxyDrawPatch.cs").read_text(encoding="utf-8")
@@ -83,6 +81,29 @@ for token in (
 for token in ('typeof(GreenSlime)', 'typeof(Bat)', 'typeof(Bug)'):
     if token in region_patch:
         fail(f"Region III/IV draw patch regressed to subclass Harmony target: {token}")
+
+# 0678 milestone boss physical-body contract.
+milestone_patch_path = SRC / "Patches" / "MilestoneBossActorDrawPatch.cs"
+if not milestone_patch_path.exists():
+    fail("0678 milestone boss actor-depth patch is missing")
+milestone_patch = milestone_patch_path.read_text(encoding="utf-8")
+for token in (
+    'AccessTools.DeclaredMethod(typeof(Monster), "draw", new[] { typeof(SpriteBatch) })',
+    'MilestoneBossService.BossMarkerKey',
+    'DrawActorAtMonsterDepth',
+):
+    if token not in milestone_patch:
+        fail(f"0678 milestone actor-depth patch lost guard: {token}")
+
+milestone = (SRC / "Services" / "MilestoneBossService.cs").read_text(encoding="utf-8")
+try:
+    rw = milestone[milestone.index("public void OnRenderedWorld"):milestone.index("public void OnRenderedHud")]
+except ValueError:
+    fail("could not inspect MilestoneBossService.RenderedWorld section")
+if "DrawActor" in rw or "DrawArenaIdentity" in rw:
+    fail("milestone physical body/arena art returned to RenderedWorld")
+if "actor.getStandingY() / 10000f" not in milestone:
+    fail("milestone actor renderer lost standing-Y depth")
 
 attic = (SRC / "Services" / "MimiAtticVisualService.cs").read_text(encoding="utf-8")
 for token in ("Furniture item =", 'map.GetLayer("Buildings")', "new StaticTile(buildings"):
@@ -98,11 +119,20 @@ required_debt = {
     "VerdantGuardianVisualService.boss-body",
     "VerdantGuardianSummonVisualService.summon-body",
     "VerdantGuardianArenaPolishService.DrawObelisks",
-    "MilestoneBossService.DrawActor",
 }
 missing_debt = sorted(required_debt - debt)
 if missing_debt:
     fail("known physical depth debt was removed from audit without a source migration: " + ", ".join(missing_debt))
+if "MilestoneBossService.DrawActor" in debt:
+    fail("0678 migrated MilestoneBossService.DrawActor but audit still marks it unsafe post-world debt")
+
+completed = set(audit.get("completedDepthMigrations", []))
+for token in (
+    "MilestoneBossService.boss-body->Monster.draw",
+    "MilestoneBossService.arena-identity->TMX.CardchaArenaGround",
+):
+    if token not in completed:
+        fail("0678 completed migration missing from audit: " + token)
 
 airship = (SRC / "Services" / "AirshipFoundationService.cs").read_text(encoding="utf-8")
 if "DrawRegion1Details(e.SpriteBatch, location);" in airship:
@@ -110,4 +140,4 @@ if "DrawRegion1Details(e.SpriteBatch, location);" in airship:
 if "Region1StardewDecorRenderer.Draw(e.SpriteBatch, location, activeRoomIndex);" in airship:
     print("RENDER DEPTH AUDIT WARNING: Region I post-world decor debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
 
-print("Render depth contract PASS: every RenderedWorld subscriber is audited; no unaudited physical ownership may be introduced.")
+print("Render depth contract PASS: every RenderedWorld subscriber is audited; milestone bosses are actor-depth migrated; no unaudited physical ownership may be introduced.")
