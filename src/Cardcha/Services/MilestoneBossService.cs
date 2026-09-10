@@ -26,7 +26,7 @@ internal enum MilestoneBossState
 }
 
 /// <summary>
-/// 0672 encounter-depth pass for the 40/60/80-card milestone bosses.
+/// 0678 visual-completion pass for the 40/60/80-card milestone bosses.
 /// Boss II, III and IV deliberately share one small state-machine owner so milestone rules,
 /// reward persistence and regression guards stay consistent while authored art/arenas can evolve later.
 /// </summary>
@@ -251,9 +251,9 @@ internal sealed class MilestoneBossService
         if (kind is null)
             return;
 
-        this.DrawArenaIdentity(e.SpriteBatch, kind.Value);
-        foreach (Monster actor in this.GetBossActors(includeDead: true))
-            this.DrawActor(e.SpriteBatch, actor, kind.Value);
+        // 0678 depth contract: physical boss bodies and arena props are NOT drawn here.
+        // Boss bodies are injected at Monster.draw; arena identity lives in TMX ground layers.
+        this.DrawBossAuraVfx(e.SpriteBatch, kind.Value);
         this.DrawAttackTelegraph(e.SpriteBatch);
         this.DrawRetreatGlyph(e.SpriteBatch);
     }
@@ -878,49 +878,100 @@ internal sealed class MilestoneBossService
         _ => 650,
     };
 
-    private void DrawActor(SpriteBatch batch, Monster actor, MilestoneBossKind kind)
+    internal void DrawActorAtMonsterDepth(SpriteBatch batch, Monster actor)
     {
+        if (!actor.modData.ContainsKey(BossMarkerKey))
+            return;
+
+        MilestoneBossKind kind = this.ResolveCurrentKind(actor.currentLocation ?? Game1.currentLocation)
+            ?? this.CurrentKind
+            ?? MilestoneBossKind.HollowCurator;
         string role = this.Role(actor);
         Vector2 feet = Game1.GlobalToLocal(Game1.viewport, actor.Position + new Vector2(32f, 58f));
         Texture2D texture;
         Rectangle source;
         float scale;
         Vector2 offset = Vector2.Zero;
+
         if (role == "curator")
         {
             texture = this.Helper.ModContent.Load<Texture2D>(HollowCuratorTexturePath);
-            int frame = this.State == MilestoneBossState.Telegraph || this.Phase >= 3 ? 1 : 0;
+            int frame = this.State == MilestoneBossState.PhaseTransition ? 2
+                : this.Phase >= 3 ? 3
+                : this.State == MilestoneBossState.Telegraph ? 1
+                : 0;
             source = new Rectangle(frame * 48, 0, 48, 64);
-            scale = 2.35f;
-            offset = new Vector2(0f, 10f);
+            scale = 1.95f;
+            offset = new Vector2(0f, 6f);
         }
         else if (role is "ignis" or "vita" or "aether")
         {
             texture = this.Helper.ModContent.Load<Texture2D>(TricolorGuardiansTexturePath);
-            int frame = role == "ignis" ? 0 : role == "vita" ? 1 : 2;
-            source = new Rectangle(frame * 48, 0, 48, 48);
-            scale = 2.3f;
+            int roleIndex = role == "ignis" ? 0 : role == "vita" ? 1 : 2;
+            int active = (this.State == MilestoneBossState.Telegraph || this.State == MilestoneBossState.PhaseTransition) ? 1 : 0;
+            source = new Rectangle((roleIndex * 2 + active) * 48, 0, 48, 48);
+            scale = 1.85f;
         }
         else if (role == "unified")
         {
             texture = this.Helper.ModContent.Load<Texture2D>(TricolorUnifiedTexturePath);
-            int frame = this.State == MilestoneBossState.Telegraph ? 1 : 0;
+            int frame = this.State == MilestoneBossState.PhaseTransition ? 2
+                : this.State == MilestoneBossState.Telegraph ? 1 + (this.DecisionSerial & 1)
+                : this.Phase >= 4 ? 3
+                : 0;
             source = new Rectangle(frame * 64, 0, 64, 64);
-            scale = 2.2f;
+            scale = 1.85f;
         }
         else
         {
             texture = this.Helper.ModContent.Load<Texture2D>(MimiTexturePath);
-            int frame = this.Phase >= 4 ? 2 : this.Phase >= 3 ? 1 : 0;
+            int frame = this.Phase >= 4 ? 3 : this.Phase >= 3 ? 2 : this.Phase >= 2 ? 1 : 0;
             source = new Rectangle(frame * 64, 0, 64, 64);
-            scale = 2.18f;
-            offset = new Vector2(0f, 6f);
+            scale = 1.80f;
+            offset = new Vector2(0f, 4f);
         }
-        float pulse = this.State == MilestoneBossState.PhaseTransition ? 0.88f + 0.12f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 75d)) : 1f;
+
+        float pulse = this.State == MilestoneBossState.PhaseTransition
+            ? 0.96f + 0.04f * (float)Math.Abs(Math.Sin(Environment.TickCount64 / 75d))
+            : 1f;
         Color tint = this.State == MilestoneBossState.Defeated ? Color.White * 0.58f : Color.White;
-        int shadowWidth = (int)(source.Width * scale * 0.62f);
-        batch.Draw(Game1.staminaRect, new Rectangle((int)feet.X - shadowWidth / 2, (int)feet.Y - 7, shadowWidth, 9), Color.Black * 0.28f);
-        batch.Draw(texture, feet + offset, source, tint, 0f, new Vector2(source.Width / 2f, source.Height), scale * pulse, SpriteEffects.None, 0.99f);
+        float actorLayer = Math.Clamp((actor.Position.Y + 64f) / 10000f, 0.0002f, 0.995f);
+        float shadowLayer = Math.Max(0.0001f, actorLayer - 0.0001f);
+        int shadowWidth = (int)(source.Width * scale * 0.58f);
+        batch.Draw(Game1.staminaRect,
+            new Rectangle((int)feet.X - shadowWidth / 2, (int)feet.Y - 6, shadowWidth, 8),
+            null, Color.Black * 0.24f, 0f, Vector2.Zero, SpriteEffects.None, shadowLayer);
+        batch.Draw(texture, feet + offset, source, tint, 0f,
+            new Vector2(source.Width / 2f, source.Height), scale * pulse,
+            SpriteEffects.None, actorLayer);
+    }
+
+    private void DrawBossAuraVfx(SpriteBatch batch, MilestoneBossKind kind)
+    {
+        // VFX only. Low-alpha accents may overlap actors but never pretend to be solid scenery.
+        long now = Environment.TickCount64;
+        foreach (Monster actor in this.GetBossActors(includeDead: false))
+        {
+            string role = this.Role(actor);
+            Vector2 world = actor.Position + new Vector2(32f, 50f);
+            Vector2 c = Game1.GlobalToLocal(Game1.viewport, world);
+            Color accent = role switch
+            {
+                "ignis" => new Color(235, 105, 74),
+                "vita" => new Color(105, 205, 124),
+                "aether" => new Color(105, 174, 235),
+                "unified" => new Color(212, 161, 232),
+                "mimi" => new Color(199, 139, 218),
+                _ => new Color(166, 190, 232),
+            };
+            float pulse = 0.16f + 0.07f * (float)Math.Sin(now / 180d + actor.GetHashCode() * 0.01d);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = (float)(now / 520d + i * MathHelper.PiOver2);
+                Vector2 p = c + new Vector2(MathF.Cos(a) * 34f, MathF.Sin(a) * 14f - 22f);
+                batch.Draw(Game1.staminaRect, new Rectangle((int)p.X, (int)p.Y, 3, 3), accent * pulse);
+            }
+        }
     }
 
     private void DrawAttackTelegraph(SpriteBatch batch)
@@ -958,31 +1009,6 @@ internal sealed class MilestoneBossService
 
         if (this.CurrentAttack == 11)
             DrawTileZone(batch, this.AttackTargetTile, 1, new Color(102, 212, 118) * pulse);
-    }
-
-    private void DrawArenaIdentity(SpriteBatch batch, MilestoneBossKind kind)
-    {
-        string path = kind switch
-        {
-            MilestoneBossKind.HollowCurator => HollowArenaTexturePath,
-            MilestoneBossKind.TricolorResonance => TricolorArenaTexturePath,
-            _ => MimiArenaTexturePath,
-        };
-        Texture2D texture = this.Helper.ModContent.Load<Texture2D>(path);
-        Point[] placements = kind switch
-        {
-            MilestoneBossKind.HollowCurator => new[] { new Point(6,5), new Point(21,5), new Point(6,13), new Point(21,13), new Point(10,4), new Point(17,4), new Point(10,15), new Point(17,15) },
-            MilestoneBossKind.TricolorResonance => new[] { new Point(8,5), new Point(14,3), new Point(20,5), new Point(5,11), new Point(23,11), new Point(9,14), new Point(14,15), new Point(19,14) },
-            _ => new[] { new Point(7,5), new Point(11,4), new Point(16,4), new Point(20,5), new Point(6,12), new Point(21,12), new Point(10,15), new Point(17,15) },
-        };
-        for (int i = 0; i < placements.Length; i++)
-        {
-            Point p = placements[i];
-            Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(p.X * 64f + 32, p.Y * 64f + 48));
-            Rectangle src = new((i % 4) * 32, ((i / 4) % 2) * 32, 32, 32);
-            float scale = kind == MilestoneBossKind.Mimi ? 1.75f : 1.9f;
-            batch.Draw(texture, local, src, Color.White * 0.92f, 0f, new Vector2(16f, 32f), scale, SpriteEffects.None, 0.985f);
-        }
     }
 
     private void DrawRetreatGlyph(SpriteBatch batch)

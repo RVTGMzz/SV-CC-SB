@@ -1,7 +1,7 @@
 # Latest Cardcha Handoff
 
-Current branch: `cardcha-alpha28-0677a-system-recheck-hotfix`
-Current build: `0.3.0-alpha.28.0.4.14.4.5.12.45.3.1`
-Continue from: `handoff/ALPHA28_0677A_SYSTEM_RECHECK_HOTFIX.md`
+Current branch: `cardcha-alpha28-0678-boss234-visual-completion`
+Current build: `0.3.0-alpha.28.0.4.14.4.5.12.46`
+Continue from: `handoff/ALPHA28_0678_BOSS234_VISUAL_COMPLETION.md`
 
-0677A is a system recheck/hardening pass over 0677. Rendering depth contract remains mandatory. Boss actor post-world rendering remains known debt pending a dedicated migration and screenshot acceptance.
+0678 is the Boss II-IV visual completion/depth migration pass. In-game visual acceptance is pending. `mimi_walk.png` remains locked.

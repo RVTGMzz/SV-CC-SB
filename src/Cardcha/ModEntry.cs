@@ -358,6 +358,7 @@ internal sealed class ModEntry : Mod
         MonsterDropPatch.Apply(harmony, this.Deaths);
         MonsterDamagePatch.Apply(harmony, this.Combat, this.Deaths, this.CardArena, this.VerdantGuardian);
         VerdantGuardianProxyDrawPatch.Apply(harmony);
+        MilestoneBossActorDrawPatch.Apply(harmony, this.MilestoneBosses, this.Monitor);
         RegionExpeditionProxyDrawPatch.Apply(harmony);
         CriticalChancePatch.Apply(harmony, this.Combat);
         FarmerDamagePatch.Apply(harmony, this.Combat, this.ChaChaSupport, this.CardArena, this.BossCards);
@@ -368,7 +369,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.45.3.1 0677A SYSTEM RECHECK + AIRSHIP LIFECYCLE HOTFIX TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.46 0677A SYSTEM RECHECK + AIRSHIP LIFECYCLE HOTFIX TEST",
             LogLevel.Info
         );
     }
