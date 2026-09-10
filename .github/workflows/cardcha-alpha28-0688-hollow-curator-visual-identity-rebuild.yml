@@ -1,0 +1,128 @@
+name: Cardcha 0688 Hollow Curator Visual Identity Rebuild
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup 0688 pixel asset generator
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Build Hollow Curator behavior animation library
+        run: python3 tools/alpha28_0688_curator_animation_assets.py
+
+      - name: Build dedicated Forgotten Archive boss arena
+        run: python3 tools/alpha28_0688_curator_arena_identity.py
+
+      - name: Wire 0688 visual runtime and handoff
+        run: python3 tools/alpha28_0688_hollow_curator_visual_identity_rebuild.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0688 Hollow Curator visual identity
+        run: python3 tools/validate_0688_hollow_curator_visual_identity.py
+
+      - name: Freeze Boss III and IV maps and visual assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/cardcha-alpha28-0687-tmx-csv-runtime-load-fix -- \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses/milestone/tricolor_guardians.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_unified.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_arena_tiles.png \
+            src/Cardcha/assets/bosses/milestone/tricolor_ground_tiles.png \
+            src/Cardcha/assets/bosses/milestone/mimi_resonance_master.png \
+            src/Cardcha/assets/bosses/milestone/mimi_arena_tiles.png \
+            src/Cardcha/assets/bosses/milestone/mimi_ground_tiles.png
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0688 source assets and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json \
+            tools/alpha28_0688_curator_animation_assets.py \
+            tools/alpha28_0688_curator_arena_identity.py \
+            tools/alpha28_0688_hollow_curator_visual_identity_rebuild.py \
+            tools/validate_0688_hollow_curator_visual_identity.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.56 Hollow Curator visual identity rebuild [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild
+          fi
+
+      - name: Package 0688 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.56_0688_HollowCurator_VisualIdentityRebuild_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct,zipfile,xml.etree.ElementTree as ET
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.56_0688_HollowCurator_VisualIdentityRebuild_TEST.zip')
+          expected={'idle':8,'drift':8,'observe':10,'cast':10,'page_volley':10,'mirror':10,'adapt':10,'hurt':6,'transition':12,'defeat':12}
+          def png_size(raw): return struct.unpack('>II',raw[16:24])
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json')); assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.56'
+              dll=z.read('Cardcha/Cardcha.dll'); assert dll[:2]==b'MZ' and len(dll)>50000
+              assert 'Cardcha/assets/bosses/milestone/hollow_curator.png' not in names
+              for name,n in expected.items():
+                  q=f'Cardcha/assets/bosses/milestone/hollow_curator/{name}.png'; assert q in names,q; assert png_size(z.read(q))==(48*n,64),(q,png_size(z.read(q)))
+              arena='Cardcha/assets/boss2_hollow_curator_arena.tmx'; assert arena in names
+              root=ET.fromstring(z.read(arena)); assert (int(root.attrib['width']),int(root.attrib['height']))==(28,20)
+              ts=[x for x in root.findall('tileset') if x.attrib.get('name')=='HollowCuratorArchitecture']; assert ts and ts[0].attrib['firstgid']=='1984'
+              layers={}
+              for l in root.findall('layer'):
+                  d=l.find('data')
+                  if d is None or d.attrib.get('encoding')!='csv': continue
+                  toks=[x.strip() for x in (d.text or '').split(',')]; assert toks and all(toks); assert len(toks)==560
+                  layers[l.attrib['name']]=[int(x) for x in toks]
+              assert sum(v!=0 for v in layers['Buildings'])==94
+              assert all(v>=1984 for v in layers['Buildings'] if v)
+              assert sum(v>=1984 for v in layers['Back'])>=40
+          print('0688 package audit PASS:',p)
+          PY
+
+      - name: Upload 0688 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.56_0688_HollowCurator_VisualIdentityRebuild_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.56_0688_HollowCurator_VisualIdentityRebuild_TEST.zip.sha256
+          if-no-files-found: error
