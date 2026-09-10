@@ -23,7 +23,7 @@ A successful Region II run should create meaningful choices, changing encounter 
 
 ## Proposed run structure
 
-Use a **branching route of roughly 4–7 short nodes as a tuning starting point**, not a permanent fixed count.
+Use a **branching route of roughly 6–9 short nodes as the run-length target, aligned with Region I’s overall run length while keeping a different node identity and route logic**, not a permanent fixed count.
 
 A node does not need to be a unique map. A run can mix rooms, sub-areas, transitions and encounter states. The important part is that the player experiences progression through the Forgotten Archive rather than standing in one arena for repeated waves.
 
@@ -167,7 +167,7 @@ Do **not** interpret this document as requiring:
 
 - exactly 2–3 maps;
 - exactly 2–3 waves per map;
-- exactly 4–7 nodes forever;
+- exactly 6–9 nodes forever;
 - every room being combat;
 - three fixed maps named A/B/C;
 - a completely linear Region II route;

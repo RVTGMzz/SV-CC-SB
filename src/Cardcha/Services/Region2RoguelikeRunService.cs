@@ -52,6 +52,7 @@ internal sealed class Region2RoguelikeRunService
     private bool RouteComplete;
     private bool BossGateReady;
     private bool ChoicePending;
+    private bool ChoiceDeferred;
     private bool DebugBossGateEntry;
     private bool NodeSpawned;
     private int CurrentNode;
@@ -141,7 +142,13 @@ internal sealed class Region2RoguelikeRunService
     {
         if (!Context.IsWorldReady || !this.Active || !IsRegion2(Game1.currentLocation) || Game1.currentLocation is null)
             return;
-        if (this.RouteComplete || this.BossGateReady || this.ChoicePending)
+        if (this.ChoiceDeferred && !Game1.dialogueUp && Game1.activeClickableMenu is null)
+        {
+            this.ChoiceDeferred = false;
+            this.PrepareRouteChoice(Game1.currentLocation);
+            return;
+        }
+        if (this.RouteComplete || this.BossGateReady || this.ChoicePending || this.ChoiceDeferred)
             return;
         if (!IsCombatKind(this.CurrentKind) || !this.NodeSpawned)
             return;
@@ -218,6 +225,7 @@ internal sealed class Region2RoguelikeRunService
         this.RouteComplete = false;
         this.BossGateReady = false;
         this.ChoicePending = false;
+        this.ChoiceDeferred = false;
         this.NodeSpawned = false;
         this.CurrentNode = 1;
         this.UnbankedScrap = 0;
@@ -328,6 +336,11 @@ internal sealed class Region2RoguelikeRunService
             return;
         }
 
+        if (Game1.dialogueUp || Game1.activeClickableMenu is not null)
+        {
+            this.ChoiceDeferred = true;
+            return;
+        }
         this.PrepareRouteChoice(location);
     }
 
@@ -812,6 +825,7 @@ internal sealed class Region2RoguelikeRunService
         this.RouteComplete = false;
         this.BossGateReady = false;
         this.ChoicePending = false;
+        this.ChoiceDeferred = false;
         this.NodeSpawned = false;
         this.CurrentNode = 0;
         this.TargetNodes = 0;

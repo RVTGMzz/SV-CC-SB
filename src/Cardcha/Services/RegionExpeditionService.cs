@@ -97,6 +97,28 @@ internal sealed class RegionExpeditionService
     public void BindRegion2BossGateDebugHandler(Func<string> handler)
         => this.Region2BossGateDebugAction = handler;
 
+    /// <summary>
+    /// 0680 runtime handoff: Region II roguelike owns the Forgotten Archive after the Airship/permission
+    /// layer has accepted the warp. Region III/IV remain on this legacy expedition runtime.
+    /// </summary>
+    public void SuspendLegacyRegion2RuntimeForRoguelike()
+    {
+        if (this.CurrentRegion != ExpeditionRegion.ForgottenArchive)
+            return;
+        if (Game1.currentLocation?.NameOrUniqueName.Equals(Region2LocationName, StringComparison.OrdinalIgnoreCase) == true)
+            this.ClearMarkedEnemies(Game1.currentLocation);
+        this.CurrentRegion = null;
+        this.Active = false;
+        this.Completed = false;
+        this.WaveSpawned = false;
+        this.CurrentWave = 0;
+        this.BossApproachMode = false;
+        this.NextWaveAtMs = 0;
+        this.UnbankedScrap = 0;
+        this.UnbankedShiny = 0;
+        this.ExtractConfirmUntilMs = 0;
+    }
+
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
         if (e.NameWithoutLocale.IsEquivalentTo(Region2MapAssetName))

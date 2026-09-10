@@ -51,6 +51,7 @@ internal sealed class ModEntry : Mod
     private PortableMachineService PortableMachine = null!;
     private AirshipFoundationService Airship = null!;
     private RegionExpeditionService RegionExpeditions = null!;
+    private Region2RoguelikeRunService Region2Rogue = null!;
     private VerdantGuardianBossService VerdantGuardian = null!;
     private VerdantGuardianVisualService VerdantGuardianVisual = null!;
     private VerdantGuardianSummonVisualService VerdantSummons = null!;
@@ -158,6 +159,7 @@ internal sealed class ModEntry : Mod
         this.AtticVisual = new MimiAtticVisualService(helper, this.Save);
         this.Airship = new AirshipFoundationService(helper, this.Monitor, this.Save, this.Controller);
         this.RegionExpeditions = new RegionExpeditionService(helper, this.Monitor, this.Save, this.Airship);
+        this.Region2Rogue = new Region2RoguelikeRunService(helper, this.Monitor, this.Save, this.Airship, this.RegionExpeditions);
         this.VerdantGuardian = new VerdantGuardianBossService(helper, this.Monitor, this.Save, this.PortableMachine);
         this.VerdantGuardianVisual = new VerdantGuardianVisualService(helper, this.Monitor, this.VerdantGuardian);
         this.VerdantSummons = new VerdantGuardianSummonVisualService(helper, this.Monitor, this.VerdantGuardian);
@@ -166,6 +168,7 @@ internal sealed class ModEntry : Mod
         this.MilestoneBosses.BindExpeditionRouteHandler(this.RegionExpeditions.UseRouteConsole);
         this.RegionExpeditions.BindRegion2BossGateHandler(this.MilestoneBosses.EnterBoss2FromRegion2);
         this.RegionExpeditions.BindRegion2BossGateDebugHandler(() => this.MilestoneBosses.DebugEnterBoss(2));
+        this.Region2Rogue.BindBossGateHandlers(this.MilestoneBosses.EnterBoss2FromRegion2, () => this.MilestoneBosses.DebugEnterBoss(2));
         this.Airship.BindMilestoneRouteHandler(this.MilestoneBosses.UseAirshipMilestoneRoute);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
@@ -190,6 +193,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.SaveLoaded += this.BossCards.OnSaveLoaded;
         helper.Events.GameLoop.SaveLoaded += this.MilestoneBosses.OnSaveLoaded;
         helper.Events.GameLoop.SaveLoaded += this.RegionExpeditions.OnSaveLoaded;
+        helper.Events.GameLoop.SaveLoaded += this.Region2Rogue.OnSaveLoaded;
         helper.Events.GameLoop.Saving += this.OnSaving;
         helper.Events.GameLoop.Saved += this.OnSaved;
         helper.Events.GameLoop.DayStarted += this.OnDayStarted;
@@ -200,6 +204,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.DayStarted += this.VerdantGuardian.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.MilestoneBosses.OnDayStarted;
         helper.Events.GameLoop.DayStarted += this.RegionExpeditions.OnDayStarted;
+        helper.Events.GameLoop.DayStarted += this.Region2Rogue.OnDayStarted;
         helper.Events.GameLoop.TimeChanged += this.Mystery.OnTimeChanged;
         helper.Events.GameLoop.UpdateTicked += this.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.CardArena.OnUpdateTicked;
@@ -207,6 +212,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.UpdateTicked += this.VerdantGuardian.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.MilestoneBosses.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.RegionExpeditions.OnUpdateTicked;
+        helper.Events.GameLoop.UpdateTicked += this.Region2Rogue.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.VerdantArenaPolish.OnUpdateTicked;
         helper.Events.GameLoop.UpdateTicked += this.ChaChaBossForm.OnUpdateTicked;
         helper.Events.GameLoop.ReturnedToTitle += this.OnReturnedToTitle;
@@ -222,6 +228,7 @@ internal sealed class ModEntry : Mod
         helper.Events.GameLoop.ReturnedToTitle += this.VerdantArenaPolish.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.MilestoneBosses.OnReturnedToTitle;
         helper.Events.GameLoop.ReturnedToTitle += this.RegionExpeditions.OnReturnedToTitle;
+        helper.Events.GameLoop.ReturnedToTitle += this.Region2Rogue.OnReturnedToTitle;
         helper.Events.Display.RenderedHud += this.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.CardLabOverlay.OnRenderedHud;
         helper.Events.Display.RenderedHud += this.BossCards.OnRenderedHud;
@@ -259,6 +266,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Input.ButtonPressed += this.VerdantGuardian.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.MilestoneBosses.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.RegionExpeditions.OnButtonPressed;
+        helper.Events.Input.ButtonPressed += this.Region2Rogue.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.CardLabOverlay.OnButtonPressed;
         helper.Events.Input.ButtonPressed += this.ChaChaBossForm.OnButtonPressed;
         helper.Events.Player.Warped += this.Story.OnWarped;
@@ -268,6 +276,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Player.Warped += this.VerdantArenaPolish.OnWarped;
         helper.Events.Player.Warped += this.MilestoneBosses.OnWarped;
         helper.Events.Player.Warped += this.RegionExpeditions.OnWarped;
+        helper.Events.Player.Warped += this.Region2Rogue.OnWarped;
         helper.Events.Player.Warped += this.CardArena.OnWarped;
         helper.Events.World.ObjectListChanged += this.OnObjectListChanged;
 
@@ -321,12 +330,21 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_test_boss4", "TEST ONLY: enter Boss IV - MiMi (80-card milestone bypass).", (_, _) => this.Monitor.Log(this.MilestoneBosses.DebugEnterBoss(4), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_milestone_status", "Show Boss II/III/IV runtime and milestone reward state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_milestone_route_status", "Show the real 40/60/80-card milestone route state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.DescribeMilestoneRoute(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_expedition_status", "Show Region II/III/IV expedition runtime and route state.", (_, _) => this.Monitor.Log(this.RegionExpeditions.Describe(), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_test_region2", "TEST ONLY: enter Region II Forgotten Archive as a normal 21-40 progression run.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(2), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_test_region2_bossgate", "TEST ONLY: enter Region II Boss Approach and test the north Archive Seal.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnterRegion2BossApproach(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_expedition_status", "Show Region II roguelike + Region III/IV expedition runtime and route state.", (_, _) => this.Monitor.Log(this.Region2Rogue.Describe() + "\n" + this.RegionExpeditions.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_region2_rogue_status", "Show Region II 6-9 node route, risk/reward and Curator observation state.", (_, _) => this.Monitor.Log(this.Region2Rogue.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_test_region2", "TEST ONLY: enter Region II Forgotten Archive as a normal 6-9 node roguelike run.", (_, _) =>
+        {
+            this.Region2Rogue.PrepareNormalDebugEntry();
+            this.Monitor.Log(this.RegionExpeditions.DebugEnter(2), LogLevel.Alert);
+        });
+        helper.ConsoleCommands.Add("cardcha_test_region2_bossgate", "TEST ONLY: enter Region II at a node-6-ready Archive Seal without changing save progression.", (_, _) =>
+        {
+            this.Region2Rogue.PrepareBossGateDebugEntry();
+            this.Monitor.Log(this.RegionExpeditions.DebugEnter(2), LogLevel.Alert);
+        });
         helper.ConsoleCommands.Add("cardcha_test_region3", "TEST ONLY: enter Region III Mirrorwild without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(3), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_region4", "TEST ONLY: enter Region IV Resonance Verge without changing progression.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugEnter(4), LogLevel.Alert));
-        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear current Region II/III/IV expedition wave.", (_, _) => this.Monitor.Log(this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_expedition_clear", "TEST ONLY: clear current Region II node or Region III/IV expedition wave.", (_, _) => this.Monitor.Log(this.Region2Rogue.IsActive ? this.Region2Rogue.DebugClearCurrentNode() : this.RegionExpeditions.DebugClearWave(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_status", "Show dedicated Boss Card slot/runtime state.", (_, _) => this.Monitor.Log(this.BossCards.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_unlock", "TEST ONLY: unlock Verdant Core without changing Boss I clear state.", (_, _) => this.Monitor.Log(this.BossCards.DebugUnlock(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_boss_card_equip", "Equip a Boss Card: cardcha_boss_card_equip verdant_core|none", (_, args) => this.Monitor.Log(this.BossCards.DebugEquip(args.FirstOrDefault()), LogLevel.Alert));
@@ -373,7 +391,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.47 0679 REGION II 21-40 + BOSS II APPROACH TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.48 0680 REGION II 6-9 NODE ROGUELIKE ROUTE TEST",
             LogLevel.Info
         );
     }
