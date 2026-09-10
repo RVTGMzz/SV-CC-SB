@@ -1,0 +1,136 @@
+name: Cardcha 0687 TMX CSV Runtime Load Fix
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0687-tmx-csv-runtime-load-fix
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Materialize 0687 TMX CSV runtime fix
+        run: python3 tools/alpha28_0687_tmx_csv_runtime_load_fix.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0687 runtime-safe TMX CSV
+        run: python3 tools/validate_0687_tmx_csv_runtime_load_fix.py
+
+      - name: Prove TMX tile GID sequences are unchanged from 0686
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import re, subprocess
+          root=Path('.')
+          pat=re.compile(r'<data\s+encoding="csv"[^>]*>(.*?)</data>', re.S)
+          def ids(text):
+              return [[x.strip() for x in body.split(',') if x.strip()] for body in pat.findall(text)]
+          changed=0
+          for p in sorted((root/'src/Cardcha/assets').rglob('*.tmx')):
+              rel=p.as_posix()
+              try:
+                  old=subprocess.check_output(['git','show','origin/cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation:'+rel], text=True)
+              except subprocess.CalledProcessError:
+                  continue
+              new=p.read_text(encoding='utf-8')
+              assert ids(old)==ids(new), f'GID sequence changed: {rel}'
+              if old != new:
+                  changed += 1
+          assert changed > 0, 'expected at least one TMX serialization repair'
+          print('0687 GID preservation PASS; serialization-only changes:', changed)
+          PY
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0687 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json tools/alpha28_0687_tmx_csv_runtime_load_fix.py tools/validate_0687_tmx_csv_runtime_load_fix.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.55 TMX CSV runtime load fix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0687-tmx-csv-runtime-load-fix
+          fi
+
+      - name: Package 0687 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.55_0687_TMX_CSV_RuntimeLoadFix_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, re, zipfile, xml.etree.ElementTree as ET
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.55_0687_TMX_CSV_RuntimeLoadFix_TEST.zip')
+          targets=[
+              'Cardcha/assets/boss2_hollow_curator_arena.tmx',
+              'Cardcha/assets/boss3_tricolor_resonance_arena.tmx',
+              'Cardcha/assets/boss4_mimi_resonance_arena.tmx',
+              'Cardcha/assets/region2_forgotten_archive.tmx',
+              'Cardcha/assets/region2_inkbound_stacks.tmx',
+              'Cardcha/assets/region2_mirror_gallery.tmx',
+              'Cardcha/assets/region2_warden_vault.tmx',
+          ]
+          with zipfile.ZipFile(p) as z:
+              manifest=json.loads(z.read('Cardcha/manifest.json'))
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.55'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              names=set(z.namelist())
+              for req in targets:
+                  assert req in names, req
+              for name in sorted(n for n in names if n.startswith('Cardcha/assets/') and n.endswith('.tmx')):
+                  raw=z.read(name).decode('utf-8')
+                  root=ET.fromstring(raw)
+                  mw=int(root.attrib.get('width','0') or 0); mh=int(root.attrib.get('height','0') or 0)
+                  for layer in root.findall('layer'):
+                      data=layer.find('data')
+                      if data is None or data.attrib.get('encoding')!='csv':
+                          continue
+                      tokens=[x.strip() for x in (data.text or '').split(',')]
+                      assert tokens and all(tokens), (name,layer.attrib.get('name'),'empty token')
+                      vals=[int(x) for x in tokens]
+                      assert all(0 <= x <= 4294967295 for x in vals)
+                      w=int(layer.attrib.get('width',mw) or mw); h=int(layer.attrib.get('height',mh) or mh)
+                      assert len(vals)==w*h,(name,layer.attrib.get('name'),len(vals),w*h)
+          print('0687 package audit PASS:',p)
+          PY
+
+      - name: Upload 0687 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0687-tmx-csv-runtime-load-fix
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.55_0687_TMX_CSV_RuntimeLoadFix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.55_0687_TMX_CSV_RuntimeLoadFix_TEST.zip.sha256
+          if-no-files-found: error
