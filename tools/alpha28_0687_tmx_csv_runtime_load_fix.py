@@ -17,11 +17,18 @@ def need(cond: bool, msg: str) -> None:
         raise SystemExit("0687 BUILD FAIL: " + msg)
 
 
+def csv_ids(body: str) -> list[str]:
+    return [x.strip() for x in body.split(',') if x.strip()]
+
+
 def repair_csv_block(match: re.Match[str]) -> str:
     opening, body, closing = match.groups()
-    # TMXTile splits CSV on commas and UInt32.Parse()s every token. A terminal
-    # comma before </data> creates one final whitespace/empty token and crashes.
-    repaired, count = re.subn(r',(?=\s*$)', '', body, count=1)
+    # TMXTile's CSV decoder splits on commas and UInt32.Parse()s every token.
+    # Canonicalize to one delimiter between each real GID and no trailing
+    # delimiter, so there can be no empty token anywhere in the block.
+    tokens = csv_ids(body)
+    need(tokens, "empty CSV data block")
+    repaired = "\n" + ",".join(tokens) + "\n"
     return opening + repaired + closing
 
 
@@ -39,26 +46,24 @@ for rel in ["manifest.json", "Cardcha.csproj", "Directory.Build.targets", "ModEn
     need(OLD in text, f"{rel} missing old build version")
     p.write_text(text.replace(OLD, NEW), encoding="utf-8")
 
-# Runtime TMX compatibility repair. Only terminal CSV commas are removed.
+# Runtime TMX compatibility repair. Preserve the exact non-empty GID sequence.
 changed = []
 for p in sorted((SRC / "assets").rglob("*.tmx")):
     text = p.read_text(encoding="utf-8")
     blocks = list(DATA_RE.finditer(text))
     if not blocks:
         continue
-    before_ids = []
-    for m in blocks:
-        before_ids.append([x.strip() for x in m.group(2).split(',') if x.strip()])
+    before_ids = [csv_ids(m.group(2)) for m in blocks]
     repaired = DATA_RE.sub(repair_csv_block, text)
     after_blocks = list(DATA_RE.finditer(repaired))
-    after_ids = [[x.strip() for x in m.group(2).split(',') if x.strip()] for m in after_blocks]
+    after_ids = [csv_ids(m.group(2)) for m in after_blocks]
     need(before_ids == after_ids, f"tile ID sequence changed in {p.relative_to(ROOT)}")
     if repaired != text:
         p.write_text(repaired, encoding="utf-8")
         changed.append(str(p.relative_to(ROOT)))
 
-need(changed, "no terminal CSV commas found to repair")
-print(f"0687 repaired {len(changed)} TMX file(s):")
+need(changed, "no TMX CSV serialization required repair")
+print(f"0687 canonicalized {len(changed)} TMX file(s):")
 for item in changed:
     print("  -", item)
 
@@ -71,9 +76,9 @@ if audit.exists():
     audit.write_text(text, encoding="utf-8")
 
 handoff = ROOT / "handoff" / "ALPHA28_0687_TMX_CSV_RUNTIME_LOAD_FIX.md"
-handoff.write_text(f'''# Alpha 28 0687: TMX CSV Runtime Load Fix\n\nBranch: `{BRANCH}`  \nBuild: `{NEW}`\n\n## Purpose\nRepair a runtime-only TMX CSV serialization defect discovered by live SMAPI testing. TMXTile parses every comma-separated token with `UInt32.Parse`; a terminal comma immediately before `</data>` produces a final empty token and prevents the map from loading.\n\n## Fix\n- Removes only the terminal comma from each affected `<data encoding="csv">` block.\n- Preserves every non-empty tile GID in the exact same order.\n- Does not alter map dimensions, tilesets, properties, layers, artwork, gameplay anchors, or render ownership.\n- Applies repository-wide to authored Cardcha `.tmx` assets so boss arenas and Region II rooms share the same runtime-safe format.\n- Adds a validator that rejects empty CSV tokens, non-uint GIDs, and layer tile-count mismatches.\n\n## Live failure fixed\nThe reported stack ended in `TMXTile.TMXData.decode -> UInt32.Parse` for Hollow Curator, Tricolor Resonance, Mimi Resonance, Forgotten Archive, Inkbound Stacks, Mirror Gallery, and Warden Vault. Their subsequent `ContentLoadException: content file was not found` messages were downstream failures after the loader rejected the TMX.\n\n## Frozen contracts\n0686 Archive Rule transfer/adaptation remains unchanged. Region II fare remains 250g, route length 6-9 nodes, checkpoints 3/6, Hollow Curator 2200 HP, 40-card milestone, save schema 19, 0683 interactions/Final Cache, 0684 room mechanics, 0685 modifiers, and the rendering-depth contract remain frozen.\n\n## Acceptance\nCI must compile and validate every CSV layer. Final acceptance still requires a live SMAPI launch confirming the affected maps load without `TMXData.decode` / `UInt32.Parse` errors.\n''', encoding="utf-8")
+handoff.write_text(f'''# Alpha 28 0687: TMX CSV Runtime Load Fix\n\nBranch: `{BRANCH}`  \nBuild: `{NEW}`\n\n## Purpose\nRepair a runtime TMX CSV serialization defect discovered by live SMAPI testing. TMXTile splits CSV data on commas and passes every token to `UInt32.Parse`; an empty token therefore prevents the entire map from loading.\n\n## Fix\n- Canonicalizes every authored `<data encoding="csv">` block to exactly one comma between real GIDs and no trailing delimiter.\n- Preserves every non-empty tile GID in the exact same order.\n- Does not alter map dimensions, tilesets, properties, layers, artwork, gameplay anchors, or render ownership.\n- Applies repository-wide to Cardcha `.tmx` assets so boss arenas and Region II rooms share the same runtime-safe format.\n- Adds a validator that rejects empty CSV tokens, non-UInt32 GIDs, and layer tile-count mismatches.\n\n## Live failure fixed\nThe reported stack ended in `TMXTile.TMXData.decode -> UInt32.Parse` for Hollow Curator, Tricolor Resonance, Mimi Resonance, Forgotten Archive, Inkbound Stacks, Mirror Gallery, and Warden Vault. Their subsequent `ContentLoadException: content file was not found` messages were downstream failures after the loader rejected the TMX.\n\n## Frozen contracts\n0686 Archive Rule transfer/adaptation remains unchanged. Region II fare remains 250g, route length 6-9 nodes, checkpoints 3/6, Hollow Curator 2200 HP, 40-card milestone, save schema 19, 0683 interactions/Final Cache, 0684 room mechanics, 0685 modifiers, and the rendering-depth contract remain frozen.\n\n## Acceptance\nCI must compile and validate every CSV layer. Final acceptance still requires a live SMAPI launch confirming the affected maps load without `TMXData.decode` / `UInt32.Parse` errors.\n''', encoding="utf-8")
 
 latest = ROOT / "handoff" / "LATEST_CARDCHA_HANDOFF.md"
-latest.write_text(f'''# Latest Cardcha Handoff\n\nCurrent branch: `{BRANCH}`\nCurrent build: `{NEW}`\nContinue from: `handoff/ALPHA28_0687_TMX_CSV_RUNTIME_LOAD_FIX.md`\nDesign direction: `handoff/REGION2_ROGUELIKE_DESIGN_DIRECTION.md`\n\n0687 is a runtime TMX compatibility hotfix over 0686. It removes terminal commas that create empty CSV tokens for TMXTile while preserving the exact non-empty tile GID sequence and all gameplay/render contracts. In-game acceptance is pending.\n''', encoding="utf-8")
+latest.write_text(f'''# Latest Cardcha Handoff\n\nCurrent branch: `{BRANCH}`\nCurrent build: `{NEW}`\nContinue from: `handoff/ALPHA28_0687_TMX_CSV_RUNTIME_LOAD_FIX.md`\nDesign direction: `handoff/REGION2_ROGUELIKE_DESIGN_DIRECTION.md`\n\n0687 is a runtime TMX compatibility hotfix over 0686. It canonicalizes CSV blocks so TMXTile receives only valid GID tokens while preserving the exact non-empty tile GID sequence and all gameplay/render contracts. In-game acceptance is pending.\n''', encoding="utf-8")
 
 print("0687 TMX CSV runtime load fix materialized.")
