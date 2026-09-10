@@ -49,7 +49,16 @@ internal sealed class MilestoneBossService
     private const string HollowCuratorMapPath = "assets/boss2_hollow_curator_arena.tmx";
     private const string TricolorMapPath = "assets/boss3_tricolor_resonance_arena.tmx";
     private const string MimiMapPath = "assets/boss4_mimi_resonance_arena.tmx";
-    private const string HollowCuratorTexturePath = "assets/bosses/milestone/hollow_curator.png";
+    private const string HollowCuratorIdleTexturePath = "assets/bosses/milestone/hollow_curator/idle.png";
+    private const string HollowCuratorDriftTexturePath = "assets/bosses/milestone/hollow_curator/drift.png";
+    private const string HollowCuratorObserveTexturePath = "assets/bosses/milestone/hollow_curator/observe.png";
+    private const string HollowCuratorCastTexturePath = "assets/bosses/milestone/hollow_curator/cast.png";
+    private const string HollowCuratorPageVolleyTexturePath = "assets/bosses/milestone/hollow_curator/page_volley.png";
+    private const string HollowCuratorMirrorTexturePath = "assets/bosses/milestone/hollow_curator/mirror.png";
+    private const string HollowCuratorAdaptTexturePath = "assets/bosses/milestone/hollow_curator/adapt.png";
+    private const string HollowCuratorHurtTexturePath = "assets/bosses/milestone/hollow_curator/hurt.png";
+    private const string HollowCuratorTransitionTexturePath = "assets/bosses/milestone/hollow_curator/transition.png";
+    private const string HollowCuratorDefeatTexturePath = "assets/bosses/milestone/hollow_curator/defeat.png";
     private const string HollowArenaTexturePath = "assets/bosses/milestone/hollow_curator_arena_tiles.png";
     private const string TricolorGuardiansTexturePath = "assets/bosses/milestone/tricolor_guardians.png";
     private const string TricolorUnifiedTexturePath = "assets/bosses/milestone/tricolor_unified.png";
@@ -109,6 +118,8 @@ internal sealed class MilestoneBossService
     private Point EchoTargetTile2;
     private int MimiCadenceIndex;
     private int TricolorMotionSerial;
+    private int LastCuratorVisualHealth = -1;
+    private long CuratorHurtUntilMs;
 
     public MilestoneBossService(IModHelper helper, IMonitor monitor, SaveService save)
     {
@@ -218,6 +229,7 @@ internal sealed class MilestoneBossService
             this.RouteConfirmKind = null;
         }
         this.AnchorBossActors();
+        this.UpdateCuratorVisualDamageState(now);
 
         if (this.State == MilestoneBossState.Victory)
         {
@@ -457,7 +469,7 @@ internal sealed class MilestoneBossService
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
         return $"0681 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
-               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | CuratorRecord={this.ActiveCuratorRecord.Describe()} | ArchiveRule={this.ActiveCuratorArchiveRule} | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
+               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | CuratorRecord={this.ActiveCuratorRecord.Describe()} | ArchiveRule={this.ActiveCuratorArchiveRule} | CuratorVisual={this.CuratorAnimationClip(Environment.TickCount64).Name} | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
 
@@ -499,6 +511,8 @@ internal sealed class MilestoneBossService
         this.EchoTargetTile2 = this.AttackTargetTile2;
         this.MimiCadenceIndex = 0;
         this.TricolorMotionSerial = 0;
+        this.LastCuratorVisualHealth = kind == MilestoneBossKind.HollowCurator ? HollowCuratorMaxHealth : -1;
+        this.CuratorHurtUntilMs = 0;
 
         switch (kind)
         {
@@ -1044,14 +1058,17 @@ internal sealed class MilestoneBossService
 
         if (role == "curator")
         {
-            texture = this.Helper.ModContent.Load<Texture2D>(HollowCuratorTexturePath);
-            int family = this.CuratorAnimationFamily();
-            int anim = (int)((Environment.TickCount64 / 190L + this.DecisionSerial) & 1L);
-            int frame = family * 2 + anim;
+            long now = Environment.TickCount64;
+            (string Name, string Path, int Frames, int FrameTicks, bool Loop) clip = this.CuratorAnimationClip(now);
+            texture = this.Helper.ModContent.Load<Texture2D>(clip.Path);
+            long clock = clip.Loop ? now : Math.Max(0L, now - this.StateStartedAtMs);
+            int frame = clip.Loop
+                ? (int)((clock / clip.FrameTicks + this.DecisionSerial) % clip.Frames)
+                : Math.Min(clip.Frames - 1, (int)(clock / clip.FrameTicks));
             source = new Rectangle(frame * 48, 0, 48, 64);
             scale = 1.95f;
             float hover = this.State is MilestoneBossState.Intro or MilestoneBossState.Decision
-                ? (float)Math.Sin(Environment.TickCount64 / 240d) * 2f
+                ? (float)Math.Sin(now / 240d) * 2f
                 : 0f;
             offset = new Vector2(0f, 6f + hover);
         }
@@ -1149,25 +1166,46 @@ internal sealed class MilestoneBossService
             _ => new Color(166, 190, 232),
         };
 
-    private int CuratorAnimationFamily()
+    private (string Name, string Path, int Frames, int FrameTicks, bool Loop) CuratorAnimationClip(long now)
     {
         if (this.State == MilestoneBossState.Defeated)
-            return 8;
-        if (this.State == MilestoneBossState.PhaseTransition || this.Phase >= 3 && this.State != MilestoneBossState.Telegraph)
-            return 7;
+            return ("defeat", HollowCuratorDefeatTexturePath, 12, 145, false);
+        if (this.State == MilestoneBossState.PhaseTransition)
+            return ("transition", HollowCuratorTransitionTexturePath, 12, 90, false);
+        if (this.CuratorHurtUntilMs > now)
+            return ("hurt", HollowCuratorHurtTexturePath, 6, 60, true);
+        if (this.State == MilestoneBossState.Intro)
+            return ("observe", HollowCuratorObserveTexturePath, 10, 120, false);
+        if (this.State == MilestoneBossState.Decision)
+            return this.Phase >= 2
+                ? ("drift", HollowCuratorDriftTexturePath, 8, 105, true)
+                : ("idle", HollowCuratorIdleTexturePath, 8, 120, true);
         if (this.State != MilestoneBossState.Telegraph)
-            return 0;
+            return ("idle", HollowCuratorIdleTexturePath, 8, 120, true);
         return this.CurrentAttack switch
         {
-            1 => 1,
-            5 => 2,
-            6 => 3,
-            7 => 4,
-            8 => 5,
-            4 or 9 => 6,
-            3 => 7,
-            _ => 1,
+            2 or 4 => ("page_volley", HollowCuratorPageVolleyTexturePath, 10, 82, true),
+            3 or 9 => ("mirror", HollowCuratorMirrorTexturePath, 10, 90, true),
+            5 or 6 => ("observe", HollowCuratorObserveTexturePath, 10, 95, true),
+            8 => ("adapt", HollowCuratorAdaptTexturePath, 10, 90, true),
+            _ => ("cast", HollowCuratorCastTexturePath, 10, 86, true),
         };
+    }
+
+    private void UpdateCuratorVisualDamageState(long now)
+    {
+        if (this.CurrentKind != MilestoneBossKind.HollowCurator)
+        {
+            this.LastCuratorVisualHealth = -1;
+            this.CuratorHurtUntilMs = 0;
+            return;
+        }
+        Monster? curator = this.FindRole("curator", includeDead: true);
+        if (curator is null)
+            return;
+        if (this.LastCuratorVisualHealth >= 0 && curator.Health < this.LastCuratorVisualHealth && curator.Health > 0)
+            this.CuratorHurtUntilMs = now + 360L;
+        this.LastCuratorVisualHealth = curator.Health;
     }
 
     private void DrawBossAuraVfx(SpriteBatch batch, MilestoneBossKind kind)
@@ -1396,6 +1434,8 @@ internal sealed class MilestoneBossService
         this.EchoTargetTile2 = Point.Zero;
         this.MimiCadenceIndex = 0;
         this.TricolorMotionSerial = 0;
+        this.LastCuratorVisualHealth = -1;
+        this.CuratorHurtUntilMs = 0;
         this.CuratorAdaptationStacks = 0;
         this.ActiveCuratorRecord = CuratorRunRecord.Neutral;
         this.PendingCuratorRecord = CuratorRunRecord.Neutral;

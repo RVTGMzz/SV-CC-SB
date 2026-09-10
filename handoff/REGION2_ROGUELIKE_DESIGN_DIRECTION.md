@@ -236,3 +236,6 @@ Region II now composes each run under one deterministic **Archive Rule** selecte
 ### 0686 implementation note
 
 Hollow Curator now inherits the run's 0685 Archive Rule as a secondary, transient adaptation layer beside `Curator Records You`. The dominant player tendency remains the primary adaptive identity. Archive Rules only affect phases 2/3 by biasing already-authored Curator attacks, modestly changing cadence for Loose Folios/Iron Bindings, and allowing Mirror Draft to reflect eligible secondary target geometry. This is adaptation and continuity, not a hard counter; phase 1 remains mechanically unchanged Observation. No save schema or physical rendering ownership changes.
+
+### 0688 visual identity note
+Boss II is now visually independent from Boss III/IV. Hollow Curator uses a dedicated Forgotten Archive arena architecture and behavior-driven animation clips: idle, drift, observe, cast, page volley, mirror, adapt, hurt, phase transition and defeat. The arena keeps the 0687 collision footprint while replacing the previously shared Buildings shell. Gameplay, Archive Rule adaptation, save schema and actor-depth rendering ownership are unchanged.

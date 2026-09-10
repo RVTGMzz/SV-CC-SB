@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0687-tmx-csv-runtime-load-fix",
+  "branch": "cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
