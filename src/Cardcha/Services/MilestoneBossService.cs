@@ -98,6 +98,9 @@ internal sealed class MilestoneBossService
     private CuratorRunRecord ActiveCuratorRecord = CuratorRunRecord.Neutral;
     private bool HasPendingCuratorRecord;
     private bool CuratorRecordRevealed;
+    private string PendingCuratorArchiveRule = "none";
+    private string ActiveCuratorArchiveRule = "none";
+    private bool HasPendingCuratorArchiveRule;
     private int DecisionSerial;
     private long RouteConfirmUntilMs;
     private MilestoneBossKind? RouteConfirmKind;
@@ -124,11 +127,19 @@ internal sealed class MilestoneBossService
         this.Monitor.Log($"0681 Hollow Curator pending run record: {this.PendingCuratorRecord.Describe()}.", LogLevel.Trace);
     }
 
+    public void SetNextHollowCuratorArchiveRule(string? archiveRule)
+    {
+        this.PendingCuratorArchiveRule = NormalizeCuratorArchiveRule(archiveRule);
+        this.HasPendingCuratorArchiveRule = this.PendingCuratorArchiveRule != "none";
+        this.Monitor.Log($"0686 Hollow Curator pending Archive Rule: {this.PendingCuratorArchiveRule}.", LogLevel.Trace);
+    }
+
     public string DebugEnterBoss2WithRecord(string? tag)
     {
         CuratorRunRecord record = CuratorRunRecord.Debug(tag);
+        this.SetNextHollowCuratorArchiveRule("none");
         this.SetNextHollowCuratorRecord(record);
-        return this.DebugEnterBoss(2) + $" Curator record={record.Tag}.";
+        return this.DebugEnterBoss(2) + $" Curator record={record.Tag}; ArchiveRule=none.";
     }
 
     public bool IsInArena => this.ResolveCurrentKind(Game1.currentLocation) is not null;
@@ -446,7 +457,7 @@ internal sealed class MilestoneBossService
         string current = this.CurrentKind?.ToString() ?? "none";
         (int hp, int max) = this.GetCombinedHealth();
         return $"0681 MilestoneBoss | Current={current} | State={this.State} | Phase={this.Phase} | HP={hp}/{max} | " +
-               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | CuratorRecord={this.ActiveCuratorRecord.Describe()} | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
+               $"CuratorAdapt={this.CuratorAdaptationStacks}/3 | CuratorRecord={this.ActiveCuratorRecord.Describe()} | ArchiveRule={this.ActiveCuratorArchiveRule} | BossCards=[{string.Join(',', this.Save.Data.BossCardsUnlocked ?? new HashSet<string>())}] | " +
                $"HighestRegion={this.Save.Data.AirshipHighestRegionUnlocked}";
     }
 
@@ -467,12 +478,16 @@ internal sealed class MilestoneBossService
         if (kind == MilestoneBossKind.HollowCurator)
         {
             this.ActiveCuratorRecord = this.HasPendingCuratorRecord ? this.PendingCuratorRecord : CuratorRunRecord.Neutral;
+            this.ActiveCuratorArchiveRule = this.HasPendingCuratorArchiveRule ? this.PendingCuratorArchiveRule : "none";
             this.PendingCuratorRecord = CuratorRunRecord.Neutral;
             this.HasPendingCuratorRecord = false;
+            this.PendingCuratorArchiveRule = "none";
+            this.HasPendingCuratorArchiveRule = false;
         }
         else
         {
             this.ActiveCuratorRecord = CuratorRunRecord.Neutral;
+            this.ActiveCuratorArchiveRule = "none";
         }
         this.CuratorRecordRevealed = false;
         this.DecisionSerial = 0;
@@ -575,8 +590,8 @@ internal sealed class MilestoneBossService
                 int[] pool = this.Phase switch
                 {
                     1 => new[] { 0, 0, 1 },
-                    2 => new[] { 0, 1, 2, 4, recordAttack, recordAttack },
-                    _ => new[] { 0, 2, 3, 4, recordAttack, recordAttack, recordAttack },
+                    2 => this.ApplyCuratorArchiveRuleAttackBias(new[] { 0, 1, 2, 4, recordAttack, recordAttack }),
+                    _ => this.ApplyCuratorArchiveRuleAttackBias(new[] { 0, 2, 3, 4, recordAttack, recordAttack, recordAttack }),
                 };
                 this.CurrentAttack = pool[this.Rng.Next(pool.Length)];
                 if (this.CurrentAttack == 5)
@@ -592,6 +607,11 @@ internal sealed class MilestoneBossService
                         this.AttackTargetTile.X + (this.DecisionSerial % 2 == 0 ? 2 : -2),
                         this.AttackTargetTile.Y + (this.DecisionSerial % 3 == 0 ? 2 : -1)
                     ));
+                }
+                if (this.Phase >= 2 && this.ActiveCuratorArchiveRule == "mirror_draft"
+                    && this.DecisionSerial % 2 == 0 && this.CurrentAttack is 2 or 5 or 9)
+                {
+                    this.AttackTargetTile2 = MirrorCuratorTile(this.AttackTargetTile);
                 }
                 this.MaybeTeleportPrimary("curator");
                 break;
@@ -820,7 +840,7 @@ internal sealed class MilestoneBossService
         if (this.CurrentKind == MilestoneBossKind.HollowCurator && nextPhase == 2 && !this.CuratorRecordRevealed)
         {
             this.CuratorRecordRevealed = true;
-            Game1.showGlobalMessage(ModEntry.T("boss.curator.record.reveal", new { record = this.CuratorRecordShort() }));
+            Game1.showGlobalMessage(ModEntry.T("boss.curator.record_rule.reveal", new { record = this.CuratorRecordShort(), rule = this.CuratorArchiveRuleShort() }));
         }
         this.State = MilestoneBossState.PhaseTransition;
         this.StateStartedAtMs = now;
@@ -988,13 +1008,24 @@ internal sealed class MilestoneBossService
         _ => 760,
     };
 
-    private int CurrentDecisionGapMs() => this.CurrentKind switch
+    private int CurrentDecisionGapMs()
     {
-        MilestoneBossKind.HollowCurator => this.Phase switch { 1 => 780, 2 => 650, _ => 520 },
-        MilestoneBossKind.TricolorResonance => this.Phase >= 4 ? 520 : 720,
-        MilestoneBossKind.Mimi => this.Phase switch { 1 => 720, 2 => 620, 3 => 520, _ => 430 },
-        _ => 650,
-    };
+        int gap = this.CurrentKind switch
+        {
+            MilestoneBossKind.HollowCurator => this.Phase switch { 1 => 780, 2 => 650, _ => 520 },
+            MilestoneBossKind.TricolorResonance => this.Phase >= 4 ? 520 : 720,
+            MilestoneBossKind.Mimi => this.Phase switch { 1 => 720, 2 => 620, 3 => 520, _ => 430 },
+            _ => 650,
+        };
+        if (this.CurrentKind != MilestoneBossKind.HollowCurator || this.Phase < 2)
+            return gap;
+        return this.ActiveCuratorArchiveRule switch
+        {
+            "loose_folios" => Math.Max(360, gap - 100),
+            "iron_bindings" => gap + 120,
+            _ => gap,
+        };
+    }
 
     internal void DrawActorAtMonsterDepth(SpriteBatch batch, Monster actor)
     {
@@ -1065,6 +1096,33 @@ internal sealed class MilestoneBossService
             new Vector2(source.Width / 2f, source.Height), scale * pulse,
             SpriteEffects.None, actorLayer);
     }
+
+    private int[] ApplyCuratorArchiveRuleAttackBias(int[] basePool)
+    {
+        if (this.Phase < 2 || this.ActiveCuratorArchiveRule == "none")
+            return basePool;
+        IEnumerable<int> extra = this.ActiveCuratorArchiveRule switch
+        {
+            "loose_folios" => new[] { 0, 2 },
+            "iron_bindings" => new[] { 3 },
+            "mirror_draft" => new[] { 9 },
+            "redacted_ledger" => new[] { 4, 4 },
+            _ => Array.Empty<int>(),
+        };
+        return basePool.Concat(extra).ToArray();
+    }
+
+    private static string NormalizeCuratorArchiveRule(string? archiveRule)
+    {
+        string key = (archiveRule ?? string.Empty).Trim().ToLowerInvariant();
+        return key is "loose_folios" or "iron_bindings" or "mirror_draft" or "redacted_ledger" ? key : "none";
+    }
+
+    private string CuratorArchiveRuleShort()
+        => ModEntry.T($"boss.curator.rule.short.{this.ActiveCuratorArchiveRule}");
+
+    private static Point MirrorCuratorTile(Point tile)
+        => ClampArenaTile(new Point(27 - tile.X, tile.Y));
 
     private int CuratorRecordAttackId()
         => this.ActiveCuratorRecord.Tag switch
@@ -1174,7 +1232,9 @@ internal sealed class MilestoneBossService
         if (this.CurrentAttack == 27)
             c = this.TricolorCycle(this.MimiCadenceIndex);
         else if (this.CurrentKind == MilestoneBossKind.HollowCurator && this.CurrentAttack is >= 5 and <= 9)
-            c = this.CuratorRecordColor();
+            c = this.CurrentAttack == 9 && this.ActiveCuratorArchiveRule == "mirror_draft"
+                ? new Color(186, 164, 246)
+                : this.CuratorRecordColor();
 
         DrawTileZone(batch, this.AttackTargetTile, radius, c * pulse);
 
@@ -1203,8 +1263,8 @@ internal sealed class MilestoneBossService
             MilestoneBossKind.HollowCurator => this.Phase switch
             {
                 1 => $"Observation • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
-                2 => $"Reflection • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
-                _ => $"Curator's Truth • {this.CuratorRecordShort()} • Adapt {this.CuratorAdaptationStacks}/3",
+                2 => $"Reflection • {this.CuratorRecordShort()} • {this.CuratorArchiveRuleShort()} • Adapt {this.CuratorAdaptationStacks}/3",
+                _ => $"Curator's Truth • {this.CuratorRecordShort()} • {this.CuratorArchiveRuleShort()} • Adapt {this.CuratorAdaptationStacks}/3",
             },
             MilestoneBossKind.TricolorResonance => this.Phase < 4
                 ? $"Three Guardians • {this.GetTricolorLivingSummary()}"
@@ -1338,6 +1398,11 @@ internal sealed class MilestoneBossService
         this.TricolorMotionSerial = 0;
         this.CuratorAdaptationStacks = 0;
         this.ActiveCuratorRecord = CuratorRunRecord.Neutral;
+        this.PendingCuratorRecord = CuratorRunRecord.Neutral;
+        this.HasPendingCuratorRecord = false;
+        this.PendingCuratorArchiveRule = "none";
+        this.ActiveCuratorArchiveRule = "none";
+        this.HasPendingCuratorArchiveRule = false;
         this.CuratorRecordRevealed = false;
         this.DecisionSerial = 0;
         this.RouteConfirmUntilMs = 0;

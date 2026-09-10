@@ -1,8 +1,8 @@
 # Latest Cardcha Handoff
 
-Current branch: `cardcha-alpha28-0685-region2-encounter-composition-run-modifiers`
-Current build: `0.3.0-alpha.28.0.4.14.4.5.12.53`
-Continue from: `handoff/ALPHA28_0685_REGION2_ENCOUNTER_COMPOSITION_RUN_MODIFIERS.md`
+Current branch: `cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation`
+Current build: `0.3.0-alpha.28.0.4.14.4.5.12.54`
+Continue from: `handoff/ALPHA28_0686_HOLLOW_CURATOR_ARCHIVE_RULE_ADAPTATION.md`
 Design direction: `handoff/REGION2_ROGUELIKE_DESIGN_DIRECTION.md`
 
-0685 preserves the 6–9 node multi-room run, 0683 physical interactions, 0684 room-specific mechanics and Curator Records You, while each run now selects one readable Archive Rule that biases route composition and enemy archetype/pacing. In-game acceptance is pending.
+0686 preserves the 0685 Region II run composition/modifier layer and carries its Archive Rule through the Archive Seal into Hollow Curator phases 2/3 as a readable secondary adaptation beside `Curator Records You`. In-game acceptance is pending.

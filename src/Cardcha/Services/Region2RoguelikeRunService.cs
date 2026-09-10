@@ -79,6 +79,7 @@ internal sealed class Region2RoguelikeRunService
     private Func<string>? BossGateAction;
     private Func<string>? BossGateDebugAction;
     private Action<CuratorRunRecord>? CuratorRecordSink;
+    private Action<string>? CuratorArchiveRuleSink;
 
     private bool Active;
     private bool LeavingForBoss;
@@ -144,6 +145,9 @@ internal sealed class Region2RoguelikeRunService
 
     public void BindCuratorRecordSink(Action<CuratorRunRecord> sink)
         => this.CuratorRecordSink = sink;
+
+    public void BindCuratorArchiveRuleSink(Action<string> sink)
+        => this.CuratorArchiveRuleSink = sink;
 
     public void OnAssetRequested(object? sender, AssetRequestedEventArgs e)
     {
@@ -1305,6 +1309,7 @@ internal sealed class Region2RoguelikeRunService
         }
 
         CuratorRunRecord record = this.BuildCuratorRunRecord(debug);
+        this.CuratorArchiveRuleSink?.Invoke(RunModifierKey(this.ActiveRunModifier));
         this.CuratorRecordSink?.Invoke(record);
         this.BankAllRemaining();
         this.LeavingForBoss = true;
@@ -1317,7 +1322,7 @@ internal sealed class Region2RoguelikeRunService
         }
         this.LastCuratorRecord = record.Tag;
         this.Active = false;
-        this.Monitor.Log($"0683 Region II -> Hollow Curator. Transferred {record.Describe()}.", LogLevel.Info);
+        this.Monitor.Log($"0686 Region II -> Hollow Curator. Transferred {record.Describe()} + ArchiveRule={RunModifierKey(this.ActiveRunModifier)}.", LogLevel.Info);
     }
 
     private void TryExtract()

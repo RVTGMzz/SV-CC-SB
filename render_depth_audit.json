@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0685-region2-encounter-composition-run-modifiers",
+  "branch": "cardcha-alpha28-0686-hollow-curator-archive-rule-adaptation",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {

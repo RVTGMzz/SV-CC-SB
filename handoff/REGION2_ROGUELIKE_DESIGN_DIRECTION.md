@@ -231,3 +231,8 @@ Room identity must change tactics, not only scenery. Mirror Gallery uses a refle
 ### 0685 implementation note
 
 Region II now composes each run under one deterministic **Archive Rule** selected from the run seed. Loose Folios biases faster, more fragile pressure and Ambush/Combat routes; Iron Bindings biases heavier, slower enemies and Elite/Cache routes; Mirror Draft favors mixed enemy archetypes with Mirror/Event rhythm; Redacted Ledger favors Paper Scarabs and a Cursed/Cache/Restoration risk-reward loop. The modifier is shown once at run start and affects both route weighting and authored enemy composition. This is intended to make successive runs tactically different without turning the system into opaque random stat punishment. 0684 room-specific mechanics remain independent and stack on top of the selected run rule.
+
+
+### 0686 implementation note
+
+Hollow Curator now inherits the run's 0685 Archive Rule as a secondary, transient adaptation layer beside `Curator Records You`. The dominant player tendency remains the primary adaptive identity. Archive Rules only affect phases 2/3 by biasing already-authored Curator attacks, modestly changing cadence for Loose Folios/Iron Bindings, and allowing Mirror Draft to reflect eligible secondary target geometry. This is adaptation and continuity, not a hard counter; phase 1 remains mechanically unchanged Observation. No save schema or physical rendering ownership changes.

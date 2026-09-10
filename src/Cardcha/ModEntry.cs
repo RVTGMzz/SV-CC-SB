@@ -170,6 +170,7 @@ internal sealed class ModEntry : Mod
         this.RegionExpeditions.BindRegion2BossGateDebugHandler(() => this.MilestoneBosses.DebugEnterBoss(2));
         this.Region2Rogue.BindBossGateHandlers(this.MilestoneBosses.EnterBoss2FromRegion2, () => this.MilestoneBosses.DebugEnterBoss(2));
         this.Region2Rogue.BindCuratorRecordSink(this.MilestoneBosses.SetNextHollowCuratorRecord);
+        this.Region2Rogue.BindCuratorArchiveRuleSink(this.MilestoneBosses.SetNextHollowCuratorArchiveRule);
         this.Airship.BindMilestoneRouteHandler(this.MilestoneBosses.UseAirshipMilestoneRoute);
         this.CardLab = new CardTestLabService(this.Cards, this.Save, this.Combat);
         this.CardArena = new CardTestArenaService(helper, this.Monitor, this.CardLab);
@@ -396,7 +397,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.53 0685 REGION II ENCOUNTER COMPOSITION + RUN MODIFIERS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.54 0686 HOLLOW CURATOR ARCHIVE RULE ADAPTATION TEST",
             LogLevel.Info
         );
     }

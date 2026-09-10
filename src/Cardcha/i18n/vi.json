@@ -1222,5 +1222,11 @@
   "airship.region2.modifier.mirror_draft.name": "Bản Nháp Gương",
   "airship.region2.modifier.mirror_draft.effect": "Mirror và Archive Event xuất hiện thường hơn; đội hình quái được trộn đều có chủ đích.",
   "airship.region2.modifier.redacted_ledger.name": "Sổ Bôi Đen",
-  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache và Restoration xuất hiện thường hơn; Paper Scarab chiếm ưu thế trong đội hình."
+  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache và Restoration xuất hiện thường hơn; Paper Scarab chiếm ưu thế trong đội hình.",
+  "boss.curator.record_rule.reveal": "Hollow Curator mở bản ghi của bạn: {{record}}. Luật Kho Lưu Trữ vẫn còn hiệu lực: {{rule}}.",
+  "boss.curator.rule.short.none": "Không Có Luật",
+  "boss.curator.rule.short.loose_folios": "Trang Rời",
+  "boss.curator.rule.short.iron_bindings": "Gáy Sắt",
+  "boss.curator.rule.short.mirror_draft": "Bản Nháp Gương",
+  "boss.curator.rule.short.redacted_ledger": "Sổ Bôi Đen"
 }

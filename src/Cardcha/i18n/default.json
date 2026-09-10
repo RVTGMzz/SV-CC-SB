@@ -1144,5 +1144,11 @@
   "airship.region2.modifier.mirror_draft.name": "Mirror Draft",
   "airship.region2.modifier.mirror_draft.effect": "Mirror and Archive Event routes recur more often; enemy archetypes stay deliberately mixed.",
   "airship.region2.modifier.redacted_ledger.name": "Redacted Ledger",
-  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache and Restoration routes recur more often; Paper Scarabs dominate the index."
+  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache and Restoration routes recur more often; Paper Scarabs dominate the index.",
+  "boss.curator.record_rule.reveal": "Hollow Curator opens your record: {{record}}. The Archive Rule persists: {{rule}}.",
+  "boss.curator.rule.short.none": "No Archive Rule",
+  "boss.curator.rule.short.loose_folios": "Loose Folios",
+  "boss.curator.rule.short.iron_bindings": "Iron Bindings",
+  "boss.curator.rule.short.mirror_draft": "Mirror Draft",
+  "boss.curator.rule.short.redacted_ledger": "Redacted Ledger"
 }
