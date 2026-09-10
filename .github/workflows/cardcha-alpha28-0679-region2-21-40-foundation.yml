@@ -26,6 +26,9 @@ jobs:
       - name: Apply Region II runtime safety guard
         run: python3 tools/alpha28_0679_runtime_guard.py
 
+      - name: Normalize generated Region II service tail
+        run: python3 tools/alpha28_0679_brace_guard.py
+
       - name: Validate repository rendering depth contract
         run: python3 tools/validate_render_depth_contract.py
 
