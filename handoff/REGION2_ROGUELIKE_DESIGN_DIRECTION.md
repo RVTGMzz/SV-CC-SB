@@ -226,3 +226,8 @@ Room variety must be functional, not decorative only. Non-combat nodes should as
 ### 0684 implementation note
 
 Room identity must change tactics, not only scenery. Mirror Gallery uses a reflected-position strike, Inkbound Stacks uses a readable horizontal ink sweep, and Warden Vault Elite nodes use a seal pulse centered on the Archive Warden. Archive Vestibule intentionally remains a lower-pressure entry/breathing room. These are transient combat VFX/mechanics, never physical `RenderedWorld` props, and should be tuned by playtest rather than treated as permanent numeric law.
+
+
+### 0685 implementation note
+
+Region II now composes each run under one deterministic **Archive Rule** selected from the run seed. Loose Folios biases faster, more fragile pressure and Ambush/Combat routes; Iron Bindings biases heavier, slower enemies and Elite/Cache routes; Mirror Draft favors mixed enemy archetypes with Mirror/Event rhythm; Redacted Ledger favors Paper Scarabs and a Cursed/Cache/Restoration risk-reward loop. The modifier is shown once at run start and affects both route weighting and authored enemy composition. This is intended to make successive runs tactically different without turning the system into opaque random stat punishment. 0684 room-specific mechanics remain independent and stack on top of the selected run rule.

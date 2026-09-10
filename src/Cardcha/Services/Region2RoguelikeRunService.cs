@@ -30,6 +30,14 @@ internal enum Region2NodeKind
     FinalCache,
 }
 
+internal enum Region2RunModifier
+{
+    LooseFolios,
+    IronBindings,
+    MirrorDraft,
+    RedactedLedger,
+}
+
 /// <summary>
 /// 0680 Region II roguelike route foundation.
 ///
@@ -103,6 +111,8 @@ internal sealed class Region2RoguelikeRunService
     private Region2NodeKind ChoiceA;
     private Region2NodeKind ChoiceB;
     private string LastCuratorRecord = "none";
+    private Region2RunModifier ActiveRunModifier = Region2RunModifier.MirrorDraft;
+    private string LastEncounterMix = "none";
     private string ActiveRoomMechanic = "none";
     private long RoomMechanicNextAtMs;
     private long RoomMechanicResolveAtMs;
@@ -313,7 +323,7 @@ internal sealed class Region2RoguelikeRunService
 
     public string Describe()
     {
-        return $"0684 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, interaction={this.AwaitingRoomInteraction}, mechanic={this.ActiveRoomMechanic}[{this.RoomMechanicCycles} cycles/{this.RoomMechanicHits} hits], "
+        return $"0685 Region II Rogue: modifier={this.ActiveRunModifier}, mix={this.LastEncounterMix}, active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, interaction={this.AwaitingRoomInteraction}, mechanic={this.ActiveRoomMechanic}[{this.RoomMechanicCycles} cycles/{this.RoomMechanicHits} hits], "
             + $"choicePending={this.ChoicePending}, bossGate={this.BossGateReady}, complete={this.RouteComplete}, "
             + $"unbanked={this.UnbankedScrap}S/{this.UnbankedShiny}Sh, banked={this.TotalBankedScrap}S/{this.TotalBankedShiny}Sh, "
             + $"record={this.CurrentRecordTag()} [risk={this.RiskRecord}, precision={this.PrecisionRecord}, pressure={this.PressureRecord}, recovery={this.RecoveryRecord}, mirror={this.MirrorRecord}], "
@@ -353,12 +363,14 @@ internal sealed class Region2RoguelikeRunService
         this.RecoveryRecord = 0;
         this.MirrorRecord = 0;
         this.LastCuratorRecord = "none";
+        this.LastEncounterMix = "none";
         this.ExtractConfirmUntilMs = 0;
 
         int flights = Math.Max(0, this.Save.Data.AirshipFlightsTaken);
         this.RunSeed = unchecked((int)Game1.uniqueIDForThisGame + Game1.Date.TotalDays * 1009 + flights * 7919 + 0x2A80);
         Random random = new(this.RunSeed);
         this.TargetNodes = 6 + random.Next(4); // 6-9, aligned with Region I run length without copying its route logic.
+        this.ActiveRunModifier = PickRunModifier(random);
 
         if (debugBossGate)
         {
@@ -370,7 +382,12 @@ internal sealed class Region2RoguelikeRunService
             return;
         }
 
-        Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.start", new { total = this.TargetNodes }));
+        Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.start", new
+        {
+            total = this.TargetNodes,
+            modifier = this.RunModifierDisplayName(),
+            effect = this.RunModifierEffectText()
+        }));
         this.BeginNode(location, Region2NodeKind.Combat);
     }
 
@@ -531,7 +548,7 @@ internal sealed class Region2RoguelikeRunService
         });
     }
 
-    private static Region2NodeKind PickDeepRoute(Random random)
+    private Region2NodeKind PickDeepRoute(Random random)
     {
         Region2NodeKind[] deep =
         {
@@ -541,10 +558,10 @@ internal sealed class Region2RoguelikeRunService
             Region2NodeKind.Cache,
             Region2NodeKind.Ambush,
         };
-        return deep[random.Next(deep.Length)];
+        return this.PickWeightedRoute(random, deep);
     }
 
-    private static Region2NodeKind PickRoute(Random random, Region2NodeKind previous, Region2NodeKind? exclude)
+    private Region2NodeKind PickRoute(Random random, Region2NodeKind previous, Region2NodeKind? exclude)
     {
         Region2NodeKind[] pool =
         {
@@ -560,8 +577,81 @@ internal sealed class Region2RoguelikeRunService
         List<Region2NodeKind> candidates = pool
             .Where(k => k != previous && (!exclude.HasValue || k != exclude.Value))
             .ToList();
-        return candidates[random.Next(candidates.Count)];
+        return this.PickWeightedRoute(random, candidates);
     }
+
+    private Region2NodeKind PickWeightedRoute(Random random, IEnumerable<Region2NodeKind> candidates)
+    {
+        List<(Region2NodeKind Kind, int Weight)> weighted = candidates
+            .Select(kind => (kind, Math.Max(1, RunModifierRouteWeight(this.ActiveRunModifier, kind))))
+            .ToList();
+        if (weighted.Count == 0)
+            return Region2NodeKind.Combat;
+
+        int total = weighted.Sum(p => p.Weight);
+        int roll = random.Next(total);
+        foreach ((Region2NodeKind kind, int weight) in weighted)
+        {
+            if (roll < weight)
+                return kind;
+            roll -= weight;
+        }
+        return weighted[^1].Kind;
+    }
+
+    private static int RunModifierRouteWeight(Region2RunModifier modifier, Region2NodeKind kind)
+        => modifier switch
+        {
+            Region2RunModifier.LooseFolios => kind switch
+            {
+                Region2NodeKind.Combat => 22,
+                Region2NodeKind.Ambush => 28,
+                Region2NodeKind.Elite => 10,
+                Region2NodeKind.MirrorChoice => 8,
+                Region2NodeKind.ArchiveEvent => 8,
+                Region2NodeKind.Cache => 7,
+                Region2NodeKind.Restoration => 6,
+                Region2NodeKind.CursedArchive => 11,
+                _ => 10,
+            },
+            Region2RunModifier.IronBindings => kind switch
+            {
+                Region2NodeKind.Combat => 12,
+                Region2NodeKind.Ambush => 6,
+                Region2NodeKind.Elite => 26,
+                Region2NodeKind.MirrorChoice => 7,
+                Region2NodeKind.ArchiveEvent => 8,
+                Region2NodeKind.Cache => 18,
+                Region2NodeKind.Restoration => 12,
+                Region2NodeKind.CursedArchive => 11,
+                _ => 10,
+            },
+            Region2RunModifier.MirrorDraft => kind switch
+            {
+                Region2NodeKind.Combat => 12,
+                Region2NodeKind.Ambush => 10,
+                Region2NodeKind.Elite => 9,
+                Region2NodeKind.MirrorChoice => 28,
+                Region2NodeKind.ArchiveEvent => 20,
+                Region2NodeKind.Cache => 8,
+                Region2NodeKind.Restoration => 10,
+                Region2NodeKind.CursedArchive => 8,
+                _ => 10,
+            },
+            Region2RunModifier.RedactedLedger => kind switch
+            {
+                Region2NodeKind.Combat => 8,
+                Region2NodeKind.Ambush => 10,
+                Region2NodeKind.Elite => 12,
+                Region2NodeKind.MirrorChoice => 8,
+                Region2NodeKind.ArchiveEvent => 12,
+                Region2NodeKind.Cache => 18,
+                Region2NodeKind.Restoration => 18,
+                Region2NodeKind.CursedArchive => 28,
+                _ => 10,
+            },
+            _ => 10,
+        };
 
     private void ResolveNonCombatNode(Region2NodeKind kind)
     {
@@ -811,8 +901,9 @@ internal sealed class Region2RoguelikeRunService
             spawned++;
         }
 
+        this.LastEncounterMix = DescribeEncounterMix(location);
         Game1.playSound(kind == Region2NodeKind.Ambush ? "batScreech" : "wand");
-        this.Monitor.Log($"0683 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: spawned={spawned}.", LogLevel.Trace);
+        this.Monitor.Log($"0685 Region II node {this.CurrentNode}/{this.TargetNodes} {kind}: modifier={this.ActiveRunModifier}, spawned={spawned}, mix={this.LastEncounterMix}.", LogLevel.Trace);
     }
 
     private Monster CreateEnemy(Region2NodeKind kind, int index, Vector2 position, bool forceElite)
@@ -833,7 +924,7 @@ internal sealed class Region2RoguelikeRunService
         }
         else
         {
-            int archetype = kind == Region2NodeKind.Ambush ? 0 : (index + depth) % 3;
+            int archetype = this.ResolveEncounterArchetype(kind, index, depth);
             if (archetype == 0)
             {
                 monster = new Bat(position);
@@ -863,12 +954,81 @@ internal sealed class Region2RoguelikeRunService
             speed += 1;
         }
 
+        this.ApplyRunModifierEnemyStats(ref hpScale, ref speed);
+
         int hp = Math.Max(1, (int)Math.Round(baseHp * hpScale));
         monster.MaxHealth = hp;
         monster.Health = hp;
         monster.Speed = speed;
         monster.modData[RegionExpeditionService.EnemyRoleKey] = role;
         return monster;
+    }
+
+    private static Region2RunModifier PickRunModifier(Random random)
+        => (Region2RunModifier)random.Next(Enum.GetValues<Region2RunModifier>().Length);
+
+    private int ResolveEncounterArchetype(Region2NodeKind kind, int index, int depth)
+    {
+        int salt = unchecked(this.RunSeed + depth * 4099 + index * 8191 + (int)kind * 131);
+        int roll = (int)((uint)salt % 100u);
+        return this.ActiveRunModifier switch
+        {
+            Region2RunModifier.LooseFolios => roll < 58 ? 0 : roll < 84 ? 1 : 2,
+            Region2RunModifier.IronBindings => roll < 15 ? 0 : roll < 45 ? 1 : 2,
+            Region2RunModifier.MirrorDraft => roll % 3,
+            Region2RunModifier.RedactedLedger => roll < 25 ? 0 : roll < 75 ? 1 : 2,
+            _ => roll % 3,
+        };
+    }
+
+    private void ApplyRunModifierEnemyStats(ref float hpScale, ref int speed)
+    {
+        switch (this.ActiveRunModifier)
+        {
+            case Region2RunModifier.LooseFolios:
+                hpScale *= 0.88f;
+                speed += 1;
+                break;
+            case Region2RunModifier.IronBindings:
+                hpScale *= 1.18f;
+                speed = Math.Max(1, speed - 1);
+                break;
+            case Region2RunModifier.RedactedLedger:
+                hpScale *= 1.05f;
+                break;
+        }
+    }
+
+    private string RunModifierDisplayName()
+        => ModEntry.T($"airship.region2.modifier.{RunModifierKey(this.ActiveRunModifier)}.name");
+
+    private string RunModifierEffectText()
+        => ModEntry.T($"airship.region2.modifier.{RunModifierKey(this.ActiveRunModifier)}.effect");
+
+    private static string RunModifierKey(Region2RunModifier modifier) => modifier switch
+    {
+        Region2RunModifier.LooseFolios => "loose_folios",
+        Region2RunModifier.IronBindings => "iron_bindings",
+        Region2RunModifier.MirrorDraft => "mirror_draft",
+        Region2RunModifier.RedactedLedger => "redacted_ledger",
+        _ => "mirror_draft",
+    };
+
+    private static string DescribeEncounterMix(GameLocation location)
+    {
+        string[] roles = { "ink_moth", "paper_scarab", "dust_slime", "archive_warden" };
+        List<string> parts = new();
+        foreach (string role in roles)
+        {
+            int count = location.characters.OfType<Monster>().Count(m =>
+                m.Health > 0
+                && m.modData.ContainsKey(NodeMarkerKey)
+                && m.modData.TryGetValue(RegionExpeditionService.EnemyRoleKey, out string? value)
+                && value.Equals(role, StringComparison.OrdinalIgnoreCase));
+            if (count > 0)
+                parts.Add($"{role}:{count}");
+        }
+        return parts.Count == 0 ? "none" : string.Join(",", parts);
     }
 
     private void ArmRoomMechanicForCombat(GameLocation location)
@@ -1444,6 +1604,8 @@ internal sealed class Region2RoguelikeRunService
         this.CurrentRoom = Region2RoomKind.Vestibule;
         this.CurrentNode = 0;
         this.TargetNodes = 0;
+        this.ActiveRunModifier = Region2RunModifier.MirrorDraft;
+        this.LastEncounterMix = "none";
         this.UnbankedScrap = 0;
         this.UnbankedShiny = 0;
         this.ExtractConfirmUntilMs = 0;

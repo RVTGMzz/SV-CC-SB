@@ -1155,7 +1155,7 @@
   "airship.region2.boss_gate.boss1": "Đường đến Hollow Curator chỉ xuất hiện sau khi Verdant Guardian đã thực sự bị đánh bại.",
   "airship.region2.boss_gate.cleared": "Hollow Curator đã bị đánh bại. Ấn Lưu Trữ giờ chỉ còn là một cánh cổng im lặng.",
   "airship.region2.boss_gate.location": "Cổng Hollow Curator chỉ có thể được mở từ Khu II • Kho Lưu Trữ Lãng Quên.",
-  "airship.region2.rogue.start": "CHUYẾN ĐI KHO LƯU TRỮ • Độ sâu lần này: {{total}} nút. Kho Lưu Trữ đang quan sát bạn.",
+  "airship.region2.rogue.start": "CHUYẾN ĐI KHO LƯU TRỮ • {{total}} nút • Luật Kho: {{modifier}} • {{effect}}",
   "airship.region2.rogue.node": "KHO LƯU TRỮ {{node}}/{{total}} • {{kind}}",
   "airship.region2.rogue.choose": "Lối đi tách nhánh tại nút {{node}}/{{total}}. Chọn tuyến đường.",
   "airship.region2.rogue.route_label": "{{kind}} • {{risk}}",
@@ -1214,5 +1214,13 @@
   "airship.region2.mechanic.active": "Kho Lưu Trữ chuyển động: {{mechanic}}.",
   "airship.region2.mechanic.mirror_trace.name": "Dấu Gương Phản Chiếu",
   "airship.region2.mechanic.ink_sweep.name": "Quét Mực",
-  "airship.region2.mechanic.warden_seal.name": "Ấn Giám Ngục"
+  "airship.region2.mechanic.warden_seal.name": "Ấn Giám Ngục",
+  "airship.region2.modifier.loose_folios.name": "Trang Rời",
+  "airship.region2.modifier.loose_folios.effect": "Combat và Ambush xuất hiện thường hơn; quái thiên về nhanh nhưng mỏng hơn.",
+  "airship.region2.modifier.iron_bindings.name": "Gáy Sắt",
+  "airship.region2.modifier.iron_bindings.effect": "Elite và Cache xuất hiện thường hơn; quái thiên về trâu hơn nhưng chậm hơn.",
+  "airship.region2.modifier.mirror_draft.name": "Bản Nháp Gương",
+  "airship.region2.modifier.mirror_draft.effect": "Mirror và Archive Event xuất hiện thường hơn; đội hình quái được trộn đều có chủ đích.",
+  "airship.region2.modifier.redacted_ledger.name": "Sổ Bôi Đen",
+  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache và Restoration xuất hiện thường hơn; Paper Scarab chiếm ưu thế trong đội hình."
 }

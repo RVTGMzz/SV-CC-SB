@@ -396,7 +396,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.52 0684 REGION II ROOM-SPECIFIC MECHANICS TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.53 0685 REGION II ENCOUNTER COMPOSITION + RUN MODIFIERS TEST",
             LogLevel.Info
         );
     }

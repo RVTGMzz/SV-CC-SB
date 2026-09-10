@@ -1077,7 +1077,7 @@
   "airship.region2.boss_gate.boss1": "The route to Hollow Curator appears only after Verdant Guardian is truly defeated.",
   "airship.region2.boss_gate.cleared": "Hollow Curator has already been defeated. The Archive Seal is quiet now.",
   "airship.region2.boss_gate.location": "Hollow Curator can only be entered through Region II • Forgotten Archive.",
-  "airship.region2.rogue.start": "FORGOTTEN ARCHIVE RUN • Route depth this run: {{total}} nodes. The Archive is watching.",
+  "airship.region2.rogue.start": "FORGOTTEN ARCHIVE RUN • {{total}} nodes • Archive Rule: {{modifier}} • {{effect}}",
   "airship.region2.rogue.node": "ARCHIVE {{node}}/{{total}} • {{kind}}",
   "airship.region2.rogue.choose": "The Archive forks at node {{node}}/{{total}}. Choose a route.",
   "airship.region2.rogue.route_label": "{{kind}} • {{risk}}",
@@ -1136,5 +1136,13 @@
   "airship.region2.mechanic.active": "The Archive shifts: {{mechanic}}.",
   "airship.region2.mechanic.mirror_trace.name": "Reflected Trace",
   "airship.region2.mechanic.ink_sweep.name": "Ink Sweep",
-  "airship.region2.mechanic.warden_seal.name": "Warden Seal"
+  "airship.region2.mechanic.warden_seal.name": "Warden Seal",
+  "airship.region2.modifier.loose_folios.name": "Loose Folios",
+  "airship.region2.modifier.loose_folios.effect": "Combat and Ambush routes recur more often; enemies skew faster but more fragile.",
+  "airship.region2.modifier.iron_bindings.name": "Iron Bindings",
+  "airship.region2.modifier.iron_bindings.effect": "Elite and Cache routes recur more often; enemies skew tougher but slower.",
+  "airship.region2.modifier.mirror_draft.name": "Mirror Draft",
+  "airship.region2.modifier.mirror_draft.effect": "Mirror and Archive Event routes recur more often; enemy archetypes stay deliberately mixed.",
+  "airship.region2.modifier.redacted_ledger.name": "Redacted Ledger",
+  "airship.region2.modifier.redacted_ledger.effect": "Cursed, Cache and Restoration routes recur more often; Paper Scarabs dominate the index."
 }

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0684-region2-room-specific-mechanics",
+  "branch": "cardcha-alpha28-0685-region2-encounter-composition-run-modifiers",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
