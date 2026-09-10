@@ -23,6 +23,9 @@ jobs:
       - name: Materialize 0678 Boss II-IV visuals
         run: python3 tools/alpha28_0678_boss234_visual_completion.py
 
+      - name: Preserve milestone defeat body visual
+        run: python3 tools/alpha28_0678_defeat_visual_guard.py
+
       - name: Validate repository rendering depth contract
         run: python3 tools/validate_render_depth_contract.py
 
