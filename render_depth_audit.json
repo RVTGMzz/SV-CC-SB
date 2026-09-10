@@ -1,22 +1,68 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0678-boss234-visual-completion",
+  "branch": "cardcha-alpha28-0684-region2-room-specific-mechanics",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
-    "Story": { "classification": "reviewed-vfx-story", "physicalAllowed": false },
-    "BossCards": { "classification": "vfx-only", "physicalAllowed": false },
-    "ChaChaSkills": { "classification": "vfx-only", "physicalAllowed": false },
-    "ChaChaSupport": { "classification": "vfx-only", "physicalAllowed": false },
-    "ChaChaMaterials": { "classification": "vfx-only", "physicalAllowed": false },
-    "ChaChaBossForm": { "classification": "vfx-only", "physicalAllowed": false },
-    "AtticVisual": { "classification": "native-world-mutation-only", "physicalAllowed": false },
-    "Airship": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
-    "VerdantArenaPolish": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
-    "VerdantGuardian": { "classification": "telegraph-vfx-review", "physicalAllowed": false },
-    "VerdantGuardianVisual": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
-    "VerdantSummons": { "classification": "confirmed-depth-debt", "physicalAllowed": false },
-    "MilestoneBosses": { "classification": "0678-actor-depth-vfx-only", "physicalAllowed": false },
-    "RegionExpeditions": { "classification": "0676b-migration", "physicalAllowed": false }
+    "Story": {
+      "classification": "reviewed-vfx-story",
+      "physicalAllowed": false
+    },
+    "BossCards": {
+      "classification": "vfx-only",
+      "physicalAllowed": false
+    },
+    "ChaChaSkills": {
+      "classification": "vfx-only",
+      "physicalAllowed": false
+    },
+    "ChaChaSupport": {
+      "classification": "vfx-only",
+      "physicalAllowed": false
+    },
+    "ChaChaMaterials": {
+      "classification": "vfx-only",
+      "physicalAllowed": false
+    },
+    "ChaChaBossForm": {
+      "classification": "vfx-only",
+      "physicalAllowed": false
+    },
+    "AtticVisual": {
+      "classification": "native-world-mutation-only",
+      "physicalAllowed": false
+    },
+    "Airship": {
+      "classification": "confirmed-depth-debt",
+      "physicalAllowed": false
+    },
+    "VerdantArenaPolish": {
+      "classification": "confirmed-depth-debt",
+      "physicalAllowed": false
+    },
+    "VerdantGuardian": {
+      "classification": "telegraph-vfx-review",
+      "physicalAllowed": false
+    },
+    "VerdantGuardianVisual": {
+      "classification": "confirmed-depth-debt",
+      "physicalAllowed": false
+    },
+    "VerdantSummons": {
+      "classification": "confirmed-depth-debt",
+      "physicalAllowed": false
+    },
+    "MilestoneBosses": {
+      "classification": "0678-actor-depth-vfx-only",
+      "physicalAllowed": false
+    },
+    "RegionExpeditions": {
+      "classification": "0676b-migration",
+      "physicalAllowed": false
+    },
+    "Region2Rogue": {
+      "classification": "0684-vfx-only-room-hazard-telegraphs",
+      "physicalAllowed": false
+    }
   },
   "confirmedUnsafePhysicalPostWorld": [
     "AirshipInteriorStardewRenderer.DrawDeckStardewDecor",

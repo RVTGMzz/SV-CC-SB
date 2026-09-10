@@ -1210,5 +1210,9 @@
   "airship.region2.interaction.object.finalcache": "rương sâu trong kho lưu trữ",
   "airship.region2.interaction.object.archive": "điểm cộng hưởng lưu trữ",
   "airship.region2.interaction.cursed_awakened": "Quyển Sách Nguyền tự bật mở. Những trang giấy đen như mực tung ra, cả kho lưu trữ thức giấc quanh bạn.",
-  "airship.region2.interaction.final_opened": "Rương sâu trong kho lưu trữ đã mở. Hàng chưa gửi kho: {{scrap}} Scrap + {{shiny}} Shiny."
+  "airship.region2.interaction.final_opened": "Rương sâu trong kho lưu trữ đã mở. Hàng chưa gửi kho: {{scrap}} Scrap + {{shiny}} Shiny.",
+  "airship.region2.mechanic.active": "Kho Lưu Trữ chuyển động: {{mechanic}}.",
+  "airship.region2.mechanic.mirror_trace.name": "Dấu Gương Phản Chiếu",
+  "airship.region2.mechanic.ink_sweep.name": "Quét Mực",
+  "airship.region2.mechanic.warden_seal.name": "Ấn Giám Ngục"
 }

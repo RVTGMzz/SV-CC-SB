@@ -326,8 +326,8 @@ t = t.replace(insert_anchor, mechanic_methods + insert_anchor, 1)
 # Reset on save/day/title/exit so no telegraph or timer survives the run.
 t = replace_once(
     t,
-    '        this.NodeSpawned = false;\n        this.PendingInternalRoomWarp = false;\n        this.AwaitingRoomInteraction = false;',
-    '        this.NodeSpawned = false;\n        this.ResetRoomMechanicState();\n        this.PendingInternalRoomWarp = false;\n        this.AwaitingRoomInteraction = false;',
+    '        this.NodeSpawned = false;\n        this.AwaitingRoomInteraction = false;\n        this.ActiveInteractionTile = Point.Zero;\n        this.PendingInternalRoomWarp = false;',
+    '        this.NodeSpawned = false;\n        this.ResetRoomMechanicState();\n        this.AwaitingRoomInteraction = false;\n        this.ActiveInteractionTile = Point.Zero;\n        this.PendingInternalRoomWarp = false;',
     "ResetRuntime mechanic cleanup",
 )
 

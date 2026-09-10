@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using StardewModdingAPI;
 using StardewModdingAPI.Events;
 using StardewValley;
@@ -45,7 +46,11 @@ internal sealed class Region2RoguelikeRunService
 {
     private const string NodeMarkerKey = "Ronvotri.Cardcha/0680Region2Node";
     private const string InteractionMarkerKey = "Ronvotri.Cardcha/0683Region2Interaction";
+    private const string RoomMechanicMarkerKey = "Ronvotri.Cardcha/0684RoomMechanic";
     private const long ExtractConfirmWindowMs = 5000L;
+    private const long MirrorTelegraphMs = 1050L;
+    private const long InkTelegraphMs = 900L;
+    private const long VaultTelegraphMs = 950L;
     private static readonly Point BossGateTile = new(20, 5);
     public const string InkboundStacksLocationName = "Cardcha_Region2_InkboundStacks";
     public const string InkboundStacksMapAssetName = "Maps/Cardcha_Region2_InkboundStacks";
@@ -98,6 +103,12 @@ internal sealed class Region2RoguelikeRunService
     private Region2NodeKind ChoiceA;
     private Region2NodeKind ChoiceB;
     private string LastCuratorRecord = "none";
+    private string ActiveRoomMechanic = "none";
+    private long RoomMechanicNextAtMs;
+    private long RoomMechanicResolveAtMs;
+    private Point[] RoomMechanicTiles = Array.Empty<Point>();
+    private int RoomMechanicCycles;
+    private int RoomMechanicHits;
 
     public bool IsActive => this.Active;
 
@@ -210,12 +221,37 @@ internal sealed class Region2RoguelikeRunService
         if (this.RouteComplete || this.BossGateReady || this.ChoicePending || this.ChoiceDeferred)
             return;
         if (!IsCombatKind(this.CurrentKind) || !this.NodeSpawned)
+        {
+            this.ClearRoomMechanicTelegraph();
             return;
+        }
+
+        this.UpdateRoomMechanic(Game1.currentLocation);
         if (CountRunEnemies(Game1.currentLocation) > 0)
             return;
 
+        this.ResetRoomMechanicState();
         this.NodeSpawned = false;
         this.CompleteCurrentNode(Game1.currentLocation);
+    }
+
+    public void OnRenderedWorld(object? sender, RenderedWorldEventArgs e)
+    {
+        if (!Context.IsWorldReady || !this.Active || !IsRegion2(Game1.currentLocation)
+            || this.RoomMechanicResolveAtMs <= Environment.TickCount64 || this.RoomMechanicTiles.Length == 0)
+            return;
+
+        Color color = this.ActiveRoomMechanic switch
+        {
+            "mirror_trace" => new Color(151, 191, 232),
+            "ink_sweep" => new Color(136, 82, 142),
+            "warden_seal" => new Color(222, 181, 86),
+            _ => new Color(210, 210, 210),
+        };
+        long left = Math.Max(0L, this.RoomMechanicResolveAtMs - Environment.TickCount64);
+        float pulse = 0.32f + 0.22f * (1f - Math.Min(1f, left / 1100f));
+        foreach (Point tile in this.RoomMechanicTiles)
+            DrawHazardOutline(e.SpriteBatch, tile, color * pulse);
     }
 
     public void OnButtonPressed(object? sender, ButtonPressedEventArgs e)
@@ -277,11 +313,21 @@ internal sealed class Region2RoguelikeRunService
 
     public string Describe()
     {
-        return $"0683 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, interaction={this.AwaitingRoomInteraction}, "
+        return $"0684 Region II Rogue: active={this.Active}, room={this.CurrentRoom}, node={this.CurrentNode}/{this.TargetNodes}, kind={this.CurrentKind}, interaction={this.AwaitingRoomInteraction}, mechanic={this.ActiveRoomMechanic}[{this.RoomMechanicCycles} cycles/{this.RoomMechanicHits} hits], "
             + $"choicePending={this.ChoicePending}, bossGate={this.BossGateReady}, complete={this.RouteComplete}, "
             + $"unbanked={this.UnbankedScrap}S/{this.UnbankedShiny}Sh, banked={this.TotalBankedScrap}S/{this.TotalBankedShiny}Sh, "
             + $"record={this.CurrentRecordTag()} [risk={this.RiskRecord}, precision={this.PrecisionRecord}, pressure={this.PressureRecord}, recovery={this.RecoveryRecord}, mirror={this.MirrorRecord}], "
             + "runLength=6-9 nodes; Boss Gate eligible from node 6 when Boss I + 40 cards are satisfied.";
+    }
+
+
+    public string DescribeRoomMechanic()
+    {
+        long now = Environment.TickCount64;
+        long telegraphMs = this.RoomMechanicResolveAtMs > now ? this.RoomMechanicResolveAtMs - now : 0L;
+        long nextMs = this.RoomMechanicNextAtMs > now ? this.RoomMechanicNextAtMs - now : 0L;
+        return $"0684 RoomMechanic: active={this.Active}, room={this.CurrentRoom}, kind={this.CurrentKind}, tag={this.ActiveRoomMechanic}, "
+            + $"telegraph={telegraphMs}ms, next={nextMs}ms, tiles={this.RoomMechanicTiles.Length}, cycles={this.RoomMechanicCycles}, hits={this.RoomMechanicHits}.";
     }
 
     private void StartRun(GameLocation location, bool debugBossGate)
@@ -355,6 +401,7 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.BossGateReady = false;
         this.NodeSpawned = false;
+        this.ResetRoomMechanicState();
         this.AwaitingRoomInteraction = false;
         this.ActiveInteractionTile = Point.Zero;
         this.ClearInteractionObject(location);
@@ -386,6 +433,7 @@ internal sealed class Region2RoguelikeRunService
         {
             this.SpawnNodeEnemies(location, kind);
             this.NodeSpawned = true;
+            this.ArmRoomMechanicForCombat(location);
             Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.node", new
             {
                 node = this.CurrentNode,
@@ -398,6 +446,7 @@ internal sealed class Region2RoguelikeRunService
 
     private void CompleteCurrentNode(GameLocation location)
     {
+        this.ResetRoomMechanicState();
         if (IsCombatKind(this.CurrentKind))
         {
             this.UpdateCombatRecord();
@@ -419,11 +468,9 @@ internal sealed class Region2RoguelikeRunService
             }
             else
             {
-                this.CurrentKind = Region2NodeKind.FinalCache;
-                this.AwardNode(Region2NodeKind.FinalCache);
-                this.RouteComplete = true;
-                Game1.playSound("discoverMineral");
-                Game1.showGlobalMessage(ModEntry.T("airship.region2.rogue.complete", new { scrap = this.UnbankedScrap, shiny = this.UnbankedShiny }));
+                // 0684 audit correction: route-end Final Cache must remain the physical 0683 Chest interaction.
+                // Never auto-award it from the node-completion path.
+                this.BeginNode(location, Region2NodeKind.FinalCache);
             }
             return;
         }
@@ -609,6 +656,7 @@ internal sealed class Region2RoguelikeRunService
             Game1.playSound("wand");
             this.SpawnNodeEnemies(location, kind);
             this.NodeSpawned = true;
+            this.ArmRoomMechanicForCombat(location);
             Game1.drawObjectDialogue(ModEntry.T("airship.region2.interaction.cursed_awakened"));
             return;
         }
@@ -821,6 +869,180 @@ internal sealed class Region2RoguelikeRunService
         monster.Speed = speed;
         monster.modData[RegionExpeditionService.EnemyRoleKey] = role;
         return monster;
+    }
+
+    private void ArmRoomMechanicForCombat(GameLocation location)
+    {
+        this.ResetRoomMechanicState();
+        this.ActiveRoomMechanic = this.CurrentRoom switch
+        {
+            Region2RoomKind.MirrorGallery => "mirror_trace",
+            Region2RoomKind.InkboundStacks => "ink_sweep",
+            Region2RoomKind.WardenVault when this.CurrentKind == Region2NodeKind.Elite => "warden_seal",
+            _ => "none",
+        };
+        if (this.ActiveRoomMechanic == "none")
+            return;
+
+        this.RoomMechanicNextAtMs = Environment.TickCount64 + 2200L;
+        Game1.showGlobalMessage(ModEntry.T("airship.region2.mechanic.active", new
+        {
+            mechanic = ModEntry.T($"airship.region2.mechanic.{this.ActiveRoomMechanic}.name")
+        }));
+    }
+
+    private void UpdateRoomMechanic(GameLocation location)
+    {
+        if (this.ActiveRoomMechanic == "none")
+            return;
+        if (CountRunEnemies(location) <= 0)
+        {
+            this.ClearRoomMechanicTelegraph();
+            return;
+        }
+
+        long now = Environment.TickCount64;
+        if (this.RoomMechanicResolveAtMs > 0)
+        {
+            if (now < this.RoomMechanicResolveAtMs)
+                return;
+            this.ResolveRoomMechanicHit();
+            this.ClearRoomMechanicTelegraph();
+            this.RoomMechanicNextAtMs = now + RoomMechanicCooldownMs(this.ActiveRoomMechanic, this.CurrentNode);
+            return;
+        }
+
+        if (now < this.RoomMechanicNextAtMs)
+            return;
+        if (!this.TryArmRoomMechanicTelegraph(location, now))
+            this.RoomMechanicNextAtMs = now + 700L;
+    }
+
+    private bool TryArmRoomMechanicTelegraph(GameLocation location, long now)
+    {
+        Point player = PlayerTile();
+        int width = location.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 40;
+        int height = location.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 28;
+
+        switch (this.ActiveRoomMechanic)
+        {
+            case "mirror_trace":
+                Point origin = ClampArenaTile(player, width, height);
+                Point reflected = ClampArenaTile(new Point(width - 1 - origin.X, origin.Y), width, height);
+                this.RoomMechanicTiles = BuildSquareZone(origin, 1, width, height)
+                    .Concat(BuildSquareZone(reflected, 1, width, height))
+                    .Distinct()
+                    .ToArray();
+                this.RoomMechanicResolveAtMs = now + MirrorTelegraphMs;
+                Game1.playSound("wand");
+                break;
+
+            case "ink_sweep":
+                int row = Math.Clamp(player.Y, 4, Math.Max(4, height - 5));
+                this.RoomMechanicTiles = Enumerable.Range(4, Math.Max(1, width - 8))
+                    .Select(x => new Point(x, row))
+                    .ToArray();
+                this.RoomMechanicResolveAtMs = now + InkTelegraphMs;
+                Game1.playSound("batScreech");
+                break;
+
+            case "warden_seal":
+                Monster? warden = location.characters.OfType<Monster>().FirstOrDefault(m =>
+                    m.Health > 0
+                    && m.modData.TryGetValue(RegionExpeditionService.EnemyRoleKey, out string? role)
+                    && role.Equals("archive_warden", StringComparison.OrdinalIgnoreCase));
+                if (warden is null)
+                    return false;
+                Point center = ClampArenaTile(new Point((int)(warden.Position.X / 64f), (int)(warden.Position.Y / 64f)), width, height);
+                this.RoomMechanicTiles = BuildSquareZone(center, 2, width, height)
+                    .Where(p => p != center)
+                    .ToArray();
+                this.RoomMechanicResolveAtMs = now + VaultTelegraphMs;
+                Game1.playSound("discoverMineral");
+                break;
+
+            default:
+                return false;
+        }
+
+        this.RoomMechanicCycles++;
+        return this.RoomMechanicTiles.Length > 0;
+    }
+
+    private void ResolveRoomMechanicHit()
+    {
+        if (this.RoomMechanicTiles.Length == 0)
+            return;
+        Point player = PlayerTile();
+        if (!this.RoomMechanicTiles.Contains(player))
+            return;
+
+        int damage = this.ActiveRoomMechanic switch
+        {
+            "mirror_trace" => 8 + this.CurrentNode / 4,
+            "ink_sweep" => 7 + this.CurrentNode / 4,
+            "warden_seal" => 10 + this.CurrentNode / 3,
+            _ => 0,
+        };
+        if (damage <= 0)
+            return;
+
+        this.RoomMechanicHits++;
+        // Use the native Farmer damage pipeline so Cardcha defensive/revive effects remain authoritative.
+        Game1.player.takeDamage(damage, false, null);
+    }
+
+    private void ResetRoomMechanicState()
+    {
+        this.ActiveRoomMechanic = "none";
+        this.RoomMechanicNextAtMs = 0L;
+        this.RoomMechanicResolveAtMs = 0L;
+        this.RoomMechanicTiles = Array.Empty<Point>();
+        this.RoomMechanicCycles = 0;
+        this.RoomMechanicHits = 0;
+    }
+
+    private void ClearRoomMechanicTelegraph()
+    {
+        this.RoomMechanicResolveAtMs = 0L;
+        this.RoomMechanicTiles = Array.Empty<Point>();
+    }
+
+    private static long RoomMechanicCooldownMs(string tag, int node)
+    {
+        int depthCut = Math.Min(900, Math.Max(0, node - 1) * 90);
+        int baseline = tag switch
+        {
+            "mirror_trace" => 4500,
+            "ink_sweep" => 4800,
+            "warden_seal" => 4200,
+            _ => 5000,
+        };
+        return Math.Max(3000, baseline - depthCut);
+    }
+
+    private static Point ClampArenaTile(Point tile, int width, int height)
+        => new(Math.Clamp(tile.X, 2, Math.Max(2, width - 3)), Math.Clamp(tile.Y, 3, Math.Max(3, height - 4)));
+
+    private static IEnumerable<Point> BuildSquareZone(Point center, int radius, int width, int height)
+    {
+        for (int y = center.Y - radius; y <= center.Y + radius; y++)
+        for (int x = center.X - radius; x <= center.X + radius; x++)
+        {
+            if (x >= 1 && x < width - 1 && y >= 2 && y < height - 2)
+                yield return new Point(x, y);
+        }
+    }
+
+    private static void DrawHazardOutline(SpriteBatch batch, Point tile, Color color)
+    {
+        Vector2 local = Game1.GlobalToLocal(Game1.viewport, new Vector2(tile.X * 64f, tile.Y * 64f));
+        Rectangle r = new((int)local.X + 7, (int)local.Y + 7, 50, 50);
+        const int edge = 4;
+        batch.Draw(Game1.staminaRect, new Rectangle(r.X, r.Y, r.Width, edge), color);
+        batch.Draw(Game1.staminaRect, new Rectangle(r.X, r.Bottom - edge, r.Width, edge), color);
+        batch.Draw(Game1.staminaRect, new Rectangle(r.X, r.Y, edge, r.Height), color);
+        batch.Draw(Game1.staminaRect, new Rectangle(r.Right - edge, r.Y, edge, r.Height), color);
     }
 
     private void UpdateCombatRecord()
@@ -1215,6 +1437,7 @@ internal sealed class Region2RoguelikeRunService
         this.ChoicePending = false;
         this.ChoiceDeferred = false;
         this.NodeSpawned = false;
+        this.ResetRoomMechanicState();
         this.AwaitingRoomInteraction = false;
         this.ActiveInteractionTile = Point.Zero;
         this.PendingInternalRoomWarp = false;

@@ -253,6 +253,7 @@ internal sealed class ModEntry : Mod
         helper.Events.Display.RenderedWorld += this.VerdantSummons.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.MilestoneBosses.OnRenderedWorld;
         helper.Events.Display.RenderedWorld += this.RegionExpeditions.OnRenderedWorld;
+        helper.Events.Display.RenderedWorld += this.Region2Rogue.OnRenderedWorld;
         helper.Events.Display.MenuChanged += this.BookTab.OnMenuChanged;
         helper.Events.Display.RenderedActiveMenu += this.BookTab.OnRenderedActiveMenu;
         helper.Events.Input.ButtonPressed += this.Story.OnButtonPressed;
@@ -335,6 +336,7 @@ internal sealed class ModEntry : Mod
         helper.ConsoleCommands.Add("cardcha_milestone_route_status", "Show the real 40/60/80-card milestone route state.", (_, _) => this.Monitor.Log(this.MilestoneBosses.DescribeMilestoneRoute(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_expedition_status", "Show Region II roguelike + Region III/IV expedition runtime and route state.", (_, _) => this.Monitor.Log(this.Region2Rogue.Describe() + "\n" + this.RegionExpeditions.Describe(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_region2_rogue_status", "Show Region II 6-9 node route, risk/reward and Curator observation state.", (_, _) => this.Monitor.Log(this.Region2Rogue.Describe(), LogLevel.Alert));
+        helper.ConsoleCommands.Add("cardcha_region2_mechanic_status", "Show active Region II room-specific combat mechanic and telegraph state.", (_, _) => this.Monitor.Log(this.Region2Rogue.DescribeRoomMechanic(), LogLevel.Alert));
         helper.ConsoleCommands.Add("cardcha_test_region2", "TEST ONLY: enter Region II Forgotten Archive as a normal 6-9 node roguelike run.", (_, _) =>
         {
             this.Region2Rogue.PrepareNormalDebugEntry();
@@ -394,7 +396,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.51 0683 REGION II ROOM INTERACTION TEST",
+            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.52 0684 REGION II ROOM-SPECIFIC MECHANICS TEST",
             LogLevel.Info
         );
     }

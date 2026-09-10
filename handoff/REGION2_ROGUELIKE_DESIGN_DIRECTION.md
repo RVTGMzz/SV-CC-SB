@@ -177,7 +177,7 @@ Do not blindly implement a user example when a better solution serves the stated
 
 ## Relationship to 0679
 
-0679 remains the current technical source-of-truth build and provides:
+0679 is the historical Region II ownership foundation. The current technical line has since evolved through 0680–0684 and preserves:
 
 - Region II ownership of the 21–40 card band;
 - 250g Airship route foundation;
@@ -221,3 +221,8 @@ If the answer is no, the roguelike layer is not finished yet.
 ### 0683 implementation note
 
 Room variety must be functional, not decorative only. Non-combat nodes should ask the player to physically read the room: walk to a mirror, lectern, restorative focus, cursed object, or cache and interact. Physical objects belong in TMX/native Stardew object systems, never post-world overlays. This is presentation architecture, not a mandate that every future node use the same station or reward.
+
+
+### 0684 implementation note
+
+Room identity must change tactics, not only scenery. Mirror Gallery uses a reflected-position strike, Inkbound Stacks uses a readable horizontal ink sweep, and Warden Vault Elite nodes use a seal pulse centered on the Archive Warden. Archive Vestibule intentionally remains a lower-pressure entry/breathing room. These are transient combat VFX/mechanics, never physical `RenderedWorld` props, and should be tuned by playtest rather than treated as permanent numeric law.

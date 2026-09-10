@@ -1132,5 +1132,9 @@
   "airship.region2.interaction.object.finalcache": "the deep archive cache",
   "airship.region2.interaction.object.archive": "the archive focus",
   "airship.region2.interaction.cursed_awakened": "The Cursed Tome opens by itself. Ink-black pages scatter, and the archive wakes around you.",
-  "airship.region2.interaction.final_opened": "The deep archive cache opens. Unbanked cargo: {{scrap}} Scrap + {{shiny}} Shiny."
+  "airship.region2.interaction.final_opened": "The deep archive cache opens. Unbanked cargo: {{scrap}} Scrap + {{shiny}} Shiny.",
+  "airship.region2.mechanic.active": "The Archive shifts: {{mechanic}}.",
+  "airship.region2.mechanic.mirror_trace.name": "Reflected Trace",
+  "airship.region2.mechanic.ink_sweep.name": "Ink Sweep",
+  "airship.region2.mechanic.warden_seal.name": "Warden Seal"
 }
