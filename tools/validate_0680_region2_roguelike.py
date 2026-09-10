@@ -32,12 +32,15 @@ for token in [
     'RegionExpeditionService.EnemyMarkerKey',
     'RegionExpeditionService.EnemyRoleKey',
     'this.Airship.StartExternalRegionReturnFlight()',
-    'Emergency extract',
+    'this.UnbankedScrap = 0;',
+    'this.UnbankedShiny = 0;',
 ]:
     need(token in r2,'Region II roguelike token missing: '+token)
 need('public void OnRenderedWorld' not in r2,'Region II roguelike must not own a RenderedWorld physical renderer')
 need('6-9 nodes' in r2,'6-9 run-length contract missing')
 need('2-3 maps' not in r2,'illustrative map count leaked into runtime contract')
+need('airship.region2.rogue.extract_early' in r2,'early-extraction loss path missing')
+need('airship.region2.rogue.extract_complete' in r2,'completed-run extraction path missing')
 
 legacy=(SRC/'Services'/'RegionExpeditionService.cs').read_text(encoding='utf-8')
 need('public void SuspendLegacyRegion2RuntimeForRoguelike()' in legacy,'legacy Region II suspension hook missing')
