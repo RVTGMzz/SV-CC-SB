@@ -35,7 +35,8 @@ need('DrawArenaIdentity' not in rw,'arena physical props still drawn from Render
 need('DrawBossAuraVfx' in rw and 'DrawAttackTelegraph' in rw,'VFX-only RenderedWorld path missing')
 need('private void DrawArenaIdentity' not in svc,'legacy post-world arena renderer still exists')
 actor=svc[svc.index('internal void DrawActorAtMonsterDepth'):svc.index('private void DrawBossAuraVfx')]
-need('actor.getStandingY() / 10000f' in actor,'actor standing-Y depth missing')
+need('(actor.Position.Y + 64f) / 10000f' in actor,'compile-safe actor feet depth missing')
+need('actor.Health <= 0' not in actor,'defeated boss body would disappear before defeat state finishes')
 need('0.99f' not in actor and '0.985f' not in actor,'fixed top-layer depth returned')
 for scale in ['scale = 1.95f','scale = 1.85f','scale = 1.80f']:
     need(scale in actor,'expected native-ish boss scale missing: '+scale)
@@ -77,7 +78,6 @@ for name,source in maps.items():
     data=ground.find('data'); vals=[x.strip() for x in (data.text or '').replace('\n','').split(',') if x.strip()]
     need(len(vals)==w*h,f'{name}: ground CSV {len(vals)} != {w*h}')
     need(sum(1 for x in vals if int(x)>0)>=10,f'{name}: authored ground identity too sparse')
-    # strict CSV for every layer in each boss arena
     for layer in root.findall('layer'):
         d=layer.find('data')
         if d is None or d.attrib.get('encoding')!='csv': continue
