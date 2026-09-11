@@ -1,0 +1,167 @@
+name: Cardcha 0691 Airship Prop Set 02 Harbor Furnishings
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings
+    paths-ignore:
+      - 'handoff/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup 0691 asset pipeline
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Materialize 0691 harbor prop assets
+        run: python3 tools/alpha28_0691_airship_prop_set02_assets.py
+
+      - name: Integrate 0691 Harbor furnishings
+        run: python3 tools/alpha28_0691_airship_prop_set02_harbor_furnishings.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0691 Harbor furnishings
+        run: python3 tools/validate_0691_airship_prop_set02_harbor_furnishings.py
+
+      - name: Freeze inherited 0690 Airship hero art and Boss/Region content
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin cardcha-alpha28-0690-airship-interior-visual-rebuild:refs/remotes/origin/cardcha-alpha28-0690-airship-interior-visual-rebuild
+          git diff --exit-code origin/cardcha-alpha28-0690-airship-interior-visual-rebuild -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/airship_props/set01_redux \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/region1_rooms \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0691 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json \
+            tools/alpha28_0691_airship_prop_set02_assets.py \
+            tools/alpha28_0691_airship_prop_set02_harbor_furnishings.py \
+            tools/validate_0691_airship_prop_set02_harbor_furnishings.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.58 Airship Set02 Harbor furnishings [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings
+          fi
+
+      - name: Package 0691 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.58_0691_AirshipPropSet02_HarborFurnishings_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          import struct
+          import zipfile
+          import xml.etree.ElementTree as ET
+
+          p = Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.58_0691_AirshipPropSet02_HarborFurnishings_TEST.zip')
+
+          def png_size(raw):
+              assert raw[:8] == b'\x89PNG\r\n\x1a\n'
+              return struct.unpack('>II', raw[16:24])
+
+          expected = {
+              'departures_schedule_board.png': (96, 64),
+              'waiting_bench.png': (96, 48),
+              'luggage_cart.png': (64, 64),
+          }
+
+          with zipfile.ZipFile(p) as z:
+              names = set(z.namelist())
+              manifest = json.loads(z.read('Cardcha/manifest.json'))
+              assert manifest['Version'] == '0.3.0-alpha.28.0.4.14.4.5.12.58'
+              dll = z.read('Cardcha/Cardcha.dll')
+              assert dll[:2] == b'MZ' and len(dll) > 50000
+
+              root = 'Cardcha/assets/airship_props/set02_harbor/'
+              for name, size in expected.items():
+                  q = root + name
+                  assert q in names, q
+                  assert png_size(z.read(q)) == size, (q, png_size(z.read(q)))
+              meta = json.loads(z.read(root + 'set02_harbor_manifest.json'))
+              assert meta['version'] == '0691-set02-harbor'
+              assert meta['runtimeOverlays'] == []
+
+              q = 'Cardcha/assets/sky_dock_interior.tmx'
+              xml = ET.fromstring(z.read(q))
+              assert (int(xml.attrib['width']), int(xml.attrib['height'])) == (30, 18)
+              ts = {t.attrib.get('name'): int(t.attrib['firstgid']) for t in xml.findall('tileset')}
+              assert ts['CardchaDeparturesBoard0691'] == 5500
+              assert ts['CardchaWaitingBench0691'] == 5600
+              assert ts['CardchaLuggageCart0691'] == 5700
+              for layer in xml.findall('layer'):
+                  data = layer.find('data')
+                  if data is None or data.attrib.get('encoding') != 'csv':
+                      continue
+                  toks = [x.strip() for x in (data.text or '').split(',')]
+                  assert toks and all(toks)
+                  assert len(toks) == 30 * 18
+
+              inherited = 'Cardcha/assets/airship_props/set01_redux/'
+              for q in [
+                  inherited + 'observation_window_base.png',
+                  inherited + 'navigation_console_base.png',
+                  inherited + 'observation_window_overlay_1.png',
+                  inherited + 'navigation_console_overlay_4.png',
+              ]:
+                  assert q in names, q
+
+          print('0691 package audit PASS:', p)
+          PY
+
+      - name: Upload 0691 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.58_0691_AirshipPropSet02_HarborFurnishings_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.58_0691_AirshipPropSet02_HarborFurnishings_TEST.zip.sha256
+          if-no-files-found: error
