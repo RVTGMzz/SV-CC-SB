@@ -8,6 +8,8 @@ The purpose is to prevent a recurring failure mode: an approved source sprite or
 
 **Map/room rule:** whenever sprite work is being integrated into a playable room/map, `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md` is also mandatory. Sprite fidelity and room construction are separate contracts and both must pass.
 
+**Character/creature rule:** whenever the sprite represents an NPC, companion, mascot, pet, monster, boss, summon, or other animated world actor, `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md` is also mandatory. Actor art must be compared against relevant Stardew Valley vanilla references and validated in a real Stardew scene before it can be considered final. Approved environment-prop preservation rules do not mean oversized or stylistically disconnected character art should be bitmap-shrunk and retained unchanged; actor style translation may require a deliberate rebuild at a Stardew-compatible footprint while preserving identity.
+
 ---
 
 ## Core principle
@@ -95,6 +97,8 @@ A 112x96 gate is naturally a 7x6-tile visual asset. A large window, counter, con
 
 Tile the sprite faithfully instead of shrinking it.
 
+For character/creature sprites, use the separate actor style guide rather than applying this prop rule mechanically. A character may need to be deliberately rebuilt at a Stardew-compatible footprint instead of preserving an oversized illustration-scale bitmap one-to-one.
+
 ---
 
 ## Step 3 - Follow the approved full-room concept composition
@@ -180,6 +184,8 @@ A green workflow does not mean the sprite pass is visually correct.
 
 Screenshots from the actual game override assumptions made by validators or preview tools.
 
+For character/creature sprites, screenshots must include the actor beside the Farmer and relevant vanilla actors/creatures wherever practical. Looking correct on a transparent background is not sufficient.
+
 ---
 
 ## Step 6 - Fewer passes, higher fidelity
@@ -199,6 +205,8 @@ Avoid repeated loops of:
 
 If visual fidelity is wrong, return to the source art and rendering architecture rather than creating a new interpretation.
 
+For characters/creatures, follow the dedicated workflow in `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md`: inventory/identity lock -> vanilla reference study -> target-size silhouette/base sprite -> directional/action animation -> in-game comparison/polish.
+
 ---
 
 # Research-before-invention rule
@@ -213,6 +221,8 @@ For unfamiliar visual ownership, research should answer at least:
 - how collision is separated from visual transparency;
 - whether a native `Object`, `Furniture`, terrain feature, or actor is more appropriate than raw map art;
 - whether the proposed technique is proven in-game, not just theoretically valid XML.
+
+For character/creature work, research must also compare relevant vanilla Stardew actor scale, proportions, silhouette, palette, detail density, grounding, and animation cadence before the sprite is finalized.
 
 Do not substitute a newly invented repository convention for known Stardew behavior unless there is a documented technical reason.
 
@@ -231,14 +241,16 @@ Do not substitute a newly invented repository convention for known Stardew behav
 - validate exact footprint and composition;
 - test in the real game early;
 - research working Stardew/xTile patterns before inventing a new one;
+- for actors, research and compare against relevant vanilla Stardew references;
 - mark visual acceptance PENDING until Ron confirms screenshots/gameplay.
 
 ## DO NOT
 
 - treat approved art as loose inspiration;
 - redraw or regenerate it for convenience;
-- shrink it merely to reduce tile count;
+- shrink large props merely to reduce tile count;
 - enlarge tiny art until the style breaks;
+- bitmap-shrink character illustration art as a substitute for a deliberate Stardew-style rebuild;
 - repack unrelated props into an unreadable atlas without a clear manifest;
 - call an asset integrated just because it exists in the ZIP;
 - use unsupported/custom layers without proving they render;
@@ -260,25 +272,28 @@ Before code/TMX changes:
 - [ ] Collision owner/footprint recorded.
 - [ ] Approved concept composition recorded.
 - [ ] If placed into a playable map, `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md` has been reviewed and the shell/frame contract is satisfied.
+- [ ] If the asset is a character/creature actor, `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md` has been reviewed and relevant vanilla references are recorded.
 
 Before packaging:
 
-- [ ] No unapproved scaling/redraw occurred.
+- [ ] No unapproved environment-prop scaling/redraw occurred.
 - [ ] Every required non-transparent sprite region is placed.
-- [ ] Complete multi-tile footprints are present.
+- [ ] Complete multi-tile prop footprints are present.
 - [ ] Physical art uses a confirmed visible/native rendering owner.
-- [ ] Collision matches visible bases.
-- [ ] Major room composition matches the approved concept.
+- [ ] Collision matches visible bases/bodies.
+- [ ] Major room composition matches the approved concept where applicable.
+- [ ] Character/creature art has been tested at actual gameplay size where applicable.
 - [ ] Deterministic preview inspected where possible.
 - [ ] Technical CI passes.
 - [ ] Visual acceptance is still marked PENDING unless Ron explicitly approved the in-game result.
 
 After in-game test:
 
-- [ ] Ron checked visual density and composition.
-- [ ] Ron checked scale/proportion against source art.
-- [ ] Ron checked front/behind occlusion.
+- [ ] Ron checked visual density and composition where applicable.
+- [ ] Ron checked scale/proportion against source art or approved actor identity.
+- [ ] Ron checked front/behind occlusion / actor depth.
 - [ ] Ron checked movement/collision/interaction.
+- [ ] Character/creature actors were compared in-context with Farmer/vanilla references where applicable.
 - [ ] Only after that may the visual pass be marked ACCEPTED.
 
 ---
@@ -289,6 +304,7 @@ This guide supplements, and does not replace:
 
 - `AGENTS.md`;
 - `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md`;
+- `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md` for any character/creature actor work;
 - `CARDCHA_RENDERING_DEPTH_CONTRACT.md`;
 - current branch handoff/source-of-truth documents.
 
