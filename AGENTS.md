@@ -20,6 +20,27 @@ In particular:
 
 If a sprite task cannot satisfy the guide cleanly, stop and document the conflict instead of silently reinterpreting the source art.
 
+## Mandatory room / map construction guide
+
+Any change that creates, rebuilds, expands, decorates, frames, or visually polishes an interior, hub, expedition room, dungeon, boss arena, or any other playable map **MUST read and follow `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md` before implementation begins**.
+
+This is also repository-wide, not Airship-only.
+
+In particular:
+
+- build the room/map shell or environmental frame before decorating it;
+- indoor rooms need a coherent Stardew-like perimeter: back wall, side boundaries, lower floor edge, and integrated exits/openings;
+- expedition/dungeon/boss maps need an equivalent environmental frame using the biome itself, such as foliage, trees, cliffs, rocks, ruins, water edges, roots, snow banks, or other appropriate terrain masses;
+- do not start from a giant empty rectangular floor and try to create believability by scattering props afterward;
+- negative space must be intentional and framed, not accidental emptiness;
+- props must belong to architectural or environmental zones instead of floating independently in open floor;
+- visible boundaries and collision must agree;
+- before inventing a new map language, study comparable vanilla Stardew maps and established high-quality Stardew mods for structural patterns, without copying third-party art;
+- map work should proceed in passes: reference/topology -> shell/frame -> faithful composition -> polish -> in-game acceptance;
+- CI success is technical acceptance only; visual map acceptance remains PENDING until Ron approves the real in-game result.
+
+If a map/room task cannot satisfy this guide cleanly, stop and document the conflict instead of hiding a weak shell with extra props or invisible blockers.
+
 ## Rendering depth is a gameplay contract
 
 ### NON-NEGOTIABLE RULE: physical world art must never be painted from `Display.RenderedWorld`
