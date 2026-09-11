@@ -6,6 +6,8 @@ This document is the permanent source-of-truth for any Cardcha work that creates
 
 The purpose is to prevent a recurring failure mode: an approved source sprite or concept is treated as loose inspiration, then redrawn, rescaled, rearranged, or repackaged until the in-game result no longer resembles the approved design.
 
+**Map/room rule:** whenever sprite work is being integrated into a playable room/map, `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md` is also mandatory. Sprite fidelity and room construction are separate contracts and both must pass.
+
 ---
 
 ## Core principle
@@ -113,6 +115,8 @@ Do not take an approved dense room concept and reduce it to several isolated pro
 ### Composition contract
 
 Before integration, record the major prop zones/anchors from the approved concept. Validation should ensure the final map still contains those major groups in the expected regions.
+
+The room/map shell and environmental frame must also satisfy `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md`. A faithful prop layout cannot compensate for an unfinished or floating map shell.
 
 If the approved composition conflicts with gameplay anchors, stop and redesign the layout consciously. Do not silently delete or move the visual group.
 
@@ -255,6 +259,7 @@ Before code/TMX changes:
 - [ ] Layer/rendering owner selected from a proven Stardew path.
 - [ ] Collision owner/footprint recorded.
 - [ ] Approved concept composition recorded.
+- [ ] If placed into a playable map, `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md` has been reviewed and the shell/frame contract is satisfied.
 
 Before packaging:
 
@@ -283,6 +288,7 @@ After in-game test:
 This guide supplements, and does not replace:
 
 - `AGENTS.md`;
+- `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md`;
 - `CARDCHA_RENDERING_DEPTH_CONTRACT.md`;
 - current branch handoff/source-of-truth documents.
 
