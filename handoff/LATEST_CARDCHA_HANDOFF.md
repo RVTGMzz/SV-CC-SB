@@ -10,7 +10,7 @@ Current production materialized source head: `39e13a370281b29f77d94be497603a3243
 
 Current production handoff: `handoff/ALPHA28_0695_REGION1_ENVIRONMENT_PROP_PRODUCTION_INTEGRATION.md`
 
-0696 status: **WIP Airship visual recovery.** Ron supplied the approved sprite + concept source, locked a permanent sprite-production workflow, and then added a second permanent repository-wide rule for building rooms/maps with proper Stardew-like framing.
+0696 status: **WIP Airship visual recovery.** Ron supplied the approved sprite + concept source, locked a permanent sprite-production workflow, added a permanent repository-wide room/map construction rule, and then added a mandatory Stardew-style audit rule for all character/creature sprites.
 
 ## Permanent sprite rule
 
@@ -49,7 +49,35 @@ Key permanent map rules:
 - required pass order: reference/topology -> shell/frame -> faithful composition -> polish -> in-game acceptance;
 - CI is technical acceptance only; map visual acceptance remains PENDING until Ron explicitly approves the actual in-game result.
 
-`AGENTS.md` now makes both the sprite guide and map/room guide mandatory repository-wide.
+## Permanent character / creature Stardew style rule
+
+Every future task that creates, rebuilds, animates, replaces, renders, or visually validates an NPC, companion, mascot, pet, monster, boss, summon, or other animated world actor MUST read and follow:
+
+`CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md`
+
+Key permanent actor rules:
+- a character is judged inside a Stardew scene, not only on a transparent sprite sheet;
+- before finalization, study at least two relevant vanilla Stardew actor/creature references where practical;
+- compare real gameplay scale, body proportions, silhouette economy, detail density, palette/value range, outline/shading, ground anchoring, frame layout, and animation cadence;
+- preserve Cardcha identity/personality while translating the actor into Stardew's visual language;
+- do not bitmap-shrink oversized/high-detail character art as a substitute for a deliberate target-size rebuild;
+- test beside Farmer and relevant vanilla actors/creatures in a real map;
+- if the sprite produces a "different game" effect, the visual pass is FAIL even if the isolated art looks good;
+- CI is technical acceptance only; actor visual acceptance remains PENDING until Ron approves the in-game result.
+
+### Mimi / ChaCha status
+
+Mimi and ChaCha are now explicitly flagged as:
+
+**STYLE AUDIT / REWORK CANDIDATES — VISUAL FINALITY NOT ACCEPTED YET**
+
+Specific governing checklist:
+
+`handoff/MIMI_CHACHA_STYLE_REWORK_CHECKLIST.md`
+
+No Mimi or ChaCha redraw is claimed in this documentation pass. Their next visual work must begin with asset/runtime inventory + identity lock + Stardew reference study before any final sprite sheet is produced.
+
+`AGENTS.md` now makes the sprite guide, room/map guide, and character/creature style guide mandatory repository-wide.
 
 ## Existing production verification
 
