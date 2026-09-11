@@ -2,6 +2,24 @@
 
 These rules apply to every Cardcha change in this repository. They are not optional polish notes.
 
+## Mandatory sprite-production guide
+
+Any change that creates, edits, imports, rebuilds, scales, tiles, places, or validates sprites/physical visual assets **MUST read and follow `CARDCHA_SPRITE_PRODUCTION_GUIDE.md` before implementation begins**.
+
+This is a repository-wide rule, not an Airship-only convention.
+
+In particular:
+
+- approved source art is production source-of-truth, not loose reference material;
+- do not redraw or rescale approved art for implementation convenience;
+- large Stardew props should use faithful multi-tile footprints rather than being shrunk merely to reduce tile count;
+- approved room concepts must retain their major composition in production maps;
+- sprite integration must be validated for actual visible footprint/render ownership, not only file/GID presence;
+- use proven Stardew/xTile/native rendering patterns before inventing a new map-layer convention;
+- CI success is technical acceptance only; visual acceptance remains PENDING until Ron approves the real in-game result.
+
+If a sprite task cannot satisfy the guide cleanly, stop and document the conflict instead of silently reinterpreting the source art.
+
 ## Rendering depth is a gameplay contract
 
 ### NON-NEGOTIABLE RULE: physical world art must never be painted from `Display.RenderedWorld`
