@@ -34,6 +34,9 @@ jobs:
       - name: Patch 0693 TMX to flat RGBA runtime paths
         run: python3 tools/alpha28_0693_airship_density_tmx_flat_patch.py
 
+      - name: Clear protected Airship gameplay anchors
+        run: python3 tools/alpha28_0693_airship_anchor_clear.py
+
       - name: Validate repository rendering depth contract
         run: python3 tools/validate_render_depth_contract.py
 
@@ -82,6 +85,7 @@ jobs:
             tools/alpha28_0693_airship_density_flatten.py \
             tools/alpha28_0693_airship_interior_density_rebuild.py \
             tools/alpha28_0693_airship_density_tmx_flat_patch.py \
+            tools/alpha28_0693_airship_anchor_clear.py \
             tools/validate_0693_airship_interior_density_rebuild_v2.py
           if ! git diff --cached --quiet; then
             git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.60 Airship interior density rebuild [skip ci]'
