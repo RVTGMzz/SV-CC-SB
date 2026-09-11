@@ -227,7 +227,7 @@ dock.write(dock_path, encoding="UTF-8", xml_declaration=True)
 # Force one clean vanilla-furniture cleanup pass when loading the 0691 dock.
 # Deck remains on its 0690 marker because 0691 does not change Deck physical art.
 service_path = SRC / "Services/AirshipFoundationService.cs"
-service = read(service)
+service = read(service_path)
 dock_fn = re.compile(
     r"(private void EnsureSkyDockVanillaFurniture\(GameLocation dock\)\s*\{.*?"
     r"private static void ClearInteriorDecor)",
