@@ -41,6 +41,27 @@ In particular:
 
 If a map/room task cannot satisfy this guide cleanly, stop and document the conflict instead of hiding a weak shell with extra props or invisible blockers.
 
+## Mandatory character / creature Stardew style guide
+
+Any change that creates, rebuilds, animates, replaces, renders, or visually validates an NPC, companion, mascot, pet, monster, boss, summon, or other character-like world actor **MUST read and follow `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md` before implementation begins**.
+
+Character work must be judged in Stardew context, not on a transparent sprite sheet alone.
+
+Before an actor visual can be called final:
+
+- research at least two relevant vanilla Stardew actor/creature references where practical;
+- compare target scale, proportions, silhouette economy, detail density, palette/value range, outline/shading language, feet/ground anchor, frame layout, and animation cadence;
+- preserve Cardcha identity while translating the world sprite into Stardew's visual language;
+- do not rely on bitmap shrinking to convert oversized/high-detail art into a Stardew actor;
+- test the actor beside the Farmer and at least one relevant vanilla NPC/creature in a real map;
+- check movement/action frames in context, not only idle art;
+- treat a "different game" look as a visual FAIL even when the isolated sprite is attractive;
+- keep visual acceptance PENDING until Ron approves the real in-game result.
+
+**Mimi and ChaCha are currently flagged as mandatory STYLE AUDIT / REWORK CANDIDATES.** Their existing art must not be treated as visually final merely because it is already implemented. Follow `handoff/MIMI_CHACHA_STYLE_REWORK_CHECKLIST.md` before rebuilding them.
+
+If character identity and Stardew compatibility conflict, stop and document the tradeoff for review instead of silently replacing the character or accepting a visually disconnected result.
+
 ## Rendering depth is a gameplay contract
 
 ### NON-NEGOTIABLE RULE: physical world art must never be painted from `Display.RenderedWorld`
