@@ -85,6 +85,36 @@ expected_airship = parent_airship.replace("            Region1StardewDecorRender
 req(expected_airship != parent_airship, "parent renderer line not found for exact source freeze")
 req(airship == expected_airship, "AirshipFoundationService changed beyond removal of legacy Region I physical renderer call")
 
+# The 0676B safety hook for Region1StardewDecorRenderer becomes invalid once the renderer is
+# genuinely deleted. Retire only that hook and adjust the remaining-patch count/message; all other
+# post-world safety suppression stays frozen.
+safety_path = "src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs"
+safety = (SRC/"Patches/WorldPhysicalOverlaySafetyPatch.cs").read_text(encoding="utf-8")
+parent_safety = parent_text(safety_path)
+obsolete_hook = '''        patched += PatchSkip(
+            harmony,
+            typeof(Region1StardewDecorRenderer),
+            "Draw",
+            new[] { typeof(SpriteBatch), typeof(GameLocation), typeof(int) },
+            monitor
+        );
+
+'''
+req(obsolete_hook in parent_safety, "parent Region I renderer safety hook not found")
+expected_safety = parent_safety.replace(obsolete_hook, "", 1)
+old_log = '''            $"0676B world-depth safety active: suppressed {patched}/5 confirmed post-world physical renderer(s). Static props must migrate to TMX/Furniture/native entities before being restored.",
+            patched == 5 ? LogLevel.Info : LogLevel.Warn
+'''
+new_log = '''            $"0695 world-depth safety active: suppressed {patched}/4 remaining post-world physical renderer(s). Region I Hunt Run environment art is now TMX-owned; remaining static props must migrate before their safety hooks are retired.",
+            patched == 4 ? LogLevel.Info : LogLevel.Warn
+'''
+req(old_log in expected_safety, "parent safety log/count contract not found")
+expected_safety = expected_safety.replace(old_log, new_log, 1)
+req(safety == expected_safety, "WorldPhysicalOverlaySafetyPatch changed beyond retiring the migrated Region I renderer hook")
+req("Region1StardewDecorRenderer" not in safety, "obsolete Region I safety hook remains")
+req("typeof(AirshipFoundationService)" in safety and '"DrawRegion1Details"' in safety, "Region I main-hub safety hook was lost")
+req(safety.count("patched += PatchSkip(") == 4, "expected exactly four remaining physical-overlay safety hooks")
+
 signatures = []
 for room in ROOMS:
     current_path = ROOM_DIR / room
