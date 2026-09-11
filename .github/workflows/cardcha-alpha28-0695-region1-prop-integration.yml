@@ -62,6 +62,7 @@ jobs:
               src/Cardcha/ModEntry.cs|\
               src/Cardcha/Services/AirshipFoundationService.cs|\
               src/Cardcha/Services/Region1StardewDecorRenderer.cs|\
+              src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs|\
               src/Cardcha/assets/region1_environment_decor.png|\
               src/Cardcha/assets/region1_rooms/*)
                 ;;
