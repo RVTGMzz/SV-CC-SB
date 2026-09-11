@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - cardcha-alpha28-0690-airship-interior-visual-rebuild
+    paths-ignore:
+      - 'handoff/**'
 
 permissions:
   contents: write
