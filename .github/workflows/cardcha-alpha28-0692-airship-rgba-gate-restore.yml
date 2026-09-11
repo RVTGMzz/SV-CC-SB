@@ -1,0 +1,145 @@
+name: Cardcha 0692 Airship RGBA Gate Restore
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0692-airship-rgba-gate-restore
+    paths-ignore:
+      - 'handoff/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup 0692 asset pipeline
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Apply 0692 RGBA and gate restore hotfix
+        run: python3 tools/alpha28_0692_airship_rgba_gate_restore.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0692 Airship runtime visibility contracts
+        run: python3 tools/validate_0692_airship_rgba_gate_restore.py
+
+      - name: Freeze inherited Boss and Region content
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings:refs/remotes/origin/cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings
+          git diff --exit-code origin/cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings -- \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/region1_rooms \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0692 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json \
+            tools/alpha28_0692_airship_rgba_gate_restore.py \
+            tools/validate_0692_airship_rgba_gate_restore.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.59 Airship RGBA gate restore [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0692-airship-rgba-gate-restore
+          fi
+
+      - name: Package 0692 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.59_0692_Airship_RGBA_GateRestore_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, xml.etree.ElementTree as ET
+
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.59_0692_Airship_RGBA_GateRestore_TEST.zip')
+          expected=[
+            'airship_0692_route_notice_board.png',
+            'airship_0692_boarding_gate_arch.png',
+            'airship_0692_signal_lamp.png',
+            'airship_0692_cargo_parcel_crate.png',
+            'airship_0692_observation_window.png',
+            'airship_0692_navigation_console.png',
+            'airship_0692_collision_blocker.png',
+            'airship_0692_departures_schedule_board.png',
+            'airship_0692_waiting_bench.png',
+            'airship_0692_luggage_cart.png',
+            'airship_gate_auth.png',
+          ]
+          def color_type(raw):
+              assert raw[:8]==b'\x89PNG\r\n\x1a\n' and raw[12:16]==b'IHDR'
+              return raw[25]
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.59'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              for name in expected:
+                  q='Cardcha/assets/'+name
+                  assert q in names,q
+                  assert color_type(z.read(q))==6,(q,color_type(z.read(q)))
+              for q in ['Cardcha/assets/sky_dock_interior.tmx','Cardcha/assets/airship_deck.tmx']:
+                  root=ET.fromstring(z.read(q))
+                  props={p.attrib.get('name'):p.attrib.get('value') for ps in root.findall('properties') for p in ps.findall('property')}
+                  assert props.get('CardchaTextureContract')=='0692|flat-rgba-tmx-textures|png-color-type-6'
+                  for ts in root.findall('tileset'):
+                      if int(ts.attrib.get('firstgid','0')) < 5000: continue
+                      image=ts.find('image')
+                      assert image is not None
+                      source=image.attrib['source']
+                      assert '/' not in source and '\\' not in source,(q,ts.attrib.get('name'),source)
+                      tex='Cardcha/assets/'+source
+                      assert tex in names,tex
+                      assert color_type(z.read(tex))==6,(tex,color_type(z.read(tex)))
+          print('0692 package audit PASS:',p)
+          PY
+
+      - name: Upload 0692 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0692-airship-rgba-gate-restore
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.59_0692_Airship_RGBA_GateRestore_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.59_0692_Airship_RGBA_GateRestore_TEST.zip.sha256
+          if-no-files-found: error
