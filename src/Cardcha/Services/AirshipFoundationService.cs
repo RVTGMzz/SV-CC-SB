@@ -2404,90 +2404,26 @@ private void EnsureDeckVanillaFurniture(GameLocation deck)
 {
     if (ReferenceEquals(this.DeckDecorAppliedLocation, deck)
         && deck.modData.TryGetValue(InteriorDecorMarkerKey, out string? version)
-        && string.Equals(version, InteriorDecorVersion + "-0677-bridge", StringComparison.Ordinal))
-    {
+        && string.Equals(version, InteriorDecorVersion + "-0690-bridge", StringComparison.Ordinal))
         return;
-    }
 
     this.DeckDecorAppliedLocation = deck;
     ClearInteriorDecor(deck);
-
-    // 0677: Bridge is a lived-in flying workshop, not a showroom and not a test grid.
-    // Wall identity. Real Stardew furniture owns collision and draw depth.
-    TryAddInteriorFurniture(deck, "(F)1614", 5, 1);
-    TryAddInteriorFurniture(deck, "(F)1614", 17, 1);
-    TryAddInteriorFurniture(deck, "(F)1541", 9, 1);
-    TryAddInteriorFurniture(deck, "(F)1541", 14, 1);
-    TryAddInteriorFurniture(deck, "(F)1289", 2, 4);
-    TryAddInteriorFurniture(deck, "(F)1289", 20, 4);
-
-    // LEFT: engine / hull workshop. Main x=10..14 spine stays clear.
-    TryAddInteriorFurniture(deck, "(F)1443", 3, 5);
-    TryAddInteriorFurniture(deck, "(F)1120", 1, 6, heldId: "(F)1369");
-    TryAddInteriorFurniture(deck, "(F)1399", 2, 10, heldId: "(F)1369");
-    TryAddInteriorFurniture(deck, "(F)1390", 5, 10);
-    TryAddInteriorFurniture(deck, "(F)704", 3, 11);
-
-    // RIGHT: navigation / resonance workshop.
-    TryAddInteriorFurniture(deck, "(F)1443", 20, 5);
-    TryAddInteriorFurniture(deck, "(F)1132", 21, 6, heldId: "(F)1368");
-    TryAddInteriorFurniture(deck, "(F)1399", 20, 10, heldId: "(F)1369");
-    TryAddInteriorFurniture(deck, "(F)1390", 18, 10);
-    TryAddInteriorFurniture(deck, "(F)1132", 21, 11, heldId: "(F)1368");
-
-    // Rugs group functions without blocking movement.
-    TryAddInteriorFurniture(deck, "(F)1456", 9, 6);
-    TryAddInteriorFurniture(deck, "(F)1623", 2, 9);
-    TryAddInteriorFurniture(deck, "(F)1623", 18, 9);
-
-    deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0677-bridge";
+    // 0690: physical bridge furnishings are authored into airship_deck.tmx.
+    deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0690-bridge";
 }
 
 private void EnsureSkyDockVanillaFurniture(GameLocation dock)
 {
     if (ReferenceEquals(this.SkyDockDecorAppliedLocation, dock)
         && dock.modData.TryGetValue(InteriorDecorMarkerKey, out string? version)
-        && string.Equals(version, InteriorDecorVersion + "-0677-dock", StringComparison.Ordinal))
-    {
+        && string.Equals(version, InteriorDecorVersion + "-0690-dock", StringComparison.Ordinal))
         return;
-    }
 
     this.SkyDockDecorAppliedLocation = dock;
     ClearInteriorDecor(dock);
-
-    // Wall rhythm creates three visual bays instead of one empty rectangle.
-    TryAddInteriorFurniture(dock, "(F)1614", 4, 1);
-    TryAddInteriorFurniture(dock, "(F)1614", 14, 1);
-    TryAddInteriorFurniture(dock, "(F)1614", 24, 1);
-    TryAddInteriorFurniture(dock, "(F)1541", 9, 1);
-    TryAddInteriorFurniture(dock, "(F)1541", 20, 1);
-
-    // LEFT: service / Lost & Found.
-    TryAddInteriorFurniture(dock, "(F)1289", 2, 5);
-    TryAddInteriorFurniture(dock, "(F)1443", 2, 8);
-    TryAddInteriorFurniture(dock, "(F)1399", 3, 9, heldId: "(F)1369");
-    TryAddInteriorFurniture(dock, "(F)1390", 7, 11);
-    TryAddInteriorFurniture(dock, "(F)1623", 2, 10);
-    TryAddInteriorChest(dock, ResolveSkyDockLostFoundTile(dock));
-
-    // ROUTE DESK: frame the real route tile, never cover it.
-    TryAddInteriorFurniture(dock, "(F)1120", 6, 5, heldId: "(F)1368");
-    TryAddInteriorFurniture(dock, "(F)1443", 9, 5);
-    TryAddInteriorFurniture(dock, "(F)704", 10, 5);
-
-    // RIGHT: boarding / luggage side. Bay tile 23,8 remains open.
-    TryAddInteriorFurniture(dock, "(F)1289", 27, 5);
-    TryAddInteriorFurniture(dock, "(F)1443", 21, 6);
-    TryAddInteriorFurniture(dock, "(F)1443", 26, 6);
-    TryAddInteriorFurniture(dock, "(F)1399", 25, 11, heldId: "(F)1369");
-    TryAddInteriorFurniture(dock, "(F)1390", 27, 11);
-    TryAddInteriorFurniture(dock, "(F)1456", 22, 9);
-
-    // Waiting nook, offset from the center arrival/exit corridor.
-    TryAddInteriorFurniture(dock, "(F)432", 10, 11, rotation: 0);
-    TryAddInteriorFurniture(dock, "(F)1399", 9, 12, heldId: "(F)1362");
-
-    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0677-dock";
+    // 0690: physical dock furnishings are authored into sky_dock_interior.tmx.
+    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0690-dock";
 }
 
 private static void ClearInteriorDecor(GameLocation location)

@@ -1,0 +1,34 @@
+{
+  "version": "0690-set01-redux",
+  "staticPhysicalOwner": "TMX map layers",
+  "runtimeOverlays": [
+    "observation_window_overlay_1..4",
+    "navigation_console_overlay_1..4"
+  ],
+  "props": {
+    "route_notice_board": [
+      80,
+      80
+    ],
+    "boarding_gate_arch": [
+      112,
+      96
+    ],
+    "signal_lamp": [
+      32,
+      48
+    ],
+    "cargo_parcel_crate": [
+      48,
+      48
+    ],
+    "observation_window_base": [
+      160,
+      80
+    ],
+    "navigation_console_base": [
+      112,
+      80
+    ]
+  }
+}

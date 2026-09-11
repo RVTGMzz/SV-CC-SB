@@ -12,6 +12,23 @@ internal static class AirshipInteriorStardewRenderer
 {
     private const string UpgradeAtlasPath = "assets/airship_upgrade_visuals.png";
     private const string HubDecorAtlasPath = "assets/airship_hub_decor.png";
+    private const string PropRoot0690 = "assets/airship_props/set01_redux";
+    private static readonly string[] WindowOverlayPaths0690 =
+    {
+        PropRoot0690 + "/observation_window_overlay_1.png",
+        PropRoot0690 + "/observation_window_overlay_2.png",
+        PropRoot0690 + "/observation_window_overlay_3.png",
+        PropRoot0690 + "/observation_window_overlay_4.png",
+    };
+    private static readonly string[] ConsoleOverlayPaths0690 =
+    {
+        PropRoot0690 + "/navigation_console_overlay_1.png",
+        PropRoot0690 + "/navigation_console_overlay_2.png",
+        PropRoot0690 + "/navigation_console_overlay_3.png",
+        PropRoot0690 + "/navigation_console_overlay_4.png",
+    };
+    private static readonly Texture2D?[] WindowOverlays0690 = new Texture2D?[4];
+    private static readonly Texture2D?[] ConsoleOverlays0690 = new Texture2D?[4];
     private const int CellSize = 96;
     private static Texture2D? UpgradeAtlas;
     private static bool AtlasLoadFailed;
@@ -24,6 +41,8 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
+        Draw0690WindowOverlay(batch);
+        Draw0690ConsoleOverlay(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
         DrawHelmMagic(batch, phase);
@@ -93,6 +112,48 @@ internal static class AirshipInteriorStardewRenderer
     {
         if (HubDecorAtlas is not null && !HubDecorAtlas.IsDisposed) return HubDecorAtlas; HubDecorAtlas = null; if (HubDecorLoadFailed || ModEntry.StaticHelper is null) return null;
         try { HubDecorAtlas = ModEntry.StaticHelper.ModContent.Load<Texture2D>(HubDecorAtlasPath); return HubDecorAtlas; } catch { HubDecorLoadFailed = true; return null; }
+    }
+
+    private static Texture2D? Get0690Overlay(Texture2D?[] cache, string[] paths, int index)
+    {
+        if (index < 0 || index >= cache.Length || ModEntry.StaticHelper is null)
+            return null;
+        Texture2D? current = cache[index];
+        if (current is not null && !current.IsDisposed)
+            return current;
+        try
+        {
+            cache[index] = ModEntry.StaticHelper.ModContent.Load<Texture2D>(paths[index]);
+            return cache[index];
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static void Draw0690WindowOverlay(SpriteBatch batch)
+    {
+        int frame = (int)((Environment.TickCount64 / 900L) % 4L);
+        Texture2D? texture = Get0690Overlay(WindowOverlays0690, WindowOverlayPaths0690, frame);
+        if (texture is null)
+            return;
+        Vector2 topLeft = WorldToScreen(7f * 64f, 1f * 64f);
+        batch.Draw(texture,
+            new Rectangle((int)topLeft.X, (int)topLeft.Y, texture.Width * 4, texture.Height * 4),
+            null, Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.885f);
+    }
+
+    private static void Draw0690ConsoleOverlay(SpriteBatch batch)
+    {
+        int frame = (int)((Environment.TickCount64 / 1150L) % 4L);
+        Texture2D? texture = Get0690Overlay(ConsoleOverlays0690, ConsoleOverlayPaths0690, frame);
+        if (texture is null)
+            return;
+        Vector2 topLeft = WorldToScreen(9f * 64f, 5f * 64f);
+        batch.Draw(texture,
+            new Rectangle((int)topLeft.X, (int)topLeft.Y, texture.Width * 4, texture.Height * 4),
+            null, Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.886f);
     }
 
     private static void DrawWindowMagic(SpriteBatch batch, float phase)

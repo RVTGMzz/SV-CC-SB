@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild",
+  "branch": "cardcha-alpha28-0690-airship-interior-visual-rebuild",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
@@ -82,7 +82,8 @@
   "completedDepthMigrations": [
     "RegionExpeditionService.enemy-body->Monster.draw",
     "MilestoneBossService.boss-body->Monster.draw",
-    "MilestoneBossService.arena-identity->TMX.CardchaArenaGround"
+    "MilestoneBossService.arena-identity->TMX.CardchaArenaGround",
+    "0690 Airship Set01 physical props->TMX; window/console motion->VFX-only overlays"
   ],
   "safeNativeExamples": [
     "MimiAtticVisualService.EnsureVanillaFurniture",
