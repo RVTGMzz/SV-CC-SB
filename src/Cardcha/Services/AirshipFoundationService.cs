@@ -2602,6 +2602,13 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
 
     private void DrawSkyDock(SpriteBatch batch, Point tile)
     {
+        // 0692: legacy wrapper only. AirshipGateDepthPatch intentionally suppresses this method
+        // so a post-world physical gate can never cover the farmer.
+        this.DrawSkyDockCore(batch, tile);
+    }
+
+    private void DrawSkyDockCore(SpriteBatch batch, Point tile)
+    {
         Texture2D? gate = this.GetAirshipGateVisual();
         if (gate is null)
             return;
@@ -3688,7 +3695,7 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
     {
         if (!this.CanDrawForestGateForLocalPlayer())
             return;
-        this.DrawSkyDock(batch, this.ResolveSkyDockTile());
+        this.DrawSkyDockCore(batch, this.ResolveSkyDockTile());
     }
 
     private static Point ResolveForestGateLandingTile(GameLocation forest, Point dock)

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings",
+  "branch": "cardcha-alpha28-0692-airship-rgba-gate-restore",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
@@ -84,7 +84,9 @@
     "MilestoneBossService.boss-body->Monster.draw",
     "MilestoneBossService.arena-identity->TMX.CardchaArenaGround",
     "0690 Airship Set01 physical props->TMX; window/console motion->VFX-only overlays",
-    "0691 Airship Set02 harbor furnishings->TMX; no new runtime physical rendering"
+    "0691 Airship Set02 harbor furnishings->TMX; no new runtime physical rendering",
+    "0692 Airship TMX physical textures->flat true RGBA PNG color type 6",
+    "0692 exterior gate farmer-depth path->unpatched DrawSkyDockCore; legacy DrawSkyDock remains suppressed"
   ],
   "safeNativeExamples": [
     "MimiAtticVisualService.EnsureVanillaFurniture",

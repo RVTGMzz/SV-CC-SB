@@ -6,6 +6,7 @@
   <property name="CardchaVisualProfile" value="airship-dock-waiting-hall|native-stardew-furniture|warm-wood-brass|clear-walking-spine" />
   <property name="CardchaArchitecture" value="vanilla-shell|native-furniture-and-object|no-postworld-physical-decor|depth-contract-0677" />
   <property name="CardchaHarborFurnishings" value="0691|departures-board|waiting-bench|luggage-cart|center-spine-protected" />
+  <property name="CardchaTextureContract" value="0692|flat-rgba-tmx-textures|png-color-type-6" />
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088" />
@@ -14,19 +15,19 @@
   <image source="sky_dock_stardew.png" width="480" height="288" />
  </tileset>
  <tileset firstgid="5000" name="CardchaRouteNoticeBoard0690" tilewidth="16" tileheight="16" tilecount="25" columns="5">
-  <image source="airship_props/set01_redux/route_notice_board.png" width="80" height="80" />
+  <image source="airship_0692_route_notice_board.png" width="80" height="80" />
  </tileset>
  <tileset firstgid="5100" name="CardchaBoardingGate0690" tilewidth="16" tileheight="16" tilecount="42" columns="7">
-  <image source="airship_props/set01_redux/boarding_gate_arch.png" width="112" height="96" />
+  <image source="airship_0692_boarding_gate_arch.png" width="112" height="96" />
  </tileset>
  <tileset firstgid="5200" name="CardchaSignalLamp0690" tilewidth="16" tileheight="16" tilecount="6" columns="2">
-  <image source="airship_props/set01_redux/signal_lamp.png" width="32" height="48" />
+  <image source="airship_0692_signal_lamp.png" width="32" height="48" />
  </tileset>
  <tileset firstgid="5300" name="CardchaCargoCrate0690" tilewidth="16" tileheight="16" tilecount="9" columns="3">
-  <image source="airship_props/set01_redux/cargo_parcel_crate.png" width="48" height="48" />
+  <image source="airship_0692_cargo_parcel_crate.png" width="48" height="48" />
  </tileset>
  <tileset firstgid="5400" name="CardchaCollision0690" tilewidth="16" tileheight="16" tilecount="1" columns="1">
-  <image source="airship_props/set01_redux/collision_blocker.png" width="16" height="16" />
+  <image source="airship_0692_collision_blocker.png" width="16" height="16" />
   <tile id="0">
    <properties>
     <property name="Passable" value="F" />
@@ -34,13 +35,13 @@
   </tile>
  </tileset>
  <tileset firstgid="5500" name="CardchaDeparturesBoard0691" tilewidth="16" tileheight="16" tilecount="24" columns="6">
-  <image source="airship_props/set02_harbor/departures_schedule_board.png" width="96" height="64" />
+  <image source="airship_0692_departures_schedule_board.png" width="96" height="64" />
  </tileset>
  <tileset firstgid="5600" name="CardchaWaitingBench0691" tilewidth="16" tileheight="16" tilecount="18" columns="6">
-  <image source="airship_props/set02_harbor/waiting_bench.png" width="96" height="48" />
+  <image source="airship_0692_waiting_bench.png" width="96" height="48" />
  </tileset>
  <tileset firstgid="5700" name="CardchaLuggageCart0691" tilewidth="16" tileheight="16" tilecount="16" columns="4">
-  <image source="airship_props/set02_harbor/luggage_cart.png" width="64" height="64" />
+  <image source="airship_0692_luggage_cart.png" width="64" height="64" />
  </tileset>
  <layer id="1" name="Back" width="30" height="18">
   <data encoding="csv">

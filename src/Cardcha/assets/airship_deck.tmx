@@ -5,6 +5,7 @@
   <property name="CardchaAirshipRole" value="airship-bridge|navigation-core|four-independent-upgrade-stations|chacha-resonance|arcane-dock-return" />
   <property name="CardchaVisualProfile" value="airship-bridge|native-stardew-furniture|warm-wood-brass|clear-walking-spine" />
   <property name="CardchaArchitecture" value="vanilla-shell|native-furniture-and-object|no-postworld-physical-decor|depth-contract-0677" />
+  <property name="CardchaTextureContract" value="0692|flat-rgba-tmx-textures|png-color-type-6" />
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088" />
@@ -13,16 +14,16 @@
   <image source="airship_deck_stardew.png" width="384" height="224" />
  </tileset>
  <tileset firstgid="5000" name="CardchaObservationWindow0690" tilewidth="16" tileheight="16" tilecount="50" columns="10">
-  <image source="airship_props/set01_redux/observation_window_base.png" width="160" height="80" />
+  <image source="airship_0692_observation_window.png" width="160" height="80" />
  </tileset>
  <tileset firstgid="5100" name="CardchaNavigationConsole0690" tilewidth="16" tileheight="16" tilecount="35" columns="7">
-  <image source="airship_props/set01_redux/navigation_console_base.png" width="112" height="80" />
+  <image source="airship_0692_navigation_console.png" width="112" height="80" />
  </tileset>
  <tileset firstgid="5200" name="CardchaSignalLamp0690" tilewidth="16" tileheight="16" tilecount="6" columns="2">
-  <image source="airship_props/set01_redux/signal_lamp.png" width="32" height="48" />
+  <image source="airship_0692_signal_lamp.png" width="32" height="48" />
  </tileset>
  <tileset firstgid="5400" name="CardchaCollision0690" tilewidth="16" tileheight="16" tilecount="1" columns="1">
-  <image source="airship_props/set01_redux/collision_blocker.png" width="16" height="16" />
+  <image source="airship_0692_collision_blocker.png" width="16" height="16" />
   <tile id="0">
    <properties>
     <property name="Passable" value="F" />
