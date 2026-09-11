@@ -1,0 +1,26 @@
+{
+  "schema": 1,
+  "set": "Cardcha Airship Rooms - Prop Set 01",
+  "status": "approved-game-ready-sprites",
+  "tileSize": 16,
+  "atlas": {
+    "path": "assets/airship_props/set01/airship_props_set01.png",
+    "width": 128,
+    "height": 96
+  },
+  "palette": "warm-wood-brass-cardcha-purple-teal",
+  "rules": [
+    "Physical placement must use TMX/native map layers or native furniture/object ownership.",
+    "Do not draw these physical props from RenderedWorld.",
+    "Keep silhouettes readable at native 16px tile scale.",
+    "Concept-detail is intentionally reduced for Stardew-compatible readability."
+  ],
+  "props": [
+    {"id":"route_notice_board","name":"Route Notice Board","footprint":"2x2","sizePx":[32,32],"atlasRect":[0,0,32,32]},
+    {"id":"boarding_gate_arch","name":"Boarding Gate Arch","footprint":"4x3","sizePx":[64,48],"atlasRect":[32,0,64,48]},
+    {"id":"observation_window","name":"Observation Window","footprint":"4x2","sizePx":[64,32],"atlasRect":[0,48,64,32]},
+    {"id":"navigation_command_console","name":"Navigation Command Console","footprint":"3x2","sizePx":[48,32],"atlasRect":[64,48,48,32]},
+    {"id":"signal_lamp","name":"Signal Lamp","footprint":"1x1","sizePx":[16,16],"atlasRect":[112,48,16,16]},
+    {"id":"cargo_parcel_crate","name":"Cargo Parcel Crate","footprint":"1x1","sizePx":[16,16],"atlasRect":[112,64,16,16]}
+  ]
+}
