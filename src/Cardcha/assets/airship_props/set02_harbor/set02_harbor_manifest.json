@@ -1,0 +1,20 @@
+{
+  "version": "0691-set02-harbor",
+  "staticPhysicalOwner": "TMX map layers",
+  "runtimeOverlays": [],
+  "design": "native-resolution layered Stardew-style harbor furnishings",
+  "props": {
+    "departures_schedule_board": [
+      96,
+      64
+    ],
+    "waiting_bench": [
+      96,
+      48
+    ],
+    "luggage_cart": [
+      64,
+      64
+    ]
+  }
+}

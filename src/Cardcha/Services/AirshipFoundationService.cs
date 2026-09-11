@@ -2417,13 +2417,13 @@ private void EnsureSkyDockVanillaFurniture(GameLocation dock)
 {
     if (ReferenceEquals(this.SkyDockDecorAppliedLocation, dock)
         && dock.modData.TryGetValue(InteriorDecorMarkerKey, out string? version)
-        && string.Equals(version, InteriorDecorVersion + "-0690-dock", StringComparison.Ordinal))
+        && string.Equals(version, InteriorDecorVersion + "-0691-dock", StringComparison.Ordinal))
         return;
 
     this.SkyDockDecorAppliedLocation = dock;
     ClearInteriorDecor(dock);
-    // 0690: physical dock furnishings are authored into sky_dock_interior.tmx.
-    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0690-dock";
+    // 0691: physical dock furnishings, including Set02 Harbor, are authored into sky_dock_interior.tmx.
+    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0691-dock";
 }
 
 private static void ClearInteriorDecor(GameLocation location)
