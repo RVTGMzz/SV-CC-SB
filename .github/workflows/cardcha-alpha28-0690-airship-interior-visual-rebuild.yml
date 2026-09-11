@@ -1,0 +1,128 @@
+name: Cardcha 0690 Airship Interior Visual Rebuild
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0690-airship-interior-visual-rebuild
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup 0690 asset pipeline
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Materialize animated Airship overlays
+        run: python3 tools/alpha28_0690_airship_prop_assets.py
+
+      - name: Integrate 0690 Airship interior visual rebuild
+        run: python3 tools/alpha28_0690_airship_interior_visual_rebuild.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0690 Airship visual contracts
+        run: python3 tools/validate_0690_airship_interior_visual_rebuild.py
+
+      - name: Freeze inherited Boss and Region content from 0688
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/cardcha-alpha28-0688-hollow-curator-visual-identity-rebuild -- \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/region1_rooms \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0690 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json \
+            tools/alpha28_0690_airship_prop_assets.py \
+            tools/alpha28_0690_airship_interior_visual_rebuild.py \
+            tools/validate_0690_airship_interior_visual_rebuild.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.57 Airship interior visual rebuild [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0690-airship-interior-visual-rebuild
+          fi
+
+      - name: Package 0690 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.57_0690_AirshipInterior_VisualRebuild_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct,zipfile,xml.etree.ElementTree as ET
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.57_0690_AirshipInterior_VisualRebuild_TEST.zip')
+          def png_size(raw): return struct.unpack('>II',raw[16:24])
+          expected={
+            'route_notice_board.png':(80,80),'boarding_gate_arch.png':(112,96),
+            'signal_lamp.png':(32,48),'cargo_parcel_crate.png':(48,48),
+            'observation_window_base.png':(160,80),'navigation_console_base.png':(112,80),
+          }
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json')); assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.57'
+              dll=z.read('Cardcha/Cardcha.dll'); assert dll[:2]==b'MZ' and len(dll)>50000
+              root='Cardcha/assets/airship_props/set01_redux/'
+              for name,size in expected.items():
+                  q=root+name; assert q in names,q; assert png_size(z.read(q))==size,(q,png_size(z.read(q)))
+              for i in range(1,5):
+                  assert root+f'observation_window_overlay_{i}.png' in names
+                  assert root+f'navigation_console_overlay_{i}.png' in names
+              for q,wh in [('Cardcha/assets/airship_deck.tmx',(24,14)),('Cardcha/assets/sky_dock_interior.tmx',(30,18))]:
+                  r=ET.fromstring(z.read(q)); assert (int(r.attrib['width']),int(r.attrib['height']))==wh
+                  for l in r.findall('layer'):
+                      d=l.find('data')
+                      if d is None or d.attrib.get('encoding')!='csv': continue
+                      toks=[x.strip() for x in (d.text or '').split(',')]; assert toks and all(toks); assert len(toks)==wh[0]*wh[1]
+          print('0690 package audit PASS:',p)
+          PY
+
+      - name: Upload 0690 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0690-airship-interior-visual-rebuild
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.57_0690_AirshipInterior_VisualRebuild_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.57_0690_AirshipInterior_VisualRebuild_TEST.zip.sha256
+          if-no-files-found: error
