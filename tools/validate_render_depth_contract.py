@@ -115,7 +115,6 @@ required_debt = {
     "AirshipInteriorStardewRenderer.DrawDeckStardewDecor",
     "AirshipInteriorStardewRenderer.DrawDockStardewDecor",
     "AirshipFoundationService.DrawRegion1Details",
-    "Region1StardewDecorRenderer.Draw",
     "VerdantGuardianVisualService.boss-body",
     "VerdantGuardianSummonVisualService.summon-body",
     "VerdantGuardianArenaPolishService.DrawObelisks",
@@ -137,7 +136,5 @@ for token in (
 airship = (SRC / "Services" / "AirshipFoundationService.cs").read_text(encoding="utf-8")
 if "DrawRegion1Details(e.SpriteBatch, location);" in airship:
     print("RENDER DEPTH AUDIT WARNING: Region I physical overlay debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
-if "Region1StardewDecorRenderer.Draw(e.SpriteBatch, location, activeRoomIndex);" in airship:
-    print("RENDER DEPTH AUDIT WARNING: Region I post-world decor debt remains in legacy source but must be runtime-suppressed/migrated before visual acceptance.")
 
 print("Render depth contract PASS: every RenderedWorld subscriber is audited; milestone bosses are actor-depth migrated; no unaudited physical ownership may be introduced.")

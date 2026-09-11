@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "branch": "cardcha-alpha28-0693-airship-interior-density-rebuild",
+  "branch": "cardcha-alpha28-0695-region1-prop-integration",
   "policy": "CARDCHA_RENDERING_DEPTH_CONTRACT.md",
   "renderedWorldSubscribers": {
     "Story": {
@@ -72,7 +72,6 @@
     "AirshipFoundationService.DrawSkyDockInteriorDetails.physical",
     "AirshipFoundationService.DrawDeckMarkers.physical",
     "AirshipFoundationService.DrawRegion1Details",
-    "Region1StardewDecorRenderer.Draw",
     "VerdantGuardianVisualService.boss-body",
     "VerdantGuardianSummonVisualService.summon-body",
     "VerdantGuardianArenaPolishService.DrawObelisks",
@@ -87,7 +86,8 @@
     "0691 Airship Set02 harbor furnishings->TMX; no new runtime physical rendering",
     "0692 Airship TMX physical textures->flat true RGBA PNG color type 6",
     "0692 exterior gate farmer-depth path->unpatched DrawSkyDockCore; legacy DrawSkyDock remains suppressed",
-    "0693 Airship dense physical interior scene->TMX; runtime remains VFX-only"
+    "0693 Airship dense physical interior scene->TMX; runtime remains VFX-only",
+    "0695 Region I Hunt Run physical environment decor->TMX BackDecor/Buildings/Front; legacy RenderedWorld renderer removed"
   ],
   "safeNativeExamples": [
     "MimiAtticVisualService.EnsureVanillaFurniture",

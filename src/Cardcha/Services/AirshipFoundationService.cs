@@ -403,7 +403,6 @@ internal sealed class AirshipFoundationService
 
         if (location is not null && TryGetRegion1RunRoomIndex(location, out int activeRoomIndex))
         {
-            Region1StardewDecorRenderer.Draw(e.SpriteBatch, location, activeRoomIndex);
             this.DrawRegion1HuntRun2Overlay(e.SpriteBatch, location);
         }
 

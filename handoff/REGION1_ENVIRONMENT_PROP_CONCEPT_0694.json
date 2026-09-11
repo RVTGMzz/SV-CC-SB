@@ -1,88 +1,325 @@
 {
   "schema": 1,
-  "status": "concept-only-awaiting-ron-approval",
+  "status": "approved-and-integrated-by-0695",
   "branch": "cardcha-alpha28-0694-region1-environment-prop-concept",
   "productionBaseline": {
     "branch": "cardcha-alpha28-0693-airship-interior-density-rebuild",
     "commit": "c438d8664538e0b64212d2566f47188294effe93"
   },
-  "roomSize": [28, 20],
+  "roomSize": [
+    28,
+    20
+  ],
   "lockedAnchors": {
-    "arrivalApprox": [14, 17],
-    "retreat": [14, 18],
-    "routeLeft": [9, 2],
-    "boss": [14, 2],
-    "routeRight": [19, 2],
-    "boons": [[7, 5], [14, 5], [21, 5]],
-    "rareCenter": [14, 10]
+    "arrivalApprox": [
+      14,
+      17
+    ],
+    "retreat": [
+      14,
+      18
+    ],
+    "routeLeft": [
+      9,
+      2
+    ],
+    "boss": [
+      14,
+      2
+    ],
+    "routeRight": [
+      19,
+      2
+    ],
+    "boons": [
+      [
+        7,
+        5
+      ],
+      [
+        14,
+        5
+      ],
+      [
+        21,
+        5
+      ]
+    ],
+    "rareCenter": [
+      14,
+      10
+    ]
   },
   "clearance": {
-    "northRouteBand": {"xMin": 6, "xMax": 22, "yMin": 1, "yMax": 6, "rule": "no tall or visually dominant permanent props inside interaction breathing space"},
-    "centralCombatBand": {"xMin": 8, "xMax": 20, "yMin": 7, "yMax": 14, "rule": "ground detail allowed; solid/tall props strongly limited; rare center must remain legible"},
-    "southArrivalBand": {"xMin": 10, "xMax": 18, "yMin": 15, "yMax": 19, "rule": "no tall permanent props; preserve arrival and retreat readability"}
+    "northRouteBand": {
+      "xMin": 6,
+      "xMax": 22,
+      "yMin": 1,
+      "yMax": 6,
+      "rule": "no tall or visually dominant permanent props inside interaction breathing space"
+    },
+    "centralCombatBand": {
+      "xMin": 8,
+      "xMax": 20,
+      "yMin": 7,
+      "yMax": 14,
+      "rule": "ground detail allowed; solid/tall props strongly limited; rare center must remain legible"
+    },
+    "southArrivalBand": {
+      "xMin": 10,
+      "xMax": 18,
+      "yMin": 15,
+      "yMax": 19,
+      "rule": "no tall permanent props; preserve arrival and retreat readability"
+    }
   },
   "propFamilies": {
-    "P01": {"name": "Moss Root Cluster", "roles": ["Back", "Buildings", "selective-Front"], "sizes": ["1x1", "2x1"]},
-    "P02": {"name": "Fallen Log / Stump Workset", "roles": ["Back", "Buildings", "selective-Front"], "sizes": ["1x1", "2x1", "2x2-hero"]},
-    "P03": {"name": "Fern / Mushroom Forage Cluster", "roles": ["Back"], "sizes": ["1x1"]},
-    "P04": {"name": "Mossy Field-Stone Ruin", "roles": ["Back", "Buildings", "selective-Front"], "sizes": ["1x1", "2x1", "2x2"]},
-    "P05": {"name": "Trail Sign / Expedition Marker", "roles": ["Buildings", "selective-Front"], "sizes": ["1x2"]},
-    "P06": {"name": "Briar / Hollow Growth", "roles": ["Back", "Buildings", "selective-Front"], "sizes": ["1x1", "2x1"]},
-    "P07": {"name": "Card Shrine Relic Set", "roles": ["Back", "Buildings", "selective-Front"], "sizes": ["1x1", "2x1", "2x2-hero"]}
+    "P01": {
+      "name": "Moss Root Cluster",
+      "roles": [
+        "Back",
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x1",
+        "2x1"
+      ]
+    },
+    "P02": {
+      "name": "Fallen Log / Stump Workset",
+      "roles": [
+        "Back",
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x1",
+        "2x1",
+        "2x2-hero"
+      ]
+    },
+    "P03": {
+      "name": "Fern / Mushroom Forage Cluster",
+      "roles": [
+        "Back"
+      ],
+      "sizes": [
+        "1x1"
+      ]
+    },
+    "P04": {
+      "name": "Mossy Field-Stone Ruin",
+      "roles": [
+        "Back",
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x1",
+        "2x1",
+        "2x2"
+      ]
+    },
+    "P05": {
+      "name": "Trail Sign / Expedition Marker",
+      "roles": [
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x2"
+      ]
+    },
+    "P06": {
+      "name": "Briar / Hollow Growth",
+      "roles": [
+        "Back",
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x1",
+        "2x1"
+      ]
+    },
+    "P07": {
+      "name": "Card Shrine Relic Set",
+      "roles": [
+        "Back",
+        "Buildings",
+        "selective-Front"
+      ],
+      "sizes": [
+        "1x1",
+        "2x1",
+        "2x2-hero"
+      ]
+    }
   },
   "rooms": [
     {
       "index": 0,
       "name": "Verdant Clearing",
       "identity": "welcoming forest opening",
-      "families": ["P01", "P03", "P02"],
+      "families": [
+        "P01",
+        "P03",
+        "P02"
+      ],
       "density": "light-medium",
-      "heroZones": [[3, 4, 7, 8], [21, 5, 25, 9]],
+      "heroZones": [
+        [
+          3,
+          4,
+          7,
+          8
+        ],
+        [
+          21,
+          5,
+          25,
+          9
+        ]
+      ],
       "notes": "soft rounded silhouettes; broad center negative space"
     },
     {
       "index": 1,
       "name": "Moss Creek",
       "identity": "damp trail beside an implied creek bed",
-      "families": ["P01", "P03", "P02"],
+      "families": [
+        "P01",
+        "P03",
+        "P02"
+      ],
       "density": "medium",
-      "heroZones": [[2, 5, 6, 10], [21, 4, 25, 9]],
+      "heroZones": [
+        [
+          2,
+          5,
+          6,
+          10
+        ],
+        [
+          21,
+          4,
+          25,
+          9
+        ]
+      ],
       "notes": "elongated low clusters; no fake water stripe or fake bridge"
     },
     {
       "index": 2,
       "name": "Old Ruins",
       "identity": "forest reclaiming a forgotten field structure",
-      "families": ["P04", "P01", "P05"],
+      "families": [
+        "P04",
+        "P01",
+        "P05"
+      ],
       "density": "perimeter-medium-high-center-low",
-      "heroZones": [[3, 4, 8, 9], [20, 4, 25, 9], [3, 12, 8, 16]],
+      "heroZones": [
+        [
+          3,
+          4,
+          8,
+          9
+        ],
+        [
+          20,
+          4,
+          25,
+          9
+        ],
+        [
+          3,
+          12,
+          8,
+          16
+        ]
+      ],
       "notes": "asymmetrical broken walls; never close a combat lane"
     },
     {
       "index": 3,
       "name": "Briar Thicket",
       "identity": "hostile overgrowth with conservative physical blocking",
-      "families": ["P06", "P03", "P01"],
+      "families": [
+        "P06",
+        "P03",
+        "P01"
+      ],
       "density": "visually-high-physically-conservative",
-      "heroZones": [[2, 5, 6, 12], [21, 5, 25, 12]],
+      "heroZones": [
+        [
+          2,
+          5,
+          6,
+          12
+        ],
+        [
+          21,
+          5,
+          25,
+          12
+        ]
+      ],
       "notes": "thorn masses prefer existing blocked/perimeter geometry"
     },
     {
       "index": 4,
       "name": "Hollow Grove",
       "identity": "old shadowed grove with larger organic silhouettes",
-      "families": ["P01", "P02", "P06", "P03"],
+      "families": [
+        "P01",
+        "P02",
+        "P06",
+        "P03"
+      ],
       "density": "medium-high",
-      "heroZones": [[3, 5, 8, 11], [20, 7, 25, 13]],
+      "heroZones": [
+        [
+          3,
+          5,
+          8,
+          11
+        ],
+        [
+          20,
+          7,
+          25,
+          13
+        ]
+      ],
       "notes": "one side hero hollow stump/root, central negative space preserved"
     },
     {
       "index": 5,
       "name": "Card Shrine",
       "identity": "small magical forest destination in Stardew scale",
-      "families": ["P07", "P04", "P01", "P03"],
+      "families": [
+        "P07",
+        "P04",
+        "P01",
+        "P03"
+      ],
       "density": "medium-deliberate",
-      "heroZones": [[3, 7, 8, 13], [20, 7, 25, 13]],
+      "heroZones": [
+        [
+          3,
+          7,
+          8,
+          13
+        ],
+        [
+          20,
+          7,
+          25,
+          13
+        ]
+      ],
       "notes": "localized teal/lavender magic; keep rare center and north runtime markers dominant"
     }
   ],
@@ -94,5 +331,8 @@
     "route, boss, boon, rare, arrival and retreat anchors remain frozen",
     "legacy Region1StardewDecorRenderer physical draw must be removed or suppressed after TMX migration",
     "no third-party art dependencies"
-  ]
+  ],
+  "approvedBy": "Ron",
+  "productionBranch": "cardcha-alpha28-0695-region1-prop-integration",
+  "productionBuild": "0.3.0-alpha.28.0.4.14.4.5.12.61"
 }
