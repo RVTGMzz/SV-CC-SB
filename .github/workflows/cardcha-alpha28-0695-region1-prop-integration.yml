@@ -1,0 +1,193 @@
+name: Cardcha 0695 Region I Environment Prop Integration
+
+on:
+  push:
+    branches:
+      - cardcha-alpha28-0695-region1-prop-integration
+    paths-ignore:
+      - 'handoff/**'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch approved 0694 parent
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch origin cardcha-alpha28-0694-region1-environment-prop-concept:refs/remotes/origin/cardcha-alpha28-0694-region1-environment-prop-concept
+
+      - name: Setup 0695 asset pipeline
+        run: python3 -m pip install --disable-pip-version-check pillow
+
+      - name: Materialize native Region I environment prop sheet
+        run: python3 tools/alpha28_0695_region1_environment_prop_assets.py
+
+      - name: Integrate 0695 Region I map-native environment props
+        run: python3 tools/alpha28_0695_region1_environment_prop_integration.py
+
+      - name: Validate repository rendering depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0695 Region I production integration
+        run: python3 tools/validate_0695_region1_environment_prop_integration.py
+
+      - name: Guard 0695 change scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          bad=0
+          while IFS= read -r path; do
+            case "$path" in
+              .github/workflows/cardcha-alpha28-0695-region1-prop-integration.yml|\
+              tools/alpha28_0695_region1_environment_prop_assets.py|\
+              tools/alpha28_0695_region1_environment_prop_integration.py|\
+              tools/validate_0695_region1_environment_prop_integration.py|\
+              tools/validate_render_depth_contract.py|\
+              render_depth_audit.json|\
+              handoff/LATEST_CARDCHA_HANDOFF.md|\
+              handoff/ALPHA28_0695_REGION1_ENVIRONMENT_PROP_PRODUCTION_INTEGRATION.md|\
+              handoff/REGION1_ENVIRONMENT_PROP_CONCEPT_0694.json|\
+              src/Cardcha/manifest.json|\
+              src/Cardcha/Cardcha.csproj|\
+              src/Cardcha/Directory.Build.targets|\
+              src/Cardcha/ModEntry.cs|\
+              src/Cardcha/Services/AirshipFoundationService.cs|\
+              src/Cardcha/Services/Region1StardewDecorRenderer.cs|\
+              src/Cardcha/assets/region1_environment_decor.png|\
+              src/Cardcha/assets/region1_rooms/*)
+                ;;
+              *)
+                echo "Unexpected 0695 change outside approved scope: $path"
+                bad=1
+                ;;
+            esac
+          done < <(git diff --name-only origin/cardcha-alpha28-0694-region1-environment-prop-concept --)
+          test "$bad" -eq 0
+
+      - name: Freeze inherited Airship, bosses, Region I hub and Regions II-IV
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code origin/cardcha-alpha28-0694-region1-environment-prop-concept -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/airship_gate_auth.png \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/Patches/AirshipGateDepthPatch.cs \
+            src/Cardcha/Patches/AirshipGatePatchUsings.cs \
+            src/Cardcha/Patches/AirshipGateRelocationPatch.cs \
+            src/Cardcha/Patches/AirshipVisualDepthPatch.cs \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize 0695 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A src/Cardcha handoff render_depth_audit.json tools/validate_render_depth_contract.py \
+            tools/alpha28_0695_region1_environment_prop_assets.py \
+            tools/alpha28_0695_region1_environment_prop_integration.py \
+            tools/validate_0695_region1_environment_prop_integration.py
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize alpha28.0.4.14.4.5.12.61 Region I environment props [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0695-region1-prop-integration
+          fi
+
+      - name: Package 0695 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.61_0695_Region1EnvironmentPropIntegration_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json,struct,zipfile,xml.etree.ElementTree as ET
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.61_0695_Region1EnvironmentPropIntegration_TEST.zip')
+          rooms=['room_1_verdant_clearing.tmx','room_2_moss_creek.tmx','room_3_old_ruins.tmx','room_4_briar_thicket.tmx','room_5_hollow_grove.tmx','room_6_card_shrine.tmx']
+          def png_info(raw):
+              assert raw[:8]==b'\x89PNG\r\n\x1a\n' and raw[12:16]==b'IHDR'
+              return struct.unpack('>II',raw[16:24]),raw[25]
+          def vals(root,name):
+              layer=next(x for x in root.findall('layer') if x.attrib.get('name')==name)
+              data=layer.find('data'); assert data is not None and data.attrib.get('encoding')=='csv'
+              toks=[x.strip() for x in (data.text or '').split(',')]
+              assert toks and all(toks)
+              out=[int(x) for x in toks]
+              assert len(out)==int(root.attrib['width'])*int(root.attrib['height'])
+              return out
+          with zipfile.ZipFile(p) as z:
+              names=set(z.namelist())
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.61'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              q='Cardcha/assets/region1_rooms/region1_environment_props_0695.png'
+              assert q in names
+              wh,ct=png_info(z.read(q)); assert wh==(256,128) and ct==6,(wh,ct)
+              assert 'Cardcha/assets/region1_environment_decor.png' not in names
+              sig=[]
+              for room in rooms:
+                  q='Cardcha/assets/region1_rooms/'+room
+                  assert q in names,q
+                  r=ET.fromstring(z.read(q)); assert (int(r.attrib['width']),int(r.attrib['height']))==(28,20)
+                  ts=next(x for x in r.findall('tileset') if x.attrib.get('name')=='CardchaRegion1Environment0695')
+                  assert int(ts.attrib['firstgid'])==6000
+                  assert ts.find('image').attrib['source']=='region1_environment_props_0695.png'
+                  decor=vals(r,'BackDecor'); build=vals(r,'Buildings'); front=vals(r,'Front')
+                  assert sum(6000<=x<=6127 for x in decor)>=18,room
+                  assert sum(6000<=x<=6127 for x in build)>=3,room
+                  assert sum(6000<=x<=6127 for x in front)>=2,room
+                  props={x.attrib.get('name'):x.attrib.get('value') for ps in r.findall('properties') for x in ps.findall('property')}
+                  assert props.get('CardchaRegionVersion')=='0.3.0-alpha.28.0.4.14.4.5.12.61'
+                  assert props.get('CardchaTextureContract')=='0695|flat-rgba-region1-environment|png-color-type-6'
+                  sig.append(tuple(i for i,x in enumerate(decor) if 6000<=x<=6127))
+              assert len(set(sig))==6
+          print('0695 package audit PASS:',p)
+          PY
+
+      - name: Upload 0695 TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0695-region1-prop-integration
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.61_0695_Region1EnvironmentPropIntegration_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.61_0695_Region1EnvironmentPropIntegration_TEST.zip.sha256
+          if-no-files-found: error
