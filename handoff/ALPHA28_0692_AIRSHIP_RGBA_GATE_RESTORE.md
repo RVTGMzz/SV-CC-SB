@@ -4,6 +4,7 @@
 - Branch: `cardcha-alpha28-0692-airship-rgba-gate-restore`
 - Parent: `cardcha-alpha28-0691-airship-prop-set02-harbor-furnishings` @ `91b9166e915f0b50a3dd23b0cb5e8fb888191974`
 - Build: `0.3.0-alpha.28.0.4.14.4.5.12.59`
+- Materialized source head: `4f443db19f05183a101c9ac4af9b8905b19b9f5f`
 
 ## Trigger
 Ron tested 0691 in-game and reported a visual regression:
@@ -24,6 +25,33 @@ No visual redesign. The approved `boarding_gate_arch.png` remains the gate desig
 - No new physical `RenderedWorld` furniture is introduced.
 - Exterior gate stays farmer-depth injected via the existing Harmony contract.
 
+## Verified CI / package
+Authoritative successful GitHub Actions run: `34628000033`
+
+Artifact:
+- ID: `10275895244`
+- name: `cardcha-alpha28-0692-airship-rgba-gate-restore`
+- artifact digest: `sha256:0c267f59d307a263c684975f97a23be4f85f1a2d15150b71fba9c04606e72627`
+
+Inner TEST ZIP:
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.59_0692_Airship_RGBA_GateRestore_TEST.zip`
+
+Verified inner ZIP SHA256:
+`0952bf1747e90908e31ebb8fda6bc5a28403d20e5b98586a9f0f00ca8cada695`
+
+Independent post-download audit confirmed:
+- manifest version `.59`;
+- `Cardcha.dll` valid PE, 1,021,440 bytes;
+- Airship Deck and Sky Dock TMX included;
+- Set 01 and Set 02 physical PNGs are true `RGBA`;
+- boarding gate, route board, signal lamp, cargo crate, departures board, waiting bench and luggage cart are present in the package.
+
 ## Acceptance
-CI/build/package status is determined by the 0692 workflow.
-In-game visual acceptance remains PENDING until Ron tests the resulting TEST package.
+CI / compile / package: **PASS**.
+
+In-game visual acceptance remains **PENDING** until Ron tests build `.59`. Do not claim the visibility fix is visually accepted before that report.
+
+## Continuation
+0692 is a visibility/runtime hotfix, not a new art direction. Future work should preserve the approved Airship visual contract and should not stack more Airship decoration merely to fill space before the hotfix is visually checked.
+
+The next planned visual-design task from Ron's earlier direction is to return to Region I / Map 1 and replace the crude `region1_environment_decor.png` placeholder language with a richer Stardew-faithful map-native prop set. Concept approval should happen before production integration.
