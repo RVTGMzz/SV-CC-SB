@@ -31,14 +31,6 @@ internal static class WorldPhysicalOverlaySafetyPatch
             monitor
         );
 
-        patched += PatchSkip(
-            harmony,
-            typeof(Region1StardewDecorRenderer),
-            "Draw",
-            new[] { typeof(SpriteBatch), typeof(GameLocation), typeof(int) },
-            monitor
-        );
-
         // Keep the Airship interior's lightweight magical cues, but remove fake solid props
         // and machine bodies which were being painted after Farmer/NPC draw order.
         patched += PatchSkip(
@@ -64,8 +56,8 @@ internal static class WorldPhysicalOverlaySafetyPatch
         );
 
         monitor.Log(
-            $"0676B world-depth safety active: suppressed {patched}/5 confirmed post-world physical renderer(s). Static props must migrate to TMX/Furniture/native entities before being restored.",
-            patched == 5 ? LogLevel.Info : LogLevel.Warn
+            $"0695 world-depth safety active: suppressed {patched}/4 remaining post-world physical renderer(s). Region I Hunt Run environment art is now TMX-owned; remaining static props must migrate before their safety hooks are retired.",
+            patched == 4 ? LogLevel.Info : LogLevel.Warn
         );
     }
 
