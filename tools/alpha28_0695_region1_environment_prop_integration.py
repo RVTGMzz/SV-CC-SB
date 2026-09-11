@@ -127,6 +127,7 @@ def ensure_back_decor(root: ET.Element) -> ET.Element:
 
 
 def protected_tall(x: int, y: int) -> bool:
+    # Tall/solid custom art stays out of every protected 0694 interaction breathing-space band.
     if 6 <= x <= 22 and 1 <= y <= 6: return True
     if 8 <= x <= 20 and 7 <= y <= 14: return True
     if 10 <= x <= 18 and 15 <= y <= 19: return True
@@ -146,8 +147,7 @@ def place_ground(root: ET.Element, room_index: int) -> int:
     vals = values(root, "BackDecor")
     count = 0
     for i, (x, y) in enumerate(GROUND[room_index]):
-        if not (0 <= x < w and 0 <= y < h) or anchor_cell(x, y):
-            continue
+        if not (0 <= x < w and 0 <= y < h) or anchor_cell(x, y): continue
         row = 0 if (i + room_index) % 3 else 1
         if room_index == 3 and i % 4 == 0: row = 1
         vals[y*w+x] = gid(row, (i * 5 + room_index * 3) % 16)
@@ -161,10 +161,11 @@ def replace_existing_solids(root: ET.Element, room_index: int) -> tuple[list[tup
     vals = values(root, "Buildings")
     candidates: list[tuple[int,int]] = []
     for y in range(3, min(h-2, 17)):
-        for x in range(2, w-2):
+        for x in range(0, w):
             if vals[y*w+x] == 0 or protected_tall(x,y) or anchor_cell(x,y):
                 continue
-            if x <= 7 or x >= 20:
+            # Prefer the inherited outer collision rim. This adds visual identity without adding obstacles.
+            if x <= 1 or x >= w - 2:
                 candidates.append((x,y))
     rng = random.Random(695100 + room_index)
     rng.shuffle(candidates)
@@ -201,8 +202,7 @@ for rel in ["manifest.json", "Cardcha.csproj", "Directory.Build.targets", "ModEn
     p = SRC / rel
     if p.exists():
         text = read(p)
-        if OLD_VERSION in text:
-            write(p, text.replace(OLD_VERSION, NEW_VERSION))
+        if OLD_VERSION in text: write(p, text.replace(OLD_VERSION, NEW_VERSION))
 
 airship_path = SRC / "Services/AirshipFoundationService.cs"
 airship = read(airship_path)
@@ -232,8 +232,7 @@ for filename, slug, room_index in ROOMS:
     chosen, solid_count = replace_existing_solids(root, room_index)
     front_count = place_front_tops(root, room_index, chosen)
     after_mask = [v != 0 for v in values(root, "Buildings")]
-    if before_mask != after_mask:
-        raise RuntimeError(f"{filename}: collision topology changed")
+    if before_mask != after_mask: raise RuntimeError(f"{filename}: collision topology changed")
     set_property(root, "CardchaRegionVersion", NEW_VERSION)
     set_property(root, "CardchaAssetPolicy", "cardcha-owned-map|vanilla-terrain+cardcha-owned-region1-props|no-third-party-assets")
     set_property(root, "CardchaRegionEnvironment", f"0695|{slug}|map-native-props|BackDecor+Buildings+Front|anchors-frozen")
