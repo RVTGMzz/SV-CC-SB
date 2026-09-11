@@ -4,7 +4,6 @@ from __future__ import annotations
 from pathlib import Path
 from PIL import Image
 import json
-import struct
 import xml.etree.ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -47,29 +46,21 @@ flat = {
     "bench": "airship_0692_waiting_bench.png",
     "luggage": "airship_0692_luggage_cart.png",
 }
-
 expected_sizes = {
-    "route": (80, 80),
-    "gate": (112, 96),
-    "signal": (32, 48),
-    "cargo": (48, 48),
-    "window": (160, 80),
-    "console": (112, 80),
-    "collision": (16, 16),
-    "departures": (96, 64),
-    "bench": (96, 48),
+    "route": (80, 80), "gate": (112, 96), "signal": (32, 48),
+    "cargo": (48, 48), "window": (160, 80), "console": (112, 80),
+    "collision": (16, 16), "departures": (96, 64), "bench": (96, 48),
     "luggage": (64, 64),
 }
-
 for key, name in flat.items():
     p = ASSETS / name
     need(p.exists() and p.stat().st_size > 50, f"missing flat RGBA texture {name}")
     with Image.open(p) as im:
-        need(im.mode == "RGBA", f"{name} Pillow mode {im.mode}, expected RGBA")
+        need(im.mode == "RGBA", f"{name} mode {im.mode}, expected RGBA")
         need(im.size == expected_sizes[key], f"{name} size {im.size} != {expected_sizes[key]}")
-    need(png_color_type(p) == 6, f"{name} PNG color type {png_color_type(p)} != 6 RGBA")
+    need(png_color_type(p) == 6, f"{name} PNG color type must be 6 RGBA")
 
-# Source-library textures and runtime VFX overlays must also no longer be indexed.
+# No indexed/palette Airship production textures remain.
 set01 = ASSETS / "airship_props/set01_redux"
 set02 = ASSETS / "airship_props/set02_harbor"
 for name in [
@@ -78,14 +69,10 @@ for name in [
     "navigation_console_base.png", "collision_blocker.png",
 ] + [f"observation_window_overlay_{i}.png" for i in range(1, 5)] \
   + [f"navigation_console_overlay_{i}.png" for i in range(1, 5)]:
-    p = set01 / name
-    need(p.exists(), f"missing Set01 {name}")
-    need(png_color_type(p) == 6, f"Set01 {name} is not true RGBA")
+    need(png_color_type(set01 / name) == 6, f"Set01 {name} is not true RGBA")
 for name in ["departures_schedule_board.png", "waiting_bench.png", "luggage_cart.png"]:
-    p = set02 / name
-    need(p.exists(), f"missing Set02 {name}")
-    need(png_color_type(p) == 6, f"Set02 {name} is not true RGBA")
-need(png_color_type(ASSETS / "airship_gate_auth.png") == 6, "outdoor authored gate is not RGBA")
+    need(png_color_type(set02 / name) == 6, f"Set02 {name} is not true RGBA")
+need(png_color_type(ASSETS / "airship_gate_auth.png") == 6, "outdoor authored gate is not true RGBA")
 
 
 def map_audit(path: Path, wh: tuple[int, int]):
@@ -109,29 +96,28 @@ def map_audit(path: Path, wh: tuple[int, int]):
             None if image is None else image.attrib.get("source"),
         )
     props = root.find("properties")
-    prop_map = {
-        p.attrib.get("name"): p.attrib.get("value")
-        for p in ([] if props is None else props.findall("property"))
-    }
-    return root, layers, tilesets, prop_map
+    prop_map = {p.attrib.get("name"): p.attrib.get("value") for p in ([] if props is None else props.findall("property"))}
+    return layers, tilesets, prop_map
 
 
-def assert_asset_footprint(
-    vals: list[int], map_w: int, gid: int, image_path: Path, x: int, y: int, label: str
-) -> None:
+def apply_expected(expected: dict[tuple[int, int], int], gid: int, image_path: Path, x: int, y: int) -> None:
+    """Replay the actual blit order: later nontransparent tiles intentionally win overlaps."""
     im = Image.open(image_path).convert("RGBA")
     cols, rows = im.width // 16, im.height // 16
     for ty in range(rows):
         for tx in range(cols):
             tile = im.crop((tx * 16, ty * 16, tx * 16 + 16, ty * 16 + 16))
-            nonempty = tile.getchannel("A").getbbox() is not None
-            actual = vals[(y + ty) * map_w + (x + tx)]
-            if nonempty:
-                expected = gid + ty * cols + tx
-                need(actual == expected, f"{label} footprint {x+tx},{y+ty}: {actual} != {expected}")
+            if tile.getchannel("A").getbbox() is not None:
+                expected[(x + tx, y + ty)] = gid + ty * cols + tx
 
 
-dock_root, dock, dock_ts, dock_props = map_audit(ASSETS / "sky_dock_interior.tmx", (30, 18))
+def assert_composition(vals: list[int], map_w: int, expected: dict[tuple[int, int], int], label: str) -> None:
+    for (x, y), gid in expected.items():
+        actual = vals[y * map_w + x]
+        need(actual == gid, f"{label} composition {x},{y}: {actual} != {gid}")
+
+
+dock, dock_ts, dock_props = map_audit(ASSETS / "sky_dock_interior.tmx", (30, 18))
 expected_dock_ts = {
     "CardchaRouteNoticeBoard0690": (5000, flat["route"]),
     "CardchaBoardingGate0690": (5100, flat["gate"]),
@@ -146,21 +132,24 @@ for name, expected in expected_dock_ts.items():
     need(dock_ts.get(name) == expected, f"dock tileset {name}: {dock_ts.get(name)} != {expected}")
 need(dock_props.get("CardchaTextureContract") == "0692|flat-rgba-tmx-textures|png-color-type-6", "dock texture contract")
 
-back = dock["BackDecor"]
-assert_asset_footprint(back, 30, 5000, ASSETS / flat["route"], 2, 3, "route board")
-assert_asset_footprint(back, 30, 5100, ASSETS / flat["gate"], 20, 3, "boarding gate")
-assert_asset_footprint(back, 30, 5200, ASSETS / flat["signal"], 17, 4, "dock signal")
-assert_asset_footprint(back, 30, 5300, ASSETS / flat["cargo"], 26, 10, "cargo")
-assert_asset_footprint(back, 30, 5500, ASSETS / flat["departures"], 8, 3, "departures")
-assert_asset_footprint(back, 30, 5600, ASSETS / flat["bench"], 3, 10, "waiting bench")
-assert_asset_footprint(back, 30, 5700, ASSETS / flat["luggage"], 21, 10, "luggage cart")
-
+dock_expected: dict[tuple[int, int], int] = {}
+# Replay 0690 then 0691 placement order exactly.
+for gid, key, x, y in [
+    (5000, "route", 2, 3), (5100, "gate", 20, 3), (5200, "signal", 17, 4),
+    (5300, "cargo", 26, 10), (5500, "departures", 8, 3),
+    (5600, "bench", 3, 10), (5700, "luggage", 21, 10),
+]:
+    apply_expected(dock_expected, gid, ASSETS / flat[key], x, y)
+assert_composition(dock["BackDecor"], 30, dock_expected, "dock")
+# Gate specifically must remain the approved 7x6 asset, not an old replacement.
+need(Image.open(ASSETS / flat["gate"]).size == (112, 96), "approved gate dimensions changed")
 for y in range(3, 17):
     for x in range(14, 17):
-        v = back[y * 30 + x]
+        v = dock["BackDecor"][y * 30 + x]
         need(not (5500 <= v < 5800), f"Set02 entered center spine at {x},{y}")
 
-_, deck, deck_ts, deck_props = map_audit(ASSETS / "airship_deck.tmx", (24, 14))
+
+deck, deck_ts, deck_props = map_audit(ASSETS / "airship_deck.tmx", (24, 14))
 expected_deck_ts = {
     "CardchaObservationWindow0690": (5000, flat["window"]),
     "CardchaNavigationConsole0690": (5100, flat["console"]),
@@ -170,26 +159,28 @@ expected_deck_ts = {
 for name, expected in expected_deck_ts.items():
     need(deck_ts.get(name) == expected, f"deck tileset {name}: {deck_ts.get(name)} != {expected}")
 need(deck_props.get("CardchaTextureContract") == "0692|flat-rgba-tmx-textures|png-color-type-6", "deck texture contract")
-back_deck = deck["BackDecor"]
-assert_asset_footprint(back_deck, 24, 5000, ASSETS / flat["window"], 7, 1, "observation window")
-assert_asset_footprint(back_deck, 24, 5100, ASSETS / flat["console"], 9, 5, "navigation console")
-assert_asset_footprint(back_deck, 24, 5200, ASSETS / flat["signal"], 4, 4, "deck signal left")
-assert_asset_footprint(back_deck, 24, 5200, ASSETS / flat["signal"], 18, 4, "deck signal right")
 
-# Exterior gate contract: the farmer-depth path MUST bypass the Harmony-blocked
-# legacy wrapper, while the wrapper remains available for the suppression patch.
+deck_expected: dict[tuple[int, int], int] = {}
+# Replay 0690 order. Console intentionally overlaps the window's bottom row, so later console tiles win.
+for gid, key, x, y in [
+    (5000, "window", 7, 1), (5100, "console", 9, 5),
+    (5200, "signal", 4, 4), (5200, "signal", 18, 4),
+]:
+    apply_expected(deck_expected, gid, ASSETS / flat[key], x, y)
+assert_composition(deck["BackDecor"], 24, deck_expected, "deck")
+
+# Exterior gate contract: farmer-depth rendering must bypass the Harmony-blocked legacy wrapper.
 service = text(SRC / "Services/AirshipFoundationService.cs")
 need("internal void DrawForestGateAtFarmerDepth(SpriteBatch batch)" in service, "farmer-depth gate method missing")
 farmer_start = service.index("internal void DrawForestGateAtFarmerDepth(SpriteBatch batch)")
 farmer_end = service.index("private static Point ResolveForestGateLandingTile", farmer_start)
 farmer_block = service[farmer_start:farmer_end]
 need("DrawSkyDockCore(batch, this.ResolveSkyDockTile())" in farmer_block, "farmer-depth path does not call DrawSkyDockCore")
-need("this.DrawSkyDock(batch, this.ResolveSkyDockTile())" not in farmer_block, "farmer-depth path still calls blocked legacy DrawSkyDock")
+need("this.DrawSkyDock(batch, this.ResolveSkyDockTile())" not in farmer_block, "farmer-depth path still calls blocked DrawSkyDock")
 need("private void DrawSkyDockCore(SpriteBatch batch, Point tile)" in service, "DrawSkyDockCore missing")
 legacy_start = service.index("private void DrawSkyDock(SpriteBatch batch, Point tile)")
 legacy_end = service.index("private void DrawSkyDockCore(SpriteBatch batch, Point tile)", legacy_start)
-legacy_block = service[legacy_start:legacy_end]
-need("this.DrawSkyDockCore(batch, tile);" in legacy_block, "legacy wrapper does not delegate to core")
+need("this.DrawSkyDockCore(batch, tile);" in service[legacy_start:legacy_end], "legacy wrapper does not delegate to core")
 
 patch = text(SRC / "Patches/AirshipGateDepthPatch.cs")
 need('"DrawSkyDock"' in patch, "depth patch no longer suppresses legacy wrapper")
