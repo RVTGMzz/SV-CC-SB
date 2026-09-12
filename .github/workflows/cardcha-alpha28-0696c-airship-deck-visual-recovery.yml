@@ -1,0 +1,154 @@
+name: Cardcha 0696C Airship Deck Visual Recovery
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696-airship-concept-faithful-visible-integration
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 0696 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup visual tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Materialize 0696C Deck visual recovery
+        run: python3 tools/alpha28_0696c_airship_deck_visual_recovery.py
+
+      - name: Validate repository render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate recovered 0696A physical prop footprints remain intact
+        run: python3 tools/validate_0696_airship_visible_integration.py
+
+      - name: Validate 0696C environment matrix shell stations and void guard
+        run: python3 tools/validate_0696c_airship_deck_visual_recovery.py
+
+      - name: Render 0696C window environment evidence
+        run: python3 tools/alpha28_0696c_airship_visual_evidence.py
+
+      - name: Render deterministic Airship map preview
+        run: python3 tools/alpha28_0696_airship_preview.py
+
+      - name: Freeze Sky Dock and unrelated regions during 0696C materialization
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated 0696C source and evidence
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/Services/AirshipAmbientResolver.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Models/AirshipAmbientManifest.cs \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime \
+            src/Cardcha/assets/airship_props/set01_redux/console_runtime \
+            src/Cardcha/assets/airship_props/room_shell \
+            render_depth_audit.json \
+            handoff/LATEST_CARDCHA_HANDOFF.md \
+            handoff/ALPHA28_0696C_AIRSHIP_DECK_VISUAL_RECOVERY.md \
+            handoff/AIRSHIP_0696C_VISUAL_RECOVERY_VALIDATION.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696C Airship Deck visual recovery [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696-airship-concept-faithful-visible-integration
+          fi
+
+      - name: Package 0696C TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.64_0696C_AirshipDeckVisualRecovery_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile, xml.etree.ElementTree as ET
+          from PIL import Image
+          import io
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.64_0696C_AirshipDeckVisualRecovery_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.64'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              ambient=json.loads(z.read('Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json'))
+              assert ambient['schemaVersion']==2
+              states=ambient['observationWindow']['sceneMatrix']['states']
+              count=sum(len(weather) for season in states.values() for weather in season.values())
+              assert count==80,count
+              assert ambient['observationWindow']['legacyFallback']['enabled'] is False
+              assert 'Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png' in z.namelist()
+              assert 'Cardcha/assets/airship_props/set01_redux/console_runtime/radar_sweep_strip.png' in z.namelist()
+              assert 'Cardcha/assets/airship_props/room_shell/airship_deck_border_0696c.png' in z.namelist()
+              root=ET.fromstring(z.read('Cardcha/assets/airship_deck.tmx'))
+              ts=next(x for x in root.findall('tileset') if x.attrib.get('name')=='CardchaAirshipDeckRoomShell0696C')
+              assert int(ts.attrib['firstgid'])==7200
+              layers={x.attrib.get('name'):x for x in root.findall('layer')}
+              buildings=[int(x.strip()) for x in (layers['Buildings'].find('data').text or '').split(',') if x.strip()]
+              assert buildings[13*24+11]==0 and buildings[13*24+12]==0
+          print('0696C package audit PASS:',p)
+          PY
+
+      - name: Upload 0696C TEST and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696C-airship-deck-visual-recovery
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.64_0696C_AirshipDeckVisualRecovery_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.64_0696C_AirshipDeckVisualRecovery_TEST.zip.sha256
+            handoff/AIRSHIP_0696C_VISUAL_RECOVERY_VALIDATION.json
+            handoff/AIRSHIP_0696C_WINDOW_MATRIX_PREVIEW.png
+            handoff/AIRSHIP_0696A_DECK_PREVIEW.png
