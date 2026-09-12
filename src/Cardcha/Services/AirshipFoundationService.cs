@@ -2403,26 +2403,26 @@ private void EnsureDeckVanillaFurniture(GameLocation deck)
 {
     if (ReferenceEquals(this.DeckDecorAppliedLocation, deck)
         && deck.modData.TryGetValue(InteriorDecorMarkerKey, out string? version)
-        && string.Equals(version, InteriorDecorVersion + "-0690-bridge", StringComparison.Ordinal))
+        && string.Equals(version, InteriorDecorVersion + "-0696-bridge", StringComparison.Ordinal))
         return;
 
     this.DeckDecorAppliedLocation = deck;
     ClearInteriorDecor(deck);
-    // 0690: physical bridge furnishings are authored into airship_deck.tmx.
-    deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0690-bridge";
+    // 0696A: exact approved bridge props are authored into runtime-supported TMX layers.
+    deck.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0696-bridge";
 }
 
 private void EnsureSkyDockVanillaFurniture(GameLocation dock)
 {
     if (ReferenceEquals(this.SkyDockDecorAppliedLocation, dock)
         && dock.modData.TryGetValue(InteriorDecorMarkerKey, out string? version)
-        && string.Equals(version, InteriorDecorVersion + "-0691-dock", StringComparison.Ordinal))
+        && string.Equals(version, InteriorDecorVersion + "-0696-dock", StringComparison.Ordinal))
         return;
 
     this.SkyDockDecorAppliedLocation = dock;
     ClearInteriorDecor(dock);
-    // 0691: physical dock furnishings, including Set02 Harbor, are authored into sky_dock_interior.tmx.
-    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0691-dock";
+    // 0696A: exact approved dock props are authored into runtime-supported TMX layers.
+    dock.modData[InteriorDecorMarkerKey] = InteriorDecorVersion + "-0696-dock";
 }
 
 private static void ClearInteriorDecor(GameLocation location)

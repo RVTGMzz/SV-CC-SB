@@ -1,0 +1,1974 @@
+{
+  "schema_version": 1,
+  "workstream": "0696 Airship Visual Recovery",
+  "phase": "0696A-visible-architecture-recovery",
+  "visual_acceptance": "PENDING-RON-IN-GAME",
+  "source_policy": "Exact repo-recovered approved sprites only; no redraw, no rescale, no silent substitute.",
+  "repo_recovered_asset_count": 18,
+  "repo_recovered_assets_complete": true,
+  "external_source_pack_complete": false,
+  "external_source_gap": {
+    "concept_archive": {
+      "name": "concept(1).rar",
+      "expected_png_count": 6,
+      "repo_status": "missing"
+    },
+    "sprite_archive": {
+      "name": "sprite(1).rar",
+      "expected_png_count": 22,
+      "repo_status": "missing"
+    },
+    "policy": "Do not invent, redraw, shrink, or silently substitute missing approved source sprites. 0696A recovers only approved production sprites already present in repo."
+  },
+  "assets": [
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/boarding_gate_arch.png",
+      "status": "exact",
+      "sha256": "b3e04cb1f556e4fff0663f97abf37cee1787795f8df05e54a7ddefd4fdeedf33",
+      "dimensions": [
+        112,
+        96
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        4,
+        11,
+        111,
+        90
+      ],
+      "tile_footprint": [
+        7,
+        6
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          0,
+          5
+        ],
+        [
+          1,
+          5
+        ],
+        [
+          2,
+          5
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          4,
+          5
+        ],
+        [
+          5,
+          5
+        ],
+        [
+          6,
+          5
+        ]
+      ],
+      "nontransparent_pixels": 6077,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "boarding_gate",
+          "anchor": [
+            20,
+            3
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/cargo_parcel_crate.png",
+      "status": "exact",
+      "sha256": "638f18ce2b7124a45a3424546101ef0bef30be13dab02dab693472f98ecf3feb",
+      "dimensions": [
+        48,
+        48
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        3,
+        7,
+        45,
+        42
+      ],
+      "tile_footprint": [
+        3,
+        3
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 1267,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "cargo_parcel_crate",
+          "anchor": [
+            26,
+            10
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/collision_blocker.png",
+      "status": "exact",
+      "sha256": "a901afae7bdb66678f08a39b32f8a46da9864c8a64fabc0e77a7f12b93df12ba",
+      "dimensions": [
+        16,
+        16
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": null,
+      "tile_footprint": [
+        1,
+        1
+      ],
+      "occupied_cells": [],
+      "nontransparent_pixels": 0,
+      "used_by": [
+        {
+          "room": "both",
+          "role": "base-Buildings-collision-primitive"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "base Buildings collision only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png",
+      "status": "exact",
+      "sha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+      "dimensions": [
+        112,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        0,
+        7,
+        112,
+        72
+      ],
+      "tile_footprint": [
+        7,
+        5
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ]
+      ],
+      "nontransparent_pixels": 7242,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "navigation_console",
+          "anchor": [
+            9,
+            5
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png",
+      "status": "exact",
+      "sha256": "d08c3bd93f8f3a8cafa775f74e8a3401bc7340c887abc8f014965b4cb006965b",
+      "dimensions": [
+        112,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        40,
+        15,
+        74,
+        37
+      ],
+      "tile_footprint": [
+        7,
+        5
+      ],
+      "occupied_cells": [
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 748,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "navigation_console",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png",
+      "status": "exact",
+      "sha256": "5600708918e212d03ee0654096ff39f4673f3d056bad6652523bb19732e55c08",
+      "dimensions": [
+        112,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        40,
+        15,
+        74,
+        38
+      ],
+      "tile_footprint": [
+        7,
+        5
+      ],
+      "occupied_cells": [
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 755,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "navigation_console",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png",
+      "status": "exact",
+      "sha256": "e5fc84b7d2de30500e1b45148ff3610b0115819142070275a3f3efea51c2cb5a",
+      "dimensions": [
+        112,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        40,
+        15,
+        74,
+        37
+      ],
+      "tile_footprint": [
+        7,
+        5
+      ],
+      "occupied_cells": [
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 748,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "navigation_console",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png",
+      "status": "exact",
+      "sha256": "22c4ea548c1f8287f9361127b0dc060807a4c24a76aeaddceb18de04f62159c7",
+      "dimensions": [
+        112,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        40,
+        15,
+        74,
+        37
+      ],
+      "tile_footprint": [
+        7,
+        5
+      ],
+      "occupied_cells": [
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 748,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "navigation_console",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png",
+      "status": "exact",
+      "sha256": "34bb4ca85fd3b2690794d4b4686ef4fc46508d3c21beb99a4ab22f28c016d9ba",
+      "dimensions": [
+        160,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        0,
+        0,
+        160,
+        79
+      ],
+      "tile_footprint": [
+        10,
+        5
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          6,
+          0
+        ],
+        [
+          7,
+          0
+        ],
+        [
+          8,
+          0
+        ],
+        [
+          9,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          8,
+          1
+        ],
+        [
+          9,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ],
+        [
+          9,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ],
+        [
+          6,
+          3
+        ],
+        [
+          7,
+          3
+        ],
+        [
+          8,
+          3
+        ],
+        [
+          9,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ],
+        [
+          5,
+          4
+        ],
+        [
+          6,
+          4
+        ],
+        [
+          7,
+          4
+        ],
+        [
+          8,
+          4
+        ],
+        [
+          9,
+          4
+        ]
+      ],
+      "nontransparent_pixels": 12637,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "observation_window",
+          "anchor": [
+            7,
+            1
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png",
+      "status": "exact",
+      "sha256": "e7ef4c40db4a1bd43daea8f06eebe553c8d908ae9f41272b6ea3ca416a98b5e5",
+      "dimensions": [
+        160,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        28,
+        20,
+        134,
+        48
+      ],
+      "tile_footprint": [
+        10,
+        5
+      ],
+      "occupied_cells": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          8,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 2576,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "observation_window",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png",
+      "status": "exact",
+      "sha256": "5e482675ef9251d690be26fce021c9307d942a5a43676505070a42f5fb87fc9a",
+      "dimensions": [
+        160,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        28,
+        20,
+        134,
+        48
+      ],
+      "tile_footprint": [
+        10,
+        5
+      ],
+      "occupied_cells": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          8,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 2576,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "observation_window",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png",
+      "status": "exact",
+      "sha256": "28e8d0f15ddec975379ab6ed5a8965b0886077b4fa6f570013e2fc8a9f238c79",
+      "dimensions": [
+        160,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        28,
+        20,
+        134,
+        48
+      ],
+      "tile_footprint": [
+        10,
+        5
+      ],
+      "occupied_cells": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          8,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 2576,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "observation_window",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png",
+      "status": "exact",
+      "sha256": "3fea376828fa36309353763a4f7542f4c6bea377800cf97adbd9e94a75d6c340",
+      "dimensions": [
+        160,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        28,
+        20,
+        134,
+        48
+      ],
+      "tile_footprint": [
+        10,
+        5
+      ],
+      "occupied_cells": [
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          6,
+          1
+        ],
+        [
+          7,
+          1
+        ],
+        [
+          8,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          6,
+          2
+        ],
+        [
+          7,
+          2
+        ],
+        [
+          8,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 2576,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "observation_window",
+          "role": "runtime-overlay"
+        }
+      ],
+      "scale_factor": 1.0,
+      "runtime_owner": "VFX-only"
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/route_notice_board.png",
+      "status": "exact",
+      "sha256": "15bc3050558acc16c5e0fcb980cc9d58ac77d604662335a46955dfb3f147755f",
+      "dimensions": [
+        80,
+        80
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        9,
+        7,
+        73,
+        71
+      ],
+      "tile_footprint": [
+        5,
+        5
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ],
+        [
+          3,
+          4
+        ],
+        [
+          4,
+          4
+        ]
+      ],
+      "nontransparent_pixels": 3515,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "route_notice_board",
+          "anchor": [
+            2,
+            3
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set01_redux/signal_lamp.png",
+      "status": "exact",
+      "sha256": "e6bf4800b1bc20552b64c9a789a964c6dc7660997d6275d03e0bda89012f2aac",
+      "dimensions": [
+        32,
+        48
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        9,
+        2,
+        22,
+        44
+      ],
+      "tile_footprint": [
+        2,
+        3
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 313,
+      "used_by": [
+        {
+          "room": "deck",
+          "id": "signal_lamp_left",
+          "anchor": [
+            4,
+            4
+          ]
+        },
+        {
+          "room": "deck",
+          "id": "signal_lamp_right",
+          "anchor": [
+            18,
+            4
+          ]
+        },
+        {
+          "room": "sky_dock",
+          "id": "signal_lamp",
+          "anchor": [
+            17,
+            4
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set02_harbor/departures_schedule_board.png",
+      "status": "exact",
+      "sha256": "1fd938eea778c35d3beadd2068e3339adc81f0c47a4705af8f877f77aff97082",
+      "dimensions": [
+        96,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        4,
+        3,
+        92,
+        62
+      ],
+      "tile_footprint": [
+        6,
+        4
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ],
+        [
+          4,
+          3
+        ],
+        [
+          5,
+          3
+        ]
+      ],
+      "nontransparent_pixels": 5176,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "departures_schedule_board",
+          "anchor": [
+            8,
+            3
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set02_harbor/luggage_cart.png",
+      "status": "exact",
+      "sha256": "d279c044262a5af3357fd822c1230d8508ef1f94f1982f09bb69a181e918b38e",
+      "dimensions": [
+        64,
+        64
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        5,
+        4,
+        60,
+        64
+      ],
+      "tile_footprint": [
+        4,
+        4
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          3
+        ]
+      ],
+      "nontransparent_pixels": 2259,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "luggage_cart",
+          "anchor": [
+            21,
+            10
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    },
+    {
+      "path": "src/Cardcha/assets/airship_props/set02_harbor/waiting_bench.png",
+      "status": "exact",
+      "sha256": "07f969aeedee81d32c207aa004448d7495609a5a2d3397f89affd8e33f5e9244",
+      "dimensions": [
+        96,
+        48
+      ],
+      "mode": "RGBA",
+      "alpha_bbox": [
+        5,
+        7,
+        91,
+        47
+      ],
+      "tile_footprint": [
+        6,
+        3
+      ],
+      "occupied_cells": [
+        [
+          0,
+          0
+        ],
+        [
+          1,
+          0
+        ],
+        [
+          2,
+          0
+        ],
+        [
+          3,
+          0
+        ],
+        [
+          4,
+          0
+        ],
+        [
+          5,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ],
+        [
+          2,
+          1
+        ],
+        [
+          3,
+          1
+        ],
+        [
+          4,
+          1
+        ],
+        [
+          5,
+          1
+        ],
+        [
+          0,
+          2
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          2
+        ],
+        [
+          3,
+          2
+        ],
+        [
+          4,
+          2
+        ],
+        [
+          5,
+          2
+        ]
+      ],
+      "nontransparent_pixels": 3135,
+      "used_by": [
+        {
+          "room": "sky_dock",
+          "id": "waiting_bench",
+          "anchor": [
+            3,
+            10
+          ]
+        }
+      ],
+      "scale_factor": 1.0,
+      "approved_operations": [
+        "grid-split",
+        "depth-slice",
+        "transparent-padding-preserved"
+      ]
+    }
+  ],
+  "missing_repo_assets": []
+}

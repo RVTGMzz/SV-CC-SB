@@ -1,0 +1,91 @@
+{
+  "phase": "0696A-visible-architecture-recovery",
+  "technical_validation": "PASS",
+  "visual_acceptance": "PENDING-RON-IN-GAME",
+  "external_source_pack_complete": false,
+  "rooms": [
+    {
+      "room": "deck",
+      "props": [
+        {
+          "id": "observation_window",
+          "occupied_cells": 50,
+          "represented_cells": 50
+        },
+        {
+          "id": "navigation_console",
+          "occupied_cells": 35,
+          "represented_cells": 35
+        },
+        {
+          "id": "signal_lamp_left",
+          "occupied_cells": 6,
+          "represented_cells": 6
+        },
+        {
+          "id": "signal_lamp_right",
+          "occupied_cells": 6,
+          "represented_cells": 6
+        }
+      ],
+      "collision_cells": 14,
+      "layers": [
+        "Back",
+        "Back2",
+        "Buildings",
+        "Buildings2",
+        "Front",
+        "Front2"
+      ]
+    },
+    {
+      "room": "sky_dock",
+      "props": [
+        {
+          "id": "route_notice_board",
+          "occupied_cells": 25,
+          "represented_cells": 25
+        },
+        {
+          "id": "departures_schedule_board",
+          "occupied_cells": 24,
+          "represented_cells": 24
+        },
+        {
+          "id": "signal_lamp",
+          "occupied_cells": 6,
+          "represented_cells": 6
+        },
+        {
+          "id": "boarding_gate",
+          "occupied_cells": 42,
+          "represented_cells": 42
+        },
+        {
+          "id": "waiting_bench",
+          "occupied_cells": 18,
+          "represented_cells": 18
+        },
+        {
+          "id": "luggage_cart",
+          "occupied_cells": 16,
+          "represented_cells": 16
+        },
+        {
+          "id": "cargo_parcel_crate",
+          "occupied_cells": 9,
+          "represented_cells": 9
+        }
+      ],
+      "collision_cells": 50,
+      "layers": [
+        "Back",
+        "Back2",
+        "Buildings",
+        "Buildings2",
+        "Front",
+        "Front2"
+      ]
+    }
+  ]
+}

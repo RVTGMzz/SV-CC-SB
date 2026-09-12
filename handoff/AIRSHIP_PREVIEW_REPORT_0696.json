@@ -1,0 +1,24 @@
+{
+  "phase": "0696A-visible-architecture-recovery",
+  "preview_type": "deterministic-TMX-custom-layer-footprint-preview",
+  "technical_preview": "PASS",
+  "visual_acceptance": "PENDING-RON-IN-GAME",
+  "full_composition_gate": "BLOCKED_EXTERNAL_SOURCE_PACK",
+  "rooms": [
+    {
+      "room": "deck",
+      "preview": "handoff/AIRSHIP_0696A_DECK_PREVIEW.png",
+      "custom_visual_tile_placements": 97,
+      "pending_source_zone_count": 3,
+      "full_composition_gate": "BLOCKED_EXTERNAL_SOURCE_PACK"
+    },
+    {
+      "room": "sky_dock",
+      "preview": "handoff/AIRSHIP_0696A_SKY_DOCK_PREVIEW.png",
+      "custom_visual_tile_placements": 140,
+      "pending_source_zone_count": 2,
+      "full_composition_gate": "BLOCKED_EXTERNAL_SOURCE_PACK"
+    }
+  ],
+  "note": "Preview validates placement, scale, layer ownership, and collision. It is not an in-game visual acceptance screenshot."
+}
