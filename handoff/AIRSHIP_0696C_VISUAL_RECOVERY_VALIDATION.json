@@ -3,6 +3,7 @@
   "technicalValidation": "PASS",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "windowSceneCount": 80,
+  "allWindowScenesOpaque": true,
   "environmentDimensions": {
     "seasons": 5,
     "timeBuckets": 4,
