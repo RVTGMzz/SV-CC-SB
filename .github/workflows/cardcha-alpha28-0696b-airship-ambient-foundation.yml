@@ -1,0 +1,128 @@
+name: Cardcha 0696B Airship Ambient Runtime Foundation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696-airship-concept-faithful-visible-integration
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout 0696 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup validation tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Materialize 0696B runtime foundation
+        run: python3 tools/alpha28_0696b_airship_ambient_runtime_foundation.py
+
+      - name: Validate repository render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Validate 0696B ambient manifest and runtime contract
+        run: python3 tools/validate_0696b_airship_ambient_contract.py
+
+      - name: Freeze 0696A physical maps and unrelated content
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code e6d84d22e59030dc38eb37902d32424d50902814 -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/region1_hunting.tmx \
+            src/Cardcha/assets/boss2_hollow_curator_arena.tmx \
+            src/Cardcha/assets/boss3_tricolor_resonance_arena.tmx \
+            src/Cardcha/assets/boss4_mimi_resonance_arena.tmx \
+            src/Cardcha/assets/bosses \
+            src/Cardcha/assets/region2_forgotten_archive.tmx \
+            src/Cardcha/assets/region2_mirror_gallery.tmx \
+            src/Cardcha/assets/region2_inkbound_stacks.tmx \
+            src/Cardcha/assets/region2_warden_vault.tmx \
+            src/Cardcha/assets/region3_mirrorwild.tmx \
+            src/Cardcha/assets/region4_resonance_verge.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated 0696B source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/Services/AirshipAmbientResolver.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Models/AirshipAmbientManifest.cs \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            render_depth_audit.json \
+            handoff/LATEST_CARDCHA_HANDOFF.md \
+            handoff/ALPHA28_0696B_AIRSHIP_AMBIENT_RUNTIME_FOUNDATION.md \
+            handoff/AIRSHIP_AMBIENT_CONTRACT_VALIDATION_0696B.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696B Airship ambient runtime foundation [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696-airship-concept-faithful-visible-integration
+          fi
+
+      - name: Package 0696B TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.63_0696B_AirshipAmbientRuntimeFoundation_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          import json, zipfile
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.63_0696B_AirshipAmbientRuntimeFoundation_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.63'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              ambient=json.loads(z.read('Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json'))
+              assert ambient['schemaVersion']==1
+              assert ambient['version']==m['Version']
+              assert ambient['visualAcceptance']=='PENDING-RON-IN-GAME'
+              assert ambient['observationWindow']['legacyFallback']['enabled'] is True
+              assert ambient['navigationConsole']['legacyFallback']['enabled'] is True
+          print('0696B package audit PASS:',p)
+          PY
+
+      - name: Upload 0696B TEST artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696B-airship-ambient-runtime-foundation
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.63_0696B_AirshipAmbientRuntimeFoundation_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.63_0696B_AirshipAmbientRuntimeFoundation_TEST.zip.sha256
+            handoff/AIRSHIP_AMBIENT_CONTRACT_VALIDATION_0696B.json
