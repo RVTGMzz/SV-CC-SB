@@ -88,7 +88,8 @@
     "0692 exterior gate farmer-depth path->unpatched DrawSkyDockCore; legacy DrawSkyDock remains suppressed",
     "0693 Airship dense physical interior scene->TMX; runtime remains VFX-only",
     "0695 Region I Hunt Run physical environment decor->TMX BackDecor/Buildings/Front; legacy RenderedWorld renderer removed",
-    "0696A Airship approved Set01+Set02 physical art->supported TMX suffix layers; collision->base Buildings; BackDecor retired"
+    "0696A Airship approved Set01+Set02 physical art->supported TMX suffix layers; collision->base Buildings; BackDecor retired",
+    "0696B Airship ambient runtime manifest+resolver; hero animation remains VFX-only with approved 0690 fallback"
   ],
   "safeNativeExamples": [
     "MimiAtticVisualService.EnsureVanillaFurniture",

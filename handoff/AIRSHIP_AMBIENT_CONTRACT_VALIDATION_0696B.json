@@ -1,0 +1,200 @@
+{
+  "phase": "0696B-airship-ambient-runtime-foundation",
+  "build": "0.3.0-alpha.28.0.4.14.4.5.12.63",
+  "technicalValidation": "PASS",
+  "visualAcceptance": "PENDING-RON-IN-GAME",
+  "newAmbientArtState": "PENDING_PRODUCTION",
+  "legacyFallbackCount": 8,
+  "legacyFallbackMissing": [],
+  "plannedAssetCount": 33,
+  "plannedPresentCount": 0,
+  "plannedPendingCount": 33,
+  "plannedAssets": [
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/observation_window_frame.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/observation_window_view_mask.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_default_morning.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_default_noon.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_default_evening.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_default_night.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_spring_morning.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_spring_noon.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_spring_evening.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_spring_night.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_summer_morning.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_summer_noon.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_summer_evening.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_summer_night.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_fall_morning.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_fall_noon.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_fall_evening.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_fall_night.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_winter_morning.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_winter_noon.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_winter_evening.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_view_winter_night.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_clouds_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_rain_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_snow_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_rain_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_lightning_flash_01.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_fx_lightning_flash_02.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/console_runtime/navigation_console_frame.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/console_runtime/radar_bg.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/console_runtime/radar_sweep_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/console_runtime/radar_pings_strip.png",
+      "status": "pending",
+      "size": null
+    },
+    {
+      "path": "assets/airship_props/set01_redux/console_runtime/radar_glow_strip.png",
+      "status": "pending",
+      "size": null
+    }
+  ],
+  "deckLayers": [
+    "Back",
+    "Back2",
+    "Buildings",
+    "Buildings2",
+    "Front",
+    "Front2"
+  ],
+  "dockLayers": [
+    "Back",
+    "Back2",
+    "Buildings",
+    "Buildings2",
+    "Front",
+    "Front2"
+  ],
+  "notes": [
+    "Technical PASS only validates contract/runtime wiring.",
+    "New ambient art is allowed to be pending; approved 0690 fallback remains active.",
+    "Visual acceptance remains Ron-only and requires in-game testing after production assets exist."
+  ]
+}

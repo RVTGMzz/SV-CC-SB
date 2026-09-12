@@ -41,8 +41,7 @@ internal static class AirshipInteriorStardewRenderer
             return false;
 
         float phase = (float)(Environment.TickCount64 / 1000.0);
-        Draw0690WindowOverlay(batch);
-        Draw0690ConsoleOverlay(batch);
+        AirshipAmbientAnimationService.DrawDeckAmbient(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
         DrawHelmMagic(batch, phase);
