@@ -1,1 +1,243 @@
-PLACEHOLDER
+{
+  "schema_version": 1,
+  "workstream": "0696 Airship Visual Recovery",
+  "phase": "0696A-visible-architecture-recovery",
+  "branch": "cardcha-alpha28-0696-airship-concept-faithful-visible-integration",
+  "visual_acceptance": "PENDING-RON-IN-GAME",
+  "tile_size": 16,
+  "render_contract": {
+    "supported_visual_layers": [
+      "Back2",
+      "Buildings2",
+      "Front",
+      "Front2"
+    ],
+    "collision_owner": "Buildings",
+    "deprecated_production_layer": "BackDecor",
+    "rendered_world": "VFX/animated overlays only",
+    "rule": "Suffix visual layers may render art; gameplay collision remains on base Buildings."
+  },
+  "external_source_gap": {
+    "concept_archive": {
+      "name": "concept(1).rar",
+      "expected_png_count": 6,
+      "repo_status": "missing"
+    },
+    "sprite_archive": {
+      "name": "sprite(1).rar",
+      "expected_png_count": 22,
+      "repo_status": "missing"
+    },
+    "policy": "Do not invent, redraw, shrink, or silently substitute missing approved source sprites. 0696A recovers only approved production sprites already present in repo."
+  },
+  "rooms": {
+    "deck": {
+      "map": "src/Cardcha/assets/airship_deck.tmx",
+      "dimensions_tiles": [24, 14],
+      "composition_target": [
+        "observation/navigation identity across upper wall",
+        "navigation console hero cluster center-upper",
+        "left work-library zone (external source pending)",
+        "right telescope/workstation zone (external source pending)",
+        "central purple Cardcha rug/console zone (external source pending)",
+        "lower doorway and gameplay sockets remain reachable"
+      ],
+      "props": [
+        {
+          "id": "observation_window",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png",
+          "tileset_name": "CardchaObservationWindow0690",
+          "firstgid": 5000,
+          "anchor": [7, 1],
+          "footprint_tiles": [10, 5],
+          "hero": true,
+          "visual_slices": [
+            {"layer": "Buildings2", "rows": [0, 4]}
+          ],
+          "collision_rects": [],
+          "runtime_overlays": [
+            "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png",
+            "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png",
+            "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png",
+            "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png"
+          ],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "navigation_console",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png",
+          "tileset_name": "CardchaNavigationConsole0690",
+          "firstgid": 5100,
+          "anchor": [9, 5],
+          "footprint_tiles": [7, 5],
+          "hero": true,
+          "visual_slices": [
+            {"layer": "Front2", "rows": [0, 2]},
+            {"layer": "Buildings2", "rows": [3, 4]}
+          ],
+          "collision_rects": [[9, 8, 7, 2]],
+          "runtime_overlays": [
+            "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png",
+            "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png",
+            "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png",
+            "src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png"
+          ],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "signal_lamp_left",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/signal_lamp.png",
+          "tileset_name": "CardchaSignalLamp0690",
+          "firstgid": 5200,
+          "anchor": [4, 4],
+          "footprint_tiles": [2, 3],
+          "hero": false,
+          "visual_slices": [{"layer": "Buildings2", "rows": [0, 2]}],
+          "collision_rects": [],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "signal_lamp_right",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/signal_lamp.png",
+          "tileset_name": "CardchaSignalLamp0690",
+          "firstgid": 5200,
+          "anchor": [18, 4],
+          "footprint_tiles": [2, 3],
+          "hero": false,
+          "visual_slices": [{"layer": "Buildings2", "rows": [0, 2]}],
+          "collision_rects": [],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        }
+      ],
+      "pending_source_zones": [
+        {"zone": "left_work_library", "reason": "approved separated source not recoverable in repo"},
+        {"zone": "right_telescope_workstation", "reason": "approved separated source not recoverable in repo"},
+        {"zone": "central_cardcha_rug_cluster", "reason": "approved separated source not recoverable in repo"}
+      ]
+    },
+    "sky_dock": {
+      "map": "src/Cardcha/assets/sky_dock_interior.tmx",
+      "dimensions_tiles": [30, 18],
+      "protected_open_lane": {"x": [14, 16], "purpose": "arrival/exit spine"},
+      "composition_target": [
+        "service/information cluster on left",
+        "waiting nook lower-left",
+        "open purple/arrival spine through center",
+        "large boarding gate on right",
+        "luggage/cargo cluster lower-right"
+      ],
+      "props": [
+        {
+          "id": "route_notice_board",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/route_notice_board.png",
+          "tileset_name": "CardchaRouteNoticeBoard0690",
+          "firstgid": 5000,
+          "anchor": [2, 3],
+          "footprint_tiles": [5, 5],
+          "hero": false,
+          "visual_slices": [{"layer": "Buildings2", "rows": [0, 4]}],
+          "collision_rects": [[2, 6, 5, 2]],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "departures_schedule_board",
+          "asset": "src/Cardcha/assets/airship_props/set02_harbor/departures_schedule_board.png",
+          "tileset_name": "CardchaDeparturesBoard0691",
+          "firstgid": 5500,
+          "anchor": [8, 3],
+          "footprint_tiles": [6, 4],
+          "hero": true,
+          "visual_slices": [{"layer": "Buildings2", "rows": [0, 3]}],
+          "collision_rects": [[8, 6, 6, 1]],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "signal_lamp",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/signal_lamp.png",
+          "tileset_name": "CardchaSignalLamp0690",
+          "firstgid": 5200,
+          "anchor": [17, 4],
+          "footprint_tiles": [2, 3],
+          "hero": false,
+          "visual_slices": [{"layer": "Buildings2", "rows": [0, 2]}],
+          "collision_rects": [],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "boarding_gate",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/boarding_gate_arch.png",
+          "tileset_name": "CardchaBoardingGate0690",
+          "firstgid": 5100,
+          "anchor": [20, 3],
+          "footprint_tiles": [7, 6],
+          "hero": true,
+          "visual_slices": [
+            {"layer": "Front2", "rows": [0, 2]},
+            {"layer": "Buildings2", "rows": [3, 5]}
+          ],
+          "collision_rects": [[20, 5, 1, 4], [26, 5, 1, 4]],
+          "walk_through_opening": {"x": [21, 25], "y": [5, 8]},
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "waiting_bench",
+          "asset": "src/Cardcha/assets/airship_props/set02_harbor/waiting_bench.png",
+          "tileset_name": "CardchaWaitingBench0691",
+          "firstgid": 5600,
+          "anchor": [3, 10],
+          "footprint_tiles": [6, 3],
+          "hero": false,
+          "visual_slices": [
+            {"layer": "Front2", "rows": [0, 1]},
+            {"layer": "Buildings2", "rows": [2, 2]}
+          ],
+          "collision_rects": [[3, 11, 6, 2]],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "luggage_cart",
+          "asset": "src/Cardcha/assets/airship_props/set02_harbor/luggage_cart.png",
+          "tileset_name": "CardchaLuggageCart0691",
+          "firstgid": 5700,
+          "anchor": [21, 10],
+          "footprint_tiles": [4, 4],
+          "hero": false,
+          "visual_slices": [
+            {"layer": "Front2", "rows": [0, 2]},
+            {"layer": "Buildings2", "rows": [3, 3]}
+          ],
+          "collision_rects": [[21, 12, 4, 2]],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        },
+        {
+          "id": "cargo_parcel_crate",
+          "asset": "src/Cardcha/assets/airship_props/set01_redux/cargo_parcel_crate.png",
+          "tileset_name": "CardchaCargoCrate0690",
+          "firstgid": 5300,
+          "anchor": [26, 10],
+          "footprint_tiles": [3, 3],
+          "hero": false,
+          "visual_slices": [
+            {"layer": "Front2", "rows": [0, 1]},
+            {"layer": "Buildings2", "rows": [2, 2]}
+          ],
+          "collision_rects": [[26, 11, 3, 2]],
+          "runtime_overlays": [],
+          "status": "exact-repo-source"
+        }
+      ],
+      "pending_source_zones": [
+        {"zone": "service_desk_cluster", "reason": "approved separated source not recoverable in repo"},
+        {"zone": "additional_station_detail", "reason": "approved separated source not recoverable in repo"}
+      ]
+    }
+  }
+}
