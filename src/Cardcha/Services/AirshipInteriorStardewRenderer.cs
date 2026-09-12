@@ -44,6 +44,8 @@ internal static class AirshipInteriorStardewRenderer
         AirshipAmbientAnimationService.DrawDeckAmbient(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
+        // 0696C: restore the four level-aware Engine/Navigation/Hull/Reactor stations.
+        DrawUpgradeStations(batch, save, phase);
         DrawHelmMagic(batch, phase);
         DrawChaChaMagic(batch, phase);
         DrawDoorwayThreshold(batch, new Point(12, 12), new Color(210, 161, 79) * 0.60f);

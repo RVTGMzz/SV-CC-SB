@@ -336,6 +336,10 @@ internal sealed class AirshipFoundationService
         if (this.PendingDepartureUntilMs > 0 && now > this.PendingDepartureUntilMs)
             this.PendingDepartureUntilMs = 0;
 
+        // 0696C room law: no player may remain in the black void outside the bridge shell.
+        if (this.TryRecoverDeckBoundary())
+            return;
+
         GameLocation? activeRunRoom = Game1.currentLocation;
         if (this.Region1RunActive
             && activeRunRoom is not null
@@ -700,6 +704,35 @@ internal sealed class AirshipFoundationService
                $"UnlockDay={this.Save.Data.AirshipUnlockedDay} | " +
                $"DeckExists={deckExists} | InteriorExists={interiorExists} | Region1Exists={region1Exists} | NativeDecor=Bridge:{deckFurniture},Dock:{dockFurniture},LostFound:{lostFoundPresent} | Flights={this.Save.Data.AirshipFlightsTaken} | FarePaid={this.Save.Data.AirshipTotalFarePaid}g | SkyDock={SkyDockLocationName}({dock.X},{dock.Y}) | " +
                $"ForestFarmWarp={farmWarp.X},{farmWarp.Y} | Upgrades=Engine:{this.Save.Data.AirshipEngineLevel}/3,Navigation:{this.Save.Data.AirshipNavigationLevel}/3,Hull:{this.Save.Data.AirshipHullLevel}/3,Reactor:{this.Save.Data.AirshipReactorLevel}/3 | CollisionEdits=NONE";
+    }
+
+    private bool TryRecoverDeckBoundary()
+    {
+        GameLocation? location = Game1.currentLocation;
+        if (location is null || !location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        int tileX = (int)Math.Floor(Game1.player.Position.X / 64f);
+        int tileY = (int)Math.Floor(Game1.player.Position.Y / 64f);
+
+        // The only legal lower-shell opening is the two-tile doorway. Crossing it returns
+        // immediately to the Arcane Dock instead of leaving the farmer standing in void.
+        if (tileY >= 13 && tileX is 11 or 12)
+        {
+            this.WarpToSkyDockInterior();
+            return true;
+        }
+
+        bool outsideSide = tileX <= 0 || tileX >= 23;
+        bool outsideBottom = tileY >= 13;
+        if (!outsideSide && !outsideBottom)
+            return false;
+
+        int safeX = Math.Clamp(tileX, 1, 22);
+        int safeY = Math.Clamp(tileY, 5, 12);
+        Game1.player.Position = new Vector2(safeX * 64f, safeY * 64f);
+        Game1.player.Halt();
+        return true;
     }
 
     private void MigrateUnlockFromExistingStory()

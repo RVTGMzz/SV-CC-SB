@@ -1,27 +1,59 @@
 {
-  "schemaVersion": 1,
-  "workstream": "0696B-airship-ambient-animation-foundation",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.63",
+  "schemaVersion": 2,
+  "workstream": "0696C-airship-deck-shell-layer-environment-recovery",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.64",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
     "tileSize": 16,
     "timeBuckets": {
-      "morning": { "start": 600, "end": 959 },
-      "noon": { "start": 1000, "end": 1559 },
-      "evening": { "start": 1600, "end": 1859 },
-      "night": { "start": 1900, "end": 2599 }
+      "morning": {
+        "start": 600,
+        "end": 959
+      },
+      "noon": {
+        "start": 1000,
+        "end": 1559
+      },
+      "evening": {
+        "start": 1600,
+        "end": 1859
+      },
+      "night": {
+        "start": 1900,
+        "end": 2599
+      }
     },
-    "weatherPriority": ["storm", "snow", "rain", "clear"]
+    "weatherPriority": [
+      "storm",
+      "snow",
+      "rain",
+      "clear"
+    ]
   },
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "NEW_AMBIENT_ART_PENDING",
-    "footprintPx": { "width": 160, "height": 80 },
-    "footprintTiles": { "width": 10, "height": 5 },
-    "worldAnchor": { "map": "Cardcha_AirshipDeck", "tileX": 7, "tileY": 1 },
-    "viewportPx": { "x": 16, "y": 14, "width": 128, "height": 42 },
+    "productionStatus": "GENERATED_ENVIRONMENT_MATRIX_TECHNICAL_TEST",
+    "footprintPx": {
+      "width": 160,
+      "height": 80
+    },
+    "footprintTiles": {
+      "width": 10,
+      "height": 5
+    },
+    "worldAnchor": {
+      "map": "Cardcha_AirshipDeck",
+      "tileX": 7,
+      "tileY": 1
+    },
+    "viewportPx": {
+      "x": 16,
+      "y": 14,
+      "width": 128,
+      "height": 42
+    },
     "frame": {
       "path": "assets/airship_props/set01_redux/window_runtime/observation_window_frame.png",
       "requiredForAmbientMode": true,
@@ -107,24 +139,171 @@
       "optional": true
     },
     "legacyFallback": {
-      "enabled": true,
+      "enabled": false,
       "frameDurationMs": 900,
-      "paths": [
-        "assets/airship_props/set01_redux/observation_window_overlay_1.png",
-        "assets/airship_props/set01_redux/observation_window_overlay_2.png",
-        "assets/airship_props/set01_redux/observation_window_overlay_3.png",
-        "assets/airship_props/set01_redux/observation_window_overlay_4.png"
-      ]
+      "paths": []
+    },
+    "sceneMatrix": {
+      "fallbackSeason": "default",
+      "fallbackTime": "noon",
+      "fallbackWeather": "clear",
+      "states": {
+        "default": {
+          "morning": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_snow.png"
+          },
+          "noon": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_snow.png"
+          },
+          "evening": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_snow.png"
+          },
+          "night": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_default_night_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_default_night_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_default_night_snow.png"
+          }
+        },
+        "spring": {
+          "morning": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_morning_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_morning_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_morning_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_morning_snow.png"
+          },
+          "noon": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_noon_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_noon_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_noon_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_noon_snow.png"
+          },
+          "evening": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_evening_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_evening_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_evening_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_evening_snow.png"
+          },
+          "night": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_night_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_night_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_night_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_spring_night_snow.png"
+          }
+        },
+        "summer": {
+          "morning": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_morning_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_morning_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_morning_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_morning_snow.png"
+          },
+          "noon": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_noon_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_noon_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_noon_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_noon_snow.png"
+          },
+          "evening": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_evening_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_evening_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_evening_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_evening_snow.png"
+          },
+          "night": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_night_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_night_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_night_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_summer_night_snow.png"
+          }
+        },
+        "fall": {
+          "morning": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_morning_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_morning_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_morning_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_morning_snow.png"
+          },
+          "noon": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_noon_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_noon_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_noon_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_noon_snow.png"
+          },
+          "evening": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_evening_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_evening_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_evening_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_evening_snow.png"
+          },
+          "night": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_night_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_night_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_night_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_fall_night_snow.png"
+          }
+        },
+        "winter": {
+          "morning": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_morning_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_morning_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_morning_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_morning_snow.png"
+          },
+          "noon": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_noon_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_noon_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_noon_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_noon_snow.png"
+          },
+          "evening": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_evening_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_evening_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_evening_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_evening_snow.png"
+          },
+          "night": {
+            "clear": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_night_clear.png",
+            "rain": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_night_rain.png",
+            "storm": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_night_storm.png",
+            "snow": "assets/airship_props/set01_redux/window_runtime/window_scene_winter_night_snow.png"
+          }
+        }
+      }
     }
   },
   "navigationConsole": {
     "id": "navigation_console",
     "enabled": true,
-    "productionStatus": "NEW_RADAR_ART_PENDING",
-    "footprintPx": { "width": 112, "height": 80 },
-    "footprintTiles": { "width": 7, "height": 5 },
-    "worldAnchor": { "map": "Cardcha_AirshipDeck", "tileX": 9, "tileY": 5 },
-    "viewportPx": { "x": 18, "y": 8, "width": 48, "height": 32 },
+    "productionStatus": "GENERATED_RADAR_8FRAME_TECHNICAL_TEST",
+    "footprintPx": {
+      "width": 112,
+      "height": 80
+    },
+    "footprintTiles": {
+      "width": 7,
+      "height": 5
+    },
+    "worldAnchor": {
+      "map": "Cardcha_AirshipDeck",
+      "tileX": 9,
+      "tileY": 5
+    },
+    "viewportPx": {
+      "x": 18,
+      "y": 8,
+      "width": 48,
+      "height": 32
+    },
     "frame": {
       "path": "assets/airship_props/set01_redux/console_runtime/navigation_console_frame.png",
       "requiredForAmbientMode": false,
@@ -172,8 +351,17 @@
     "preserveFootprint": true,
     "preserveCollisionContract": true,
     "collisionOwnedBy": "Buildings",
-    "forbiddenLayers": ["BackDecor"],
-    "requiredMapLayers": ["Back", "Back2", "Buildings", "Buildings2", "Front", "Front2"],
+    "forbiddenLayers": [
+      "BackDecor"
+    ],
+    "requiredMapLayers": [
+      "Back",
+      "Back2",
+      "Buildings",
+      "Buildings2",
+      "Front",
+      "Front2"
+    ],
     "noSilentSubstitution": true
   }
 }
