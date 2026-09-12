@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "workstream": "0696D1R-window-bounded-cleanup-final",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.67",
+  "workstream": "0696D1S-airship-motion-repair",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.68",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
@@ -34,7 +34,7 @@
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "D1R_FINAL_BOUNDED_CLEAN_4_OVERLAYS_ACTIVE_D2_PENDING",
+    "productionStatus": "D1S_REAL_AIRSHIP_SPRITE_MOTION_D2_PENDING",
     "footprintPx": {
       "width": 160,
       "height": 80
@@ -294,6 +294,31 @@
         "assets/airship_props/set01_redux/observation_window_overlay_3.png",
         "assets/airship_props/set01_redux/observation_window_overlay_4.png"
       ],
+      "acceptance": "PENDING-RON-VISUAL"
+    },
+    "airshipMotion": {
+      "source": "approved-window-source-airship",
+      "runtimeSprite": "assets/airship_props/set01_redux/window_runtime/observation_window_airship.png",
+      "positionsPx": [
+        [
+          62,
+          33
+        ],
+        [
+          71,
+          33
+        ],
+        [
+          80,
+          33
+        ],
+        [
+          89,
+          33
+        ]
+      ],
+      "legacyOverlayCycling": false,
+      "legacyOverlayReason": "overlay_2..4 are window/transition slices, not airship frames",
       "acceptance": "PENDING-RON-VISUAL"
     }
   },

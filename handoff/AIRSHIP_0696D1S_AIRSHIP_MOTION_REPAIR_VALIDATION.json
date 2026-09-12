@@ -1,0 +1,75 @@
+{
+  "phase": "0696D1S-airship-motion-repair",
+  "branch": "cardcha-alpha28-0696d1s-airship-motion-repair",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.68",
+  "baselineCommit": "8fe52dfc23ec58b00138c4b129d91a3dd9121d81",
+  "airship": {
+    "searchBox": [
+      87,
+      29,
+      107,
+      46
+    ],
+    "componentPixels": 84,
+    "componentBoxRelative": [
+      2,
+      4,
+      17,
+      13
+    ],
+    "componentBoxGlobal": [
+      89,
+      33,
+      104,
+      42
+    ],
+    "spriteSize": [
+      15,
+      9
+    ],
+    "spriteAlphaPixels": 84
+  },
+  "patchSource": [
+    71,
+    33,
+    86,
+    42
+  ],
+  "patchTarget": [
+    89,
+    33,
+    104,
+    42
+  ],
+  "positions": [
+    [
+      62,
+      33
+    ],
+    [
+      71,
+      33
+    ],
+    [
+      80,
+      33
+    ],
+    [
+      89,
+      33
+    ]
+  ],
+  "contracts": {
+    "legacyOverlayCycling": false,
+    "windowColumnsAnimated": false,
+    "onlyAirshipMoves": true,
+    "windowSize": [
+      160,
+      80
+    ],
+    "d2EnvironmentMatrixTouched": false,
+    "d3NavigationConsoleTouched": false
+  },
+  "baseSha256": "2859298bda3049c7c1479fff416e3f7a0a853cf81cd625a8951c2bd95b8e2ef7",
+  "airshipSha256": "58caeabc94744ad04ae1f006c91e09bf9a55d5a211d53b426b12ca9d0dc1c9ce"
+}
