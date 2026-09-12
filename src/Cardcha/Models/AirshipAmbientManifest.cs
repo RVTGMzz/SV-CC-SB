@@ -119,6 +119,29 @@ internal sealed class AirshipAnimationAssetConfig
     public bool Optional { get; set; }
 }
 
+/// <summary>
+/// 0696C: explicit outside-scene lookup. The scene key is no longer just season+time;
+/// weather is part of the authored scene identity so rainy evening, stormy night, etc.
+/// can have their own sky palette before moving FX are layered on top.
+/// states[season][timeBucket][weather] = asset path.
+/// </summary>
+internal sealed class AirshipWindowSceneMatrixConfig
+{
+    [JsonProperty("fallbackSeason")]
+    public string FallbackSeason { get; set; } = "default";
+
+    [JsonProperty("fallbackTime")]
+    public string FallbackTime { get; set; } = "noon";
+
+    [JsonProperty("fallbackWeather")]
+    public string FallbackWeather { get; set; } = "clear";
+
+    [JsonProperty("states")]
+    public Dictionary<string, Dictionary<string, Dictionary<string, string>>> States { get; set; }
+        = new(StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>0696B compatibility only. 0696C production resolves SceneMatrix first.</summary>
 internal sealed class AirshipBackdropConfig
 {
     [JsonProperty("fallbackSeason")]
@@ -189,6 +212,9 @@ internal sealed class AirshipObservationWindowConfig
 
     [JsonProperty("mask")]
     public AirshipStaticAssetConfig Mask { get; set; } = new();
+
+    [JsonProperty("sceneMatrix")]
+    public AirshipWindowSceneMatrixConfig SceneMatrix { get; set; } = new();
 
     [JsonProperty("backdrops")]
     public AirshipBackdropConfig Backdrops { get; set; } = new();
