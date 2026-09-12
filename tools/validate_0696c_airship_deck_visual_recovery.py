@@ -50,7 +50,11 @@ def main() -> None:
                 assert p,(season,tod,weather)
                 full=CARDCHA/p
                 assert full.exists(),p
-                assert Image.open(full).size==(128,42),(p,Image.open(full).size)
+                im=Image.open(full).convert("RGBA")
+                assert im.size==(128,42),(p,im.size)
+                # 0696C evidence caught semi-transparent weather scenes revealing the black void.
+                # Production scenes must be fully opaque; only moving FX are allowed alpha.
+                assert im.getchannel("A").getextrema()==(255,255),(p,im.getchannel("A").getextrema())
                 paths.append(p)
     assert len(paths)==80 and len(set(paths))==80
     assert ow["legacyFallback"]["enabled"] is False
@@ -139,6 +143,7 @@ def main() -> None:
         "technicalValidation":"PASS",
         "visualAcceptance":"PENDING-RON-IN-GAME",
         "windowSceneCount":len(paths),
+        "allWindowScenesOpaque":True,
         "environmentDimensions":{"seasons":5,"timeBuckets":4,"weatherStates":4},
         "legacyRejectedWindowBlackPixels":legacy_black,
         "upgradeStationsRestored":4,
