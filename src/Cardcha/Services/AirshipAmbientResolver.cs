@@ -24,9 +24,9 @@ internal sealed record AirshipResolvedConsoleState(
 );
 
 /// <summary>
-/// 0696B source-of-truth resolver for Airship ambient visuals.
-/// It owns selection/fallback rules only. Drawing remains in the Airship renderer.
-/// Missing new production art is explicit and falls back to the approved 0690 overlays.
+/// 0696C source-of-truth resolver for Airship ambient visuals.
+/// Observation Window production state is explicit season x time x weather.
+/// Drawing remains isolated in AirshipAmbientAnimationService.
 /// </summary>
 internal sealed class AirshipAmbientResolver
 {
@@ -55,16 +55,21 @@ internal sealed class AirshipAmbientResolver
         string season = NormalizeSeason(Game1.currentSeason);
         string timeBucket = ResolveTimeBucket(manifest.Global, Game1.timeOfDay);
         string weather = ResolveWeather();
-        string? backdrop = this.ResolveBackdropPath(manifest.ObservationWindow.Backdrops, season, timeBucket);
+        string? scene = this.ResolveScenePath(manifest.ObservationWindow.SceneMatrix, season, timeBucket, weather);
+
+        // 0696B compatibility only. A schema-1 manifest can still resolve its old backdrop map.
+        if (string.IsNullOrWhiteSpace(scene))
+            scene = this.ResolveBackdropPath(manifest.ObservationWindow.Backdrops, season, timeBucket);
+
         manifest.ObservationWindow.WeatherFx.TryGetValue(weather, out AirshipAnimationAssetConfig? weatherFx);
 
         bool ambientReady =
             this.AssetExists(manifest.ObservationWindow.Frame.Path, required: manifest.ObservationWindow.Frame.RequiredForAmbientMode)
-            && !string.IsNullOrWhiteSpace(backdrop)
-            && this.AssetExists(backdrop, required: true);
+            && !string.IsNullOrWhiteSpace(scene)
+            && this.AssetExists(scene, required: true);
 
         string? fallback = ResolveLegacyFrame(manifest.ObservationWindow.LegacyFallback, clockMs);
-        return new(season, timeBucket, weather, backdrop, weatherFx, ambientReady, fallback);
+        return new(season, timeBucket, weather, scene, weatherFx, ambientReady, fallback);
     }
 
     public AirshipResolvedConsoleState ResolveConsole(long clockMs)
@@ -97,14 +102,12 @@ internal sealed class AirshipAmbientResolver
         string fullPath = Path.Combine(this.Helper.DirectoryPath, normalized);
         bool exists = File.Exists(fullPath);
         if (!exists && required && this.LoggedMissing.Add(relativePath))
-            this.Monitor.Log($"0696B ambient asset pending: {relativePath}. Approved legacy overlay fallback remains active.", LogLevel.Trace);
+            this.Monitor.Log($"0696C ambient asset pending: {relativePath}.", LogLevel.Trace);
         return exists;
     }
 
     public static string ResolveTimeBucket(AirshipAmbientGlobalConfig global, int timeOfDay)
     {
-        // Stardew can pass midnight as values above 2400, so normalize only for comparison
-        // against the explicit night range stored in the manifest.
         int comparable = timeOfDay < 600 ? timeOfDay + 2400 : timeOfDay;
         foreach ((string key, AirshipTimeBucketConfig range) in global.TimeBuckets)
         {
@@ -145,42 +148,84 @@ internal sealed class AirshipAmbientResolver
             this.CachedManifest = this.Helper.Data.ReadJsonFile<AirshipAmbientManifest>(ManifestPath);
             if (this.CachedManifest is null)
             {
-                this.Monitor.Log($"0696B ambient manifest returned null: {ManifestPath}", LogLevel.Warn);
+                this.Monitor.Log($"0696C ambient manifest returned null: {ManifestPath}", LogLevel.Warn);
                 return null;
             }
 
             ValidateManifest(this.CachedManifest);
             this.Monitor.Log(
-                $"0696B Airship ambient manifest loaded: schema={this.CachedManifest.SchemaVersion}, version={this.CachedManifest.Version}, acceptance={this.CachedManifest.VisualAcceptance}.",
+                $"0696C Airship ambient manifest loaded: schema={this.CachedManifest.SchemaVersion}, version={this.CachedManifest.Version}, acceptance={this.CachedManifest.VisualAcceptance}.",
                 LogLevel.Trace
             );
             return this.CachedManifest;
         }
         catch (Exception ex)
         {
-            this.Monitor.Log($"0696B ambient manifest load failed; using approved legacy overlays. {ex.Message}", LogLevel.Warn);
+            this.Monitor.Log($"0696C ambient manifest load failed. Static TMX hero art remains visible. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
 
-    private string? ResolveBackdropPath(AirshipBackdropConfig config, string season, string timeBucket)
+    private string? ResolveScenePath(AirshipWindowSceneMatrixConfig config, string season, string timeBucket, string weather)
     {
-        if (TryResolve(config.States, season, timeBucket, out string? exact) && this.AssetExists(exact))
+        // Exact authored state is always preferred.
+        if (TryResolveScene(config.States, season, timeBucket, weather, out string? exact) && this.AssetExists(exact))
             return exact;
 
-        if (TryResolve(config.States, config.FallbackSeason, timeBucket, out string? defaultTime) && this.AssetExists(defaultTime))
-            return defaultTime;
+        // Same time+weather but default season keeps weather semantics intact.
+        if (TryResolveScene(config.States, config.FallbackSeason, timeBucket, weather, out string? defaultSeason) && this.AssetExists(defaultSeason))
+            return defaultSeason;
 
-        if (TryResolve(config.States, season, config.FallbackTime, out string? seasonFallback) && this.AssetExists(seasonFallback))
+        // Same season+time, clear weather is safer than silently changing time of day.
+        if (TryResolveScene(config.States, season, timeBucket, config.FallbackWeather, out string? seasonClear) && this.AssetExists(seasonClear))
+            return seasonClear;
+
+        if (TryResolveScene(config.States, config.FallbackSeason, timeBucket, config.FallbackWeather, out string? defaultClear) && this.AssetExists(defaultClear))
+            return defaultClear;
+
+        // Last-resort authored fallback, still explicit in the manifest.
+        if (TryResolveScene(config.States, season, config.FallbackTime, config.FallbackWeather, out string? seasonFallback) && this.AssetExists(seasonFallback))
             return seasonFallback;
 
-        if (TryResolve(config.States, config.FallbackSeason, config.FallbackTime, out string? finalFallback))
+        if (TryResolveScene(config.States, config.FallbackSeason, config.FallbackTime, config.FallbackWeather, out string? finalFallback))
             return finalFallback;
 
         return null;
     }
 
-    private static bool TryResolve(
+    private static bool TryResolveScene(
+        Dictionary<string, Dictionary<string, Dictionary<string, string>>> states,
+        string season,
+        string bucket,
+        string weather,
+        out string? path
+    )
+    {
+        path = null;
+        if (!states.TryGetValue(season, out Dictionary<string, Dictionary<string, string>>? seasonStates))
+            return false;
+        if (!seasonStates.TryGetValue(bucket, out Dictionary<string, string>? timeStates))
+            return false;
+        if (!timeStates.TryGetValue(weather, out string? value) || string.IsNullOrWhiteSpace(value))
+            return false;
+        path = value;
+        return true;
+    }
+
+    private string? ResolveBackdropPath(AirshipBackdropConfig config, string season, string timeBucket)
+    {
+        if (TryResolveBackdrop(config.States, season, timeBucket, out string? exact) && this.AssetExists(exact))
+            return exact;
+        if (TryResolveBackdrop(config.States, config.FallbackSeason, timeBucket, out string? defaultTime) && this.AssetExists(defaultTime))
+            return defaultTime;
+        if (TryResolveBackdrop(config.States, season, config.FallbackTime, out string? seasonFallback) && this.AssetExists(seasonFallback))
+            return seasonFallback;
+        if (TryResolveBackdrop(config.States, config.FallbackSeason, config.FallbackTime, out string? finalFallback))
+            return finalFallback;
+        return null;
+    }
+
+    private static bool TryResolveBackdrop(
         Dictionary<string, Dictionary<string, string>> states,
         string season,
         string bucket,
@@ -219,7 +264,7 @@ internal sealed class AirshipAmbientResolver
 
     private static void ValidateManifest(AirshipAmbientManifest manifest)
     {
-        if (manifest.SchemaVersion != 1)
+        if (manifest.SchemaVersion is not (1 or 2))
             throw new InvalidOperationException($"Unsupported Airship ambient schema {manifest.SchemaVersion}.");
         if (manifest.Global.TileSize != 16)
             throw new InvalidOperationException("Airship ambient contract must preserve Stardew 16px source tiles.");
@@ -228,8 +273,10 @@ internal sealed class AirshipAmbientResolver
         if (manifest.NavigationConsole.FootprintPx.Width != 112 || manifest.NavigationConsole.FootprintPx.Height != 80)
             throw new InvalidOperationException("Navigation Console footprint drifted from 112x80.");
         if (!string.Equals(manifest.Validation.CollisionOwnedBy, "Buildings", StringComparison.Ordinal))
-            throw new InvalidOperationException("0696B collision must remain owned by base Buildings.");
+            throw new InvalidOperationException("0696C collision must remain owned by base Buildings.");
         if (!manifest.Validation.ForbiddenLayers.Contains("BackDecor", StringComparer.OrdinalIgnoreCase))
-            throw new InvalidOperationException("0696B contract must explicitly forbid BackDecor.");
+            throw new InvalidOperationException("0696C contract must explicitly forbid BackDecor.");
+        if (manifest.SchemaVersion >= 2 && manifest.ObservationWindow.SceneMatrix.States.Count == 0)
+            throw new InvalidOperationException("0696C requires an explicit season/time/weather scene matrix.");
     }
 }
