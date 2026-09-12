@@ -1,94 +1,146 @@
-# Latest Cardcha Handoff
+# LATEST CARDCHA HANDOFF
 
-Current development branch: `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`
+Updated: 2026-09-12
 
-Current production / TEST baseline: `cardcha-alpha28-0695-region1-prop-integration`
+## Current workstream
 
-Current production build: `0.3.0-alpha.28.0.4.14.4.5.12.61`
+Continue on:
 
-Current production materialized source head: `39e13a370281b29f77d94be497603a3243edda41`
+`cardcha-alpha28-0696-airship-concept-faithful-visible-integration`
 
-Current production handoff: `handoff/ALPHA28_0695_REGION1_ENVIRONMENT_PROP_PRODUCTION_INTEGRATION.md`
+The authoritative next-session handoff is:
 
-0696 status: **WIP Airship visual recovery.** Ron supplied the approved sprite + concept source, locked a permanent sprite-production workflow, added a permanent repository-wide room/map construction rule, and then added a mandatory Stardew-style audit rule for all character/creature sprites.
+`handoff/SESSION_HANDOFF_2026-09-12_0696_AIRSHIP_VISUAL_RECOVERY.md`
 
-## Permanent sprite rule
+Read that file first before changing Airship assets, maps, placement, collision or validation.
 
-Every future task that creates, edits, imports, rebuilds, scales, tiles, places, or validates sprites/physical visual assets MUST read and follow:
+## 0696 status
 
-`CARDCHA_SPRITE_PRODUCTION_GUIDE.md`
+Airship 0696 is **WIP**.
 
-Key permanent sprite rules:
-- approved source art is production source-of-truth, not loose inspiration;
-- no unapproved redraw/rescale for implementation convenience;
-- large Stardew props use faithful multi-tile footprints instead of being shrunk merely to reduce tile count;
-- preserve approved full-room composition;
-- validate actual visible footprint/render ownership, not only file/GID presence;
-- research proven Stardew/xTile/native modding patterns before inventing a new rendering convention;
-- use an inventory pass, faithful integration pass, then polish pass;
-- CI is technical acceptance only; visual acceptance requires Ron's in-game confirmation.
+Visual acceptance is:
 
-## Permanent room / map construction rule
+`PENDING-RON-IN-GAME`
 
-Every future task that creates, rebuilds, expands, decorates, frames, or visually polishes an interior, hub, expedition map, dungeon, boss arena, or any other playable map MUST read and follow:
+Do not call 0696 visually complete based on CI, package validation, file existence or TMX GID presence.
 
-`CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md`
+Current audit infrastructure on this branch:
 
-This applies to Airship and every future Cardcha map.
+- `tools/alpha28_0696_airship_set01_full_footprint_audit.py`
+- `.github/workflows/cardcha-alpha28-0696-airship-set01-full-footprint-audit.yml`
+- audit commit `aaef538641948ef6e76a79861b3c58d5320b68ba`
+- CI wiring commit `22b340df59e6d10e27335e02384a3b992ef5208f`
 
-Key permanent map rules:
-- build the room/map shell or environmental frame **before** props;
-- indoor rooms need a coherent Stardew-style perimeter: back wall, side boundaries, lower floor edge, integrated entrances/exits;
-- expedition/dungeon/boss maps use the biome/environment as their frame instead of automatically using a wooden rectangle: foliage/trees for forests, cliffs/rocks for caves and mountains, ruins/roots for ancient areas, water/reeds for wet biomes, etc.;
-- a boss arena should feel carved out of its environment rather than placed as a rectangle on a black canvas;
-- do not start with a giant empty floor and try to fake density by scattering props;
-- negative space must be intentional and visually framed;
-- props should belong to architectural/environmental zones instead of floating independently;
-- visible boundaries and collision must agree;
-- before creating a new map language, study comparable vanilla Stardew maps and established high-quality Stardew mods for structural patterns, without copying third-party art;
-- required pass order: reference/topology -> shell/frame -> faithful composition -> polish -> in-game acceptance;
-- CI is technical acceptance only; map visual acceptance remains PENDING until Ron explicitly approves the actual in-game result.
+The audit is evidence-only and must not be confused with production integration.
 
-## Permanent character / creature Stardew style rule
+## Airship visual recovery rule
 
-Every future task that creates, rebuilds, animates, replaces, renders, or visually validates an NPC, companion, mascot, pet, monster, boss, summon, or other animated world actor MUST read and follow:
+0693 was technically packaged but visually rejected because the approved room-density art was placed primarily on custom TMX `BackDecor`, while Ron's in-game screenshots still showed sparse/empty rooms.
 
-`CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md`
+Permanent lesson:
 
-Key permanent actor rules:
-- a character is judged inside a Stardew scene, not only on a transparent sprite sheet;
-- before finalization, study at least two relevant vanilla Stardew actor/creature references where practical;
-- compare real gameplay scale, body proportions, silhouette economy, detail density, palette/value range, outline/shading, ground anchoring, frame layout, and animation cadence;
-- preserve Cardcha identity/personality while translating the actor into Stardew's visual language;
-- do not bitmap-shrink oversized/high-detail character art as a substitute for a deliberate target-size rebuild;
-- test beside Farmer and relevant vanilla actors/creatures in a real map;
-- if the sprite produces a "different game" effect, the visual pass is FAIL even if the isolated art looks good;
-- CI is technical acceptance only; actor visual acceptance remains PENDING until Ron approves the in-game result.
+> asset exists + GIDs exist in TMX != player sees it in game
 
-### Mimi / ChaCha status
+0696 must be rebuilt source-first:
 
-Mimi and ChaCha are now explicitly flagged as:
+- full-room concept = composition reference
+- separated approved sprite PNGs = production art source-of-truth
+- preserve authored style and multi-tile footprints
+- use runtime-supported Stardew map layers/depth ownership
+- base `Buildings` owns real collision cells
+- supported visual suffix layers may carry nonblocking/depth art where appropriate
+- `Front`/`Front2` for upper occluding portions where appropriate
+- `RenderedWorld` remains VFX/animated-overlay only, never physical furniture recovery
+- no blanket `BackDecor` -> `Buildings/Front` migration as the final architecture
+- no arbitrary shrinking/redrawing of authored props
 
-**STYLE AUDIT / REWORK CANDIDATES — VISUAL FINALITY NOT ACCEPTED YET**
+Planned authoritative data files:
 
-Specific governing checklist:
+- `handoff/AIRSHIP_SOURCE_PACK_0696.json`
+- `handoff/AIRSHIP_ROOM_BLUEPRINT_0696.json`
 
-`handoff/MIMI_CHACHA_STYLE_REWORK_CHECKLIST.md`
+Before packaging a TEST build, add preview/footprint validation capable of catching missing hero props, tiny scaling, wrong-side placement, unsupported layers, large unexpected empty zones and broken walk-through/collision topology.
 
-No Mimi or ChaCha redraw is claimed in this documentation pass. Their next visual work must begin with asset/runtime inventory + identity lock + Stardew reference study before any final sprite sheet is produced.
+## Source-pack note
 
-`AGENTS.md` now makes the sprite guide, room/map guide, and character/creature style guide mandatory repository-wide.
+During the previous chat Ron supplied `concept(1).rar` and `sprite(1).rar` containing 6 concept PNGs and 22 sprite PNGs. The chat environment could list RAR5 entries but could not extract them due to missing RAR tools.
 
-## Existing production verification
+If those exact files are not already recoverable from repo in the next session, ask Ron to upload the same folders as ZIP, with no rename required. Inventory the files before map edits.
 
-Authoritative 0695 successful CI run: `34655852302`
+## Production/test baseline
 
-Artifact ID: `10285408808`
+0695 remains the recoverable production/test baseline:
 
-Artifact digest: `sha256:065ed6936c5d06479eb2927a7c2b717d359a598447f3b9f6e5c35bc57221bbac`
+Branch:
+`cardcha-alpha28-0695-region1-prop-integration`
 
-Verified inner TEST ZIP SHA256: `fac7aaa1c9014aedfd0eba887a1b2bd46531fbb9f676ebd7896b15e321fce726`
+Build:
+`0.3.0-alpha.28.0.4.14.4.5.12.61`
 
-0695 Region I in-game visual acceptance remains **PENDING**.
+Materialized source:
+`39e13a370281b29f77d94be497603a3243edda41`
 
-Airship 0693/0696 visual acceptance remains **PENDING**. Do not claim the Airship concept-to-game gap is solved until Ron tests the actual corrected package and approves it.
+Handoff:
+`handoff/ALPHA28_0695_REGION1_ENVIRONMENT_PROP_PRODUCTION_INTEGRATION.md`
+
+Successful CI run:
+`34655852302`
+
+Artifact ID:
+`10285408808`
+
+Artifact SHA256:
+`065ed6936c5d06479eb2927a7c2b717d359a598447f3b9f6e5c35bc57221bbac`
+
+Inner TEST ZIP SHA256:
+`fac7aaa1c9014aedfd0eba887a1b2bd46531fbb9f676ebd7896b15e321fce726`
+
+0695 Region I technical status: PASS
+
+0695 Region I visual status: PENDING unless Ron explicitly confirms it in game.
+
+## Historical Airship evidence
+
+Read as needed:
+
+- `handoff/AIRSHIP_VISUAL_DIRECTION_APPROVED.md`
+- `handoff/ALPHA28_0690_AIRSHIP_INTERIOR_VISUAL_REBUILD.md`
+- `handoff/ALPHA28_0691_AIRSHIP_PROP_SET02_HARBOR_FURNISHINGS.md`
+- `handoff/ALPHA28_0692_AIRSHIP_RGBA_GATE_RESTORE.md`
+- `handoff/ALPHA28_0693_AIRSHIP_INTERIOR_DENSITY_REBUILD.md`
+
+0693 historical build:
+`0.3.0-alpha.28.0.4.14.4.5.12.60`
+
+0693 materialized source:
+`e235e33826dddbf158837d3f5cdbc6af505136b6`
+
+0693 CI:
+`34631829934`
+
+0693 artifact ID:
+`10275959178`
+
+0693 inner TEST ZIP SHA256:
+`7c7e572bec7ba682a91af519482922e6ec9cb80677ae1d731002fd83d2d0c649`
+
+0693 visual status: **FAILED / NOT ACCEPTED**.
+
+## Mandatory repo-wide visual guides
+
+Before visual production work, read:
+
+- `AGENTS.md`
+- `CARDCHA_SPRITE_PRODUCTION_GUIDE.md`
+- `CARDCHA_MAP_ROOM_CONSTRUCTION_GUIDE.md`
+- `CARDCHA_CHARACTER_CREATURE_STYLE_GUIDE.md`
+
+For Mimi/ChaCha style work also read:
+
+- `handoff/MIMI_CHACHA_STYLE_REWORK_CHECKLIST.md`
+
+Core acceptance rule across all of them:
+
+**technical PASS != visual PASS**
+
+Only Ron's explicit in-game visual acceptance closes a visual task.
