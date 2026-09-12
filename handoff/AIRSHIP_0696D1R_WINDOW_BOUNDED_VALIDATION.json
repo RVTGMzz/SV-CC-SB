@@ -1,0 +1,70 @@
+{
+  "phase": "0696D1R-window-bounded-cleanup",
+  "technicalValidation": "PASS",
+  "visualAcceptance": "PENDING-RON-VISUAL",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.66",
+  "base": {
+    "changedExactMattePixels": 2558,
+    "rgbaShaBaseline": "3884947ecf73aa899af267ee50cda0976860ea05ac89cc052a0f7e9a0b30cd5a",
+    "rgbaShaFixed": "cec0f94871496b94071a7d30fcc3ad12645cd043d235d371d02afbfa30974ecb",
+    "frameEqualsCleanBase": true
+  },
+  "overlays": [
+    {
+      "frame": 1,
+      "size": [
+        160,
+        80
+      ],
+      "pureBlackMaskPixelsRemoved": 0,
+      "remainingOpaquePureBlack": 0,
+      "rgbaShaBaseline": "7bfd8c0216df5455c4fa5f80f43ee4d6fea2becfff2cd316c2a2de0899c35aaa",
+      "rgbaShaFixed": "7bfd8c0216df5455c4fa5f80f43ee4d6fea2becfff2cd316c2a2de0899c35aaa"
+    },
+    {
+      "frame": 2,
+      "size": [
+        160,
+        80
+      ],
+      "pureBlackMaskPixelsRemoved": 2324,
+      "remainingOpaquePureBlack": 0,
+      "rgbaShaBaseline": "31bd60b78a26b911d2fb4d9a46213ae5994a053d48b4b051d184b551aaf69304",
+      "rgbaShaFixed": "8fca536edb8be9951f41600a60e1c150dd0476dd86d36c6011a9ca3fc07a0a5e"
+    },
+    {
+      "frame": 3,
+      "size": [
+        160,
+        80
+      ],
+      "pureBlackMaskPixelsRemoved": 2072,
+      "remainingOpaquePureBlack": 0,
+      "rgbaShaBaseline": "5fd91340c6a67b962b166f84519d07532d7c4ee6b7f6d20a46eb487cb0367d6d",
+      "rgbaShaFixed": "54ae9751a3ca3f1e54f4d0470e04801ebad7e35c5cf8a51f29af826641c0ac52"
+    },
+    {
+      "frame": 4,
+      "size": [
+        160,
+        80
+      ],
+      "pureBlackMaskPixelsRemoved": 1820,
+      "remainingOpaquePureBlack": 0,
+      "rgbaShaBaseline": "a0e525c1c497948b90c04330f2ece206d99ae7c635afa95bf1b070eb5ede5942",
+      "rgbaShaFixed": "7de21cbf69f6e7829f7badd0d9732f00718c85c432e1751a49334d591b73a6d1"
+    }
+  ],
+  "contracts": {
+    "independentFiles": 4,
+    "dimensionsEach": [
+      160,
+      80
+    ],
+    "crop": false,
+    "shift": false,
+    "stripPacking": false,
+    "hollowAperture": false,
+    "runtimeUsesFourApprovedOverlays": true
+  }
+}

@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "workstream": "0696D1-observation-window-source-cleanup",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.65",
+  "workstream": "0696D1R-window-bounded-cleanup",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.66",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
@@ -34,7 +34,7 @@
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "SOURCE_CLEANED_D1_MATRIX_REBUILD_PENDING_D2",
+    "productionStatus": "D1R_BOUNDED_SOURCE_CLEAN_4_OVERLAYS_ACTIVE_D2_PENDING",
     "footprintPx": {
       "width": 160,
       "height": 80
@@ -281,10 +281,18 @@
       }
     },
     "sourceCleanup": {
-      "mode": "border-connected-matte-alpha-removal",
-      "rgbArtworkPreserved": true,
-      "sourcePath": "assets/airship_props/set01_redux/observation_window_base.png",
-      "framePath": "assets/airship_props/set01_redux/window_runtime/observation_window_frame.png",
+      "mode": "exact-border-matte-only-plus-pure-black-overlay-alpha-repair",
+      "baselineCommit": "0b13de1ac30dfa019061d3626c478c5460dab89f",
+      "framePacking": "forbidden",
+      "crop": "forbidden",
+      "shift": "forbidden",
+      "apertureCutout": "forbidden",
+      "overlayFiles": [
+        "assets/airship_props/set01_redux/observation_window_overlay_1.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_2.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_3.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_4.png"
+      ],
       "acceptance": "PENDING-RON-VISUAL"
     }
   },

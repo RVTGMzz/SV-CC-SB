@@ -3,7 +3,7 @@
   "workstream": "0696 Airship Visual Recovery",
   "phase": "0696A-visible-architecture-recovery",
   "visual_acceptance": "PENDING-RON-IN-GAME",
-  "source_policy": "Approved repo sprite geometry/RGB preserved. 0696D1 removes only border-connected export matte through alpha cleanup; no redraw or rescale.",
+  "source_policy": "0696D1R restores verified .64 source first, then applies only exact border matte alpha cleanup to the base and pure-black alpha repair to each independent 160x80 window overlay. No crop, shift, packing, redraw, or aperture cutout.",
   "repo_recovered_asset_count": 18,
   "repo_recovered_assets_complete": true,
   "external_source_pack_complete": false,
@@ -781,8 +781,8 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png",
-      "status": "source-faithful-alpha-cleanup-0696D1",
-      "sha256": "ee0d8a81ee09903c7b0b7162960e803a8147cac7b3b4400ddca3f65c3bd14dbd",
+      "status": "source-faithful-bounded-cleanup-0696D1R",
+      "sha256": "fa5e2e0fd7969e7ee93fc602ac53a83ae956db5c19f25e035f043c928ac5c6ac",
       "dimensions": [
         160,
         80
@@ -790,7 +790,7 @@
       "mode": "RGBA",
       "alpha_bbox": [
         0,
-        7,
+        6,
         159,
         79
       ],
@@ -1000,7 +1000,7 @@
           4
         ]
       ],
-      "nontransparent_pixels": 10012,
+      "nontransparent_pixels": 10079,
       "used_by": [
         {
           "room": "deck",
@@ -1021,8 +1021,8 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png",
-      "status": "exact",
-      "sha256": "e7ef4c40db4a1bd43daea8f06eebe553c8d908ae9f41272b6ea3ca416a98b5e5",
+      "status": "source-faithful-bounded-cleanup-0696D1R",
+      "sha256": "439c3bdbdbbbed4228b7145015f80dd147cb3b1f7ee0668eca8d167f2a3680c4",
       "dimensions": [
         160,
         80
@@ -1117,15 +1117,15 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png",
-      "status": "exact",
-      "sha256": "5e482675ef9251d690be26fce021c9307d942a5a43676505070a42f5fb87fc9a",
+      "status": "source-faithful-bounded-cleanup-0696D1R",
+      "sha256": "ed918738062177010ebdb13689d25920f4e49143176d300ec6ced5cbd0ada9ae",
       "dimensions": [
         160,
         80
       ],
       "mode": "RGBA",
       "alpha_bbox": [
-        28,
+        49,
         20,
         134,
         48
@@ -1200,7 +1200,7 @@
           2
         ]
       ],
-      "nontransparent_pixels": 2576,
+      "nontransparent_pixels": 252,
       "used_by": [
         {
           "room": "deck",
@@ -1213,15 +1213,15 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png",
-      "status": "exact",
-      "sha256": "28e8d0f15ddec975379ab6ed5a8965b0886077b4fa6f570013e2fc8a9f238c79",
+      "status": "source-faithful-bounded-cleanup-0696D1R",
+      "sha256": "2460ace9fe95e4c8ea8b3a6cc7de8d7539093e31bb97cd6efb7342b188d3db31",
       "dimensions": [
         160,
         80
       ],
       "mode": "RGBA",
       "alpha_bbox": [
-        28,
+        46,
         20,
         134,
         48
@@ -1296,7 +1296,7 @@
           2
         ]
       ],
-      "nontransparent_pixels": 2576,
+      "nontransparent_pixels": 504,
       "used_by": [
         {
           "room": "deck",
@@ -1309,15 +1309,15 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png",
-      "status": "exact",
-      "sha256": "3fea376828fa36309353763a4f7542f4c6bea377800cf97adbd9e94a75d6c340",
+      "status": "source-faithful-bounded-cleanup-0696D1R",
+      "sha256": "0f10e9a0c4fdca4bc11b841ce906b6c71dc684c963b58526ad6823d76e8a9aa3",
       "dimensions": [
         160,
         80
       ],
       "mode": "RGBA",
       "alpha_bbox": [
-        28,
+        43,
         20,
         134,
         48
@@ -1392,7 +1392,7 @@
           2
         ]
       ],
-      "nontransparent_pixels": 2576,
+      "nontransparent_pixels": 756,
       "used_by": [
         {
           "room": "deck",
