@@ -11,6 +11,7 @@ BLUEPRINT = ROOT / "handoff/AIRSHIP_ROOM_BLUEPRINT_0696.json"
 SOURCE_PACK = ROOT / "handoff/AIRSHIP_SOURCE_PACK_0696.json"
 TILE = 16
 ALLOWED_VISUAL = {"Back2", "Buildings2", "Front", "Front2"}
+FORBIDDEN_PHYSICAL = {"BackDecor"}
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
@@ -64,7 +65,7 @@ def validate_room(room_name: str, room: dict) -> dict:
     root = ET.parse(path).getroot()
     assert [int(root.attrib["width"]), int(root.attrib["height"])] == room["dimensions_tiles"]
     layer_names = [x.attrib.get("name") for x in root.findall("layer")]
-    assert "BackDecor" not in layer_names, f"{room_name}: BackDecor still exists"
+    assert not (FORBIDDEN_PHYSICAL & set(layer_names)), f"{room_name}: BackDecor still exists"
     for required in ("Back", "Back2", "Buildings", "Buildings2", "Front", "Front2"):
         assert required in layer_names, f"{room_name}: missing {required}"
 
@@ -74,9 +75,9 @@ def validate_room(room_name: str, room: dict) -> dict:
     w = int(root.attrib["width"])
     visual_layer_vals = {name: csv_values(root, name) for name in ALLOWED_VISUAL if name in layer_names}
     buildings = csv_values(root, "Buildings")
+
     expected_collision = set()
     results = []
-
     for prop in room["props"]:
         ts = ts_by_name.get(prop["tileset_name"])
         assert ts is not None, (room_name, prop["id"], "tileset")
@@ -106,23 +107,35 @@ def validate_room(room_name: str, room: dict) -> dict:
             assert actual == expected_gid, (room_name, prop["id"], layer_name, (mx,my), actual, expected_gid)
             represented += 1
 
-        gid_lo = prop["firstgid"]
-        gid_hi = gid_lo + prop["footprint_tiles"][0] * prop["footprint_tiles"][1] - 1
-        for lname, vals in visual_layer_vals.items():
-            for i, value in enumerate(vals):
-                if gid_lo <= value <= gid_hi:
-                    x, y = i % w, i // w
-                    local = value - gid_lo
-                    tx = local % prop["footprint_tiles"][0]
-                    ty = local // prop["footprint_tiles"][0]
-                    if (tx, ty) not in occupied:
-                        raise AssertionError((room_name, prop["id"], "transparent-cell-placed", lname, x, y, value))
-                    expected_layer = assigned[ty]
-                    assert lname == expected_layer, (room_name, prop["id"], "wrong-layer", lname, expected_layer, x, y)
-                    assert (x, y) == (ax + tx, ay + ty), (room_name, prop["id"], "wrong-anchor", x, y)
-
         expected_collision |= expand_rects(prop.get("collision_rects", []))
         results.append({"id": prop["id"], "occupied_cells": len(occupied), "represented_cells": represented})
+
+    # A tileset can have multiple approved instances, such as the two Deck signal lamps.
+    # Validate every production GID against the union of all blueprint-authorized positions.
+    expected_positions: dict[int, set[tuple[str, int, int]]] = {}
+    known_gids: set[int] = set()
+    for prop in room["props"]:
+        occupied = occupied_cells(ROOT / prop["asset"])
+        assigned = {}
+        for sl in prop["visual_slices"]:
+            for ty in range(sl["rows"][0], sl["rows"][1] + 1):
+                assigned[ty] = sl["layer"]
+        ax, ay = prop["anchor"]
+        cols = prop["footprint_tiles"][0]
+        for tx, ty in occupied:
+            gid = prop["firstgid"] + ty * cols + tx
+            known_gids.add(gid)
+            expected_positions.setdefault(gid, set()).add((assigned[ty], ax + tx, ay + ty))
+
+    for lname, vals in visual_layer_vals.items():
+        for i, value in enumerate(vals):
+            if value not in known_gids:
+                continue
+            x, y = i % w, i // w
+            assert (lname, x, y) in expected_positions[value], (
+                room_name, "unexpected-prop-placement", value, lname, x, y,
+                sorted(expected_positions[value])
+            )
 
     actual_collision = {(i % w, i // w) for i, value in enumerate(buildings) if value == 5400}
     missing_collision = {cell for cell in expected_collision if buildings[cell[1]*w + cell[0]] == 0}
