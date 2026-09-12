@@ -1,0 +1,179 @@
+{
+  "schemaVersion": 1,
+  "workstream": "0696B-airship-ambient-animation-foundation",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.63",
+  "visualAcceptance": "PENDING-RON-IN-GAME",
+  "assetRoot": "assets/airship_props/set01_redux",
+  "global": {
+    "tileSize": 16,
+    "timeBuckets": {
+      "morning": { "start": 600, "end": 959 },
+      "noon": { "start": 1000, "end": 1559 },
+      "evening": { "start": 1600, "end": 1859 },
+      "night": { "start": 1900, "end": 2599 }
+    },
+    "weatherPriority": ["storm", "snow", "rain", "clear"]
+  },
+  "observationWindow": {
+    "id": "observation_window",
+    "enabled": true,
+    "productionStatus": "NEW_AMBIENT_ART_PENDING",
+    "footprintPx": { "width": 160, "height": 80 },
+    "footprintTiles": { "width": 10, "height": 5 },
+    "worldAnchor": { "map": "Cardcha_AirshipDeck", "tileX": 7, "tileY": 1 },
+    "viewportPx": { "x": 16, "y": 14, "width": 128, "height": 42 },
+    "frame": {
+      "path": "assets/airship_props/set01_redux/window_runtime/observation_window_frame.png",
+      "requiredForAmbientMode": true,
+      "expectedWidth": 160,
+      "expectedHeight": 80
+    },
+    "mask": {
+      "path": "assets/airship_props/set01_redux/window_runtime/observation_window_view_mask.png",
+      "requiredForAmbientMode": false,
+      "expectedWidth": 160,
+      "expectedHeight": 80
+    },
+    "backdrops": {
+      "fallbackSeason": "default",
+      "fallbackTime": "noon",
+      "states": {
+        "default": {
+          "morning": "assets/airship_props/set01_redux/window_runtime/window_view_default_morning.png",
+          "noon": "assets/airship_props/set01_redux/window_runtime/window_view_default_noon.png",
+          "evening": "assets/airship_props/set01_redux/window_runtime/window_view_default_evening.png",
+          "night": "assets/airship_props/set01_redux/window_runtime/window_view_default_night.png"
+        },
+        "spring": {
+          "morning": "assets/airship_props/set01_redux/window_runtime/window_view_spring_morning.png",
+          "noon": "assets/airship_props/set01_redux/window_runtime/window_view_spring_noon.png",
+          "evening": "assets/airship_props/set01_redux/window_runtime/window_view_spring_evening.png",
+          "night": "assets/airship_props/set01_redux/window_runtime/window_view_spring_night.png"
+        },
+        "summer": {
+          "morning": "assets/airship_props/set01_redux/window_runtime/window_view_summer_morning.png",
+          "noon": "assets/airship_props/set01_redux/window_runtime/window_view_summer_noon.png",
+          "evening": "assets/airship_props/set01_redux/window_runtime/window_view_summer_evening.png",
+          "night": "assets/airship_props/set01_redux/window_runtime/window_view_summer_night.png"
+        },
+        "fall": {
+          "morning": "assets/airship_props/set01_redux/window_runtime/window_view_fall_morning.png",
+          "noon": "assets/airship_props/set01_redux/window_runtime/window_view_fall_noon.png",
+          "evening": "assets/airship_props/set01_redux/window_runtime/window_view_fall_evening.png",
+          "night": "assets/airship_props/set01_redux/window_runtime/window_view_fall_night.png"
+        },
+        "winter": {
+          "morning": "assets/airship_props/set01_redux/window_runtime/window_view_winter_morning.png",
+          "noon": "assets/airship_props/set01_redux/window_runtime/window_view_winter_noon.png",
+          "evening": "assets/airship_props/set01_redux/window_runtime/window_view_winter_evening.png",
+          "night": "assets/airship_props/set01_redux/window_runtime/window_view_winter_night.png"
+        }
+      }
+    },
+    "weatherFx": {
+      "clear": {
+        "path": "assets/airship_props/set01_redux/window_runtime/window_fx_clouds_strip.png",
+        "frameCount": 6,
+        "frameDurationMs": 140,
+        "optional": true
+      },
+      "rain": {
+        "path": "assets/airship_props/set01_redux/window_runtime/window_fx_rain_strip.png",
+        "frameCount": 6,
+        "frameDurationMs": 90,
+        "optional": true
+      },
+      "snow": {
+        "path": "assets/airship_props/set01_redux/window_runtime/window_fx_snow_strip.png",
+        "frameCount": 6,
+        "frameDurationMs": 120,
+        "optional": true
+      },
+      "storm": {
+        "path": "assets/airship_props/set01_redux/window_runtime/window_fx_rain_strip.png",
+        "frameCount": 6,
+        "frameDurationMs": 80,
+        "optional": true
+      }
+    },
+    "lightning": {
+      "paths": [
+        "assets/airship_props/set01_redux/window_runtime/window_fx_lightning_flash_01.png",
+        "assets/airship_props/set01_redux/window_runtime/window_fx_lightning_flash_02.png"
+      ],
+      "minIntervalMs": 2500,
+      "maxIntervalMs": 7000,
+      "flashDurationMs": 120,
+      "optional": true
+    },
+    "legacyFallback": {
+      "enabled": true,
+      "frameDurationMs": 900,
+      "paths": [
+        "assets/airship_props/set01_redux/observation_window_overlay_1.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_2.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_3.png",
+        "assets/airship_props/set01_redux/observation_window_overlay_4.png"
+      ]
+    }
+  },
+  "navigationConsole": {
+    "id": "navigation_console",
+    "enabled": true,
+    "productionStatus": "NEW_RADAR_ART_PENDING",
+    "footprintPx": { "width": 112, "height": 80 },
+    "footprintTiles": { "width": 7, "height": 5 },
+    "worldAnchor": { "map": "Cardcha_AirshipDeck", "tileX": 9, "tileY": 5 },
+    "viewportPx": { "x": 18, "y": 8, "width": 48, "height": 32 },
+    "frame": {
+      "path": "assets/airship_props/set01_redux/console_runtime/navigation_console_frame.png",
+      "requiredForAmbientMode": false,
+      "expectedWidth": 112,
+      "expectedHeight": 80
+    },
+    "layers": {
+      "radarBg": {
+        "path": "assets/airship_props/set01_redux/console_runtime/radar_bg.png",
+        "frameCount": 1,
+        "frameDurationMs": 0,
+        "optional": true
+      },
+      "radarSweep": {
+        "path": "assets/airship_props/set01_redux/console_runtime/radar_sweep_strip.png",
+        "frameCount": 8,
+        "frameDurationMs": 100,
+        "optional": false
+      },
+      "radarPings": {
+        "path": "assets/airship_props/set01_redux/console_runtime/radar_pings_strip.png",
+        "frameCount": 4,
+        "frameDurationMs": 200,
+        "optional": true
+      },
+      "radarGlow": {
+        "path": "assets/airship_props/set01_redux/console_runtime/radar_glow_strip.png",
+        "frameCount": 4,
+        "frameDurationMs": 240,
+        "optional": true
+      }
+    },
+    "legacyFallback": {
+      "enabled": true,
+      "frameDurationMs": 1150,
+      "paths": [
+        "assets/airship_props/set01_redux/navigation_console_overlay_1.png",
+        "assets/airship_props/set01_redux/navigation_console_overlay_2.png",
+        "assets/airship_props/set01_redux/navigation_console_overlay_3.png",
+        "assets/airship_props/set01_redux/navigation_console_overlay_4.png"
+      ]
+    }
+  },
+  "validation": {
+    "preserveFootprint": true,
+    "preserveCollisionContract": true,
+    "collisionOwnedBy": "Buildings",
+    "forbiddenLayers": ["BackDecor"],
+    "requiredMapLayers": ["Back", "Back2", "Buildings", "Buildings2", "Front", "Front2"],
+    "noSilentSubstitution": true
+  }
+}
