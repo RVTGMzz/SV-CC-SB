@@ -6,9 +6,11 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0696B renderer for the two Airship hero ambient props.
-/// New art is manifest-driven. Until that art exists, this reproduces the approved
-/// 0690 overlay behavior through manifest-declared legacy fallback frames.
+/// 0696C renderer for the two Airship hero ambient props.
+/// The window is resolved from an explicit season x time x weather scene matrix.
+/// IMPORTANT: 0690 window overlays 2..4 contain opaque black wipe pixels and are never
+/// used as production fallback. If new window art is unavailable, the clean TMX base remains.
+/// Navigation Console legacy overlays are safe and remain available as fallback.
 /// </summary>
 internal static class AirshipAmbientAnimationService
 {
@@ -45,17 +47,20 @@ internal static class AirshipAmbientAnimationService
         AirshipObservationWindowConfig config = manifest.ObservationWindow;
         Vector2 propTopLeft = WorldToScreen(config.WorldAnchor.TileX * 64f, config.WorldAnchor.TileY * 64f);
 
+        // 0696C safety: never cycle the old full-window overlays here. Frames 2..4 contain
+        // opaque black masks. Returning false intentionally leaves the clean TMX base visible.
         if (!state.AmbientAssetsReady)
-            return DrawLegacyFullOverlay(batch, state.FallbackOverlayPath, propTopLeft, depth: 0.885f);
+            return false;
 
         Texture2D? backdrop = GetTexture(state.BackdropPath);
         Texture2D? frame = GetTexture(config.Frame.Path);
         if (backdrop is null || frame is null)
-            return DrawLegacyFullOverlay(batch, state.FallbackOverlayPath, propTopLeft, depth: 0.885f);
+            return false;
 
         Rectangle viewport = ScaleViewport(config.ViewportPx, propTopLeft);
         DrawViewportTexture(batch, backdrop, config.ViewportPx, viewport, depth: 0.8830f);
 
+        // Scene identity already includes weather. This moving layer adds motion only.
         if (state.WeatherFx is not null && Resolver.AssetExists(state.WeatherFx.Path))
         {
             Texture2D? weather = GetTexture(state.WeatherFx.Path);
@@ -67,9 +72,9 @@ internal static class AirshipAmbientAnimationService
         }
 
         if (state.Weather == "storm")
-            DrawLightningIfActive(batch, manifest, config, propTopLeft, clockMs);
+            DrawLightningIfActive(batch, config, propTopLeft, clockMs);
 
-        // Redraw the clean frame after all outside content so no FX can leak across the wood/decor silhouette.
+        // Frame always wins depth over the outside world so rain/snow never spills onto furniture.
         batch.Draw(
             frame,
             new Rectangle((int)propTopLeft.X, (int)propTopLeft.Y, frame.Width * 4, frame.Height * 4),
@@ -147,7 +152,6 @@ internal static class AirshipAmbientAnimationService
 
     private static void DrawLightningIfActive(
         SpriteBatch batch,
-        AirshipAmbientManifest manifest,
         AirshipObservationWindowConfig config,
         Vector2 propTopLeft,
         long clockMs
