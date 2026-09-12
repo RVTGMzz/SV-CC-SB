@@ -1,0 +1,125 @@
+name: Cardcha 0696D1 Observation Window Source Cleanup
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d1-observation-window-source-cleanup
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D1 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Materialize D1 source cleanup
+        run: python3 tools/alpha28_0696d1_observation_window_source_cleanup.py
+
+      - name: Validate D1 source cleanup
+        run: python3 tools/validate_0696d1_observation_window_source_cleanup.py
+
+      - name: Validate render-depth contract remains intact
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Freeze D2 D3 and map integration scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/console_runtime \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated D1 source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_view_mask.png \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            handoff/AIRSHIP_SOURCE_PACK_0696.json \
+            handoff/AIRSHIP_0696D1_WINDOW_SOURCE_CLEANUP_VALIDATION.json \
+            handoff/AIRSHIP_0696D1_WINDOW_SOURCE_CLEANUP_PREVIEW.png \
+            handoff/ALPHA28_0696D1_OBSERVATION_WINDOW_SOURCE_CLEANUP.md \
+            handoff/LATEST_CARDCHA_HANDOFF.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D1 Observation Window source cleanup [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d1-observation-window-source-cleanup
+          fi
+
+      - name: Package D1 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.65_0696D1_WindowSourceCleanup_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import io, json, zipfile
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.65_0696D1_WindowSourceCleanup_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              m=json.loads(z.read('Cardcha/manifest.json'))
+              assert m['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.65'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              base=Image.open(io.BytesIO(z.read('Cardcha/assets/airship_props/set01_redux/observation_window_base.png'))).convert('RGBA')
+              frame=Image.open(io.BytesIO(z.read('Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png'))).convert('RGBA')
+              assert base.size==(160,80) and frame.size==(160,80)
+              assert sum(1 for a in base.getchannel('A').getdata() if a==0) > 2000
+              manifest=json.loads(z.read('Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json'))
+              assert manifest['observationWindow']['productionStatus']=='SOURCE_CLEANED_D1_MATRIX_REBUILD_PENDING_D2'
+          print('0696D1 package audit PASS:', p)
+          PY
+
+      - name: Upload D1 TEST and visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D1-observation-window-source-cleanup
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.65_0696D1_WindowSourceCleanup_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.65_0696D1_WindowSourceCleanup_TEST.zip.sha256
+            handoff/AIRSHIP_0696D1_WINDOW_SOURCE_CLEANUP_VALIDATION.json
+            handoff/AIRSHIP_0696D1_WINDOW_SOURCE_CLEANUP_PREVIEW.png
