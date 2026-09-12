@@ -1,0 +1,139 @@
+name: Cardcha 0696D1S Real Airship Motion Repair
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d1s-airship-motion-repair
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D1S branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Materialize real airship sprite motion
+        run: python3 tools/alpha28_0696d1s_airship_motion_repair.py
+
+      - name: Patch Window runtime to move only the airship
+        run: python3 tools/alpha28_0696d1s_patch_window_runtime.py
+
+      - name: Validate real airship motion contract
+        run: python3 tools/validate_0696d1s_airship_motion_repair.py
+
+      - name: Validate render-depth contract remains intact
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Freeze D2 D3 and legacy overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/console_runtime \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated D1S source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            handoff/AIRSHIP_0696D1S_AIRSHIP_MOTION_REPAIR_VALIDATION.json \
+            handoff/AIRSHIP_0696D1S_AIRSHIP_MOTION_PREVIEW.png \
+            handoff/ALPHA28_0696D1S_AIRSHIP_MOTION_REPAIR.md \
+            handoff/LATEST_CARDCHA_HANDOFF.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D1S real airship motion repair [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d1s-airship-motion-repair
+          fi
+
+      - name: Package D1S TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.68_0696D1S_RealAirshipMotion_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from pathlib import Path
+          from PIL import Image
+          import io,json,zipfile
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.68_0696D1S_RealAirshipMotion_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              manifest=json.loads(z.read('Cardcha/manifest.json'))
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.68'
+              dll=z.read('Cardcha/Cardcha.dll')
+              assert dll[:2]==b'MZ' and len(dll)>50000
+              root='Cardcha/assets/airship_props/set01_redux/'
+              base=Image.open(io.BytesIO(z.read(root+'observation_window_base.png'))).convert('RGBA')
+              ship=Image.open(io.BytesIO(z.read(root+'window_runtime/observation_window_airship.png'))).convert('RGBA')
+              assert base.size==(160,80)
+              assert 10 <= ship.width <= 20 and 7 <= ship.height <= 14, ship.size
+              assert sum(1 for a in ship.getchannel('A').getdata() if a>0)>=70
+              ambient=json.loads(z.read(root+'airship_ambient_manifest.json'))
+              assert ambient['observationWindow']['productionStatus']=='D1S_REAL_AIRSHIP_SPRITE_MOTION_D2_PENDING'
+              assert ambient['observationWindow']['airshipMotion']['legacyOverlayCycling'] is False
+          print('0696D1S package audit PASS:',p)
+          PY
+
+      - name: Upload D1S TEST and visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D1S-real-airship-motion
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.68_0696D1S_RealAirshipMotion_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.68_0696D1S_RealAirshipMotion_TEST.zip.sha256
+            handoff/AIRSHIP_0696D1S_AIRSHIP_MOTION_REPAIR_VALIDATION.json
+            handoff/AIRSHIP_0696D1S_AIRSHIP_MOTION_PREVIEW.png
