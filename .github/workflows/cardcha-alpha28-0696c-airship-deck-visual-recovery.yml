@@ -25,6 +25,9 @@ jobs:
       - name: Materialize 0696C Deck visual recovery
         run: python3 tools/alpha28_0696c_airship_deck_visual_recovery.py
 
+      - name: Fix weather-scene alpha compositing
+        run: python3 tools/alpha28_0696c_fix_scene_compositing.py
+
       - name: Validate repository render-depth contract
         run: python3 tools/validate_render_depth_contract.py
 
@@ -90,7 +93,7 @@ jobs:
             handoff/ALPHA28_0696C_AIRSHIP_DECK_VISUAL_RECOVERY.md \
             handoff/AIRSHIP_0696C_VISUAL_RECOVERY_VALIDATION.json
           if ! git diff --cached --quiet; then
-            git commit -m 'chore: materialize 0696C Airship Deck visual recovery [skip ci]'
+            git commit -m 'chore: materialize 0696C Airship Deck visual recovery v2 [skip ci]'
             git push origin HEAD:cardcha-alpha28-0696-airship-concept-faithful-visible-integration
           fi
 
@@ -126,8 +129,12 @@ jobs:
               ambient=json.loads(z.read('Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json'))
               assert ambient['schemaVersion']==2
               states=ambient['observationWindow']['sceneMatrix']['states']
-              count=sum(len(weather) for season in states.values() for weather in season.values())
-              assert count==80,count
+              scene_paths=[p for season in states.values() for bucket in season.values() for p in bucket.values()]
+              assert len(scene_paths)==80 and len(set(scene_paths))==80
+              for rel in scene_paths:
+                  im=Image.open(io.BytesIO(z.read('Cardcha/'+rel))).convert('RGBA')
+                  assert im.size==(128,42), (rel,im.size)
+                  assert im.getchannel('A').getextrema()==(255,255), (rel,im.getchannel('A').getextrema())
               assert ambient['observationWindow']['legacyFallback']['enabled'] is False
               assert 'Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png' in z.namelist()
               assert 'Cardcha/assets/airship_props/set01_redux/console_runtime/radar_sweep_strip.png' in z.namelist()
