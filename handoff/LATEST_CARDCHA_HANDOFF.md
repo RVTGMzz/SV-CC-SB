@@ -3,31 +3,28 @@
 Updated: 2026-09-12
 
 ## Current workstream
-`cardcha-alpha28-0696-airship-concept-faithful-visible-integration`
+`cardcha-alpha28-0696d1-observation-window-source-cleanup`
 
 Current build candidate:
-`0.3.0-alpha.28.0.4.14.4.5.12.64`
+`0.3.0-alpha.28.0.4.14.4.5.12.65`
 
 Current handoff:
-`handoff/ALPHA28_0696C_AIRSHIP_DECK_VISUAL_RECOVERY.md`
-
-## Verified 0696C checkpoint
-- Materialized source: `58e3d80147e6e5490d32b83527587ca4156ff0cc`
-- Successful CI run: `34698643517`
-- Artifact ID: `10298949682`
-- TEST ZIP SHA256: `d8128de076f0d22d60ae8c9a8dc8b51a4040e67d047121ce833ca440e7bf7cce`
-- Technical validation: **PASS**
-- Visual acceptance: **PENDING-RON-IN-GAME**
+`handoff/ALPHA28_0696D1_OBSERVATION_WINDOW_SOURCE_CLEANUP.md`
 
 ## Status
-- 0696A architecture: technical baseline.
-- 0696B `.63`: **VISUAL REJECTED by Ron** from in-game screenshots.
-- 0696C `.64`: repairs explicit season/time/weather window matrix, removes black window fallback frames, restores four upgrade stations, adds visible room shell, and guards the Deck from black-void escape.
-- All 80 window backdrops are package-gated fully opaque; rain/snow/cloud motion remains a separate runtime FX layer and storm keeps lightning overlay behavior.
-- Sky Dock and unrelated Region maps were frozen during 0696C.
+- 0696C `.64`: technical PASS but visually rejected for remaining yellow/matte hero-prop source contamination.
+- 0696D.1 isolates **Observation Window source cleanup only**.
+- Window footprint remains 160x80 / 10x5 tiles.
+- RGB artwork is byte-identical before/after cleanup; only alpha for border-connected matte pixels changes.
+- Navigation Console is intentionally deferred to 0696D.3.
+- Window season/time/weather matrix is intentionally deferred to 0696D.2.
+- Visual acceptance remains **PENDING-RON-VISUAL**.
 
-## Next acceptance step
-Ron should replace `.63` with the verified `.64` TEST package and inspect the Airship Deck in game. Report visual/layer problems with screenshots; do not promote the pass based on CI alone.
+## Continuation order
+1. 0696D.1 Observation Window Source Cleanup
+2. 0696D.2 Window Environment Matrix Rebuild
+3. 0696D.3 Navigation Console Source Cleanup
+4. 0696D.4 Deck Integration & Acceptance
 
 ## Non-negotiable rule
-Technical PASS never equals visual PASS. Preserve exact hero prop footprints and base `Buildings` collision ownership. Never reintroduce `BackDecor`.
+Do not merge the four passes into one recovery blob. Each pass must pass independently before the next is promoted.

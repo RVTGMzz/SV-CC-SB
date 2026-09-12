@@ -3,7 +3,7 @@
   "workstream": "0696 Airship Visual Recovery",
   "phase": "0696A-visible-architecture-recovery",
   "visual_acceptance": "PENDING-RON-IN-GAME",
-  "source_policy": "Exact repo-recovered approved sprites only; no redraw, no rescale, no silent substitute.",
+  "source_policy": "Approved repo sprite geometry/RGB preserved. 0696D1 removes only border-connected export matte through alpha cleanup; no redraw or rescale.",
   "repo_recovered_asset_count": 18,
   "repo_recovered_assets_complete": true,
   "external_source_pack_complete": false,
@@ -781,8 +781,8 @@
     },
     {
       "path": "src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png",
-      "status": "exact",
-      "sha256": "34bb4ca85fd3b2690794d4b4686ef4fc46508d3c21beb99a4ab22f28c016d9ba",
+      "status": "source-faithful-alpha-cleanup-0696D1",
+      "sha256": "ee0d8a81ee09903c7b0b7162960e803a8147cac7b3b4400ddca3f65c3bd14dbd",
       "dimensions": [
         160,
         80
@@ -790,8 +790,8 @@
       "mode": "RGBA",
       "alpha_bbox": [
         0,
-        0,
-        160,
+        7,
+        159,
         79
       ],
       "tile_footprint": [
@@ -1000,7 +1000,7 @@
           4
         ]
       ],
-      "nontransparent_pixels": 12637,
+      "nontransparent_pixels": 10012,
       "used_by": [
         {
           "room": "deck",
@@ -1013,6 +1013,7 @@
       ],
       "scale_factor": 1.0,
       "approved_operations": [
+        "alpha-matte-cleanup",
         "grid-split",
         "depth-slice",
         "transparent-padding-preserved"

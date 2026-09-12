@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "workstream": "0696C-airship-deck-shell-layer-environment-recovery",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.64",
+  "workstream": "0696D1-observation-window-source-cleanup",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.65",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
@@ -34,7 +34,7 @@
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "GENERATED_ENVIRONMENT_MATRIX_TECHNICAL_TEST",
+    "productionStatus": "SOURCE_CLEANED_D1_MATRIX_REBUILD_PENDING_D2",
     "footprintPx": {
       "width": 160,
       "height": 80
@@ -279,6 +279,13 @@
           }
         }
       }
+    },
+    "sourceCleanup": {
+      "mode": "border-connected-matte-alpha-removal",
+      "rgbArtworkPreserved": true,
+      "sourcePath": "assets/airship_props/set01_redux/observation_window_base.png",
+      "framePath": "assets/airship_props/set01_redux/window_runtime/observation_window_frame.png",
+      "acceptance": "PENDING-RON-VISUAL"
     }
   },
   "navigationConsole": {

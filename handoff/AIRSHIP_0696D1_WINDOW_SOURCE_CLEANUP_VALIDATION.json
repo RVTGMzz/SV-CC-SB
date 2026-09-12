@@ -1,0 +1,45 @@
+{
+  "phase": "0696D1-observation-window-source-cleanup",
+  "branch": "cardcha-alpha28-0696d1-observation-window-source-cleanup",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.65",
+  "technicalValidation": "PASS",
+  "visualAcceptance": "PENDING-RON-VISUAL",
+  "footprintPx": [
+    160,
+    80
+  ],
+  "footprintTiles": [
+    10,
+    5
+  ],
+  "cleanup": {
+    "borderConnectedCandidateCount": 2788,
+    "opaqueMattePixelsMadeTransparent": 2625,
+    "alreadyTransparentCandidates": 163,
+    "rgbShaBefore": "26acf10d234fc6bdb26334df2efaf84ee663ef9a4798b7cb673dd2b5c9ff51e5",
+    "rgbShaAfter": "26acf10d234fc6bdb26334df2efaf84ee663ef9a4798b7cb673dd2b5c9ff51e5",
+    "alphaShaBefore": "083b646c1f85e4fd81fa20b9a50142893d85c4f665b63f528d2c3cdc86998159",
+    "alphaShaAfter": "90ad16f0434666267586cb139df8ef49dec8b7e8173963d5f0544e9c86770b51",
+    "transparentPixelsBefore": 163,
+    "transparentPixelsAfter": 2788
+  },
+  "runtimeFrame": {
+    "aperturePixels": 2576,
+    "frameTransparentPixels": 5364,
+    "frameBorderConnectedMatteOpaquePixels": 0
+  },
+  "scopeLock": {
+    "windowSourceChanged": true,
+    "consoleSourceChanged": false,
+    "environmentMatrixRebuilt": false,
+    "roomShellChanged": false,
+    "collisionChanged": false
+  },
+  "validator": {
+    "baseBorderConnectedOpaqueMattePixels": 0,
+    "frameBorderConnectedOpaqueMattePixels": 0,
+    "aperturePixels": 2576,
+    "apertureLeakagePixels": 0,
+    "environmentSceneCountPreserved": 80
+  }
+}
