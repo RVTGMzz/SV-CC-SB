@@ -3,8 +3,13 @@
 ## Status
 - Branch: `cardcha-alpha28-0696d1-observation-window-source-cleanup`
 - Build: `0.3.0-alpha.28.0.4.14.4.5.12.65`
+- Materialized source head: `eb86afa9f35e723f2de96e102ef2ac8e7e3c66fd`
+- Successful CI run: `34699808416`
+- Artifact ID: `10299991654`
+- Artifact digest: `sha256:7ad9adfe81ee20ddef346e6c676d9c6b9c15b833b9e30ca9109d89d707c0b947`
+- TEST ZIP SHA256: `1d9884df003280f4bce8bd12af19c26c9ec88af4e5f53a77d9db5969e01c6949`
 - Scope: Observation Window source only
-- Technical validation: **PASS when CI validates this materialized output**
+- Technical validation: **PASS**
 - Visual acceptance: **PENDING-RON-VISUAL**
 
 ## Why this pass exists
@@ -28,6 +33,24 @@ This pass is deliberately narrow. It does **not** rebuild the 80 environment sta
 - RGB SHA before: `26acf10d234fc6bdb26334df2efaf84ee663ef9a4798b7cb673dd2b5c9ff51e5`
 - RGB SHA after: `26acf10d234fc6bdb26334df2efaf84ee663ef9a4798b7cb673dd2b5c9ff51e5`
 - RGB identity preserved: **TRUE**
+- border-connected opaque matte after cleanup: **0 px**
+- runtime-frame matte after cleanup: **0 px**
+- aperture leakage in runtime frame: **0 px**
+
+## CI gates passed
+- D1 source materialization
+- source cleanup validator
+- render-depth contract
+- strict D2/D3/map freeze
+- SMAPI compile
+- package audit
+- artifact upload
+
+## TEST package
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.65_0696D1_WindowSourceCleanup_TEST.zip`
+
+SHA256:
+`1d9884df003280f4bce8bd12af19c26c9ec88af4e5f53a77d9db5969e01c6949`
 
 ## Non-goals
 - no console cleanup;
