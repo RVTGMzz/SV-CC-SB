@@ -1,13 +1,53 @@
 {
-  "phase": "0696D1R-window-bounded-cleanup",
+  "phase": "0696D1R-window-bounded-cleanup-final",
   "technicalValidation": "PASS",
   "visualAcceptance": "PENDING-RON-VISUAL",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.66",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.67",
   "base": {
-    "changedExactMattePixels": 2558,
-    "rgbaShaBaseline": "3884947ecf73aa899af267ee50cda0976860ea05ac89cc052a0f7e9a0b30cd5a",
-    "rgbaShaFixed": "cec0f94871496b94071a7d30fcc3ad12645cd043d235d371d02afbfa30974ecb",
-    "frameEqualsCleanBase": true
+    "method": "exact-border-matte + detached-edge-component removal",
+    "mattePixelsRemoved": 2558,
+    "detachedEdgeComponentsRemoved": [
+      {
+        "pixels": 59,
+        "bbox": [
+          0,
+          63,
+          5,
+          79
+        ]
+      },
+      {
+        "pixels": 38,
+        "bbox": [
+          0,
+          33,
+          3,
+          51
+        ]
+      },
+      {
+        "pixels": 4,
+        "bbox": [
+          0,
+          8,
+          1,
+          12
+        ]
+      }
+    ],
+    "detachedEdgePixelsRemoved": 101,
+    "transparentBefore": 163,
+    "transparentAfter": 2822,
+    "rgbaShaBefore": "3884947ecf73aa899af267ee50cda0976860ea05ac89cc052a0f7e9a0b30cd5a",
+    "rgbaShaAfter": "a27bf35bed1c0d653cdeb55e563e150e550b31a543c83c77edb2ae9689f0d47e",
+    "mainComponentPixels": 9977,
+    "mainComponentBBox": [
+      11,
+      6,
+      159,
+      79
+    ],
+    "remainingDetachedEdgeComponents": 0
   },
   "overlays": [
     {
@@ -16,10 +56,14 @@
         160,
         80
       ],
-      "pureBlackMaskPixelsRemoved": 0,
+      "opaquePureBlackRemoved": 0,
       "remainingOpaquePureBlack": 0,
-      "rgbaShaBaseline": "7bfd8c0216df5455c4fa5f80f43ee4d6fea2becfff2cd316c2a2de0899c35aaa",
-      "rgbaShaFixed": "7bfd8c0216df5455c4fa5f80f43ee4d6fea2becfff2cd316c2a2de0899c35aaa"
+      "alphaBBoxAfter": [
+        28,
+        20,
+        134,
+        48
+      ]
     },
     {
       "frame": 2,
@@ -27,10 +71,14 @@
         160,
         80
       ],
-      "pureBlackMaskPixelsRemoved": 2324,
+      "opaquePureBlackRemoved": 2324,
       "remainingOpaquePureBlack": 0,
-      "rgbaShaBaseline": "31bd60b78a26b911d2fb4d9a46213ae5994a053d48b4b051d184b551aaf69304",
-      "rgbaShaFixed": "8fca536edb8be9951f41600a60e1c150dd0476dd86d36c6011a9ca3fc07a0a5e"
+      "alphaBBoxAfter": [
+        49,
+        20,
+        134,
+        48
+      ]
     },
     {
       "frame": 3,
@@ -38,10 +86,14 @@
         160,
         80
       ],
-      "pureBlackMaskPixelsRemoved": 2072,
+      "opaquePureBlackRemoved": 2072,
       "remainingOpaquePureBlack": 0,
-      "rgbaShaBaseline": "5fd91340c6a67b962b166f84519d07532d7c4ee6b7f6d20a46eb487cb0367d6d",
-      "rgbaShaFixed": "54ae9751a3ca3f1e54f4d0470e04801ebad7e35c5cf8a51f29af826641c0ac52"
+      "alphaBBoxAfter": [
+        46,
+        20,
+        134,
+        48
+      ]
     },
     {
       "frame": 4,
@@ -49,18 +101,23 @@
         160,
         80
       ],
-      "pureBlackMaskPixelsRemoved": 1820,
+      "opaquePureBlackRemoved": 1820,
       "remainingOpaquePureBlack": 0,
-      "rgbaShaBaseline": "a0e525c1c497948b90c04330f2ece206d99ae7c635afa95bf1b070eb5ede5942",
-      "rgbaShaFixed": "7de21cbf69f6e7829f7badd0d9732f00718c85c432e1751a49334d591b73a6d1"
+      "alphaBBoxAfter": [
+        43,
+        20,
+        134,
+        48
+      ]
     }
   ],
   "contracts": {
-    "independentFiles": 4,
+    "independentOverlayFiles": 4,
     "dimensionsEach": [
       160,
       80
     ],
+    "remainingDetachedEdgeComponents": 0,
     "crop": false,
     "shift": false,
     "stripPacking": false,

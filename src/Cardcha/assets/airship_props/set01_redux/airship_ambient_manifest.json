@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
-  "workstream": "0696D1R-window-bounded-cleanup",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.66",
+  "workstream": "0696D1R-window-bounded-cleanup-final",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.67",
   "visualAcceptance": "PENDING-RON-IN-GAME",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
@@ -34,7 +34,7 @@
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "D1R_BOUNDED_SOURCE_CLEAN_4_OVERLAYS_ACTIVE_D2_PENDING",
+    "productionStatus": "D1R_FINAL_BOUNDED_CLEAN_4_OVERLAYS_ACTIVE_D2_PENDING",
     "footprintPx": {
       "width": 160,
       "height": 80
@@ -281,12 +281,13 @@
       }
     },
     "sourceCleanup": {
-      "mode": "exact-border-matte-only-plus-pure-black-overlay-alpha-repair",
+      "mode": "exact-border-matte-plus-detached-edge-component-plus-pure-black-overlay-alpha-repair",
       "baselineCommit": "0b13de1ac30dfa019061d3626c478c5460dab89f",
-      "framePacking": "forbidden",
       "crop": "forbidden",
       "shift": "forbidden",
+      "framePacking": "forbidden",
       "apertureCutout": "forbidden",
+      "detachedEdgeRule": "non-main alpha components touching canvas edge and <= 256 pixels",
       "overlayFiles": [
         "assets/airship_props/set01_redux/observation_window_overlay_1.png",
         "assets/airship_props/set01_redux/observation_window_overlay_2.png",
