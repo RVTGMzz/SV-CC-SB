@@ -1,17 +1,11 @@
-name: Cardcha 0696 Airship Set01 full-footprint audit
+name: Cardcha 0696 Airship Set01 legacy evidence audit
 
+# 0696A supersedes this evidence-only audit with a production-aware validator.
+# Keep this workflow available for manual historical diagnosis only. In particular,
+# collision_blocker.png is intentionally transparent, so alpha-footprint logic must
+# not be used as the final production collision gate.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696-airship-concept-faithful-visible-integration
-    paths:
-      - 'src/Cardcha/assets/airship_props/set01_redux/**'
-      - 'src/Cardcha/assets/airship_deck.tmx'
-      - 'src/Cardcha/assets/sky_dock_interior.tmx'
-      - 'src/Cardcha/assets/airship_0692_*.png'
-      - 'tools/alpha28_0696_airship_set01_full_footprint_audit.py'
-      - '.github/workflows/cardcha-alpha28-0696-airship-set01-full-footprint-audit.yml'
 
 permissions:
   contents: read
@@ -31,30 +25,17 @@ jobs:
       - name: Install Pillow
         run: python -m pip install --disable-pip-version-check Pillow==11.3.0
 
-      - name: Run evidence audit
-        id: audit
+      - name: Run legacy evidence audit
         continue-on-error: true
         run: python tools/alpha28_0696_airship_set01_full_footprint_audit.py --strict
 
-      - name: Print human-readable report
-        if: always()
-        run: |
-          test -f handoff/ALPHA28_0696_AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT.md
-          cat handoff/ALPHA28_0696_AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT.md
-
-      - name: Upload audit evidence
+      - name: Upload legacy audit evidence
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: cardcha-0696-airship-set01-full-footprint-audit
-          if-no-files-found: error
+          name: cardcha-0696-airship-set01-legacy-evidence-audit
+          if-no-files-found: warn
           path: |
             handoff/AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT_0696.json
             handoff/ALPHA28_0696_AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT.md
             handoff/AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT_0696.png
-
-      - name: Enforce audit result
-        if: steps.audit.outcome != 'success'
-        run: |
-          echo 'Gate + Window + Set01 full-footprint audit found blocking errors.'
-          exit 1
