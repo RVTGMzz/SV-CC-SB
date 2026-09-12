@@ -1,15 +1,156 @@
-name: Cardcha 0696D1R Window Bounded Cleanup (maintenance pause)
+name: Cardcha 0696D1R Window Bounded Cleanup FINAL
 
-# Temporarily manual-only while the final detached-edge-bleed gate is being added.
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d1-observation-window-source-cleanup
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  paused:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - run: echo "D1R maintenance pause. Push workflow will be restored after the bleed gate lands."
+      - name: Checkout D1R branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Restore .64 source and materialize final bounded Window cleanup
+        run: python3 tools/alpha28_0696d1r_window_bounded_cleanup.py
+
+      - name: Restore approved four-overlay runtime ownership
+        run: python3 tools/alpha28_0696d1r_patch_window_runtime.py
+
+      - name: Validate D1R matte bleed overlays and source geometry
+        run: python3 tools/validate_0696d1r_window_bounded_cleanup.py
+
+      - name: Validate render-depth contract remains intact
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Freeze D2 D3 and Deck integration scope
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/console_runtime \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated D1R final source and handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_frame.png \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            handoff/AIRSHIP_SOURCE_PACK_0696.json \
+            handoff/AIRSHIP_0696D1R_WINDOW_BOUNDED_VALIDATION.json \
+            handoff/AIRSHIP_0696D1R_WINDOW_FRAMES_PREVIEW.png \
+            handoff/ALPHA28_0696D1R_WINDOW_BOUNDED_CLEANUP.md \
+            handoff/LATEST_CARDCHA_HANDOFF.md
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D1R final bounded Window cleanup [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d1-observation-window-source-cleanup
+          fi
+
+      - name: Package D1R final TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.67_0696D1R_WindowBoundedCleanup_FINAL_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 - <<'PY'
+          from collections import deque
+          from pathlib import Path
+          from PIL import Image
+          import io,json,zipfile
+          p=Path('Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.67_0696D1R_WindowBoundedCleanup_FINAL_TEST.zip')
+          with zipfile.ZipFile(p) as z:
+              manifest=json.loads(z.read('Cardcha/manifest.json'))
+              assert manifest['Version']=='0.3.0-alpha.28.0.4.14.4.5.12.67'
+              dll=z.read('Cardcha/Cardcha.dll'); assert dll[:2]==b'MZ' and len(dll)>50000
+              root='Cardcha/assets/airship_props/set01_redux/'
+              base=Image.open(io.BytesIO(z.read(root+'observation_window_base.png'))).convert('RGBA')
+              frame=Image.open(io.BytesIO(z.read(root+'window_runtime/observation_window_frame.png'))).convert('RGBA')
+              assert base.size==(160,80) and frame.size==(160,80) and base.tobytes()==frame.tobytes()
+              # No detached non-main alpha component may touch the canvas edge.
+              a=base.getchannel('A'); w,h=base.size; seen=set(); comps=[]
+              for y in range(h):
+                  for x in range(w):
+                      if (x,y) in seen or a.getpixel((x,y))==0: continue
+                      q=deque([(x,y)]); seen.add((x,y)); pts=[]
+                      while q:
+                          px,py=q.popleft(); pts.append((px,py))
+                          for dx,dy in ((1,0),(-1,0),(0,1),(0,-1)):
+                              nx,ny=px+dx,py+dy
+                              if 0<=nx<w and 0<=ny<h and (nx,ny) not in seen and a.getpixel((nx,ny))>0:
+                                  seen.add((nx,ny)); q.append((nx,ny))
+                      comps.append(pts)
+              comps.sort(key=len,reverse=True)
+              for pts in comps[1:]:
+                  assert not any(x in (0,w-1) or y in (0,h-1) for x,y in pts), (len(pts),pts[:3])
+              for i in range(1,5):
+                  im=Image.open(io.BytesIO(z.read(root+f'observation_window_overlay_{i}.png'))).convert('RGBA')
+                  assert im.size==(160,80)
+                  assert sum(1 for r,g,b,a in im.getdata() if a>0 and (r,g,b)==(0,0,0))==0
+              ambient=json.loads(z.read(root+'airship_ambient_manifest.json'))
+              assert ambient['observationWindow']['productionStatus']=='D1R_FINAL_BOUNDED_CLEAN_4_OVERLAYS_ACTIVE_D2_PENDING'
+          print('0696D1R FINAL package audit PASS:',p)
+          PY
+
+      - name: Upload D1R final TEST and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D1R-window-bounded-cleanup-final
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.67_0696D1R_WindowBoundedCleanup_FINAL_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.67_0696D1R_WindowBoundedCleanup_FINAL_TEST.zip.sha256
+            handoff/AIRSHIP_0696D1R_WINDOW_BOUNDED_VALIDATION.json
+            handoff/AIRSHIP_0696D1R_WINDOW_FRAMES_PREVIEW.png
