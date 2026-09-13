@@ -116,13 +116,28 @@ Drive was also queried directly by metadata rather than filename:
 - MIME: `image/png`
 - created: `2026-09-13T00:00:00Z <= createdTime < 2026-09-14T00:00:00Z`
 
-Result: **0 PNG files** on the currently accessible Drive surface for that D2.1 approval/materialization date.
+Result: **0 PNG files** on the currently accessible active Drive surface for that D2.1 approval/materialization date.
 
-This matters because it removes the main filename-independent Drive recovery path for an image exported or uploaded on the approval day.
+This removes the main filename-independent active-Drive recovery path for an image exported or uploaded on the approval day.
+
+## Trash sweep
+
+The Drive Trash surface was checked separately so a source uploaded and later deleted would not be missed.
+
+Targeted trashed-file searches:
+
+- `concept` -> 0
+- `sprite` -> 0
+- `Cardcha` -> 0
+- `airship` -> 0
+
+A filename-independent trashed-PNG query for files created during `2026-09-12T00:00:00Z -> 2026-09-14T00:00:00Z` also returned **0 files**.
+
+Therefore no source-pack alias, Cardcha/Airship candidate, or D2.1-date PNG survives in the currently accessible Drive Trash surface.
 
 ## Result
 
-**0 authoritative D2.1 source candidates found on the currently accessible Google Drive surface.**
+**0 authoritative D2.1 source candidates found on the currently accessible Google Drive active or Trash surfaces.**
 
 No file was installed, transformed, re-encoded, resized, recolored, or used as a substitute. No `.69` materialization was attempted.
 
@@ -139,7 +154,8 @@ The following routes are now documented as exhausted or nonproductive unless new
 - recoverable conversation metadata/personal-context source-id trace
 - connected Google Drive exact-name/project/archive search
 - connected Google Drive generic image-name search
-- connected Google Drive 2026-09-13 PNG MIME/date search
+- connected Google Drive 2026-09-13 active PNG MIME/date search
+- connected Google Drive Trash exact-name and 2026-09-12/13 PNG sweep
 
 The remaining legitimate source route is still an authoritative external/local copy not presently exposed through the connected repository/File Library/Drive surfaces, especially:
 
