@@ -4,6 +4,7 @@ from __future__ import annotations
 from pathlib import Path
 import argparse
 import hashlib
+import io
 import json
 import shutil
 import struct
@@ -34,6 +35,7 @@ APPROVED = {
 }
 SHA_TO_STATE = {item["sha256"]: state for state, item in APPROVED.items()}
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+MAX_ARCHIVE_DEPTH = 5
 
 
 def sha256(data: bytes) -> str:
@@ -89,20 +91,65 @@ def add_bytes(label: str, data: bytes, matches: dict, payloads: dict) -> None:
     payloads.setdefault(state, data)
 
 
-def scan_zip(path: Path, matches: dict, payloads: dict, warnings: list[str]) -> None:
+def scan_zip_bytes(
+    label: str,
+    data: bytes,
+    matches: dict,
+    payloads: dict,
+    warnings: list[str],
+    depth: int,
+) -> None:
+    if depth > MAX_ARCHIVE_DEPTH:
+        warnings.append(f"Archive nesting limit reached: {label}")
+        return
     try:
-        with zipfile.ZipFile(path) as archive:
+        with zipfile.ZipFile(io.BytesIO(data)) as archive:
             for info in archive.infolist():
-                if info.is_dir() or not info.filename.lower().endswith(".png"):
+                if info.is_dir():
+                    continue
+                name = info.filename
+                lower = name.lower()
+                if not lower.endswith((".png", ".zip", ".rar")):
                     continue
                 try:
-                    data = archive.read(info)
+                    member = archive.read(info)
                 except Exception as exc:
-                    warnings.append(f"ZIP member unreadable: {path}!{info.filename}: {exc}")
+                    warnings.append(f"ZIP member unreadable: {label}!{name}: {exc}")
                     continue
-                add_bytes(f"{path}!{info.filename}", data, matches, payloads)
+                member_label = f"{label}!{name}"
+                if lower.endswith(".png"):
+                    add_bytes(member_label, member, matches, payloads)
+                elif lower.endswith(".zip"):
+                    scan_zip_bytes(member_label, member, matches, payloads, warnings, depth + 1)
+                elif lower.endswith(".rar"):
+                    with tempfile.TemporaryDirectory(prefix="cardcha-0696d2-nested-rar-") as tmp:
+                        nested = Path(tmp) / Path(name).name
+                        nested.write_bytes(member)
+                        scan_rar(
+                            nested,
+                            matches,
+                            payloads,
+                            warnings,
+                            source_label=member_label,
+                            depth=depth + 1,
+                        )
+    except Exception as exc:
+        warnings.append(f"ZIP unreadable: {label}: {exc}")
+
+
+def scan_zip(
+    path: Path,
+    matches: dict,
+    payloads: dict,
+    warnings: list[str],
+    depth: int = 0,
+) -> None:
+    try:
+        data = path.read_bytes()
     except Exception as exc:
         warnings.append(f"ZIP unreadable: {path}: {exc}")
+        return
+    scan_zip_bytes(str(path), data, matches, payloads, warnings, depth)
 
 
 def find_7z() -> str | None:
@@ -113,11 +160,21 @@ def find_7z() -> str | None:
     return None
 
 
-def scan_rar(path: Path, matches: dict, payloads: dict, warnings: list[str]) -> None:
+def scan_rar(
+    path: Path,
+    matches: dict,
+    payloads: dict,
+    warnings: list[str],
+    source_label: str | None = None,
+    depth: int = 0,
+) -> None:
+    if depth > MAX_ARCHIVE_DEPTH:
+        warnings.append(f"Archive nesting limit reached: {source_label or path}")
+        return
     exe = find_7z()
     if exe is None:
         warnings.append(
-            f"RAR skipped because 7-Zip is unavailable: {path}. Install 7z/7zz/7za or extract the archive first."
+            f"RAR skipped because 7-Zip is unavailable: {source_label or path}. Install 7z/7zz/7za or extract the archive first."
         )
         return
     with tempfile.TemporaryDirectory(prefix="cardcha-0696d2-rar-") as tmp:
@@ -131,9 +188,16 @@ def scan_rar(path: Path, matches: dict, payloads: dict, warnings: list[str]) -> 
             check=False,
         )
         if proc.returncode != 0:
-            warnings.append(f"RAR extraction failed: {path} (exit {proc.returncode})")
+            warnings.append(f"RAR extraction failed: {source_label or path} (exit {proc.returncode})")
             return
-        scan_directory(Path(tmp), matches, payloads, warnings, source_prefix=f"{path}!")
+        scan_directory(
+            Path(tmp),
+            matches,
+            payloads,
+            warnings,
+            source_prefix=f"{source_label or path}!",
+            depth=depth + 1,
+        )
 
 
 def scan_directory(
@@ -142,6 +206,7 @@ def scan_directory(
     payloads: dict,
     warnings: list[str],
     source_prefix: str = "",
+    depth: int = 0,
 ) -> None:
     for path in root.rglob("*"):
         if not path.is_file():
@@ -157,9 +222,9 @@ def scan_directory(
             label = f"{source_prefix}{relative}" if source_prefix else str(path)
             add_bytes(label, data, matches, payloads)
         elif suffix == ".zip":
-            scan_zip(path, matches, payloads, warnings)
+            scan_zip(path, matches, payloads, warnings, depth=depth + 1)
         elif suffix == ".rar":
-            scan_rar(path, matches, payloads, warnings)
+            scan_rar(path, matches, payloads, warnings, depth=depth + 1)
 
 
 def scan_input(path: Path, matches: dict, payloads: dict, warnings: list[str]) -> None:
