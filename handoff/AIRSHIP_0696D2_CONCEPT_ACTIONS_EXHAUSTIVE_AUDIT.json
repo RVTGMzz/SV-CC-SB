@@ -1,0 +1,109 @@
+{
+  "phase": "0696D2-concept-actions-exhaustive-audit",
+  "date": "2026-09-13",
+  "sourceBranch": "cardcha-alpha28-0696-airship-concept-faithful-visible-integration",
+  "totalWorkflowRuns": 14,
+  "successfulRuns": [
+    34698643517,
+    34698318075,
+    34698103404,
+    34690399069,
+    34685463138
+  ],
+  "failedRuns": [
+    34698536799,
+    34698080625,
+    34698053720,
+    34690316376,
+    34690286600,
+    34690267032,
+    34690250901,
+    34685420910,
+    34661238303
+  ],
+  "artifactInventory": [
+    {
+      "runId": 34698643517,
+      "artifactId": 10298949682,
+      "name": "cardcha-alpha28-0696C-airship-deck-visual-recovery",
+      "digest": "sha256:ceca18eee2378302e714ff14462be639897459051b5d0981e315b2c9bbc2130c"
+    },
+    {
+      "runId": 34698318075,
+      "artifactId": 10299178898,
+      "name": "cardcha-alpha28-0696C-airship-deck-visual-recovery",
+      "digest": "sha256:c860b9574ed772e7425327e22f10d86fe4babec3c900b25ecb8fa0b63aaa9d2c"
+    },
+    {
+      "runId": 34698103404,
+      "artifactId": 10298779405,
+      "name": "cardcha-alpha28-0696B-airship-ambient-runtime-foundation",
+      "digest": "sha256:064039fbc4a549671e441c04c9e31a0dd3b819d165493fd91f2921f07607d2fc"
+    },
+    {
+      "runId": 34690399069,
+      "artifactId": 10296378327,
+      "name": "cardcha-alpha28-0696B-airship-ambient-runtime-foundation",
+      "digest": "sha256:20ef10946db86b5023d24d5756aaa69373ecb38091ac61e1bf70a59a489aab23"
+    },
+    {
+      "runId": 34685463138,
+      "artifactId": 10295536254,
+      "name": "cardcha-alpha28-0696A-airship-visible-architecture-recovery",
+      "digest": "sha256:46fa1682ebebcc7aae0c03d2126c6bc6001b51a87e01d9fab3d831ab8b27d7f6"
+    },
+    {
+      "runId": 34661238303,
+      "artifactId": 10286644563,
+      "name": "cardcha-0696-airship-set01-full-footprint-audit",
+      "digest": "sha256:4da8da96697cda75e4f9363c6755f3ee0d6416834220fae97284b697a4b0c41d"
+    }
+  ],
+  "failedRunsWithoutArtifacts": [
+    34698536799,
+    34698080625,
+    34698053720,
+    34690316376,
+    34690286600,
+    34690267032,
+    34690250901,
+    34685420910
+  ],
+  "recursiveScan": {
+    "successfulArtifactPackagesScanned": 5,
+    "archivesTraversed": 10,
+    "pngFilesScanned": 837,
+    "png160x80Count": 38,
+    "unique160x80Sha256Count": 9,
+    "exactApprovedD2ShaMatches": 0,
+    "warnings": 0
+  },
+  "preAFullFootprintArtifactScan": {
+    "runId": 34661238303,
+    "pngFilesScanned": 1,
+    "onlyPng": "AIRSHIP_SET01_FULL_FOOTPRINT_AUDIT_0696.png",
+    "dimensions": [660, 1160],
+    "modeContract": "RGBA8",
+    "sha256": "f84d83db7aae7c346d3a9934ddf55e3890d356ef5370dc6fc4ea162c52c95394",
+    "exactApprovedD2ShaMatch": false
+  },
+  "unique160x80Sha256": [
+    "e7ef4c40db4a1bd43daea8f06eebe553c8d908ae9f41272b6ea3ca416a98b5e5",
+    "3fea376828fa36309353763a4f7542f4c6bea377800cf97adbd9e94a75d6c340",
+    "5e482675ef9251d690be26fce021c9307d942a5a43676505070a42f5fb87fc9a",
+    "28e8d0f15ddec975379ab6ed5a8965b0886077b4fa6f570013e2fc8a9f238c79",
+    "34bb4ca85fd3b2690794d4b4686ef4fc46508d3c21beb99a4ab22f28c016d9ba",
+    "3554361daa2b6003c80ce081f1555e3a700d1feb7f29470f5783af242c76bf8b",
+    "c16711e353257e79057f92ad9295642c40729d36754e292c1d6c9680433c4f71",
+    "92a704085fd65f446e50a0329ee3ff6e09a5889c496af98adb7c143c99f22ea5",
+    "f9704c9cbcf85f54f266204b1255f677569e4e6248ef8220aaff829070220912"
+  ],
+  "approvedD2Sha256": {
+    "morning": "9a8996ef0068057e774419d9d4597f44753951b3ec1ec519cd6771efaad7b5d0",
+    "noon": "fa0f00051febb62d107e4a1dc14a079dbfc8183659a73b9ed2ecfe5c4efb3aff",
+    "evening": "b94d30d18bacecc2c3f09971aec2d5951956490be8c7cad2243b4689c865a638",
+    "night": "f9d15f66485f514f4be8589ee29d45beabda87e357b1c1d3ffa7965855ed1990"
+  },
+  "result": "EXHAUSTIVE_CONCEPT_ACTIONS_ARTIFACT_AUDIT_COMPLETE_NO_APPROVED_D2_SOURCE_BYTES",
+  "conclusion": "All 14 workflow runs on the 0696 concept/integration branch were enumerated. Every surviving artifact was inspected. The five successful-package artifacts contain no approved D2 source SHA, and the only artifact produced by a failed run is a 660x1160 audit image. GitHub Actions for this branch is therefore exhausted as a recovery source."
+}
