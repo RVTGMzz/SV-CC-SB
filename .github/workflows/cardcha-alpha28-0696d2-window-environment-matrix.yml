@@ -9,6 +9,7 @@ on:
       - .github/workflows/cardcha-alpha28-0696d2-window-environment-matrix.yml
       - tools/alpha28_0696d2_window_environment_matrix.py
       - tools/alpha28_0696d2_package_audit.py
+      - tools/validate_0696d2_no_legacy_overlay_reuse.py
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png
@@ -37,6 +38,9 @@ jobs:
 
       - name: Validate D2 clear-time matrix contract
         run: python3 tools/alpha28_0696d2_window_environment_matrix.py --validate
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
 
       - name: Validate render-depth contract remains intact
         run: python3 tools/validate_render_depth_contract.py
