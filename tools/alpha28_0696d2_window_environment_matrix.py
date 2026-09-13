@@ -292,7 +292,7 @@ def validate() -> None:
         errors.append("runtime does not draw the resolved background")
     if "environment.Width == 160 && environment.Height == 80" not in service:
         errors.append("runtime 160x80 guard missing")
-    for legacy in ("observation_window_overlay_2.png", "observation_window_overlay_3.png", "observation_overlay_4.png"):
+    for legacy in ("observation_window_overlay_2.png", "observation_window_overlay_3.png", "observation_window_overlay_4.png"):
         if legacy in service:
             errors.append(f"legacy overlay reused by runtime: {legacy}")
     if "ResolveTimeBucket(manifest.Global, Game1.timeOfDay)" not in resolver:
