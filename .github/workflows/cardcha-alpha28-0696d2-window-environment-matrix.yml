@@ -1,0 +1,125 @@
+name: Cardcha 0696D2 Clear Window Environment Matrix
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png
+      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png
+      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png
+      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D2 branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Gate exact approved D2 source pixels
+        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --check-source
+
+      - name: Apply D2 resolver and metadata
+        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --apply
+
+      - name: Validate D2 clear-time matrix contract
+        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --validate
+
+      - name: Validate render-depth contract remains intact
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Freeze D1S ship D3 console maps and legacy overlays
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/observation_window_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png \
+            src/Cardcha/assets/airship_props/set01_redux/console_runtime \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Materialize validated D2 runtime metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/ModEntry.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Services/AirshipAmbientResolver.cs \
+            src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            handoff/AIRSHIP_0696D2_WINDOW_ENVIRONMENT_MATRIX_VALIDATION.json
+
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D2 clear Window environment matrix [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d2-window-environment-matrix
+          fi
+
+      - name: Package D2 .69 TEST
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          ZIP='Ø\™ÚWÝŒŒËŒX[KŒŽŒŒMKŒL‹ŽWÌŽM‘—ÕÚ[™ÝÑ[š\›Û›Y[X]š^ÕTÕžš\	Âˆš\\\ˆ‰’TˆØ\™ÚBˆÚLMœÝ[H‰’TˆYH‰’TœÚLMˆ‚ˆ]ÛŒÈH	ÔIÂˆœ›ÛH]Xˆ[\Ü]ˆ[\Ü\ÚX‹[ËœÛÛ‹š\š[Bˆœ›ÛHS[\Ü[XYÙB‚ˆH]
+	ÐØ\™ÚWÝŒŒËŒX[KŒŽŒŒMKŒL‹ŽWÌŽM‘—ÕÚ[™ÝÑ[š\›Û›Y[X]š^ÕTÕžš\	ÊBˆ^XÝYHÂˆ	Û[Ü›š[™ÉÎˆ	ÎXNNM™YŒŽMÙMÍÍNYYNMÙÍLÎMLXŒÙXÌYXÍLNXÙÍÌYY˜XYØY	Ëˆ	Û›ÛÛ‰Îˆ	Ù˜LŒLY™X˜Œ™LÙMLYÌMLÎY™˜ÎNÍNXMÌØŽYY™XÙ™MXÍY˜ŒØY™‰Ëˆ	Ù]™[š[™ÉÎˆ	ØŽMÌN˜XÙXØÌ˜ÌÙŒNMÌXYXÌ™NMLNMML™NÍØØYŒØŽXÎXMŒÎ	Ëˆ	ÛšYÚ	Îˆ	ÙŽYMYYLM™NNYYLŽYX™XX™NÙLÍMØŒXÌYÙ™˜MÎMNMYYNNL	ËˆBˆÚ]š\š[K–š\š[J
+H\ÈŽ‚ˆX[šY™\ÝHœÛÛ‹›ØYÊœ™XY
+	ÐØ\™ÚKÛX[šY™\ÝšœÛÛ‰ÊJBˆ\ÜÙ\X[šY™\ÝÉÕ™\œÚ[Û‰×HOH	ÌŒËŒX[KŒŽŒŒMKŒL‹ŽIÂˆH‹œ™XY
+	ÐØ\™ÚKÐØ\™ÚK™	ÊBˆ\ÜÙ\ÎŒ—HOH‰ÓV‰È[™[Š
+HˆLˆ›ÛÝH	ÐØ\™ÚKØ\ÜÙ]ËØZ\œÚ\Ü›ÜËÜÙ]WÜ™Y^ÝÚ[™Ý×Ü[[YKÉÂˆ›ÜˆÝ]KØ[Y[ˆ^XÝYš][\Ê
+N‚ˆ˜]ÈH‹œ™XY
+›ÛÝ
+È‰ÝÚ[™Ý×ÜØÙ[™WÙY˜][ÞÜÝ]_WØÛX\‹œ™ÉÊBˆ\ÜÙ\\ÚX‹œÚLMŠ˜]ÊKš^YÙ\Ý
+
+HOHØ[YˆÚ][XYÙK›Ü[Š[Ëž]\ÒSÕÜ˜]ÊJH\È[XYÙN‚ˆ[XYÙK›ØY
+
+Bˆ\ÜÙ\[XYÙKœÚ^™HOH
+MŒ
+Bˆ\ÜÙ\[XYÙK›[ÙHOH	Ô‘ÐIÂˆÚ\H‹œ™XY
+›ÛÝ
+È	ÛØœÙ\˜][Û—ÝÚ[™Ý×ØZ\œÚ\œ™ÉÊBˆ\ÜÙ\\ÚX‹œÚLMŠÚ\
+Kš^YÙ\Ý
+
+HOH	ÍNØYXX˜ÎMÍYYLYŒ˜ÎLYLX™ŽXMMYXLŒLYLØ˜ŒL˜ØNYÌXÎXÙIÂˆ[XšY[HœÛÛ‹›ØYÊ‹œ™XY
+	ÐØ\™ÚKØ\ÜÙ]ËØZ\œÚ\Ü›ÜËÜÙ]WÜ™Y^ØZ\œÚ\Ø[XšY[ÛX[šY™\ÝšœÛÛ‰ÊJBˆ\ÜÙ\[XšY[ÉÛØœÙ\˜][Û•Ú[™ÝÉ×VÉÜ›ÙXÝ[Û”Ý]\É×HOH	Ñ—ÐÓPT—ÕSQWÓPU’VÓPUT’PSV‘QÔS‘S‘×Ô“Ó—Õ’TÕPS	Âˆ\ÜÙ\[XšY[ÉÛØœÙ\˜][Û•Ú[™ÝÉ×VÉÙÛX\“X]š^	×VÉÛYØXÞQ[š\›Û›Y[Ý™\›^T™]\ÙI×H\È˜[ÙBˆš[
+	ÌŽM‘ˆŽHXÚØYÙH]Y]TÔÎ‰Ë
+BˆB‚ˆH˜[YNˆ\ØYˆŽHTÕ[™]šY[˜ÙBˆ\Ù\ÎˆXÝ[ÛœËÝ\ØYX\Y˜XÝˆÚ]‚ˆ˜[YNˆØ\™ÚKX[LŽLŽM‘‹]Ú[™ÝËY[š\›Û›Y[[X]š^ˆY‹[›ËYš[\ËY›Ý[™ˆ\œ›Ü‚ˆ]ˆˆXÚØYÙKÐØ\™ÚWÝŒŒËŒX[KŒŽŒŒMKŒL‹ŽWÌŽM‘—ÕÚ[™ÝÑ[š\›Û›Y[X]š^ÕTÕžš\ˆXÚØYÙKÐØ\™ÚWÝŒŒËŒX[KŒŽŒŒMKŒL‹ŽWÌŽM‘—ÕÚ[™ÝÑ[š\›Û›Y[X]š^ÕTÕžš\œÚLM‚ˆ[™Ù™‹ÐRT”ÒTÌŽM‘—ÕÒS‘Õ×ÑS•’T“Ó“QS•ÓPU’VÕSQUSÓ‹šœÛÛ‚
