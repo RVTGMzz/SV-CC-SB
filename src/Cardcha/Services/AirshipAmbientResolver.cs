@@ -24,8 +24,8 @@ internal sealed record AirshipResolvedConsoleState(
 );
 
 /// <summary>
-/// 0696C source-of-truth resolver for Airship ambient visuals.
-/// Observation Window production state is explicit season x time x weather.
+/// 0696D2 source-of-truth resolver for the clear-time Airship Window environments.
+/// Observation Window D2 state resolves four approved clear environments by time bucket.
 /// Drawing remains isolated in AirshipAmbientAnimationService.
 /// </summary>
 internal sealed class AirshipAmbientResolver

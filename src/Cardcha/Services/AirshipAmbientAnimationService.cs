@@ -6,10 +6,10 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0696D1S isolated Window motion repair plus existing Console ambient renderer.
+/// 0696D2 clear-time Window environment matrix plus existing Console ambient renderer.
 /// The physical Window body remains map-native. Runtime moves one extracted real airship
 /// sprite only; legacy overlay_2..4 window/transition slices are never animated.
-/// D2 will rebuild the season/time/weather matrix after Ron accepts this motion contract.
+/// D2 draws one approved clear environment by time bucket behind the independent .68 airship sprite.
 /// </summary>
 internal static class AirshipAmbientAnimationService
 {
@@ -58,15 +58,38 @@ internal static class AirshipAmbientAnimationService
         AirshipObservationWindowConfig config = manifest.ObservationWindow;
         Vector2 propTopLeft = WorldToScreen(config.WorldAnchor.TileX * 64f, config.WorldAnchor.TileY * 64f);
 
+        // 0696D2: resolve one approved clear 160x80 environment from Game1.timeOfDay.
+        // The accepted .68 airship stays independent and is drawn above the environment.
+        AirshipResolvedWindowState state = Resolver.ResolveWindow(clockMs);
+        if (state.AmbientAssetsReady && !string.IsNullOrWhiteSpace(state.BackdropPath))
+        {
+            Texture2D? environment = GetTexture(state.BackdropPath);
+            if (environment is not null && environment.Width == 160 && environment.Height == 80)
+            {
+                batch.Draw(
+                    environment,
+                    new Rectangle(
+                        (int)propTopLeft.X,
+                        (int)propTopLeft.Y,
+                        config.FootprintPx.Width * 4,
+                        config.FootprintPx.Height * 4
+                    ),
+                    null,
+                    Color.White,
+                    0f,
+                    Vector2.Zero,
+                    SpriteEffects.None,
+                    0.8840f
+                );
+            }
+        }
+
         Texture2D? airship = GetTexture(D1SAirshipPath);
         if (airship is null)
-            return false;
+            return state.AmbientAssetsReady;
 
         int frameIndex = (int)((clockMs / D1SAirshipFrameDurationMs) % D1SAirshipPositions.Length);
         Point pos = D1SAirshipPositions[frameIndex];
-
-        // Draw only the real airship sprite. Never draw legacy overlay_2..4 here: those files
-        // are window/transition slices and made the pillar appear to fly across the sky.
         batch.Draw(
             airship,
             new Rectangle(

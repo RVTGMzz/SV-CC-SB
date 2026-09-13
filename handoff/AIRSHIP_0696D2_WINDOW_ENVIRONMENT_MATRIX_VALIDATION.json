@@ -1,0 +1,71 @@
+{
+  "phase": "0696D2-window-environment-matrix",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.69",
+  "visualAcceptance": "PENDING-RON-VISUAL",
+  "timeBuckets": {
+    "morning": "06:00-11:50",
+    "noon": "12:00-16:50",
+    "evening": "17:00-19:50",
+    "night": "otherwise"
+  },
+  "sources": {
+    "morning": {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png",
+      "expectedSha256": "93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0",
+      "exists": true,
+      "sha256": "93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0",
+      "format": "PNG",
+      "size": [
+        160,
+        80
+      ],
+      "mode": "RGBA"
+    },
+    "noon": {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png",
+      "expectedSha256": "38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f",
+      "exists": true,
+      "sha256": "38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f",
+      "format": "PNG",
+      "size": [
+        160,
+        80
+      ],
+      "mode": "RGBA"
+    },
+    "evening": {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png",
+      "expectedSha256": "2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f",
+      "exists": true,
+      "sha256": "2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f",
+      "format": "PNG",
+      "size": [
+        160,
+        80
+      ],
+      "mode": "RGBA"
+    },
+    "night": {
+      "path": "assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png",
+      "expectedSha256": "5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b",
+      "exists": true,
+      "sha256": "5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b",
+      "format": "PNG",
+      "size": [
+        160,
+        80
+      ],
+      "mode": "RGBA"
+    }
+  },
+  "contracts": {
+    "clearTimeMatrixOnly": true,
+    "seasonVariantsDeferred": true,
+    "weatherVariantsDeferred": true,
+    "navigationConsoleTouched": false,
+    "legacyEnvironmentOverlayReuse": false,
+    "independentAirshipPreserved": true,
+    "airshipSha256": "58caeabc94744ad04ae1f006c91e09bf9a55d5a211d53b426b12ca9d0dc1c9ce",
+    "expectedAirshipSha256": "58caeabc94744ad04ae1f006c91e09bf9a55d5a211d53b426b12ca9d0dc1c9ce"
+  }
+}

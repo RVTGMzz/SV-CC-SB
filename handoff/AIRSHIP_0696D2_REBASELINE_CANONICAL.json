@@ -1,0 +1,99 @@
+{
+  "phase": "0696D2-rebaseline",
+  "decision": "APPROVED-rebaseline-from-recovered-masters",
+  "pipeline": {
+    "pillowVersion": "11.3.0",
+    "resampler": "LANCZOS",
+    "crop": "none-full-frame-2-to-1",
+    "targetSize": [
+      160,
+      80
+    ],
+    "mode": "RGBA",
+    "pngOptimize": false,
+    "pngCompressLevel": 9,
+    "sourceMetadataCopied": false
+  },
+  "states": {
+    "morning": {
+      "masterPath": "recovery/0696d2-concept-masters/01_approved_time_of_day_masters/observation_window_master_morning.png",
+      "masterSha256": "e42ce1e1199f30ac8d30ab592ecbec01b9176388ed2a6572b68005b812e2bc85",
+      "masterSize": [
+        1774,
+        887
+      ],
+      "masterMode": "RGBA",
+      "productionPath": "src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png",
+      "canonicalSha256": "93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0",
+      "productionSize": [
+        160,
+        80
+      ],
+      "productionMode": "RGBA",
+      "historicalLostSha256": "9a8996ef0068057e774419d9d4597f44753951b3ec1ec519cd6771efaad7b5d0",
+      "materialized": true,
+      "actualSha256": "93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0",
+      "exactCanonicalBytes": true
+    },
+    "noon": {
+      "masterPath": "recovery/0696d2-concept-masters/01_approved_time_of_day_masters/observation_window_master_noon.png",
+      "masterSha256": "c6f99df25a7dee04d0aeab8f1d9ac928a7e6dcb1af43db092187e1ad7831ae9e",
+      "masterSize": [
+        1774,
+        887
+      ],
+      "masterMode": "RGBA",
+      "productionPath": "src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png",
+      "canonicalSha256": "38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f",
+      "productionSize": [
+        160,
+        80
+      ],
+      "productionMode": "RGBA",
+      "historicalLostSha256": "fa0f00051febb62d107e4a1dc14a079dbfc8183659a73b9ed2ecfe5c4efb3aff",
+      "materialized": true,
+      "actualSha256": "38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f",
+      "exactCanonicalBytes": true
+    },
+    "evening": {
+      "masterPath": "recovery/0696d2-concept-masters/01_approved_time_of_day_masters/observation_window_master_evening.png",
+      "masterSha256": "650adec1a8d08631d02b31a59c45bc3dda96a49706a68feea3508996ee2a4fbe",
+      "masterSize": [
+        1774,
+        887
+      ],
+      "masterMode": "RGBA",
+      "productionPath": "src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png",
+      "canonicalSha256": "2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f",
+      "productionSize": [
+        160,
+        80
+      ],
+      "productionMode": "RGBA",
+      "historicalLostSha256": "b94d30d18bacecc2c3f09971aec2d5951956490be8c7cad2243b4689c865a638",
+      "materialized": true,
+      "actualSha256": "2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f",
+      "exactCanonicalBytes": true
+    },
+    "night": {
+      "masterPath": "recovery/0696d2-concept-masters/01_approved_time_of_day_masters/observation_window_master_night.png",
+      "masterSha256": "7788da7428b7a808794c2ba14716c1ed0c25b59a3f2990f1d6c8437a92b55ee8",
+      "masterSize": [
+        1774,
+        887
+      ],
+      "masterMode": "RGBA",
+      "productionPath": "src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png",
+      "canonicalSha256": "5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b",
+      "productionSize": [
+        160,
+        80
+      ],
+      "productionMode": "RGBA",
+      "historicalLostSha256": "f9d15f66485f514f4be8589ee29d45beabda87e357b1c1d3ffa7965855ed1990",
+      "materialized": true,
+      "actualSha256": "5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b",
+      "exactCanonicalBytes": true
+    }
+  }
+}
