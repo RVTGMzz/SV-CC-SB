@@ -75,13 +75,58 @@ Its parent folder is `Doraemon Monopoly`, alongside `Doraemon Cờ Tỷ phú.rar
 
 The visible direct children are mod/localization folders such as PelipperTown, Ownership Marker, Evelyn's Fireside Tales, PokeFarmRetextures, and SDV-Radiance. No Cardcha folder/source pack is present in that visible set.
 
+## Expanded generic-export-name sweep
+
+Because image-generation/export files can survive under generic names instead of production names, a second sweep searched image metadata for:
+
+- `morning`
+- `noon`
+- `evening`
+- `night`
+- `sunset`
+- `moon`
+- `sky`
+- `dawn`
+- `day`
+- `stars`
+- `clear`
+- `morning clear`
+- `noon clear`
+- `evening clear`
+- `night clear`
+- `ChatGPT Image`
+- `imagegen`
+
+Most searches returned no plausible D2.1 image. `day` returned unrelated design/media assets. `dawn` returned a Stardew item-style asset (`dawn_stone_stardew.png`) and was rejected by provenance/name before download.
+
+Three image files were plausible enough by title to download as exact bytes and inspect directly:
+
+| Drive title | Exact downloaded SHA256 | Dimensions / mode | D2.1 result |
+|---|---|---|---|
+| `normal_morning_sun.png` | `09a9ab17bf17d774e8aaa4840729ba681b9d744d0c99cdf05685c02892226bd7` | `640x464 RGBA` | reject: wrong size and wrong SHA |
+| `cool-night.png` | `62179a3f8cef2871c2e4d41128c41a7178e2ccf1487af63f83c05e69abe2abec` | `1024x32 RGB` | reject: wrong size, mode and SHA |
+| `moonlit.png` | `1820cb32c385f445ffb854ab9941d4263eb609a269ec07d784d7d2fbff72782f` | `1024x32 RGB` | reject: wrong size, mode and SHA |
+
+The raw bytes were inspected without resize/re-encode/editing. None are production D2.1 sources.
+
+## Date/MIME sweep
+
+Drive was also queried directly by metadata rather than filename:
+
+- MIME: `image/png`
+- created: `2026-09-13T00:00:00Z <= createdTime < 2026-09-14T00:00:00Z`
+
+Result: **0 PNG files** on the currently accessible Drive surface for that D2.1 approval/materialization date.
+
+This matters because it removes the main filename-independent Drive recovery path for an image exported or uploaded on the approval day.
+
 ## Result
 
 **0 authoritative D2.1 source candidates found on the currently accessible Google Drive surface.**
 
 No file was installed, transformed, re-encoded, resized, recolored, or used as a substitute. No `.69` materialization was attempted.
 
-Because no plausible Cardcha D2.1 archive/PNG candidate was found, there was nothing appropriate to download and feed into `alpha28_0696d2_recover_exact_sources.py`.
+Downloaded generic-name candidates were only hash/dimension/mode inspected and rejected. Nothing was copied into production paths.
 
 ## Recovery state after this audit
 
@@ -92,7 +137,9 @@ The following routes are now documented as exhausted or nonproductive unless new
 - all concept/integration GitHub Actions runs
 - File Library targeted/date-range searches
 - recoverable conversation metadata/personal-context source-id trace
-- current connected Google Drive indexed/project/date/archive sweep described in this document
+- connected Google Drive exact-name/project/archive search
+- connected Google Drive generic image-name search
+- connected Google Drive 2026-09-13 PNG MIME/date search
 
 The remaining legitimate source route is still an authoritative external/local copy not presently exposed through the connected repository/File Library/Drive surfaces, especially:
 
