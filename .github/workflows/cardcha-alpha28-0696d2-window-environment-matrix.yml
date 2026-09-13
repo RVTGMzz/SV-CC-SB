@@ -16,7 +16,6 @@ permissions:
 
 jobs:
   build:
-    if: ${{ !contains(github.event.head_commit.message, '[skip ci]') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout D2 branch
@@ -79,7 +78,6 @@ jobs:
             src/Cardcha/Services/AirshipAmbientResolver.cs \
             src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
             handoff/AIRSHIP_0696D2_WINDOW_ENVIRONMENT_MATRIX_VALIDATION.json
-
           if ! git diff --cached --quiet; then
             git commit -m 'chore: materialize 0696D2 clear Window environment matrix [skip ci]'
             git push origin HEAD:cardcha-alpha28-0696d2-window-environment-matrix
@@ -100,26 +98,17 @@ jobs:
           test -n "$DLL" -a -s "$DLL"
           cp "$DLL" "$OUT/Cardcha.dll"
           cd "$GITHUB_WORKSPACE/package"
-          ZIP='Ø\™ÚWİŒŒËŒX[KŒŒŒMKŒL‹WÌM‘—ÕÚ[™İÑ[š\›Û›Y[X]š^ÕTÕš\	Âˆš\\\ˆ‰’TˆØ\™ÚBˆÚLMœİ[H‰’TˆYH‰’TœÚLMˆ‚ˆ]ÛŒÈH	ÔIÂˆœ›ÛH]Xˆ[\Ü]ˆ[\Ü\ÚX‹[ËœÛÛ‹š\š[Bˆœ›ÛHS[\Ü[XYÙB‚ˆH]
-	ĞØ\™ÚWİŒŒËŒX[KŒŒŒMKŒL‹WÌM‘—ÕÚ[™İÑ[š\›Û›Y[X]š^ÕTÕš\	ÊBˆ^XİYHÂˆ	Û[Ü›š[™ÉÎˆ	ÎXNNM™YŒMÙMÍÍNYYNMÙÍLÎMLXŒÙXÌYXÍLNXÙÍÌYY˜XYØY	Ëˆ	Û›ÛÛ‰Îˆ	Ù˜LŒLY™X˜Œ™LÙMLYÌMLÎY™˜ÎNÍNXMÌØYY™XÙ™MXÍY˜ŒØY™‰Ëˆ	Ù]™[š[™ÉÎˆ	ØMÌN˜XÙXØÌ˜ÌÙŒNMÌXYXÌ™NMLNMML™NÍØØYŒØXÎXMŒÎ	Ëˆ	ÛšYÚ	Îˆ	ÙYMYYLM™NNYYLYX™XX™NÙLÍMØŒXÌYÙ™˜MÎMNMYYNNL	ËˆBˆÚ]š\š[K–š\š[J
-H\È‚ˆX[šY™\İHœÛÛ‹›ØYÊœ™XY
-	ĞØ\™ÚKÛX[šY™\İšœÛÛ‰ÊJBˆ\ÜÙ\X[šY™\İÉÕ™\œÚ[Û‰×HOH	ÌŒËŒX[KŒŒŒMKŒL‹IÂˆH‹œ™XY
-	ĞØ\™ÚKĞØ\™ÚK™	ÊBˆ\ÜÙ\ÎŒ—HOH‰ÓV‰È[™[Š
-HˆLˆ›ÛİH	ĞØ\™ÚKØ\ÜÙ]ËØZ\œÚ\Ü›ÜËÜÙ]WÜ™Y^İÚ[™İ×Ü[[YKÉÂˆ›Üˆİ]KØ[Y[ˆ^XİYš][\Ê
-N‚ˆ˜]ÈH‹œ™XY
-›Ûİ
-È‰İÚ[™İ×ÜØÙ[™WÙY˜][ŞÜİ]_WØÛX\‹œ™ÉÊBˆ\ÜÙ\\ÚX‹œÚLMŠ˜]ÊKš^YÙ\İ
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip'
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d2_package_audit.py" "$ZIP"
 
-HOHØ[YˆÚ][XYÙK›Ü[Š[Ë]\ÒSÕÜ˜]ÊJH\È[XYÙN‚ˆ[XYÙK›ØY
-
-Bˆ\ÜÙ\[XYÙKœÚ^™HOH
-MŒ
-Bˆ\ÜÙ\[XYÙK›[ÙHOH	Ô‘ĞIÂˆÚ\H‹œ™XY
-›Ûİ
-È	ÛØœÙ\˜][Û—İÚ[™İ×ØZ\œÚ\œ™ÉÊBˆ\ÜÙ\\ÚX‹œÚLMŠÚ\
-Kš^YÙ\İ
-
-HOH	ÍNØYXX˜ÎMÍYYLYŒ˜ÎLYLX™XMMYXLŒLYLØ˜ŒL˜ØNYÌXÎXÙIÂˆ[XšY[HœÛÛ‹›ØYÊ‹œ™XY
-	ĞØ\™ÚKØ\ÜÙ]ËØZ\œÚ\Ü›ÜËÜÙ]WÜ™Y^ØZ\œÚ\Ø[XšY[ÛX[šY™\İšœÛÛ‰ÊJBˆ\ÜÙ\[XšY[ÉÛØœÙ\˜][Û•Ú[™İÉ×VÉÜ›ÙXİ[Û”İ]\É×HOH	Ñ—ĞÓPT—ÕSQWÓPU’VÓPUT’PSV‘QÔS‘S‘×Ô“Ó—Õ’TÕPS	Âˆ\ÜÙ\[XšY[ÉÛØœÙ\˜][Û•Ú[™İÉ×VÉÙÛX\“X]š^	×VÉÛYØXŞQ[š\›Û›Y[İ™\›^T™]\ÙI×H\È˜[ÙBˆš[
-	ÌM‘ˆHXÚØYÙH]Y]TÔÎ‰Ë
-BˆB‚ˆH˜[YNˆ\ØYˆHTÕ[™]šY[˜ÙBˆ\Ù\ÎˆXİ[ÛœËİ\ØYX\Y˜XİˆÚ]‚ˆ˜[YNˆØ\™ÚKX[LLM‘‹]Ú[™İËY[š\›Û›Y[[X]š^ˆY‹[›ËYš[\ËY›İ[™ˆ\œ›Ü‚ˆ]ˆˆXÚØYÙKĞØ\™ÚWİŒŒËŒX[KŒŒŒMKŒL‹WÌM‘—ÕÚ[™İÑ[š\›Û›Y[X]š^ÕTÕš\ˆXÚØYÙKĞØ\™ÚWİŒŒËŒX[KŒŒŒMKŒL‹WÌM‘—ÕÚ[™İÑ[š\›Û›Y[X]š^ÕTÕš\œÚLM‚ˆ[™Ù™‹ĞRT”ÒTÌM‘—ÕÒS‘Õ×ÑS•’T“Ó“QS•ÓPU’VÕSQUSÓ‹šœÛÛ‚
+      - name: Upload D2 .69 TEST and evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D2-window-environment-matrix
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip.sha256
+            handoff/AIRSHIP_0696D2_WINDOW_ENVIRONMENT_MATRIX_VALIDATION.json
