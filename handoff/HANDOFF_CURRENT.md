@@ -3,7 +3,7 @@
 Prepared: 2026-09-14 (Asia/Ho_Chi_Minh)
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
-Pre-handoff branch HEAD: `996b032a74652476847f550c0bcd1dd03bcce263`
+Pre-handoff branch HEAD: `7c3850b89db7b18e685cd9d55561647f5127ea50`
 
 ## Resume instruction
 
@@ -11,7 +11,7 @@ Continue Cardcha from this file and `handoff/LATEST_CARDCHA_HANDOFF.md` on branc
 
 Current workstream is **0696D2 Window Environment Matrix / exact D2.1 source recovery**. The runtime/resolver/package path is staged, but `.69` is intentionally blocked until the four exact approved D2.1 environment PNG byte streams are recovered.
 
-Do **not** redo completed GitHub Actions provenance audits, the existing File Library sweep, the completed connected-Drive sweep, or generate substitute artwork.
+Do **not** redo completed GitHub Actions provenance audits, the existing File Library sweep, completed connected-Drive/Canva sweeps, or generate substitute artwork.
 
 ## Frozen safe base
 
@@ -99,10 +99,12 @@ Do not repeat these investigations unless genuinely new evidence appears:
 9. all **14** Actions runs on `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`;
 10. connected Google Drive exact archive/project search;
 11. connected Google Drive generic image/export-name sweep;
-12. connected Google Drive PNG MIME/date sweep for 2026-09-13;
-13. D2 branch commit window around the original local-materializer step;
-14. current sandbox residue check;
-15. public shared-chat URL fetch/index attempt.
+12. connected Google Drive active PNG MIME/date sweep for 2026-09-13;
+13. connected Google Drive Trash exact-name and 2026-09-12/13 PNG sweep;
+14. connected Canva existing-design/folder search for Cardcha/Airship/Shardbound/0696/Observation Window;
+15. D2 branch commit window around the original local-materializer step;
+16. current sandbox residue check;
+17. public shared-chat URL fetch/index attempt.
 
 Concept/integration Actions audit result:
 
@@ -122,7 +124,7 @@ Earlier `.63 -> .68` scanner retest also found **0/4 approved SHA matches**.
 
 ## Google Drive external-source audit
 
-Exact archive/project searches and generic image-name searches produced no authoritative source.
+Exact archive/project searches, generic image-name searches, date/MIME searches and Drive Trash searches produced no authoritative source.
 
 Three generic-name candidates were downloaded as exact bytes and rejected without transformation:
 
@@ -132,7 +134,23 @@ Three generic-name candidates were downloaded as exact bytes and rejected withou
 
 All fail the 160x80 RGBA / authoritative-SHA contract.
 
-A filename-independent Drive query for PNGs created on 2026-09-13 returned **0 files** on the currently accessible Drive surface.
+A filename-independent active-Drive query for PNGs created on 2026-09-13 returned **0 files**.
+
+Drive Trash searches for `concept`, `sprite`, `Cardcha`, and `airship` returned **0**, and a filename-independent trashed-PNG query for 2026-09-12 through 2026-09-13 also returned **0 files**.
+
+## Canva external-source audit
+
+Read-only existing-content searches found:
+
+- `Cardcha` -> 0 designs
+- `airship` -> 0 designs
+- `Shardbound` -> 0 designs
+- `0696` -> 0 designs
+- `Observation Window` -> only unrelated presentation hits; no Cardcha/Airship/D2.1 candidate
+- `Cardcha` folder -> 0
+- `airship` folder -> 0
+
+No Canva content was edited, generated, copied or exported. Canva can be treated as nonproductive unless a specific design ID/title/link appears as new evidence.
 
 ## Local materializer trace
 
@@ -171,7 +189,7 @@ Separately, D2.1 had four visual states approved in chat on 2026-09-13:
 - evening: orange-purple sunset;
 - night: deep blue with moon/stars.
 
-The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive/current-sandbox-accessible storage.
+The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive/Canva/current-sandbox-accessible storage.
 
 ## Key evidence files
 
@@ -183,12 +201,13 @@ Read these before doing more recovery work:
 - `handoff/AIRSHIP_0696D2_RECOVERY_SCANNER_ARTIFACT_RETEST.json`
 - `handoff/AIRSHIP_0696D2_CONCEPT_ACTIONS_EXHAUSTIVE_AUDIT.json`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_GOOGLE_DRIVE_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_CANVA_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_LOCAL_MATERIALIZER_TRACE.md`
 - `handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md`
 
 ## Next allowed action
 
-The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, connected Google Drive, shared-chat public surface, or current sandbox**, especially:
+The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, connected Google Drive, Canva, shared-chat public surface, or current sandbox**, especially:
 
 - original D2.1 image-generation/export attachment bytes from the original chat/session;
 - a local-machine copy of `concept(1).rar` / `sprite(1).rar`;
