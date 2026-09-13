@@ -71,20 +71,93 @@ Relevant candidates and SHA256:
 
 Therefore `.68` contains no renamed 160x80 copy of the approved D2 clear environment images.
 
+## Exact target path-history audit
+
+GitHub path history was queried for all four required target paths on the D2 lineage.
+
+- morning: only `15e626a29a67b63f10fee69692bdd47d9897c1d2`
+- noon: only `15e626a29a67b63f10fee69692bdd47d9897c1d2`
+- evening: only `15e626a29a67b63f10fee69692bdd47d9897c1d2`
+- night: `15e626a29a67b63f10fee69692bdd47d9897c1d2`, then `58e3d80147e6e5490d32b83527587ca4156ff0cc`
+
+The historical night blob at `58e3d80147e6e5490d32b83527587ca4156ff0cc` was fetched directly and its PNG header confirms 128x42. No later target-path commit introduces a hidden 160x80 approved blob.
+
+## 0696C provenance audit
+
+`tools/alpha28_0696c_airship_deck_visual_recovery.py` was inspected at commit `b1198511b06000e1e581602cfb7d2be3a5f0eb20`.
+
+The 0696C environment matrix is procedural legacy output, not approved D2 source art:
+
+- opens 160x80 `observation_window_base.png`
+- uses viewport `(16, 14, 128, 42)`
+- crops the base to 128x42
+- programmatically tints that crop by season/time/weather
+- procedurally adds stars/rain/snow
+- saves `window_scene_<season>_<tod>_<weather>.png`
+
+Therefore the old 80-state matrix cannot be the source of the approved D2 160x80 full-quality backgrounds.
+
+## D2 checkpoint provenance
+
+`handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md` first appears in commit:
+`1ad582226c3966d31afa688b030df24f74f4be3e`
+
+That commit adds only the checkpoint text. It adds no PNG, source archive, runtime asset, or generator. The four approved 160x80 SHA256 values therefore entered repository history as metadata from an external/non-repository source.
+
+## Actions artifact audit `.63` through `.68`
+
+Artifacts were downloaded and recursively scanned, including nested TEST package ZIPs. Every PNG was SHA256-hashed and dimensions/mode inspected.
+
+| Release | Workflow run | Artifact digest | Result |
+|---|---:|---|---|
+| `.63` 0696B | `34690399069` | `20ef10946db86b5023d24d5756aaa69373ecb38091ac61e1bf70a59a489aab23` | 0 approved SHA matches |
+| `.63` 0696B later | `34698103404` | `064039fbc4a549671e441c04c9e31a0dd3b819d165493fd91f2921f07607d2fc` | 0 approved SHA matches |
+| `.64` 0696C | `34698318075` | `c860b9574ed772e7425327e22f10d86fe4babec3c900b25ecb8fa0b63aaa9d2c` | 0 approved SHA matches; four clear targets are 128x42 |
+| `.64` 0696C normalized | `34698643517` | `ceca18eee2378302e714ff14462be639897459051b5d0981e315b2c9bbc2130c` | 0 approved SHA matches; four clear targets are 128x42 |
+| `.65` D1 | `34699808416` | `7ad9adfe81ee20ddef346e6c676d9c6b9c15b833b9e30ca9109d89d707c0b947` | 0 approved SHA matches; four clear targets are 128x42 |
+| `.66` D1R | `34702478919` | `b3926b32f8fac75b20c474106416882aa96125059bda3829050f15292f9748db` | 0 approved SHA matches; four clear targets are 128x42 |
+| `.67` D1R final | `34702756885` | `29682998ce4c19d76cace6f9541d4d8045594664ce761898fac7729ac1db205e` | 0 approved SHA matches; four clear targets are 128x42 |
+| `.68` D1S | `34706205130` | `d410892812d68e3c6749336437bc84ec62cd7fe86f12f224004157f34400311a` | 0 approved SHA matches; four clear targets are 128x42 |
+
+The full surviving CI artifact chain from `.63` through `.68` therefore contains no approved D2 source bytes under either the target names or alternate PNG names.
+
+## Live branch audit
+
+GitHub branch search for `0696` returns exactly four live branches:
+
+- `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`
+- `cardcha-alpha28-0696d1-observation-window-source-cleanup`
+- `cardcha-alpha28-0696d1s-airship-motion-repair`
+- `cardcha-alpha28-0696d2-window-environment-matrix`
+
+All four have been searched. No forgotten live 0696/D2 branch currently contains the approved 160x80 source bytes.
+
 ## Recovery searches already completed
 
 - Current D2 branch tree/history.
 - 0696 concept branch.
 - `cardcha-alpha28-0696d1-observation-window-source-cleanup`.
 - `cardcha-alpha28-0696d1s-airship-motion-repair`.
+- Exact target path-history, including historical night-clear blob inspection.
+- 0696C generator provenance.
 - D1 TEST package `.65`: known legacy `default_*_clear` assets are 128x42 and rejected.
+- D1R TEST packages `.66` and `.67`: legacy 128x42 clear assets and no approved SHA match.
 - D1S TEST package `.68`: exact evidence above.
-- GitHub Actions artifacts relevant to the 0696 lineage.
+- 0696B/0696C TEST artifacts `.63` and `.64`: no approved SHA match.
+- GitHub Actions artifacts across surviving `.63` through `.68` lineage.
+- All live GitHub branches matching `0696`.
 - Accessible File Library search for the exact approved filenames/hashes.
 - Accessible File Library search for source archives named `concept(1).rar` and `sprite(1).rar`; no relevant archive was returned.
 - File Library date-range navigation sweep for uploads created on 2026-09-12 through 2026-09-13; returned logs/reports from other workstreams and no Cardcha source archive or approved D2 environment PNG candidate.
+- Personal-context traceback for the four approved SHA values and source attachment identifiers; no recoverable file identifier was returned.
 
-D1 source documentation records those two source archives as external/missing source material. Do not fabricate replacements for missing approved bytes.
+D1 source documentation records `concept(1).rar` and `sprite(1).rar` as external/missing source material. Do not fabricate replacements for missing approved bytes.
+
+## Proven conclusion
+
+Within all currently accessible repository history, live 0696 branches, surviving GitHub Actions artifacts `.63` through `.68`, current-conversation uploads, and accessible File Library searches, the exact four approved D2 160x80 PNG byte streams are not present.
+
+The source gate is therefore not merely waiting on a rename or an older package. It is waiting on external/original source bytes that are currently unavailable to the repository.
 
 ## Safe implementation state
 
