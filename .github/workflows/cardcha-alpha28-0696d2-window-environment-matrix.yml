@@ -6,6 +6,9 @@ on:
     branches:
       - cardcha-alpha28-0696d2-window-environment-matrix
     paths:
+      - .github/workflows/cardcha-alpha28-0696d2-window-environment-matrix.yml
+      - tools/alpha28_0696d2_window_environment_matrix.py
+      - tools/alpha28_0696d2_package_audit.py
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png
       - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png
