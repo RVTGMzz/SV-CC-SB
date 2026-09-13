@@ -3,15 +3,15 @@
 Prepared: 2026-09-14 (Asia/Ho_Chi_Minh)
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
-Pre-handoff branch HEAD: `ccf3e6719c4cf33d4ebc3ae2c1b9aa008c9a1fce`
+Pre-handoff branch HEAD: `996b032a74652476847f550c0bcd1dd03bcce263`
 
 ## Resume instruction
 
 Continue Cardcha from this file and `handoff/LATEST_CARDCHA_HANDOFF.md` on branch `cardcha-alpha28-0696d2-window-environment-matrix`.
 
-Current workstream is **0696D2 Window Environment Matrix**. The runtime/resolver/package path is staged, but `.69` is intentionally blocked until the four exact approved D2.1 environment PNG byte streams are recovered.
+Current workstream is **0696D2 Window Environment Matrix / exact D2.1 source recovery**. The runtime/resolver/package path is staged, but `.69` is intentionally blocked until the four exact approved D2.1 environment PNG byte streams are recovered.
 
-Do **not** redo completed GitHub Actions provenance audits and do **not** generate substitute artwork.
+Do **not** redo completed GitHub Actions provenance audits, the existing File Library sweep, the completed connected-Drive sweep, or generate substitute artwork.
 
 ## Frozen safe base
 
@@ -86,18 +86,23 @@ The recovery scanner can recursively inspect loose PNGs, directories, ZIPs, nest
 
 ## Recovery work already exhausted
 
-Do not repeat these investigations unless new evidence appears:
+Do not repeat these investigations unless genuinely new evidence appears:
 
 1. current Git lineage and exact target-path history;
 2. all four relevant live 0696 branches;
 3. `.65` D1 package;
 4. `.68` D1S package;
 5. all 160x80 PNGs inside `.68`;
-6. File Library searches for filenames, hashes, archive names and date-range uploads;
-7. recoverable conversation metadata around D2.1 visual approval;
+6. File Library searches for filenames, hashes, archive names, visual descriptors and date-range uploads;
+7. recoverable conversation metadata around D2.1 visual approval/source identifiers;
 8. surviving `.63 -> .68` Actions artifacts using the recursive scanner;
 9. all **14** Actions runs on `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`;
-10. currently connected Google Drive indexed/project/date/archive sweep, including exact archive aliases and false-positive folder inspection.
+10. connected Google Drive exact archive/project search;
+11. connected Google Drive generic image/export-name sweep;
+12. connected Google Drive PNG MIME/date sweep for 2026-09-13;
+13. D2 branch commit window around the original local-materializer step;
+14. current sandbox residue check;
+15. public shared-chat URL fetch/index attempt.
 
 Concept/integration Actions audit result:
 
@@ -115,15 +120,40 @@ Concept/integration Actions audit result:
 
 Earlier `.63 -> .68` scanner retest also found **0/4 approved SHA matches**.
 
-Google Drive external-source audit result:
+## Google Drive external-source audit
 
-- exact `concept(1).rar` and `sprite(1).rar` searches returned no result;
-- `window_scene_default`, `airship`, and `0696` searches returned no D2.1 source candidate;
-- Cardcha search surfaced design/tracker documents but no Cardcha source-art archive/folder;
-- visible root archives were unrelated and predated D2.1;
-- a `sprites` folder was inspected and proved to be Fireside Tales assets;
-- a 2026-09-12 `Hình ảnh` folder was inspected and proved to belong to Doraemon Monopoly;
-- result: **0 authoritative D2.1 source candidates** on the currently accessible Drive surface.
+Exact archive/project searches and generic image-name searches produced no authoritative source.
+
+Three generic-name candidates were downloaded as exact bytes and rejected without transformation:
+
+- `normal_morning_sun.png` -> `640x464 RGBA`, SHA256 `09a9ab17bf17d774e8aaa4840729ba681b9d744d0c99cdf05685c02892226bd7`
+- `cool-night.png` -> `1024x32 RGB`, SHA256 `62179a3f8cef2871c2e4d41128c41a7178e2ccf1487af63f83c05e69abe2abec`
+- `moonlit.png` -> `1024x32 RGB`, SHA256 `1820cb32c385f445ffb854ab9941d4263eb609a269ec07d784d7d2fbff72782f`
+
+All fail the 160x80 RGBA / authoritative-SHA contract.
+
+A filename-independent Drive query for PNGs created on 2026-09-13 returned **0 files** on the currently accessible Drive surface.
+
+## Local materializer trace
+
+Recoverable conversation context adds a useful provenance clue:
+
+- around `2026-09-13 05:58 UTC`, the assistant said the approved images would go through a **hash-checked materializer** because the GitHub connector could not directly accept local PNG bytes;
+- around `06:00 UTC`, the four Morning/Noon/Evening/Night scenes were described as standardized to production `160x80` with source hashes checkpointed.
+
+Direct D2-branch commit enumeration for `05:30 -> 06:40 UTC` found exactly one commit:
+
+- `1ad582226c3966d31afa688b030df24f74f4be3e`
+- `2026-09-13T06:29:33Z`
+- `docs: checkpoint 0696D2 environment matrix before implementation`
+
+Existing provenance audit proves that commit adds only the checkpoint document, not PNGs, a helper/materializer, archive, local path, or attachment ID.
+
+Repository searches for `materializer`, `materialize`, and `D2.1` exposed no committed helper. The strongest surviving interpretation is that the exact source/preparation step lived only in the original chat/local sandbox or image-generation/export context and was never persisted to Git.
+
+The current `/mnt/data` contains only the three newly downloaded Drive false-positive candidates above; no prior-session D2.1 source residue exists there.
+
+The previously supplied shared ChatGPT URL did not expose a retrievable public conversation payload or indexed copy, so no attachment/image-generation identifier was recovered from that route.
 
 ## Provenance clue still relevant
 
@@ -141,7 +171,7 @@ Separately, D2.1 had four visual states approved in chat on 2026-09-13:
 - evening: orange-purple sunset;
 - night: deep blue with moon/stars.
 
-The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive-accessible storage.
+The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive/current-sandbox-accessible storage.
 
 ## Key evidence files
 
@@ -153,11 +183,12 @@ Read these before doing more recovery work:
 - `handoff/AIRSHIP_0696D2_RECOVERY_SCANNER_ARTIFACT_RETEST.json`
 - `handoff/AIRSHIP_0696D2_CONCEPT_ACTIONS_EXHAUSTIVE_AUDIT.json`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_GOOGLE_DRIVE_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_LOCAL_MATERIALIZER_TRACE.md`
 - `handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md`
 
 ## Next allowed action
 
-The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, or connected Google Drive**, especially:
+The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, connected Google Drive, shared-chat public surface, or current sandbox**, especially:
 
 - original D2.1 image-generation/export attachment bytes from the original chat/session;
 - a local-machine copy of `concept(1).rar` / `sprite(1).rar`;
