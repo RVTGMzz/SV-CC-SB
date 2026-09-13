@@ -3,31 +3,22 @@
 Prepared: 2026-09-14 (Asia/Ho_Chi_Minh)
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
-Pre-handoff branch HEAD: `7c3850b89db7b18e685cd9d55561647f5127ea50`
 
-## Resume instruction
+## Current workstream
 
-Continue Cardcha from this file and `handoff/LATEST_CARDCHA_HANDOFF.md` on branch `cardcha-alpha28-0696d2-window-environment-matrix`.
+**0696D2 Window Environment Matrix / exact D2.1 source recovery**
 
-Current workstream is **0696D2 Window Environment Matrix / exact D2.1 source recovery**. The runtime/resolver/package path is staged, but `.69` is intentionally blocked until the four exact approved D2.1 environment PNG byte streams are recovered.
-
-Do **not** redo completed GitHub Actions provenance audits, the existing File Library sweep, completed connected-Drive/Canva sweeps, or generate substitute artwork.
-
-## Frozen safe base
-
-Current safe runtime/build base:
-
+Safe runtime/build base:
 `0.3.0-alpha.28.0.4.14.4.5.12.68`
 
-Next candidate, **not materialized**:
-
+Next candidate, intentionally **NOT materialized**:
 `0.3.0-alpha.28.0.4.14.4.5.12.69`
 
-Accepted independent D1S airship:
+Accepted independent D1S airship remains frozen:
 
-- path: `src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png`
-- dimensions: `15x9 RGBA`
-- SHA256: `58caeabc94744ad04ae1f006c91e09bf9a55d5a211d53b426b12ca9d0dc1c9ce`
+- `src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png`
+- 15x9 RGBA
+- SHA256 `58caeabc94744ad04ae1f006c91e09bf9a55d5a211d53b426b12ca9d0dc1c9ce`
 
 Navigation Console remains untouched/deferred.
 
@@ -40,186 +31,86 @@ Required production files:
 - `src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png`
 - `src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png`
 
-Each source must be exact PNG / 160x80 / RGBA and match:
+Required SHA256:
 
 - morning: `9a8996ef0068057e774419d9d4597f44753951b3ec1ec519cd6771efaad7b5d0`
 - noon: `fa0f00051febb62d107e4a1dc14a079dbfc8183659a73b9ed2ecfe5c4efb3aff`
 - evening: `b94d30d18bacecc2c3f09971aec2d5951956490be8c7cad2243b4689c865a638`
 - night: `f9d15f66485f514f4be8589ee29d45beabda87e357b1c1d3ffa7965855ed1990`
 
-Never redraw, regenerate, resize, recolor, re-encode, upscale, or substitute these images. Never reuse legacy `observation_window_overlay_2.png`, `_3.png`, or `_4.png` as D2 environments.
+Each must be exact PNG / 160x80 / RGBA byte streams.
 
-## What is already staged
+Never redraw, regenerate, resize, recolor, re-encode, upscale, substitute, or reuse legacy observation overlays as D2 source art.
 
-Main implementation tool:
+## Staged implementation
 
-`tools/alpha28_0696d2_window_environment_matrix.py`
+Already prepared behind the exact-source gate:
 
-It already contains:
+- `tools/alpha28_0696d2_window_environment_matrix.py`
+- `.github/workflows/cardcha-alpha28-0696d2-window-environment-matrix.yml`
+- `tools/alpha28_0696d2_package_audit.py`
+- `tools/validate_0696d2_no_legacy_overlay_reuse.py`
+- `tools/alpha28_0696d2_recover_exact_sources.py`
 
-- exact source SHA gate;
-- 160x80 PNG/RGBA validation;
-- four clear time buckets;
-- D1S ship hash freeze;
-- D2 resolver/runtime materialization;
-- `.68 -> .69` version transition;
-- D2 manifest update;
-- validation report generation.
+The recovery scanner only accepts authoritative SHA matches and refuses `--install` unless all four exact sources are present.
 
-Workflow:
+## Recovery closure
 
-`.github/workflows/cardcha-alpha28-0696d2-window-environment-matrix.yml`
+Primary recovery closure checkpoint:
 
-Package audit:
+`handoff/AIRSHIP_0696D2_ACCESSIBLE_SURFACES_EXHAUSTED.md`
 
-`tools/alpha28_0696d2_package_audit.py`
+All recovery surfaces currently accessible to this chat/tooling environment have been checked and documented without finding the four source byte streams.
 
-Legacy-overlay guard:
+Do **not** repeat these routes unless genuinely new evidence appears:
 
-`tools/validate_0696d2_no_legacy_overlay_reuse.py`
+- Git lineage / target-path history / live 0696 branches;
+- `.63 -> .68` package and artifact recovery;
+- GitHub Actions concept/integration runs;
+- File Library searches;
+- recoverable conversation/personal-context provenance searches;
+- connected Google Drive active + Trash searches;
+- connected Gmail attachment searches;
+- connected Canva design/folder searches;
+- current sandbox residue;
+- shared-chat public URL route;
+- D2 materializer commit-window audit;
+- GitHub Issues/PR/Releases collaboration surfaces;
+- indexed public-web SHA/filename/archive searches.
 
-Exact-source recovery scanner:
+Important provenance clue: conversation context proves a **hash-checked local materializer** was referenced immediately before the D2 checkpoint, but no helper/source bytes/path/attachment ID were committed. The strongest remaining explanation is a transient original-chat/local-sandbox/image-export step whose inputs were never persisted to currently accessible storage.
 
-`tools/alpha28_0696d2_recover_exact_sources.py`
-
-The recovery scanner can recursively inspect loose PNGs, directories, ZIPs, nested ZIPs and RARs when 7-Zip is available. It matches only the four authoritative SHA256 values. `--install` refuses to write production files unless all four exact sources are found, and copies bytes without image transformation.
-
-## Recovery work already exhausted
-
-Do not repeat these investigations unless genuinely new evidence appears:
-
-1. current Git lineage and exact target-path history;
-2. all four relevant live 0696 branches;
-3. `.65` D1 package;
-4. `.68` D1S package;
-5. all 160x80 PNGs inside `.68`;
-6. File Library searches for filenames, hashes, archive names, visual descriptors and date-range uploads;
-7. recoverable conversation metadata around D2.1 visual approval/source identifiers;
-8. surviving `.63 -> .68` Actions artifacts using the recursive scanner;
-9. all **14** Actions runs on `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`;
-10. connected Google Drive exact archive/project search;
-11. connected Google Drive generic image/export-name sweep;
-12. connected Google Drive active PNG MIME/date sweep for 2026-09-13;
-13. connected Google Drive Trash exact-name and 2026-09-12/13 PNG sweep;
-14. connected Canva existing-design/folder search for Cardcha/Airship/Shardbound/0696/Observation Window;
-15. D2 branch commit window around the original local-materializer step;
-16. current sandbox residue check;
-17. public shared-chat URL fetch/index attempt.
-
-Concept/integration Actions audit result:
-
-- 14 total runs enumerated;
-- 5 successful runs had surviving package artifacts;
-- recursive scan traversed 10 ZIP layers;
-- 837 PNGs inspected;
-- 38 PNGs were 160x80;
-- 9 unique 160x80 hashes;
-- **0/4 approved D2 SHA matches**;
-- 9 failed runs individually checked;
-- 8 failed runs had no artifact;
-- the only surviving failed-run artifact was a pre-0696A full-footprint audit containing one 660x1160 PNG;
-- therefore concept-branch GitHub Actions is **EXHAUSTED as a recovery source**.
-
-Earlier `.63 -> .68` scanner retest also found **0/4 approved SHA matches**.
-
-## Google Drive external-source audit
-
-Exact archive/project searches, generic image-name searches, date/MIME searches and Drive Trash searches produced no authoritative source.
-
-Three generic-name candidates were downloaded as exact bytes and rejected without transformation:
-
-- `normal_morning_sun.png` -> `640x464 RGBA`, SHA256 `09a9ab17bf17d774e8aaa4840729ba681b9d744d0c99cdf05685c02892226bd7`
-- `cool-night.png` -> `1024x32 RGB`, SHA256 `62179a3f8cef2871c2e4d41128c41a7178e2ccf1487af63f83c05e69abe2abec`
-- `moonlit.png` -> `1024x32 RGB`, SHA256 `1820cb32c385f445ffb854ab9941d4263eb609a269ec07d784d7d2fbff72782f`
-
-All fail the 160x80 RGBA / authoritative-SHA contract.
-
-A filename-independent active-Drive query for PNGs created on 2026-09-13 returned **0 files**.
-
-Drive Trash searches for `concept`, `sprite`, `Cardcha`, and `airship` returned **0**, and a filename-independent trashed-PNG query for 2026-09-12 through 2026-09-13 also returned **0 files**.
-
-## Canva external-source audit
-
-Read-only existing-content searches found:
-
-- `Cardcha` -> 0 designs
-- `airship` -> 0 designs
-- `Shardbound` -> 0 designs
-- `0696` -> 0 designs
-- `Observation Window` -> only unrelated presentation hits; no Cardcha/Airship/D2.1 candidate
-- `Cardcha` folder -> 0
-- `airship` folder -> 0
-
-No Canva content was edited, generated, copied or exported. Canva can be treated as nonproductive unless a specific design ID/title/link appears as new evidence.
-
-## Local materializer trace
-
-Recoverable conversation context adds a useful provenance clue:
-
-- around `2026-09-13 05:58 UTC`, the assistant said the approved images would go through a **hash-checked materializer** because the GitHub connector could not directly accept local PNG bytes;
-- around `06:00 UTC`, the four Morning/Noon/Evening/Night scenes were described as standardized to production `160x80` with source hashes checkpointed.
-
-Direct D2-branch commit enumeration for `05:30 -> 06:40 UTC` found exactly one commit:
-
-- `1ad582226c3966d31afa688b030df24f74f4be3e`
-- `2026-09-13T06:29:33Z`
-- `docs: checkpoint 0696D2 environment matrix before implementation`
-
-Existing provenance audit proves that commit adds only the checkpoint document, not PNGs, a helper/materializer, archive, local path, or attachment ID.
-
-Repository searches for `materializer`, `materialize`, and `D2.1` exposed no committed helper. The strongest surviving interpretation is that the exact source/preparation step lived only in the original chat/local sandbox or image-generation/export context and was never persisted to Git.
-
-The current `/mnt/data` contains only the three newly downloaded Drive false-positive candidates above; no prior-session D2.1 source residue exists there.
-
-The previously supplied shared ChatGPT URL did not expose a retrievable public conversation payload or indexed copy, so no attachment/image-generation identifier was recovered from that route.
-
-## Provenance clue still relevant
-
-Earlier source documentation mentions direct user uploads:
-
-- `concept(1).rar`, expected 6 PNGs;
-- `sprite(1).rar`, expected 22 PNGs.
-
-Those archives were not successfully extracted in the original environment, so inner filenames/bytes were never preserved in Git metadata.
-
-Separately, D2.1 had four visual states approved in chat on 2026-09-13:
-
-- morning: pale blue;
-- noon: brightest clear blue;
-- evening: orange-purple sunset;
-- night: deep blue with moon/stars.
-
-The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive/Canva/current-sandbox-accessible storage.
-
-## Key evidence files
-
-Read these before doing more recovery work:
+## Evidence files
 
 - `handoff/LATEST_CARDCHA_HANDOFF.md`
+- `handoff/AIRSHIP_0696D2_ACCESSIBLE_SURFACES_EXHAUSTED.md`
 - `handoff/AIRSHIP_0696D2_SOURCE_RECOVERY_STATUS.md`
 - `handoff/AIRSHIP_0696D2_D21_VISUAL_SOURCE_TRACE.md`
 - `handoff/AIRSHIP_0696D2_RECOVERY_SCANNER_ARTIFACT_RETEST.json`
 - `handoff/AIRSHIP_0696D2_CONCEPT_ACTIONS_EXHAUSTIVE_AUDIT.json`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_GOOGLE_DRIVE_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_CANVA_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_PUBLIC_WEB_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_GITHUB_NONACTIONS_SURFACE_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_LOCAL_MATERIALIZER_TRACE.md`
 - `handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md`
 
 ## Next allowed action
 
-The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, connected Google Drive, Canva, shared-chat public surface, or current sandbox**, especially:
+A genuinely new authoritative source must enter the workflow, especially one of:
 
-- original D2.1 image-generation/export attachment bytes from the original chat/session;
+- original D2.1 image-generation/export bytes from the old chat/session or local Downloads;
 - a local-machine copy of `concept(1).rar` / `sprite(1).rar`;
-- another local archive/folder/export that might contain the exact approved files.
+- another original archive/folder/export;
+- a newly connected storage location that actually contains those original files.
 
-When a candidate source appears, run:
+When a candidate exists:
 
 ```bash
 python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/candidates
 ```
 
-Only if all four exact hashes are found:
+Only if all four exact SHA256 values are found:
 
 ```bash
 python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/candidates --install
@@ -230,13 +121,10 @@ python3 tools/alpha28_0696d2_window_environment_matrix.py --validate
 
 Then:
 
-1. compile Cardcha Release;
-2. package `.69` TEST;
-3. run `alpha28_0696d2_package_audit.py`;
-4. preserve D1S ship and Navigation Console invariants;
-5. Ron performs in-game visual acceptance;
-6. only after D2.1 visual PASS proceed to later weather/season work and D3 Navigation Console.
+`compile -> package audit -> .69 TEST -> Ron in-game visual acceptance`
 
 ## Hard stop
 
-Do not create a fake `.69` using legacy 128x42 backgrounds or regenerated lookalikes. Current blocker is **exact source recovery**, not implementation.
+Until new authoritative source bytes are supplied or connected, further searches of already audited surfaces are duplicate work and must not be used to simulate progress.
+
+`.69` remains intentionally unmaterialized.
