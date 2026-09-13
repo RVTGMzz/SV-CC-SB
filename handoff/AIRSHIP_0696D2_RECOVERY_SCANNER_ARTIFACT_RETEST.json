@@ -1,0 +1,41 @@
+{
+  "phase": "0696D2-exact-source-recovery-artifact-retest",
+  "date": "2026-09-13",
+  "scannerCommit": "342f9974b60a8b394aed96f170f8c7d12e90c20c",
+  "scanner": "tools/alpha28_0696d2_recover_exact_sources.py",
+  "contract": "SHA256 exact bytes only; no resize/recolor/re-encode/substitution",
+  "recursiveArchiveScan": true,
+  "maxArchiveDepth": 5,
+  "scannedArtifacts": [
+    "0696B_run1.zip",
+    "0696B_run4.zip",
+    "0696C_run1.zip",
+    "0696C_run3.zip",
+    "0696D1_cleanup.zip",
+    "0696D1R_cleanup.zip",
+    "0696D1R_final.zip",
+    "cardcha-alpha28-0696D1S-real-airship-motion.zip"
+  ],
+  "found": [],
+  "missing": [
+    "morning",
+    "noon",
+    "evening",
+    "night"
+  ],
+  "matches": {
+    "morning": [],
+    "noon": [],
+    "evening": [],
+    "night": []
+  },
+  "warnings": [],
+  "readyToInstall": false,
+  "exitCode": 2,
+  "result": "PASS_EXPECTED_BLOCKED_NO_APPROVED_SOURCE_BYTES",
+  "notes": [
+    "The recursive scanner traversed nested ZIP package layers rather than only top-level artifact members.",
+    "A separate synthetic positive test confirmed nested ZIP discovery reaches outer.zip!inner.zip!PNG and validates a 160x80 RGBA8 PNG candidate.",
+    "No production target was written because --install was not used and no authoritative SHA matched."
+  ]
+}
