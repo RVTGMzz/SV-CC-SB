@@ -8,23 +8,40 @@ Read these first, in order:
 
 1. `README_FOR_NEXT_SESSION.md`
 2. `SOURCE_NAME_MAP.md`
-3. `handoff/HANDOFF_CURRENT.md`
-4. `handoff/AIRSHIP_0696D2_ACCESSIBLE_SURFACES_EXHAUSTED.md`
+3. `handoff/AIRSHIP_0696D2_MASTER_RECOVERY_MERGED.md`
+4. `handoff/HANDOFF_CURRENT.md`
 
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
-Current workstream: **0696D2 Observation Window / preserve recovered concept masters before any sprite rebuild**.
+Current workstream: **0696D2 Observation Window**.
 
-Safe base: `0.3.0-alpha.28.0.4.14.4.5.12.68`
-Next candidate, not materialized: `0.3.0-alpha.28.0.4.14.4.5.12.69`
+Safe base: `.68`
+Next candidate: `.69` is still not materialized.
 
-The original chat/session still contains four approved 1774x887 RGBA concept/master artworks. Their exact filename mapping and SHA256 values are in `SOURCE_NAME_MAP.md`.
+## Recovery status
 
-First priority: preserve those exact master bytes to a dedicated recovery branch without resize, crop, re-encode, recolor or regeneration.
+The recovered Observation Window concept library has been merged into the active branch through PR #6.
 
-Recommended branch: `recovery/0696d2-concept-masters`
+Merge commit:
+`bccbf1ecc6ec69570c9d136cd190510c9e8ed164`
 
-After preservation, Ron must explicitly choose either continued historical exact-byte recovery or an intentional D2.1 re-baseline from the preserved masters. Do not silently switch policies.
+Archive root:
+`recovery/0696d2-concept-masters/`
+
+The approved Morning / Noon / Evening / Night 1774x887 RGBA masters are preserved in-repo. Source mapping and hashes are recorded in `SOURCE_NAME_MAP.md` and the recovery manifest.
+
+Do not restart image recovery.
+
+## Current decision point
+
+The historical exact 160x80 production SHA set is still unrecovered.
+
+Ron must choose explicitly:
+
+1. continue historical exact-byte recovery; or
+2. intentionally re-baseline D2.1 from the preserved approved masters and create a new canonical 160x80 SHA set.
+
+Until Ron chooses, do not replace the production gate and do not build `.69`.
 
 Navigation Console remains deferred.
