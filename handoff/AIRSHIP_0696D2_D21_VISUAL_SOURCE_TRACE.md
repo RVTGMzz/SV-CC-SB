@@ -87,6 +87,33 @@ A focused 2026-09-13 File Library search using Cardcha/Airship/Observation Windo
 
 A targeted conversation-context trace recovered the visual approval and production intent, but not a usable binary/file identifier.
 
+## Exact Source Recovery Scanner
+
+Added on the D2 branch:
+
+`tools/alpha28_0696d2_recover_exact_sources.py`
+
+Purpose:
+
+- scan loose PNGs, directories and ZIP archives recursively;
+- scan RAR archives when local `7z`, `7zz`, or `7za` is available;
+- identify candidates only by the four authoritative SHA256 values;
+- verify matching bytes have a 160x80 RGBA8 PNG IHDR contract;
+- never resize, recolor, decode/re-encode, or otherwise transform source bytes;
+- with `--install`, refuse to write anything unless all four exact sources have been found;
+- when installing, use exact `write_bytes` copies and verify hashes again.
+
+Examples:
+
+```bash
+python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/source-pack
+python3 tools/alpha28_0696d2_recover_exact_sources.py concept.rar sprite.rar
+python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/candidates --report handoff/AIRSHIP_0696D2_RECOVERY_SCAN.json
+python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/candidates --install
+```
+
+Expected behavior when incomplete: report missing states, return exit code `2`, and leave production targets untouched.
+
 ## Current conclusion
 
 The most likely provenance gap is now narrowed to a transient in-chat visual-generation/export step between D2.1 visual approval and the later Git checkpoint. The repository retained the exact SHA256 identities, but the currently accessible repository, Actions artifacts, File Library, and recoverable conversation metadata do not expose the original four PNG byte streams.
@@ -102,6 +129,6 @@ Only one of these closes the gate safely:
 
 Once exact bytes are recovered:
 
-`check-source -> apply -> validate -> compile -> package audit -> .69 TEST -> Ron visual acceptance`
+`recover scanner -> check-source -> apply -> validate -> compile -> package audit -> .69 TEST -> Ron visual acceptance`
 
 Until then, `.69` remains intentionally unmaterialized and the D1S ship / Navigation Console invariants remain frozen.
