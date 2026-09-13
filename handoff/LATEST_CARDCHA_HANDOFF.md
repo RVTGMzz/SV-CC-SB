@@ -7,6 +7,9 @@ Updated: 2026-09-14
 Primary source of truth:
 `handoff/HANDOFF_CURRENT.md`
 
+Recovery closure checkpoint:
+`handoff/AIRSHIP_0696D2_ACCESSIBLE_SURFACES_EXHAUSTED.md`
+
 Repository:
 `ronvotri/Cardcha-Shardbound`
 
@@ -22,15 +25,18 @@ Safe base:
 Next candidate, **NOT MATERIALIZED**:
 `0.3.0-alpha.28.0.4.14.4.5.12.69`
 
-## Read these evidence files
+## Current evidence set
 
 - `handoff/HANDOFF_CURRENT.md`
+- `handoff/AIRSHIP_0696D2_ACCESSIBLE_SURFACES_EXHAUSTED.md`
 - `handoff/AIRSHIP_0696D2_SOURCE_RECOVERY_STATUS.md`
 - `handoff/AIRSHIP_0696D2_D21_VISUAL_SOURCE_TRACE.md`
 - `handoff/AIRSHIP_0696D2_RECOVERY_SCANNER_ARTIFACT_RETEST.json`
 - `handoff/AIRSHIP_0696D2_CONCEPT_ACTIONS_EXHAUSTIVE_AUDIT.json`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_GOOGLE_DRIVE_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_CANVA_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_PUBLIC_WEB_AUDIT.md`
+- `handoff/AIRSHIP_0696D2_GITHUB_NONACTIONS_SURFACE_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_LOCAL_MATERIALIZER_TRACE.md`
 - `handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md`
 
@@ -47,11 +53,18 @@ All four must be exact PNG / 160x80 / RGBA byte streams.
 
 Do not resize, redraw, recolor, re-encode, regenerate, upscale, or substitute them. Do not reuse legacy observation overlays as D2 source art.
 
-## Continuation
+## Continuation rule
 
-Do not repeat recovery routes already marked exhausted in `HANDOFF_CURRENT.md` unless new evidence appears.
+All recovery surfaces currently accessible to this chat/tooling environment are documented as exhausted. Do not repeat them unless genuinely new provenance evidence appears.
 
-The next valid action is to obtain an authoritative external/local candidate source and run:
+The next valid action requires a new authoritative external/local source, especially:
+
+- original D2.1 export/image-generation bytes;
+- a local copy of `concept(1).rar` / `sprite(1).rar`;
+- another original archive/folder/export;
+- a newly connected storage source that actually contains those original files.
+
+When a candidate arrives:
 
 ```bash
 python3 tools/alpha28_0696d2_recover_exact_sources.py /path/to/candidates
