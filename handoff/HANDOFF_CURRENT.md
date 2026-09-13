@@ -3,7 +3,7 @@
 Prepared: 2026-09-14 (Asia/Ho_Chi_Minh)
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
-Pre-handoff branch HEAD: `ddee22e341c8448d9ab178948b18db822a434f62`
+Pre-handoff branch HEAD: `ccf3e6719c4cf33d4ebc3ae2c1b9aa008c9a1fce`
 
 ## Resume instruction
 
@@ -96,7 +96,8 @@ Do not repeat these investigations unless new evidence appears:
 6. File Library searches for filenames, hashes, archive names and date-range uploads;
 7. recoverable conversation metadata around D2.1 visual approval;
 8. surviving `.63 -> .68` Actions artifacts using the recursive scanner;
-9. all **14** Actions runs on `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`.
+9. all **14** Actions runs on `cardcha-alpha28-0696-airship-concept-faithful-visible-integration`;
+10. currently connected Google Drive indexed/project/date/archive sweep, including exact archive aliases and false-positive folder inspection.
 
 Concept/integration Actions audit result:
 
@@ -114,6 +115,16 @@ Concept/integration Actions audit result:
 
 Earlier `.63 -> .68` scanner retest also found **0/4 approved SHA matches**.
 
+Google Drive external-source audit result:
+
+- exact `concept(1).rar` and `sprite(1).rar` searches returned no result;
+- `window_scene_default`, `airship`, and `0696` searches returned no D2.1 source candidate;
+- Cardcha search surfaced design/tracker documents but no Cardcha source-art archive/folder;
+- visible root archives were unrelated and predated D2.1;
+- a `sprites` folder was inspected and proved to be Fireside Tales assets;
+- a 2026-09-12 `Hình ảnh` folder was inspected and proved to belong to Doraemon Monopoly;
+- result: **0 authoritative D2.1 source candidates** on the currently accessible Drive surface.
+
 ## Provenance clue still relevant
 
 Earlier source documentation mentions direct user uploads:
@@ -130,7 +141,7 @@ Separately, D2.1 had four visual states approved in chat on 2026-09-13:
 - evening: orange-purple sunset;
 - night: deep blue with moon/stars.
 
-The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository-accessible storage.
+The exact four SHA fingerprints survived, but the original attachment/image-export byte streams do not currently exist in repository/File Library/connected-Drive-accessible storage.
 
 ## Key evidence files
 
@@ -141,14 +152,15 @@ Read these before doing more recovery work:
 - `handoff/AIRSHIP_0696D2_D21_VISUAL_SOURCE_TRACE.md`
 - `handoff/AIRSHIP_0696D2_RECOVERY_SCANNER_ARTIFACT_RETEST.json`
 - `handoff/AIRSHIP_0696D2_CONCEPT_ACTIONS_EXHAUSTIVE_AUDIT.json`
+- `handoff/AIRSHIP_0696D2_EXTERNAL_SOURCE_GOOGLE_DRIVE_AUDIT.md`
 - `handoff/AIRSHIP_0696D2_PREIMPLEMENTATION_CHECKPOINT.md`
 
 ## Next allowed action
 
-The remaining safe recovery route is an **authoritative external/local source copy**, especially:
+The remaining safe recovery route is an **authoritative external/local source copy not presently exposed through the repository, File Library, or connected Google Drive**, especially:
 
-- original D2.1 image-generation/export attachment bytes;
-- `concept(1).rar` / `sprite(1).rar` if they can be recovered locally;
+- original D2.1 image-generation/export attachment bytes from the original chat/session;
+- a local-machine copy of `concept(1).rar` / `sprite(1).rar`;
 - another local archive/folder/export that might contain the exact approved files.
 
 When a candidate source appears, run:
