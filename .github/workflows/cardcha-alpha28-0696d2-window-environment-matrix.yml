@@ -1,4 +1,4 @@
-name: Cardcha 0696D2 Clear Window Environment Matrix
+name: Cardcha 0696D2 Rebaselined Window Environment Matrix
 
 on:
   workflow_dispatch:
@@ -7,13 +7,10 @@ on:
       - cardcha-alpha28-0696d2-window-environment-matrix
     paths:
       - .github/workflows/cardcha-alpha28-0696d2-window-environment-matrix.yml
-      - tools/alpha28_0696d2_window_environment_matrix.py
-      - tools/alpha28_0696d2_package_audit.py
-      - tools/validate_0696d2_no_legacy_overlay_reuse.py
-      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png
-      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png
-      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png
-      - src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png
+      - tools/alpha28_0696d2_rebaseline_contract.py
+      - tools/alpha28_0696d2_rebaseline_ci.py
+      - tools/alpha28_0696d2_package_audit_rebaseline.py
+      - recovery/0696d2-concept-masters/01_approved_time_of_day_masters/**
 
 permissions:
   contents: write
@@ -27,17 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup image tooling
+      - name: Setup deterministic image tooling
         run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
 
-      - name: Gate exact approved D2 source pixels
-        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --check-source
-
-      - name: Apply D2 resolver and metadata
-        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --apply
-
-      - name: Validate D2 clear-time matrix contract
-        run: python3 tools/alpha28_0696d2_window_environment_matrix.py --validate
+      - name: Materialize apply and validate D2 rebaseline
+        run: python3 tools/alpha28_0696d2_rebaseline_ci.py
 
       - name: Validate no legacy Window overlay reuse
         run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
@@ -45,7 +36,7 @@ jobs:
       - name: Validate render-depth contract remains intact
         run: python3 tools/validate_render_depth_contract.py
 
-      - name: Freeze D1S ship D3 console maps and legacy overlays
+      - name: Freeze accepted ship console maps and legacy overlays
         shell: bash
         run: |
           set -euo pipefail
@@ -70,13 +61,17 @@ jobs:
       - name: Compile Cardcha
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
 
-      - name: Materialize validated D2 runtime metadata
+      - name: Commit validated rebaseline outputs
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
             src/Cardcha/manifest.json \
             src/Cardcha/Cardcha.csproj \
             src/Cardcha/Directory.Build.targets \
@@ -84,9 +79,10 @@ jobs:
             src/Cardcha/Services/AirshipAmbientAnimationService.cs \
             src/Cardcha/Services/AirshipAmbientResolver.cs \
             src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json \
+            handoff/AIRSHIP_0696D2_REBASELINE_CANONICAL.json \
             handoff/AIRSHIP_0696D2_WINDOW_ENVIRONMENT_MATRIX_VALIDATION.json
           if ! git diff --cached --quiet; then
-            git commit -m 'chore: materialize 0696D2 clear Window environment matrix [skip ci]'
+            git commit -m 'chore: materialize 0696D2 rebaseline canonical outputs [skip ci]'
             git push origin HEAD:cardcha-alpha28-0696d2-window-environment-matrix
           fi
 
@@ -105,17 +101,18 @@ jobs:
           test -n "$DLL" -a -s "$DLL"
           cp "$DLL" "$OUT/Cardcha.dll"
           cd "$GITHUB_WORKSPACE/package"
-          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip'
+          ZIP='Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_Rebaseline_WindowEnvironmentMatrix_TEST.zip'
           zip -qr "$ZIP" Cardcha
           sha256sum "$ZIP" | tee "$ZIP.sha256"
-          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d2_package_audit.py" "$ZIP"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d2_package_audit_rebaseline.py" "$ZIP"
 
       - name: Upload D2 .69 TEST and evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cardcha-alpha28-0696D2-window-environment-matrix
+          name: cardcha-alpha28-0696D2-rebaseline-window-environment-matrix
           if-no-files-found: error
           path: |
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_WindowEnvironmentMatrix_TEST.zip.sha256
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_Rebaseline_WindowEnvironmentMatrix_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.69_0696D2_Rebaseline_WindowEnvironmentMatrix_TEST.zip.sha256
+            handoff/AIRSHIP_0696D2_REBASELINE_CANONICAL.json
             handoff/AIRSHIP_0696D2_WINDOW_ENVIRONMENT_MATRIX_VALIDATION.json
