@@ -2,46 +2,36 @@
 
 Updated: 2026-09-14
 
-## Start here
-
-Read these first, in order:
-
+Read first:
 1. `README_FOR_NEXT_SESSION.md`
 2. `SOURCE_NAME_MAP.md`
-3. `handoff/AIRSHIP_0696D2_MASTER_RECOVERY_MERGED.md`
-4. `handoff/HANDOFF_CURRENT.md`
+3. `handoff/HANDOFF_CURRENT.md`
+4. `handoff/AIRSHIP_0696D2_REBASELINE_CANONICAL.json`
 
 Repository: `ronvotri/Cardcha-Shardbound`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
-Current workstream: **0696D2 Observation Window**.
+## Status
 
-Safe base: `.68`
-Next candidate: `.69` is still not materialized.
+0696D2.1 re-baseline is complete.
 
-## Recovery status
+`.69 TEST` has compiled, passed package audit, and is **PENDING RON IN-GAME VISUAL ACCEPTANCE**.
 
-The recovered Observation Window concept library has been merged into the active branch through PR #6.
+Do not restart source recovery.
 
-Merge commit:
-`bccbf1ecc6ec69570c9d136cd190510c9e8ed164`
+Canonical production SHA256:
 
-Archive root:
-`recovery/0696d2-concept-masters/`
+- Morning `93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0`
+- Noon `38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f`
+- Evening `2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f`
+- Night `5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b`
 
-The approved Morning / Noon / Evening / Night 1774x887 RGBA masters are preserved in-repo. Source mapping and hashes are recorded in `SOURCE_NAME_MAP.md` and the recovery manifest.
+Successful workflow run: `34780451317`
+Materialized output commit: `f6a05a786937f0a8e5f8a2ab01aa14a06e7def7a`
 
-Do not restart image recovery.
+`.69 TEST` ZIP SHA256:
+`0d0891dfa60eff914c0d4eccbe481bce8c5d28b8cdd5429e7a07a0a5ca4b04bd`
 
-## Current decision point
+Next action: Ron installs `.69 TEST` and checks Morning / Noon / Evening / Night visuals in game.
 
-The historical exact 160x80 production SHA set is still unrecovered.
-
-Ron must choose explicitly:
-
-1. continue historical exact-byte recovery; or
-2. intentionally re-baseline D2.1 from the preserved approved masters and create a new canonical 160x80 SHA set.
-
-Until Ron chooses, do not replace the production gate and do not build `.69`.
-
-Navigation Console remains deferred.
+D1S airship remains frozen. Navigation Console, weather runtime variants and seasonal runtime variants remain deferred.
