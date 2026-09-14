@@ -13,6 +13,7 @@ internal static class AirshipInteriorStardewRenderer
     private const string UpgradeAtlasPath = "assets/airship_upgrade_visuals.png";
     private const string HubDecorAtlasPath = "assets/airship_hub_decor.png";
     private const string PropRoot0690 = "assets/airship_props/set01_redux";
+    private const string TravelGateVisualPath0696D3A = PropRoot0690 + "/boarding_gate_arch.png";
     private static readonly string[] WindowOverlayPaths0690 =
     {
         PropRoot0690 + "/observation_window_overlay_1.png",
@@ -34,6 +35,8 @@ internal static class AirshipInteriorStardewRenderer
     private static bool AtlasLoadFailed;
     private static Texture2D? HubDecorAtlas;
     private static bool HubDecorLoadFailed;
+    private static Texture2D? TravelGateVisual0696D3A;
+    private static bool TravelGateVisualLoadFailed0696D3A;
 
     public static bool TryDrawDeck(SpriteBatch batch, GameLocation deck, SaveService save)
     {
@@ -44,7 +47,8 @@ internal static class AirshipInteriorStardewRenderer
         AirshipAmbientAnimationService.DrawDeckAmbient(batch);
         DrawWindowMagic(batch, phase);
         DrawAmbientLamps(batch, phase);
-        // 0696C: restore the four level-aware Engine/Navigation/Hull/Reactor stations.
+        DrawTravelGate0696D3A(batch, phase);
+        // 0696D3-A: all four upgrade stations stay present and share a grounded physical footprint.
         DrawUpgradeStations(batch, save, phase);
         DrawHelmMagic(batch, phase);
         DrawChaChaMagic(batch, phase);
@@ -191,6 +195,45 @@ internal static class AirshipInteriorStardewRenderer
         }
     }
 
+    private static Texture2D? GetTravelGateVisual0696D3A()
+    {
+        if (TravelGateVisual0696D3A is not null && !TravelGateVisual0696D3A.IsDisposed)
+            return TravelGateVisual0696D3A;
+        TravelGateVisual0696D3A = null;
+        if (TravelGateVisualLoadFailed0696D3A || ModEntry.StaticHelper is null)
+            return null;
+        try
+        {
+            TravelGateVisual0696D3A = ModEntry.StaticHelper.ModContent.Load<Texture2D>(TravelGateVisualPath0696D3A);
+            return TravelGateVisual0696D3A;
+        }
+        catch
+        {
+            TravelGateVisualLoadFailed0696D3A = true;
+            return null;
+        }
+    }
+
+    private static void DrawTravelGate0696D3A(SpriteBatch batch, float phase)
+    {
+        Texture2D? gate = GetTravelGateVisual0696D3A();
+        if (gate is null || gate.Width <= 0 || gate.Height <= 0)
+            return;
+
+        Point tile = new(4, 5);
+        Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
+        const int width = 244;
+        int height = Math.Max(128, (int)MathF.Round(gate.Height * (width / (float)gate.Width)));
+        Rectangle dst = new((int)floor.X - width / 2, (int)floor.Y - height + 32, width, height);
+        batch.Draw(gate, dst, null, Color.White, 0f, Vector2.Zero, SpriteEffects.None, 0.883f);
+
+        float pulse = 0.56f + 0.12f * MathF.Sin(phase * 2.1f);
+        Color gold = new Color(228, 176, 84) * (0.52f + pulse * 0.20f);
+        Color cyan = new Color(96, 211, 224) * (0.34f + pulse * 0.18f);
+        DrawRect(batch, new Rectangle((int)floor.X - 48, (int)floor.Y - 4, 96, 5), gold);
+        DrawDiamond(batch, new Vector2(floor.X, floor.Y - 18), 7, cyan);
+    }
+
     private static void DrawHelmMagic(SpriteBatch batch, float phase)
     {
         Vector2 c = WorldToScreen(12f * 64f + 32f, 6f * 64f + 10f);
@@ -229,9 +272,12 @@ internal static class AirshipInteriorStardewRenderer
             Vector2 center = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 52f);
             Rectangle src = new(column * CellSize, level * CellSize, CellSize, CellSize);
             float pulse = 0.62f + 0.16f * MathF.Sin(phase * 2.05f + column * 1.1f);
-            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y - 55, 108, 72), accent * (0.075f + pulse * 0.045f));
-            DrawRect(batch, new Rectangle((int)center.X - 38, (int)center.Y - 42, 76, 52), accent * (0.085f + pulse * 0.055f));
-            Rectangle dst = new((int)center.X - 56, (int)center.Y - 76, 112, 112);
+            // 0696D3-A: a dark/brass plinth anchors the machine to the room instead of floating over the floor.
+            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y + 9, 108, 18), new Color(49, 34, 31) * 0.92f);
+            DrawRect(batch, new Rectangle((int)center.X - 46, (int)center.Y + 7, 92, 7), new Color(177, 118, 57) * 0.78f);
+            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y - 55, 108, 72), accent * (0.055f + pulse * 0.035f));
+            DrawRect(batch, new Rectangle((int)center.X - 38, (int)center.Y - 42, 76, 52), accent * (0.065f + pulse * 0.045f));
+            Rectangle dst = new((int)center.X - 52, (int)center.Y - 70, 104, 104);
             batch.Draw(atlas, dst, src, Color.White);
             DrawRect(batch, new Rectangle((int)center.X - 19, (int)center.Y - 26, 38, 4), accent * (0.42f + pulse * 0.22f));
             DrawDiamond(batch, new Vector2(center.X, center.Y - 44), 4 + level, accent * (0.58f + pulse * 0.22f));

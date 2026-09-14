@@ -518,10 +518,11 @@ internal sealed class AirshipFoundationService
             return;
 
         Point action = GetActionTile();
-        Point helm = ResolveDeckHelmTile(location);
+        Point travelGate = ResolveDeckTravelGateTile(location);
         Point exit = ResolveDeckExitTile(location);
 
-        if (action == helm)
+        // 0696D3-A: map travel has a dedicated visible gate instead of being hidden on the helm/radar.
+        if (ActionTouchesStation(action, travelGate))
         {
             this.Helper.Input.Suppress(e.Button);
             this.HandleRegion1DepartureRequest();
@@ -2574,6 +2575,13 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
         int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
         return new Point(Math.Clamp(width / 2, 2, width - 3), Math.Clamp(6, 2, height - 3));
+    }
+
+    private static Point ResolveDeckTravelGateTile(GameLocation deck)
+    {
+        int width = deck.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = deck.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 14;
+        return new Point(Math.Clamp(4, 2, width - 3), Math.Clamp(5, 2, height - 3));
     }
 
     private void DrawFlyby(SpriteBatch batch)

@@ -1,0 +1,74 @@
+{
+  "phase": "0696D3-A",
+  "status": "PASS",
+  "travelGateTile": [
+    4,
+    5
+  ],
+  "upgradeCollisionFootprints": {
+    "engine": [
+      [
+        4,
+        8
+      ],
+      [
+        5,
+        8
+      ]
+    ],
+    "navigation": [
+      [
+        18,
+        8
+      ],
+      [
+        19,
+        8
+      ]
+    ],
+    "hull": [
+      [
+        7,
+        11
+      ],
+      [
+        8,
+        11
+      ]
+    ],
+    "reactor": [
+      [
+        15,
+        11
+      ],
+      [
+        16,
+        11
+      ]
+    ]
+  },
+  "collisionResults": {
+    "engine": true,
+    "navigation": true,
+    "hull": true,
+    "reactor": true
+  },
+  "checks": {
+    "dedicatedTravelGateResolver": true,
+    "departureUsesTravelGate": true,
+    "helmNoLongerOwnsDeparture": true,
+    "gateUsesExistingBoardingArt": true,
+    "gateRenderedOnDeck": true,
+    "allFourUpgradeSystemsStillPresent": true,
+    "groundedUpgradePlinth": true,
+    "deckD3AProperty": true,
+    "upgradeCollisionFootprints": true
+  },
+  "scopeDeferred": [
+    "radar-reference-rework",
+    "prop-scale-placement",
+    "room1-border",
+    "entrance-arch-x2",
+    "window-size-adjustment"
+  ]
+}

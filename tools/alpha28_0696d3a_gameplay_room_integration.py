@@ -105,7 +105,7 @@ def patch_renderer() -> None:
     }
 
 '''
-    if "DrawTravelGate0696D3A" not in text.split(marker, 1)[0]:
+    if "private static void DrawTravelGate0696D3A" not in text:
         if text.count(marker) != 1:
             raise RuntimeError("travel gate renderer insertion point missing")
         text = text.replace(marker, gate_method + marker, 1)
