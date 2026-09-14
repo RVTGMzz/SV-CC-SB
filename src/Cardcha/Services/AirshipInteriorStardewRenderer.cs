@@ -273,11 +273,12 @@ internal static class AirshipInteriorStardewRenderer
             Rectangle src = new(column * CellSize, level * CellSize, CellSize, CellSize);
             float pulse = 0.62f + 0.16f * MathF.Sin(phase * 2.05f + column * 1.1f);
             // 0696D3-A: a dark/brass plinth anchors the machine to the room instead of floating over the floor.
-            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y + 9, 108, 18), new Color(49, 34, 31) * 0.92f);
-            DrawRect(batch, new Rectangle((int)center.X - 46, (int)center.Y + 7, 92, 7), new Color(177, 118, 57) * 0.78f);
-            DrawRect(batch, new Rectangle((int)center.X - 54, (int)center.Y - 55, 108, 72), accent * (0.055f + pulse * 0.035f));
-            DrawRect(batch, new Rectangle((int)center.X - 38, (int)center.Y - 42, 76, 52), accent * (0.065f + pulse * 0.045f));
-            Rectangle dst = new((int)center.X - 52, (int)center.Y - 70, 104, 104);
+            // 0696D3-B: keep the D3-A grounded footprint but pull visual mass closer to native Stardew scale.
+            DrawRect(batch, new Rectangle((int)center.X - 48, (int)center.Y + 9, 96, 16), new Color(49, 34, 31) * 0.92f);
+            DrawRect(batch, new Rectangle((int)center.X - 41, (int)center.Y + 7, 82, 6), new Color(177, 118, 57) * 0.78f);
+            DrawRect(batch, new Rectangle((int)center.X - 48, (int)center.Y - 49, 96, 64), accent * (0.050f + pulse * 0.032f));
+            DrawRect(batch, new Rectangle((int)center.X - 34, (int)center.Y - 38, 68, 47), accent * (0.060f + pulse * 0.040f));
+            Rectangle dst = new((int)center.X - 48, (int)center.Y - 64, 96, 96);
             batch.Draw(atlas, dst, src, Color.White);
             DrawRect(batch, new Rectangle((int)center.X - 19, (int)center.Y - 26, 38, 4), accent * (0.42f + pulse * 0.22f));
             DrawDiamond(batch, new Vector2(center.X, center.Y - 44), 4 + level, accent * (0.58f + pulse * 0.22f));

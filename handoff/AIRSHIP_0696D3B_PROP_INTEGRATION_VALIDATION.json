@@ -1,0 +1,91 @@
+{
+  "phase": "0696D3-B",
+  "status": "PASS",
+  "navigationConsole": {
+    "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png",
+    "sourceSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+    "currentSha256": "c769cc2d5f1ea31ddba7aa57ceb94465cceae9f51bafbe138a71a5579ea6ee70",
+    "backgroundSeedRgb": [
+      245,
+      215,
+      169
+    ],
+    "backgroundDistance": 30.0,
+    "edgeBackgroundCandidatesRemaining": 0,
+    "transparentPixels": 3478,
+    "cleanup": {
+      "sourceAlreadyCleaned": false,
+      "beforeSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+      "afterSha256": "c769cc2d5f1ea31ddba7aa57ceb94465cceae9f51bafbe138a71a5579ea6ee70",
+      "removedPixels": 1760
+    }
+  },
+  "radarCollisionTiles": [
+    [
+      9,
+      9
+    ],
+    [
+      10,
+      9
+    ],
+    [
+      11,
+      9
+    ],
+    [
+      12,
+      9
+    ],
+    [
+      13,
+      9
+    ],
+    [
+      14,
+      9
+    ],
+    [
+      15,
+      9
+    ],
+    [
+      10,
+      8
+    ],
+    [
+      11,
+      8
+    ],
+    [
+      12,
+      8
+    ],
+    [
+      13,
+      8
+    ],
+    [
+      14,
+      8
+    ]
+  ],
+  "upgradeMachineVisualSize": [
+    96,
+    96
+  ],
+  "checks": {
+    "navigationConsolePngContract": true,
+    "yellowBeigeEdgeBackgroundRemoved": true,
+    "navigationConsoleHasTransparency": true,
+    "upgradeMachinesNormalizedTo96px": true,
+    "d3ATravelGatePreserved": true,
+    "radarCollisionFootprint": true,
+    "deckD3BProperty": true
+  },
+  "scopeDeferred": [
+    "room1-border",
+    "entrance-arch-x2",
+    "window-size-adjustment"
+  ]
+}
