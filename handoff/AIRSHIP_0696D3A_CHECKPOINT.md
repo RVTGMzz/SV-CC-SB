@@ -20,7 +20,7 @@ Validation:
 - Upgrade stations received grounded plinth treatment instead of floating-only presentation.
 - Physical collision footprints were added for all four upgrade stations.
 - D2.1 Observation Window production assets and the accepted D1S independent airship stayed frozen.
-- Navigation Console image assets stayed frozen.
+- Navigation Console image assets stayed frozen during D3-A.
 - Legacy Window overlay guard PASS.
 - Render-depth contract PASS.
 - Release compile PASS.
@@ -37,10 +37,10 @@ Validation:
 Proceed to **0696D3-B Prop Integration and Visual Believability**:
 
 1. Reposition/scale props so the room reads naturally rather than pasted together.
-2. Correct oversized machine footprints/presentation.
-3. Rework the radar/navigation machine from Ron's supplied reference. Preserve the characteristic yellow/gold background. Do not improvise a different machine.
-4. Remove unintended background/cutout artifacts while preserving the approved reference look.
+2. Correct oversized machine presentation.
+3. Rework the radar/navigation machine from Ron's supplied reference. KEEP the approved steampunk desk/radar design, REMOVE the unintended yellow/beige baked background, and do not invent a different machine.
+4. Remove unintended cutout/background artifacts while preserving intended machine detail.
 
 Room 1 border, entrance arch x2 and Observation Window size remain deferred to D3-C.
 
-No D3 test package is required at this checkpoint; package after the planned regression batch unless a targeted visual build becomes necessary.
+No full D3 test package is required at this checkpoint; package after the planned regression batch unless a targeted visual build becomes necessary.
