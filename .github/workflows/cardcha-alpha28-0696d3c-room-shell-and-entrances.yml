@@ -21,6 +21,9 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup deterministic image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
       - name: Repair exact room-shell source hash
         shell: bash
         run: |
