@@ -14,14 +14,16 @@ Goal: finish room integration without cramming unrelated fixes into one session.
 
 Acceptance: player can identify and use the travel gate; upgrade machines are present; machines block movement appropriately; intended interactables respond.
 
+Status: IMPLEMENTED + CI PASS in `handoff/AIRSHIP_0696D3A_CHECKPOINT.md`.
+
 ## Batch D3-B — Prop integration and visual believability
 
-1. Reposition props to match the concept more naturally instead of looking pasted onto the floor.
+1. Reposition/scale props to match the concept more naturally instead of looking pasted onto the floor.
 2. Correct oversized machines and physical footprints.
-3. Rework the radar/upgrade-machine visual using Ron's supplied reference. Do not improvise a new machine. Preserve the characteristic yellow/gold background shown in the reference.
-4. Remove unintended cutout/background artifacts where they are not part of the approved reference.
+3. Rework the radar/navigation machine using Ron's supplied reference. Preserve the approved steampunk desk/radar design, but REMOVE the unintended yellow/beige baked background. Do not invent a different radar machine.
+4. Remove unintended cutout/background artifacts while preserving the machine itself and its intended detail.
 
-Acceptance: room reads as one coherent interior; prop scale and spacing feel native to Stardew; radar machine matches the supplied reference direction.
+Acceptance: room reads as one coherent interior; prop scale and spacing feel native to Stardew; radar machine matches Ron's reference and no longer carries the yellow/beige rectangular background.
 
 ## Batch D3-C — Room shell and entrances
 
@@ -37,7 +39,7 @@ Acceptance: both rooms have coherent borders; entrance arch is centered, larger 
 Regression checklist:
 - Observation Window Morning/Noon/Evening/Night still resolves correctly.
 - D1S independent airship animation is preserved.
-- Navigation Console is not accidentally changed unless explicitly required by a later task.
+- Navigation Console design is not replaced with an improvised machine.
 - Upgrade machines remain present and interactive after reload.
 - Gate travel works from normal player approach.
 - No unintended walk-through on major machines/props.
