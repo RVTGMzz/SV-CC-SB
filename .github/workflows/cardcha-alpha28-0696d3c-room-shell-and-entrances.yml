@@ -24,20 +24,34 @@ jobs:
       - name: Setup deterministic image tooling
         run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
 
-      - name: Repair exact room-shell source hash
+      - name: Repair D3-C patcher source gates
         shell: bash
         run: |
           python3 - <<'PY'
           from pathlib import Path
           p = Path('tools/alpha28_0696d3c_room_shell_and_entrances.py')
           s = p.read_text(encoding='utf-8')
-          old = 'EXPECTED_SHELL_SHA = "d6216e23c77cc5531658786ec70ae6f0e6742019f82711c78990f77ea7852535"'
-          new = 'EXPECTED_SHELL_SHA = "f2e0ef5128ecb9b1083588a419b9b1c57fcf2b9034326b59e4b8483d4713eddd"'
-          if old in s:
-              s = s.replace(old, new, 1)
-              p.write_text(s, encoding='utf-8')
-          elif new not in s:
+
+          old_hash = 'EXPECTED_SHELL_SHA = "d6216e23c77cc5531658786ec70ae6f0e6742019f82711c78990f77ea7852535"'
+          new_hash = 'EXPECTED_SHELL_SHA = "f2e0ef5128ecb9b1083588a419b9b1c57fcf2b9034326b59e4b8483d4713eddd"'
+          if old_hash in s:
+              s = s.replace(old_hash, new_hash, 1)
+          elif new_hash not in s:
               raise SystemExit('unexpected D3-C shell hash state')
+
+          old_decl = 'Rectangle presentation = ResolveObservationWindowPresentation(config, propTopLeft);'
+          new_decl = 'Rectangle environmentPresentation = ResolveObservationWindowPresentation(config, propTopLeft);'
+          if new_decl not in s:
+              if old_decl not in s:
+                  raise SystemExit('D3-C environment presentation declaration missing')
+              s = s.replace(old_decl, new_decl, 1)
+              old_use = '                    presentation,\n                    null,\n                    Color.White,'
+              new_use = '                    environmentPresentation,\n                    null,\n                    Color.White,'
+              if old_use not in s:
+                  raise SystemExit('D3-C environment presentation use missing')
+              s = s.replace(old_use, new_use, 1)
+
+          p.write_text(s, encoding='utf-8')
           PY
 
       - name: Apply and validate D3-C room shell and entrances
