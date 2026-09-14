@@ -32,6 +32,8 @@ internal static class AirshipAmbientAnimationService
         new(89, 33),
     };
     private const long D1SAirshipFrameDurationMs = 550L;
+    // 0696D3-C: subtle 6.25% centered overscan. Source PNG bytes stay canonical and untouched.
+    private const float ObservationWindowPresentationScale = 4.25f;
 
     public static bool DrawDeckAmbient(SpriteBatch batch)
     {
@@ -66,14 +68,10 @@ internal static class AirshipAmbientAnimationService
             Texture2D? environment = GetTexture(state.BackdropPath);
             if (environment is not null && environment.Width == 160 && environment.Height == 80)
             {
+                Rectangle environmentPresentation = ResolveObservationWindowPresentation(config, propTopLeft);
                 batch.Draw(
                     environment,
-                    new Rectangle(
-                        (int)propTopLeft.X,
-                        (int)propTopLeft.Y,
-                        config.FootprintPx.Width * 4,
-                        config.FootprintPx.Height * 4
-                    ),
+                    environmentPresentation,
                     null,
                     Color.White,
                     0f,
@@ -90,13 +88,15 @@ internal static class AirshipAmbientAnimationService
 
         int frameIndex = (int)((clockMs / D1SAirshipFrameDurationMs) % D1SAirshipPositions.Length);
         Point pos = D1SAirshipPositions[frameIndex];
+        Rectangle presentation = ResolveObservationWindowPresentation(config, propTopLeft);
+        float presentationScale = presentation.Width / (float)Math.Max(1, config.FootprintPx.Width);
         batch.Draw(
             airship,
             new Rectangle(
-                (int)propTopLeft.X + pos.X * 4,
-                (int)propTopLeft.Y + pos.Y * 4,
-                airship.Width * 4,
-                airship.Height * 4
+                presentation.X + (int)MathF.Round(pos.X * presentationScale),
+                presentation.Y + (int)MathF.Round(pos.Y * presentationScale),
+                (int)MathF.Round(airship.Width * presentationScale),
+                (int)MathF.Round(airship.Height * presentationScale)
             ),
             null,
             Color.White,
@@ -205,7 +205,7 @@ internal static class AirshipAmbientAnimationService
 
         batch.Draw(
             flash,
-            new Rectangle((int)propTopLeft.X, (int)propTopLeft.Y, config.FootprintPx.Width * 4, config.FootprintPx.Height * 4),
+            ResolveObservationWindowPresentation(config, propTopLeft),
             null,
             Color.White,
             0f,
@@ -231,6 +231,23 @@ internal static class AirshipAmbientAnimationService
             depth
         );
         return true;
+    }
+
+    private static Rectangle ResolveObservationWindowPresentation(
+        AirshipObservationWindowConfig config,
+        Vector2 propTopLeft
+    )
+    {
+        int baseWidth = config.FootprintPx.Width * 4;
+        int baseHeight = config.FootprintPx.Height * 4;
+        int width = (int)MathF.Round(config.FootprintPx.Width * ObservationWindowPresentationScale);
+        int height = (int)MathF.Round(config.FootprintPx.Height * ObservationWindowPresentationScale);
+        return new Rectangle(
+            (int)propTopLeft.X - (width - baseWidth) / 2,
+            (int)propTopLeft.Y - (height - baseHeight) / 2,
+            width,
+            height
+        );
     }
 
     private static Rectangle ScaleViewport(AirshipViewportConfig source, Vector2 propTopLeft)

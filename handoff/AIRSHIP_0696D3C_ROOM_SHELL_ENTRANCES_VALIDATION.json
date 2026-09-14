@@ -1,0 +1,54 @@
+{
+  "phase": "0696D3-C",
+  "status": "PASS",
+  "room1Shell": {
+    "asset": "src/Cardcha/assets/airship_props/room_shell/airship_deck_border_0696c.png",
+    "sha256": "f2e0ef5128ecb9b1083588a419b9b1c57fcf2b9034326b59e4b8483d4713eddd",
+    "map": "src/Cardcha/assets/sky_dock_interior.tmx",
+    "doorwayTiles": [
+      [
+        14,
+        17
+      ],
+      [
+        15,
+        17
+      ]
+    ]
+  },
+  "outdoorEntranceGate": {
+    "scaleBefore": 1.48,
+    "scaleAfter": 2.88,
+    "useDistanceBefore": 160,
+    "useDistanceAfter": 256,
+    "anchorPolicy": "same-world-floor-point|true-bottom-origin"
+  },
+  "observationWindowPresentation": {
+    "nativeSourceBytesChanged": false,
+    "baseScreenScale": 4.0,
+    "presentationScale": 4.25,
+    "increasePercent": 6.25,
+    "mode": "centered-runtime-overscan",
+    "d2Sha256": {
+      "morning": "93f6d4fcd403838d5758be012448c44978e65a8a4cb8bb33d4b24e4fb00802c0",
+      "noon": "38cf1e47d73b7374c21932ca6fbd957a3f55d833385698d0b415721ebaddb29f",
+      "evening": "2b3fb1ec4e4dd8d0bb7b2a3cf511ce7f8757e8dbbbb9ba54493f791df6aa0b5f",
+      "night": "5d9ec8cbb2f13221d0463e474209d5a7bb3fbc4d1eb05bee28a15483b4c1173b"
+    }
+  },
+  "checks": {
+    "sharedRoomShellAssetExact": true,
+    "room1ShellTilesetPresent": true,
+    "room1TopShell": true,
+    "room1SideShells": true,
+    "room1BottomDoorwayShell": true,
+    "room1ShellContract": true,
+    "outdoorGateApproximatelyX2": true,
+    "outdoorGateBottomAnchored": true,
+    "outdoorGateUseRadiusScaled": true,
+    "windowPresentationScale": true,
+    "windowCenteredOverscanHelper": true,
+    "d2CanonicalBytesFrozen": true
+  },
+  "next": "0696D3-D regression and TEST package"
+}

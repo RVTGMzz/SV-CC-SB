@@ -132,7 +132,7 @@ internal sealed class AirshipFoundationService
     private const long FlybyDurationMs = 4600L;
     private const long FlybyArmDelayMs = 2200L;
     private const float BoardingUseDistance = 160f;
-    private const float ForestGateUseDistance = 160f;
+    private const float ForestGateUseDistance = 256f;
     private const string InteriorDecorMarkerKey = "Ronvotri.Cardcha/AirshipInteriorDecor";
     private const string InteriorDecorVersion = "alpha.28.0.4.14.4.5.12.45.3";
     private const float FlybyTiltRadians = 0.028f;
@@ -2653,18 +2653,19 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
         if (gate is null)
             return;
 
-        // 0669: one compact authored boarding object. No procedural tower, no giant portal glass.
+        // 0696D3-C: the accepted gate art is intentionally prominent and floor-anchored.
+        // Keep the same world anchor, but anchor the sprite by its true bottom so x2 scale does not drift downward.
         Vector2 world = new(tile.X * 64f + 32f, tile.Y * 64f + 70f);
         Vector2 local = Game1.GlobalToLocal(Game1.viewport, world);
         float pulse = 0.97f + 0.025f * (float)Math.Sin(Environment.TickCount64 / 420d);
         float layer = Math.Clamp((world.Y + 18f) / 10000f, 0f, 0.94f);
         batch.Draw(gate, local, null, Color.White, 0f,
-            new Vector2(gate.Width / 2f, gate.Height - 10f), 1.48f * pulse,
+            new Vector2(gate.Width / 2f, gate.Height), 2.88f * pulse,
             SpriteEffects.None, layer);
 
         // Small ground confirmation only. The art itself communicates "boarding gate".
         Color warm = new Color(231, 190, 111) * 0.42f;
-        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 42, (int)local.Y - 7, 84, 3), warm);
+        batch.Draw(Game1.staminaRect, new Rectangle((int)local.X - 74, (int)local.Y - 7, 148, 4), warm);
     }
 
     private Texture2D? GetAirshipGateVisual()
