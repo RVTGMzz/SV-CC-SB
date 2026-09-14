@@ -1,0 +1,76 @@
+name: Cardcha 0696D3-A Gameplay Room Integration
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - tools/alpha28_0696d3a_gameplay_room_integration.py
+      - .github/workflows/cardcha-alpha28-0696d3a-gameplay-room-integration.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D3-A branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Apply D3-A gameplay room integration
+        run: python3 tools/alpha28_0696d3a_gameplay_room_integration.py --apply --validate
+
+      - name: Preserve accepted D2 and D1S assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_1.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_2.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_3.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_overlay_4.png
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
+
+      - name: Validate render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Commit validated D3-A integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs \
+            src/Cardcha/assets/airship_deck.tmx \
+            handoff/AIRSHIP_0696D3A_GAMEPLAY_ROOM_INTEGRATION_VALIDATION.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D3-A gameplay room integration [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d2-window-environment-matrix
+          fi
+
+      - name: Upload D3-A validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D3A-gameplay-room-integration
+          if-no-files-found: error
+          path: handoff/AIRSHIP_0696D3A_GAMEPLAY_ROOM_INTEGRATION_VALIDATION.json
