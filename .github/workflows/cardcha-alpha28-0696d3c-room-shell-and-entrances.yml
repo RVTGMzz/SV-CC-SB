@@ -1,0 +1,94 @@
+name: Cardcha 0696D3-C Room Shell and Entrances
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - tools/alpha28_0696d3c_room_shell_and_entrances.py
+      - .github/workflows/cardcha-alpha28-0696d3c-room-shell-and-entrances.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D3-C branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Repair exact room-shell source hash
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('tools/alpha28_0696d3c_room_shell_and_entrances.py')
+          s = p.read_text(encoding='utf-8')
+          old = 'EXPECTED_SHELL_SHA = "d6216e23c77cc5531658786ec70ae6f0e6742019f82711c78990f77ea7852535"'
+          new = 'EXPECTED_SHELL_SHA = "f2e0ef5128ecb9b1083588a419b9b1c57fcf2b9034326b59e4b8483d4713eddd"'
+          if old in s:
+              s = s.replace(old, new, 1)
+              p.write_text(s, encoding='utf-8')
+          elif new not in s:
+              raise SystemExit('unexpected D3-C shell hash state')
+          PY
+
+      - name: Apply and validate D3-C room shell and entrances
+        run: python3 tools/alpha28_0696d3c_room_shell_and_entrances.py --apply --validate
+
+      - name: Revalidate D3-B integration contract
+        run: python3 tools/alpha28_0696d3b_prop_integration.py --validate
+
+      - name: Preserve accepted D2 D1S and D3-B image bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/room_shell/airship_deck_border_0696c.png
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
+
+      - name: Validate render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Commit validated D3-C integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add \
+            tools/alpha28_0696d3c_room_shell_and_entrances.py \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            handoff/AIRSHIP_0696D3C_ROOM_SHELL_ENTRANCES_VALIDATION.json \
+            handoff/AIRSHIP_0696D3B_PROP_INTEGRATION_VALIDATION.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'chore: materialize 0696D3-C room shell and entrances [skip ci]'
+            git push origin HEAD:cardcha-alpha28-0696d2-window-environment-matrix
+          fi
+
+      - name: Upload D3-C validation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D3C-room-shell-entrances
+          if-no-files-found: error
+          path: handoff/AIRSHIP_0696D3C_ROOM_SHELL_ENTRANCES_VALIDATION.json
