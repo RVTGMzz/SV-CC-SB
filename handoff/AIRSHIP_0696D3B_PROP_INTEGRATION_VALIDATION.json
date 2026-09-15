@@ -1,19 +1,24 @@
 {
-  "phase": "0696D3-B",
+  "phase": "0696D3-B / 0696D3-D corrected contract",
   "status": "PASS",
   "navigationConsole": {
     "path": "src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png",
-    "sourceSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
-    "currentSha256": "c769cc2d5f1ea31ddba7aa57ceb94465cceae9f51bafbe138a71a5579ea6ee70",
+    "approvedReferenceSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+    "currentSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
     "backgroundSeedRgb": [
       245,
       215,
       169
     ],
     "backgroundDistance": 30.0,
-    "edgeBackgroundCandidatesRemaining": 0,
-    "transparentPixels": 3478,
-    "cleanup": null
+    "edgeBackgroundCandidatesPresent": 129,
+    "transparentPixels": 1718,
+    "preservation": {
+      "referenceBackingPreserved": true,
+      "beforeSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+      "afterSha256": "5cbe64fc2f8c9a9f8b34dd6b6c90fd8ad56038248413a6f60df599c797bf0e62",
+      "modifiedPixels": 0
+    }
   },
   "radarCollisionTiles": [
     [
@@ -71,16 +76,17 @@
   ],
   "checks": {
     "navigationConsolePngContract": true,
-    "yellowBeigeEdgeBackgroundRemoved": true,
-    "navigationConsoleHasTransparency": true,
+    "navigationConsoleReferenceBackingPreserved": true,
+    "approvedYellowBeigeBackingPresent": true,
     "upgradeMachinesNormalizedTo96px": true,
     "d3ATravelGatePreserved": true,
     "radarCollisionFootprint": true,
-    "deckD3BProperty": true
+    "deckD3BPropertyCorrected": true
   },
   "scopeDeferred": [
     "room1-border",
     "entrance-arch-x2",
     "window-size-adjustment"
-  ]
+  ],
+  "correction": "0696D3-D freezes the approved yellow/beige radar backing. The previous edge flood-fill cleanup is retired and must not run again."
 }

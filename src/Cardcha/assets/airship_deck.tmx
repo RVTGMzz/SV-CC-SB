@@ -11,7 +11,7 @@
   <property name="CardchaBackDecorPolicy" value="deprecated-removed|do-not-use-for-production-physical-art" />
   <property name="CardchaSourceBlueprint" value="handoff/AIRSHIP_ROOM_BLUEPRINT_0696.json" />
   <property name="CardchaD3AIntegration" value="upgrade-footprints|dedicated-travel-gate|gameplay-first" />
-  <property name="CardchaD3BIntegration" value="radar-background-cleanup|radar-footprint|machine-scale-normalization" />
+  <property name="CardchaD3BIntegration" value="radar-reference-backing-preserved|radar-footprint|machine-scale-normalization" />
   <property name="CardchaRoomShellContract" value="0696C|visible-shell|doorway-x11-12|runtime-void-guard" />
   <property name="CardchaAmbientContract" value="0696C|season-time-weather-matrix" />
  </properties>
