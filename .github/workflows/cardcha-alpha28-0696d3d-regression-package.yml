@@ -1,0 +1,145 @@
+name: Cardcha 0696D3-D Regression and TEST Package
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - tools/alpha28_0696d3d_regression.py
+      - tools/alpha28_0696d3d_package_audit.py
+      - .github/workflows/cardcha-alpha28-0696d3d-regression-package.yml
+
+permissions:
+  contents: read
+
+jobs:
+  regression-package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout D3-D branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup deterministic image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Run read-only D3-D regression
+        run: python3 tools/alpha28_0696d3d_regression.py
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
+
+      - name: Validate render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Prove regression did not mutate approved production inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_morning_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_noon_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_evening_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/window_scene_default_night_clear.png \
+            src/Cardcha/assets/airship_props/set01_redux/window_runtime/observation_window_airship.png \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png \
+            src/Cardcha/assets/airship_props/room_shell/airship_deck_border_0696c.png \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Services/AirshipInteriorStardewRenderer.cs
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha Release
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Prove build kept .70 source contract clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx
+
+      - name: Package D3-D .70 TEST
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='0.3.0-alpha.28.0.4.14.4.5.12.70'
+          ZIP="Cardcha_v${VERSION}_0696D3D_RoomIntegrationRegression_TEST.zip"
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d3d_package_audit.py" \
+            "$ZIP" \
+            --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_PACKAGE_AUDIT.json"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Upload D3-D .70 TEST and validation evidence
+        id: upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D3D-room-integration-regression-test
+          if-no-files-found: error
+          path: |
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3D_RoomIntegrationRegression_TEST.zip
+            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3D_RoomIntegrationRegression_TEST.zip.sha256
+            handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json
+            handoff/AIRSHIP_0696D3D_PACKAGE_AUDIT.json
+
+      - name: Record main artifact identity
+        shell: bash
+        env:
+          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
+          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
+          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          package = root / 'package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3D_RoomIntegrationRegression_TEST.zip'
+          evidence = {
+              'phase': '0696D3-D-ci-evidence',
+              'runId': int(os.environ['GITHUB_RUN_ID']),
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'artifactId': os.environ['ARTIFACT_ID'],
+              'artifactDigest': os.environ['ARTIFACT_DIGEST'],
+              'artifactUrl': os.environ['ARTIFACT_URL'],
+              'package': package.name,
+              'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
+              'regression': 'PASS',
+              'compile': 'PASS',
+              'packageAudit': 'PASS',
+              'runtimeAcceptance': 'PENDING-RON-IN-GAME',
+          }
+          out = root / 'handoff/AIRSHIP_0696D3D_CI_EVIDENCE.json'
+          out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(evidence, indent=2))
+          PY
+
+      - name: Upload D3-D CI identity evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cardcha-alpha28-0696D3D-ci-evidence
+          if-no-files-found: error
+          path: handoff/AIRSHIP_0696D3D_CI_EVIDENCE.json
