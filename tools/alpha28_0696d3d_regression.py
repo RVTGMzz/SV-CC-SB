@@ -109,7 +109,7 @@ def main() -> None:
         state: check_png(WINDOW_ROOT / f"window_scene_default_{state}_clear.png", (160, 80), wanted)
         for state, wanted in D2_EXPECTED.items()
     }
-    d1s = check_png(WINDOW_ROOT / "observation_window_airship.png", (48, 24), D1S_SHA)
+    d1s = check_png(WINDOW_ROOT / "observation_window_airship.png", (15, 9), D1S_SHA)
     radar = check_png(RADAR, (112, 80), RADAR_SHA)
     shell = check_png(SHELL, (160, 16), SHELL_SHA)
     validators = run_current_validators()
