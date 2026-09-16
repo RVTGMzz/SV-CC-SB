@@ -125,7 +125,8 @@ internal static class AirshipAmbientAnimationService
             return DrawLegacyFullOverlay(batch, state.FallbackOverlayPath, propTopLeft, depth: 0.886f);
 
         Rectangle viewport = ScaleViewport(config.ViewportPx, propTopLeft);
-        DrawConsoleLayer(batch, state.RadarBackground, clockMs, config.ViewportPx, viewport, 0.8848f);
+        // 0696D3-E runtime authority: the opaque/yellow radar backing is not part of the console.
+        // Keep only animated glow/sweep/pings over the map-native console frame.
         DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, viewport, 0.8850f);
         DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, viewport, 0.8852f);
         DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, viewport, 0.8854f);
