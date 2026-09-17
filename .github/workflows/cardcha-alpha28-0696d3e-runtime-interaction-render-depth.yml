@@ -16,7 +16,7 @@ on:
       - .github/workflows/cardcha-alpha28-0696d3e-runtime-interaction-render-depth.yml
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate-build-package:
@@ -87,39 +87,29 @@ jobs:
             --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json"
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
-      - name: Upload D3-E .70 TEST and validation evidence
-        id: upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: cardcha-alpha28-0696D3E-runtime-interaction-render-depth-test
-          if-no-files-found: error
-          path: |
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3E_RuntimeInteractionRenderDepthFix_TEST.zip
-            package/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3E_RuntimeInteractionRenderDepthFix_TEST.zip.sha256
-            handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json
-            handoff/AIRSHIP_0696D3E_RUNTIME_INTERACTION_RENDER_DEPTH_VALIDATION.json
-            handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json
-
       - name: Record D3-E CI identity evidence
+        id: evidence
         shell: bash
         env:
-          ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
-          ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
-          ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           ZIP_NAME: ${{ steps.package.outputs.zip }}
         run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TAG="cardcha-0696d3e-test-${SHORT_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
           python3 - <<'PY'
           from pathlib import Path
           import hashlib, json, os
           root = Path(os.environ['GITHUB_WORKSPACE'])
           package = root / 'package' / os.environ['ZIP_NAME']
+          tag = f"cardcha-0696d3e-test-{os.environ['GITHUB_SHA'][:8]}"
           evidence = {
               'phase': '0696D3-E-ci-evidence',
               'runId': int(os.environ['GITHUB_RUN_ID']),
+              'runUrl': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
               'sourceCommit': os.environ['GITHUB_SHA'],
-              'artifactId': os.environ['ARTIFACT_ID'],
-              'artifactDigest': os.environ['ARTIFACT_DIGEST'],
-              'artifactUrl': os.environ['ARTIFACT_URL'],
+              'releaseTag': tag,
+              'releaseMode': 'prerelease',
               'package': package.name,
               'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
               'd3dRegression': 'PASS',
@@ -133,9 +123,51 @@ jobs:
           print(json.dumps(evidence, indent=2))
           PY
 
-      - name: Upload D3-E CI identity evidence
-        uses: actions/upload-artifact@v4
-        with:
-          name: cardcha-alpha28-0696D3E-ci-evidence
-          if-no-files-found: error
-          path: handoff/AIRSHIP_0696D3E_CI_EVIDENCE.json
+      - name: Publish D3-E TEST as GitHub prerelease
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: ${{ steps.package.outputs.zip }}
+          TAG: ${{ steps.evidence.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ZIP_PATH="$GITHUB_WORKSPACE/package/$ZIP_NAME"
+          SHA_PATH="$ZIP_PATH.sha256"
+          NOTES=$(cat <<'EOF'
+          0696D3-E TEST package for Ron runtime retest.
+
+          CI/static status:
+          - D3-D regression: PASS
+          - D3-E runtime interaction/render-depth validator: PASS
+          - Cardcha Release compile: PASS
+          - TEST package audit: PASS
+
+          Runtime acceptance remains PENDING-RON-IN-GAME. Do not treat this prerelease as Runtime PASS until Ron tests it in Stardew Valley and confirms the five D3-E runtime issues.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_RUNTIME_INTERACTION_RENDER_DEPTH_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_CI_EVIDENCE.json" \
+              --clobber
+          else
+            gh release create "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_RUNTIME_INTERACTION_RENDER_DEPTH_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_CI_EVIDENCE.json" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Cardcha 0696D3-E Runtime Interaction Render Depth TEST" \
+              --notes "$NOTES"
+          fi
+          RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)
+          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          echo "D3-E prerelease: $RELEASE_URL"
