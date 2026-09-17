@@ -6,10 +6,10 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0696D2 clear-time Window environment matrix plus existing Console ambient renderer.
-/// The physical Window body remains map-native. Runtime moves one extracted real airship
-/// sprite only; legacy overlay_2..4 window/transition slices are never animated.
-/// D2 draws one approved clear environment by time bucket behind the independent .68 airship sprite.
+/// 0696D3-G transient Window/radar ambience.
+/// Physical Window and console bodies are map-native. Runtime owns only environment/motion slices:
+/// the moving airship, approved Window environment, and radar glow/sweep/pings.
+/// The console frame/body is never replayed as a runtime full-prop overlay.
 /// </summary>
 internal static class AirshipAmbientAnimationService
 {
@@ -121,36 +121,19 @@ internal static class AirshipAmbientAnimationService
         AirshipNavigationConsoleConfig config = manifest.NavigationConsole;
         Vector2 propTopLeft = WorldToScreen(config.WorldAnchor.TileX * 64f, config.WorldAnchor.TileY * 64f);
 
-        // 0696D3-E runtime authority: never resurrect the legacy full console overlay here.
-        // That texture contains the rejected opaque/yellow radar backing. If the ambient
-        // slices are unavailable, keep the map-native console frame clean instead.
+        // 0696D3-G runtime authority: never resurrect a full console body here.
+        // If ambient slices are unavailable, the transparent TMX console remains clean.
         if (!state.AmbientAssetsReady)
             return false;
 
         Rectangle viewport = ScaleViewport(config.ViewportPx, propTopLeft);
-        // 0696D3-E runtime authority: the opaque/yellow radar backing is not part of the console.
-        // Keep only animated glow/sweep/pings over the map-native console frame.
+        // Keep only animated glow/sweep/pings over the map-native transparent console body.
         DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, viewport, 0.8850f);
         DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, viewport, 0.8852f);
         DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, viewport, 0.8854f);
 
-        if (Resolver.AssetExists(config.Frame.Path))
-        {
-            Texture2D? frame = GetTexture(config.Frame.Path);
-            if (frame is not null)
-            {
-                batch.Draw(
-                    frame,
-                    new Rectangle((int)propTopLeft.X, (int)propTopLeft.Y, frame.Width * 4, frame.Height * 4),
-                    null,
-                    Color.White,
-                    0f,
-                    Vector2.Zero,
-                    SpriteEffects.None,
-                    0.8858f
-                );
-            }
-        }
+        // 0696D3-G: console frame/body is authored into TMX using the transparent
+        // navigation_console_body_d3g.png asset. Runtime owns only radar animation.
         return true;
     }
 
