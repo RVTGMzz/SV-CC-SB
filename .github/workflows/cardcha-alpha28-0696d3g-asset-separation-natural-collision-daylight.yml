@@ -35,8 +35,27 @@ jobs:
       - name: Setup deterministic image tooling
         run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
 
-      - name: Run historical D3-D regression baseline
-        run: python3 tools/alpha28_0696d3d_regression.py
+      - name: Run historical D3-D invariants (allow D3-G manifest version bump only)
+        shell: bash
+        run: |
+          set -euo pipefail
+          set +e
+          python3 tools/alpha28_0696d3d_regression.py
+          D3D_EXIT=$?
+          set -e
+          python3 - <<'PY'
+          from pathlib import Path
+          import json
+          report = json.loads(Path("handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json").read_text(encoding="utf-8"))
+          failed = sorted(k for k, ok in report.get("checks", {}).items() if not ok)
+          expected = ["versionManifest70"]
+          if failed != expected:
+              raise SystemExit(f"Historical D3-D invariant drift: expected only {expected}, got {failed}")
+          validators = report.get("validators", {})
+          if not all(v.get("pass") is True for v in validators.values()):
+              raise SystemExit("Historical D3-A/B/C validator invariant failed")
+          print("Historical D3-D invariants PASS; only the intentional .70 -> .71 manifest bump differs.")
+          PY
 
       - name: Run D3-G asset separation natural collision daylight validator
         run: python3 tools/alpha28_0696d3g_asset_separation_natural_collision_daylight.py
@@ -117,7 +136,7 @@ jobs:
               'releaseMode': 'prerelease',
               'package': package.name,
               'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
-              'd3dRegression': 'PASS',
+              'd3dHistoricalInvariants': 'PASS',
               'd3gAssetTmxValidation': 'PASS',
               'compile': 'PASS',
               'packageAudit': 'PASS',
