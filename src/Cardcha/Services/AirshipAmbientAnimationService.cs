@@ -121,8 +121,11 @@ internal static class AirshipAmbientAnimationService
         AirshipNavigationConsoleConfig config = manifest.NavigationConsole;
         Vector2 propTopLeft = WorldToScreen(config.WorldAnchor.TileX * 64f, config.WorldAnchor.TileY * 64f);
 
+        // 0696D3-E runtime authority: never resurrect the legacy full console overlay here.
+        // That texture contains the rejected opaque/yellow radar backing. If the ambient
+        // slices are unavailable, keep the map-native console frame clean instead.
         if (!state.AmbientAssetsReady)
-            return DrawLegacyFullOverlay(batch, state.FallbackOverlayPath, propTopLeft, depth: 0.886f);
+            return false;
 
         Rectangle viewport = ScaleViewport(config.ViewportPx, propTopLeft);
         // 0696D3-E runtime authority: the opaque/yellow radar backing is not part of the console.
