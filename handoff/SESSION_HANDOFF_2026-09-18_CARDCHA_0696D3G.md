@@ -1,142 +1,115 @@
 # SESSION HANDOFF — 2026-09-18 — CARDCHA 0696D3-G
 
-Repository: `ronvotri/Cardcha-Shardbound`
+Repository: `ronvotri/Cardcha-Shardbound`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
 ## Resume authority
 
-Read in this order:
+Read first:
 
 1. `handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md`
 2. `handoff/LATEST_CARDCHA_HANDOFF.md`
-3. `handoff/AIRSHIP_0696D3F_PHYSICAL_BLOCKING_TRAVEL_DEPTH_RECOVERY.md`
-4. `handoff/AIRSHIP_0696D3E_RUNTIME_INTERACTION_RENDER_DEPTH_FIX.md`
+3. this file
 
-Newest authority is Ron's 2026-09-18 in-game D3-F runtime feedback. The six screenshots and the observations captured in the D3-G authority document override older static validators or visual assumptions when they conflict.
+Newest runtime authority is Ron's 2026-09-18 D3-F in-game feedback. D3-G has now been implemented and packaged, but has **not yet been runtime accepted**.
 
 ## Current status
 
-- D3-F CI/static/build/package: **PASS**.
-- D3-F in-game runtime acceptance: **FAIL**.
-- Current phase: **0696D3-G Asset Separation + Natural Collision + Daylight Recovery**.
-- Runtime status: **RETEST REQUIRED after a new D3-G package exists**.
-- Do not call Runtime PASS until Ron tests and explicitly confirms.
+- D3-F: CI PASS / Runtime FAIL.
+- D3-G: source + asset + TMX + validator + Release compile + package audit + prerelease **PASS**.
+- D3-G runtime: **RETEST REQUIRED**.
+- Never call Runtime PASS until Ron tests the exact D3-G `.71` package and explicitly confirms.
 
-## Proven D3-F build provenance
+## What D3-G changed
 
-Workflow run: `35247550568`
-Job: `105291478417`
-Workflow/package source commit: `76471e8de7160449d882dfc416b15c34d4db61ea`
-Source-fix commit: `d3c35cb595ef32f3f9970f747c3bfd4a84fe2a79`
-Prerelease tag: `cardcha-0696d3f-test-76471e8d`
-Release ID: `390886558`
-Package asset ID: `570641822`
-Package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.70_0696D3F_PhysicalBlockingTravelDepthRecovery_TEST.zip`
-Package SHA256: `7811763b5a8263f13dc5cb11d9dad6657223cbb7529a0e4c423591ed11f998f4`
+- Removed all forced local-Farmer position rewind/pinning collision logic.
+- Replaced Room 1 / Room 2 owned collision with native TMX `5400` footprints.
+- Added conservative Forest-gate collision through Stardew's collision query, solid segments only, center passage open.
+- Added real production asset `navigation_console_body_d3g.png` with verified alpha.
+- Moved all console body tiles to `Buildings2`; zero console body tiles remain on `Front2`.
+- Moved all Observation Window physical-shell tiles to `Back2`.
+- Runtime console now draws radar animation only, not a full console body/frame.
+- Removed the left signal lamp that intersected the interior travel gate.
+- Added native `AmbientLight=70 70 70` and `AmbientNightLight=145 135 115` bridge lighting.
+- Preserved four upgrade stations plus `TRAVEL`, `BOARD AIRSHIP`, and radar travel wiring.
+- Frozen historical D3-F workflow to manual-only.
 
-## What D3-F improved and must not regress
+## Canonical D3-G validation/build provenance
 
-- Four upgrade stations are visible.
-- `UPGRADE` affordances exist.
-- `TRAVEL` affordance exists.
-- Travel/radar handler wiring exists.
-- D3-E runtime `RadarBackground` draw is already removed.
-- D3-E stale workflow was frozen manual-only so it does not generate false-red CI against D3-F/D3-G architecture.
+Final successful run: `35287327146`  
+Job: `105422447116`  
+Package/source commit: `cd056a680ba50ee5d03b0f7d200537eb76e7f276`
 
-## What D3-F failed at runtime
+Successful gates:
 
-### Room 1 collision
+- D3-D historical gameplay/asset invariants: PASS, excluding only intentional `.70 -> .71` version identity
+- D3-G asset/TMX validator: PASS
+- no-legacy Window reuse guard: PASS
+- render-depth contract: PASS
+- Release compile: PASS
+- package audit: PASS
+- prerelease publish: PASS
 
-The runtime physical blocker/recovery implementation creates a visually broken movement state where the moving shadow/ghost-like component can continue while the Farmer body appears pinned. This feels unlike native Stardew collision.
+## Package for Ron
 
-Do not preserve this approach. Remove forced player-position correction from production collision handling and author conservative TMX collision footprints instead.
+Tag: `cardcha-0696d3g-test-cd056a68`  
+Release ID: `391120631`  
+Asset ID: `571374818`
 
-### Room 2 depth
+Package:
 
-The two largest props still blanket-overlay the Farmer:
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.71_0696D3G_AssetSeparationNaturalCollisionDaylightRecovery_TEST.zip`
 
-- the large Observation Window / upper room composition;
-- the central navigation-console / helm workstation.
+SHA256:
 
-Do not fix them by replaying or suppressing the whole room render pass around Farmer drawing. Re-author their actual map-layer ownership and, where necessary, split assets into body/back/front components.
+`05f367c54359223c882b2123cb4529f9eb04dc841e6cb5f099758504018437d8`
 
-### Console background
+Release:
 
-The central console still has a large opaque light beige/yellow rectangle. This remains after D3-E removed `state.RadarBackground` and after D3-F attempted runtime map-tile clearing.
+`https://github.com/ronvotri/Cardcha-Shardbound/releases/tag/cardcha-0696d3g-test-cd056a68`
 
-This proves the remaining background belongs to the production asset/map composition, not the runtime radar-background layer.
+Direct package:
 
-D3-G must inspect and clean the actual console sprite alpha, then use the cleaned asset in TMX/map layering. Do not add another runtime mask.
+`https://github.com/ronvotri/Cardcha-Shardbound/releases/download/cardcha-0696d3g-test-cd056a68/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.71_0696D3G_AssetSeparationNaturalCollisionDaylightRecovery_TEST.zip`
 
-### Gate/lamp composition
+## Runtime retest priority
 
-A signal lamp/column visually passes through the travel gate. Move/remove/re-layer it so the gate reads cleanly.
+Ron should verify, in this order:
 
-### Daylight
+1. Room 1 collision no longer creates ghost/body desync.
+2. Console beige/yellow rectangle is gone.
+3. Observation Window and console no longer blanket-cover the Farmer.
+4. Four upgrade stations remain visible/interactable.
+5. TRAVEL and radar travel remain usable.
+6. Lamp no longer intersects travel gate.
+7. Daytime bridge is clearly brighter than night.
+8. Forest gate blocks solid pieces but leaves center passage open.
 
-The Airship bridge remains very dark during daytime. Fix room/location lighting itself, not just the window scene.
+## Important technical guards
 
-### Outdoor gate collision
+Do not reintroduce:
 
-The player can still walk through obvious solid wood/post sections. Add selective segmented collision to solid pieces while keeping the central passage usable. Do not use one giant rectangular blocker.
+- `player.Position = ...` as collision recovery;
+- `LastSafePlayerPosition`;
+- full console runtime frame/body replay;
+- console body on `Front2`;
+- `navigation_console_base.png` as the deck TMX console source;
+- full `DrawDeckMarkers` replay around Farmer;
+- one giant Forest-gate rectangle.
 
-## High-priority files to inspect next
+Preserve:
 
-- `src/Cardcha/Services/AirshipFoundationService.cs`
-- `src/Cardcha/Services/AirshipInteriorStardewRenderer.cs`
-- `src/Cardcha/Services/AirshipAmbientAnimationService.cs`
-- `src/Cardcha/Patches/AirshipGateDepthPatch.cs`
-- `src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs`
-- `src/Cardcha/assets/airship_deck.tmx`
-- `src/Cardcha/assets/sky_dock_interior.tmx`
-- `src/Cardcha/assets/airship_props/set01_redux/navigation_console_base.png`
-- `src/Cardcha/assets/airship_props/set01_redux/console_runtime/navigation_console_frame.png`
-- `src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json`
-- `src/Cardcha/assets/airship_props/set01_redux/boarding_gate_arch.png`
+- four canonical upgrade station sockets `(4,8) (19,8) (7,11) (16,11)`;
+- visible `UPGRADE` and `TRAVEL`;
+- travel/radar handler wiring;
+- center walking lanes.
 
-## Technical facts already established
+## If Ron reports a runtime failure
 
-- Deck map is 24x14.
-- Sky Dock interior is 30x18.
-- Navigation console base occupies a 7x5 TMX footprint.
-- `AirshipAmbientAnimationService.DrawNavigationConsole` currently draws only radar glow/sweep/pings plus frame, not `state.RadarBackground`.
-- Therefore the remaining beige rectangle must be traced to map/base sprite content or another flattened production layer.
-- Cardcha already has a native blocker tileset contract: `CardchaCollision0690` / tile 5400 / `Passable=F`.
-- D3-G should prefer this map-native collision model over runtime forced Farmer repositioning.
-- D3-F upgrade stations are now visible and should stay that way.
+Patch incrementally from D3-G. Do not restart D2 and do not redo D3-A/B/C/D/E/F.
 
-## D3-G implementation sequence
+Runtime screenshots/gameplay observations override static assumptions when they conflict.
 
-1. Inspect actual PNG alpha/background of console source assets.
-2. Materialize a real transparent console asset, preserving only intended machine pixels.
-3. Re-author `airship_deck.tmx` console/Observation Window layer ownership so only genuinely foreground pixels can occlude Farmer.
-4. Remove coarse runtime physical-blocker/player-position correction added by D3-F.
-5. Add conservative TMX-native collision footprints for Room 1/Room 2 solid bases.
-6. Add segmented outdoor gate collision for solid posts/wood, central lane open.
-7. Fix interior travel gate/lamp overlap.
-8. Trace and fix daytime bridge lighting/tint.
-9. Verify four upgrade stations and travel/radar interaction are preserved.
-10. Add D3-G static validator and package audit that explicitly reject stale D3-E full overlay ownership and stale D3-F forced-position collision.
-11. Build on GitHub-hosted Ubuntu and publish a D3-G TEST prerelease while Actions artifact quota remains full.
-12. Ask Ron for in-game retest. Only then may Runtime PASS be considered.
+## Copy-paste resume prompt
 
-## CI constraints
-
-- Use GitHub-hosted `ubuntu-latest`.
-- Do not switch to self-hosted runner unless Ron explicitly asks later.
-- Actions artifact storage quota was full, so continue publishing TEST ZIPs via GitHub prerelease unless the quota situation is deliberately changed.
-- D3-F workflow is historical once D3-G workflow exists; freeze it manual-only if its path triggers start producing stale red status, following the same pattern already used for D3-E.
-
-## Do not do
-
-- Do not restart 0696D2.
-- Do not redo D3-A/B/C/D/E/F.
-- Do not call Runtime PASS from static CI/build/package evidence.
-- Do not add another runtime beige-background mask.
-- Do not replay the entire `DrawDeckMarkers` pass around Farmer drawing.
-- Do not keep the D3-F forced player-position blocker as the collision solution.
-- Do not remove the now-visible four upgrade stations or travel affordance while fixing visuals.
-
-## Copy-paste resume prompt for the next chat
-
-`Tiếp tục Cardcha từ 0696D3-G trên branch cardcha-alpha28-0696d2-window-environment-matrix. Đọc handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md, handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3G.md và handoff/LATEST_CARDCHA_HANDOFF.md. Authority mới nhất là runtime feedback của Ron sau D3-F: Room 1 blocker gây hiệu ứng bóng/hồn đi nhưng xác Farmer bị giữ lại; hai prop lớn Room 2 vẫn đè player; navigation console vẫn còn nền beige/vàng và phải tách nền asset thật; cột đèn xuyên cổng; phòng ban ngày vẫn quá tối; cổng ngoài cần collision từng khúc ở phần gỗ/trụ nhưng giữ lối giữa. D3-F CI PASS nhưng Runtime FAIL. Preserve 4 upgrade stations + TRAVEL. Làm D3-G thành patch thật + asset/TMX thật + validator/CI/package mới. Không restart D2, không redo D3-A/B/C/D/E/F, không dùng lại forced player-position blocker, và chỉ gọi Runtime PASS khi Ron test package D3-G rồi xác nhận.`
+`Tiếp tục Cardcha từ 0696D3-G package .71 trên branch cardcha-alpha28-0696d2-window-environment-matrix. Đọc handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md, handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3G.md và handoff/LATEST_CARDCHA_HANDOFF.md. D3-G source/asset/TMX/validator/CI/package đều PASS ở run 35287327146, source commit cd056a680ba50ee5d03b0f7d200537eb76e7f276, package .71 tag cardcha-0696d3g-test-cd056a68. Runtime vẫn RETEST REQUIRED. Preserve 4 upgrade stations + TRAVEL. Không dùng lại forced player-position blocker, console Front2 blanket, beige base hoặc full DrawDeckMarkers replay. Chỉ gọi Runtime PASS khi Ron test đúng package D3-G và xác nhận.`
