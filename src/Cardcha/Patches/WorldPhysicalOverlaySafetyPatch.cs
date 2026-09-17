@@ -15,9 +15,10 @@ namespace Cardcha.Patches;
 /// can restore the completed world sort. Until each visual is migrated into TMX/Furniture/native
 /// world ownership, suppressing the fake physical overlay is safer than letting it cover actors.
 ///
-/// 0696D3-E retires the DrawUpgradeStations suppression. AirshipGateDepthPatch now owns the
-/// entire DrawDeckMarkers pass and replays it before the local Farmer, so station bodies can be
-/// visible again without becoming a post-world overlay.
+/// 0696D3-G keeps the three known unsafe legacy physical painters suppressed. The bridge Window
+/// shell and transparent console body are now TMX-owned; AirshipGateDepthPatch owns only a narrow
+/// pre-Farmer transient/presentation pass for Window/radar ambience, upgrade stations and TRAVEL.
+/// It never replays the full DrawDeckMarkers physical room pass.
 /// </summary>
 internal static class WorldPhysicalOverlaySafetyPatch
 {
@@ -50,7 +51,7 @@ internal static class WorldPhysicalOverlaySafetyPatch
         );
 
         monitor.Log(
-            $"0696D3-E world-depth safety active: suppressed {patched}/3 unsafe post-world renderer(s). Deck upgrade stations are now owned by the pre-Farmer deck pass.",
+            $"0696D3-G world-depth safety active: suppressed {patched}/3 unsafe legacy physical renderer(s). Bridge shell/console depth is TMX-owned; the narrow pre-Farmer pass preserves stations/TRAVEL.",
             patched == 3 ? LogLevel.Info : LogLevel.Warn
         );
     }
@@ -66,7 +67,7 @@ internal static class WorldPhysicalOverlaySafetyPatch
         if (target is null)
         {
             monitor.Log(
-                $"0696D3-E depth safety couldn't resolve {owner.Name}.{methodName}; refusing to invent a fallback post-world renderer.",
+                $"0696D3-G depth safety couldn't resolve {owner.Name}.{methodName}; refusing to invent a fallback post-world renderer.",
                 LogLevel.Error
             );
             return 0;
