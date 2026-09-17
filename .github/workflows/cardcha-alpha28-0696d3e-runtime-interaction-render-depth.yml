@@ -20,7 +20,7 @@ permissions:
 
 jobs:
   validate-build-package:
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
@@ -29,77 +29,63 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-
-      - name: Setup .NET 6 SDK
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '6.0.x'
-
       - name: Setup deterministic image tooling
-        shell: pwsh
-        run: python -m pip install --disable-pip-version-check Pillow==11.3.0
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
 
       - name: Run historical D3-D regression baseline
-        shell: pwsh
-        run: python tools/alpha28_0696d3d_regression.py
+        run: python3 tools/alpha28_0696d3d_regression.py
 
       - name: Run D3-E runtime interaction and render-depth validator
-        shell: pwsh
-        run: python tools/alpha28_0696d3e_runtime_interaction_render_depth.py
+        run: python3 tools/alpha28_0696d3e_runtime_interaction_render_depth.py
 
       - name: Validate no legacy Window overlay reuse
-        shell: pwsh
-        run: python tools/validate_0696d2_no_legacy_overlay_reuse.py
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
 
       - name: Validate render-depth contract
-        shell: pwsh
-        run: python tools/validate_render_depth_contract.py
+        run: python3 tools/validate_render_depth_contract.py
 
       - name: Prove validators did not mutate production inputs
-        shell: pwsh
+        shell: bash
         run: |
-          git diff --exit-code HEAD -- src/Cardcha/assets/airship_deck.tmx src/Cardcha/assets/sky_dock_interior.tmx src/Cardcha/Services/AirshipFoundationService.cs src/Cardcha/Services/AirshipAmbientAnimationService.cs src/Cardcha/Patches/AirshipGateDepthPatch.cs src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Patches/AirshipGateDepthPatch.cs \
+            src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
 
       - name: Setup SMAPI build environment
         uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
 
       - name: Compile Cardcha Release
-        shell: pwsh
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
 
       - name: Package D3-E .70 TEST
         id: package
-        shell: pwsh
+        shell: bash
         run: |
-          $ErrorActionPreference = 'Stop'
-          $Version = '0.3.0-alpha.28.0.4.14.4.5.12.70'
-          $ZipName = "Cardcha_v${Version}_0696D3E_RuntimeInteractionRenderDepthFix_TEST.zip"
-          $PackageRoot = Join-Path $env:GITHUB_WORKSPACE 'package'
-          $Out = Join-Path $PackageRoot 'Cardcha'
-          $ZipPath = Join-Path $PackageRoot $ZipName
-
-          if (Test-Path $PackageRoot) { Remove-Item $PackageRoot -Recurse -Force }
-          New-Item -ItemType Directory -Path $Out -Force | Out-Null
-
-          Copy-Item 'src/Cardcha/manifest.json' $Out
-          if (Test-Path 'src/Cardcha/config.json') { Copy-Item 'src/Cardcha/config.json' $Out }
-          Copy-Item 'src/Cardcha/assets' $Out -Recurse
-          Copy-Item 'src/Cardcha/i18n' $Out -Recurse
-
-          $Dll = Get-ChildItem 'src/Cardcha/bin/Release' -Recurse -Filter 'Cardcha.dll' | Select-Object -First 1
-          if ($null -eq $Dll -or $Dll.Length -le 0) { throw 'Cardcha.dll was not produced.' }
-          Copy-Item $Dll.FullName (Join-Path $Out 'Cardcha.dll')
-
-          Compress-Archive -Path $Out -DestinationPath $ZipPath -CompressionLevel Optimal
-          $Sha = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-          "$Sha  $ZipName" | Set-Content -Encoding ascii "$ZipPath.sha256"
-
-          python tools/alpha28_0696d3e_package_audit.py $ZipPath --report handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json
-          "zip=$ZipName" | Add-Content -Path $env:GITHUB_OUTPUT
+          set -euo pipefail
+          VERSION='0.3.0-alpha.28.0.4.14.4.5.12.70'
+          ZIP="Cardcha_v${VERSION}_0696D3E_RuntimeInteractionRenderDepthFix_TEST.zip"
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d3e_package_audit.py" \
+            "$ZIP" \
+            --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
       - name: Upload D3-E .70 TEST and validation evidence
         id: upload
@@ -115,33 +101,37 @@ jobs:
             handoff/AIRSHIP_0696D3E_PACKAGE_AUDIT.json
 
       - name: Record D3-E CI identity evidence
-        shell: pwsh
+        shell: bash
         env:
           ARTIFACT_ID: ${{ steps.upload.outputs.artifact-id }}
           ARTIFACT_DIGEST: ${{ steps.upload.outputs.artifact-digest }}
           ARTIFACT_URL: ${{ steps.upload.outputs.artifact-url }}
           ZIP_NAME: ${{ steps.package.outputs.zip }}
         run: |
-          $ErrorActionPreference = 'Stop'
-          $ZipPath = Join-Path $env:GITHUB_WORKSPACE (Join-Path 'package' $env:ZIP_NAME)
-          $PackageSha = (Get-FileHash $ZipPath -Algorithm SHA256).Hash.ToLowerInvariant()
-          $Evidence = [ordered]@{
-            phase = '0696D3-E-ci-evidence'
-            runId = [int64]$env:GITHUB_RUN_ID
-            sourceCommit = $env:GITHUB_SHA
-            artifactId = $env:ARTIFACT_ID
-            artifactDigest = $env:ARTIFACT_DIGEST
-            artifactUrl = $env:ARTIFACT_URL
-            package = $env:ZIP_NAME
-            packageSha256 = $PackageSha
-            d3dRegression = 'PASS'
-            d3eStaticValidation = 'PASS'
-            compile = 'PASS'
-            packageAudit = 'PASS'
-            runtimeAcceptance = 'PENDING-RON-IN-GAME'
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          package = root / 'package' / os.environ['ZIP_NAME']
+          evidence = {
+              'phase': '0696D3-E-ci-evidence',
+              'runId': int(os.environ['GITHUB_RUN_ID']),
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'artifactId': os.environ['ARTIFACT_ID'],
+              'artifactDigest': os.environ['ARTIFACT_DIGEST'],
+              'artifactUrl': os.environ['ARTIFACT_URL'],
+              'package': package.name,
+              'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
+              'd3dRegression': 'PASS',
+              'd3eStaticValidation': 'PASS',
+              'compile': 'PASS',
+              'packageAudit': 'PASS',
+              'runtimeAcceptance': 'PENDING-RON-IN-GAME',
           }
-          $Evidence | ConvertTo-Json -Depth 5 | Set-Content -Encoding utf8 'handoff/AIRSHIP_0696D3E_CI_EVIDENCE.json'
-          $Evidence | ConvertTo-Json -Depth 5
+          out = root / 'handoff/AIRSHIP_0696D3E_CI_EVIDENCE.json'
+          out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(evidence, indent=2))
+          PY
 
       - name: Upload D3-E CI identity evidence
         uses: actions/upload-artifact@v4
