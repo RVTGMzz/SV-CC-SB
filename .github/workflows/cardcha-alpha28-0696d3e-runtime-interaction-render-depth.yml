@@ -1,19 +1,10 @@
 name: Cardcha 0696D3-E Runtime Interaction Render Depth TEST
 
+# Historical D3-E workflow. D3-F superseded its runtime/depth architecture after Ron's
+# 2026-09-17 in-game screenshot feedback. Keep this manual-only for checkpoint archaeology;
+# future branch pushes must be validated by the D3-F workflow instead.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
-      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/ModEntry.cs
-      - tools/alpha28_0696d3e_runtime_interaction_render_depth.py
-      - tools/alpha28_0696d3e_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3e-runtime-interaction-render-depth.yml
 
 permissions:
   contents: write
@@ -135,15 +126,9 @@ jobs:
           ZIP_PATH="$GITHUB_WORKSPACE/package/$ZIP_NAME"
           SHA_PATH="$ZIP_PATH.sha256"
           NOTES=$(cat <<'EOF'
-          0696D3-E TEST package for Ron runtime retest.
+          0696D3-E historical TEST package.
 
-          CI/static status:
-          - D3-D regression: PASS
-          - D3-E runtime interaction/render-depth validator: PASS
-          - Cardcha Release compile: PASS
-          - TEST package audit: PASS
-
-          Runtime acceptance remains PENDING-RON-IN-GAME. Do not treat this prerelease as Runtime PASS until Ron tests it in Stardew Valley and confirms the five D3-E runtime issues.
+          D3-E is superseded by 0696D3-F after Ron's 2026-09-17 runtime screenshots. This workflow is manual-only and must not be used as current runtime acceptance authority.
           EOF
           )
           if gh release view "$TAG" >/dev/null 2>&1; then
@@ -170,4 +155,4 @@ jobs:
           fi
           RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)
           echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
-          echo "D3-E prerelease: $RELEASE_URL"
+          echo "D3-E historical prerelease: $RELEASE_URL"
