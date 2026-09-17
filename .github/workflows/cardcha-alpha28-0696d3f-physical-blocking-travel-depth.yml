@@ -1,20 +1,9 @@
 name: Cardcha 0696D3-F Physical Blocking Travel Depth TEST
 
+# Historical D3-F CI. D3-G intentionally removes the forced-position contract this validator expects.
+# Keep manual-only so superseding D3-G commits can't create stale false-red push checks.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
-      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/assets/airship_deck.tmx
-      - src/Cardcha/assets/sky_dock_interior.tmx
-      - tools/alpha28_0696d3f_physical_blocking_travel_depth.py
-      - tools/alpha28_0696d3f_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3f-physical-blocking-travel-depth.yml
 
 permissions:
   contents: write
