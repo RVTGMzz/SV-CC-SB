@@ -9,19 +9,18 @@ using System.Reflection;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// 0696D3-F physical blocking, travel affordance and deck-depth recovery.
+/// 0696D3-G asset separation, native collision and bridge-depth recovery.
 ///
-/// Runtime authority is Ron's 2026-09-17 in-game screenshots:
-/// - Forest/Sky Dock props need real no-enter footprints so the farmer cannot stand inside art.
-/// - The bridge console and floor-2 machines must not behave like one blanket floating overlay.
-/// - The four upgrade stations must always remain visible.
-/// - Boarding/travel must have an obvious visible pad, while the radar remains an alternate travel control.
-/// - The rejected yellow/static navigation-console base must not survive in the live deck map.
+/// Runtime authority is Ron's 2026-09-18 D3-G retest:
+/// - never correct Farmer.Position to fake collision;
+/// - Room 1 / Room 2 physical footprints belong to native map collision wherever possible;
+/// - the Forest gate uses the game's collision query for segmented solid posts/wood only;
+/// - the map owns the transparent console body and observation-window shell depth;
+/// - four upgrade stations and the visible TRAVEL affordance remain preserved.
 ///
-/// D3-F therefore does NOT replay the legacy DrawDeckMarkers pass. It owns a narrow pre-Farmer
-/// presentation pass containing only ambient Window/radar slices, the dedicated travel gate/pad,
-/// and four explicit upgrade stations. Physical footprints are guarded before the local Farmer is
-/// rendered, so the player cannot visually enter large props even when their source art spans many tiles.
+/// This patch now owns only the narrow pre-Farmer transient/presentation pass plus interaction
+/// normalization and the Forest gate's native collision answer. It never teleports, pins, or
+/// rewinds the Farmer as a collision response.
 /// </summary>
 internal static class AirshipGateDepthPatch
 {
@@ -35,16 +34,10 @@ internal static class AirshipGateDepthPatch
 
     private static AirshipFoundationService? Service;
     private static MethodInfo? DeckMarkersMethod;
-    private static GameLocation? PreparedDeckLocation;
-
     private static Texture2D? UpgradeAtlas;
     private static bool UpgradeAtlasLoadFailed;
     private static Texture2D? TravelGateTexture;
     private static bool TravelGateLoadFailed;
-
-    private static string LastSafeLocationName = string.Empty;
-    private static Vector2 LastSafePlayerPosition;
-    private static bool HasLastSafePlayerPosition;
 
     internal static void Apply(Harmony harmony, AirshipFoundationService service, IMonitor monitor)
     {
@@ -54,7 +47,7 @@ internal static class AirshipGateDepthPatch
         if (farmerDraw is null)
         {
             monitor.Log(
-                "0696D3-F couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
+                "0696D3-G couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
                 LogLevel.Error
             );
         }
@@ -88,7 +81,7 @@ internal static class AirshipGateDepthPatch
         if (DeckMarkersMethod is null)
         {
             monitor.Log(
-                "0696D3-F couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
+                "0696D3-G couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
                 LogLevel.Error
             );
         }
@@ -100,11 +93,43 @@ internal static class AirshipGateDepthPatch
             );
         }
 
+
+        MethodInfo? collisionCheck = AccessTools.Method(
+            typeof(GameLocation),
+            "isCollidingPosition",
+            new[]
+            {
+                typeof(Rectangle),
+                typeof(xTile.Dimensions.Rectangle),
+                typeof(bool),
+                typeof(int),
+                typeof(bool),
+                typeof(Character),
+                typeof(bool),
+                typeof(bool),
+                typeof(bool),
+            }
+        );
+        if (collisionCheck is null)
+        {
+            monitor.Log(
+                "0696D3-G couldn't resolve GameLocation.isCollidingPosition; Forest gate segmented collision was not installed.",
+                LogLevel.Error
+            );
+        }
+        else
+        {
+            harmony.Patch(
+                collisionCheck,
+                postfix: new HarmonyMethod(typeof(AirshipGateDepthPatch), nameof(AfterCollisionCheck))
+            );
+        }
+
         MethodInfo? getActionTile = AccessTools.DeclaredMethod(typeof(AirshipFoundationService), "GetActionTile", Type.EmptyTypes);
         if (getActionTile is null)
         {
             monitor.Log(
-                "0696D3-F couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
+                "0696D3-G couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
                 LogLevel.Error
             );
         }
@@ -117,7 +142,7 @@ internal static class AirshipGateDepthPatch
         }
 
         monitor.Log(
-            "0696D3-F active: legacy deck overlay disabled; physical no-enter footprints, explicit upgrade stations and visible travel pads are authoritative.",
+            "0696D3-G active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
             LogLevel.Info
         );
     }
@@ -131,16 +156,13 @@ internal static class AirshipGateDepthPatch
         GameLocation? location = Game1.currentLocation;
         if (location is not null)
         {
-            EnforceD3FPhysicalFootprints(__instance, location, service);
-
             if (location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             {
-                PrepareD3FDeckMap(location);
-                DrawD3FDeckPass(b);
+                DrawD3GDeckPass(b);
             }
             else if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
             {
-                DrawD3FBoardingPad(b, new Point(23, 8), "BOARD AIRSHIP");
+                DrawD3GBoardingPad(b, new Point(23, 8), "BOARD AIRSHIP");
             }
         }
 
@@ -164,50 +186,14 @@ internal static class AirshipGateDepthPatch
     private static bool SuppressLegacyDeckMarkers()
         => false;
 
-    /// <summary>
-    /// Removes only the 7x5 map-native navigation-console base. That base contains the rejected
-    /// yellow/static backing. The transparent runtime frame + sweep/pings/glow own the live console.
-    /// </summary>
-    private static void PrepareD3FDeckMap(GameLocation deck)
-    {
-        if (ReferenceEquals(PreparedDeckLocation, deck))
-            return;
-
-        PreparedDeckLocation = deck;
-        try
-        {
-            var layer = deck.Map?.GetLayer("Buildings2");
-            if (layer is null)
-                return;
-
-            for (int y = 5; y <= 9; y++)
-            {
-                for (int x = 9; x <= 15; x++)
-                {
-                    if (x >= 0 && y >= 0 && x < layer.LayerWidth && y < layer.LayerHeight)
-                        layer.Tiles[x, y] = null;
-                }
-            }
-
-            ModEntry.StaticMonitor?.Log(
-                "0696D3-F removed the live 7x5 yellow navigation-console base; transparent runtime frame is authoritative.",
-                LogLevel.Trace
-            );
-        }
-        catch (Exception ex)
-        {
-            ModEntry.StaticMonitor?.Log($"0696D3-F console-base cleanup failed: {ex.Message}", LogLevel.Warn);
-        }
-    }
-
-    private static void DrawD3FDeckPass(SpriteBatch batch)
+    private static void DrawD3GDeckPass(SpriteBatch batch)
     {
         AirshipAmbientAnimationService.DrawDeckAmbient(batch);
-        DrawD3FTravelGate(batch);
-        DrawD3FUpgradeStations(batch);
+        DrawD3GTravelGate(batch);
+        DrawD3GUpgradeStations(batch);
     }
 
-    private static void DrawD3FTravelGate(SpriteBatch batch)
+    private static void DrawD3GTravelGate(SpriteBatch batch)
     {
         Point tile = new(4, 5);
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
@@ -220,10 +206,10 @@ internal static class AirshipGateDepthPatch
             batch.Draw(gate, dst, Color.White);
         }
 
-        DrawD3FBoardingPad(batch, tile, "TRAVEL");
+        DrawD3GBoardingPad(batch, tile, "TRAVEL");
     }
 
-    private static void DrawD3FBoardingPad(SpriteBatch batch, Point tile, string label)
+    private static void DrawD3GBoardingPad(SpriteBatch batch, Point tile, string label)
     {
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
         float pulse = 0.72f + 0.12f * MathF.Sin(Environment.TickCount64 / 180f);
@@ -240,7 +226,7 @@ internal static class AirshipGateDepthPatch
         batch.DrawString(Game1.smallFont, label, text, Color.White);
     }
 
-    private static void DrawD3FUpgradeStations(SpriteBatch batch)
+    private static void DrawD3GUpgradeStations(SpriteBatch batch)
     {
         Texture2D? atlas = GetUpgradeAtlas();
         int[] levels = ResolveUpgradeLevels();
@@ -327,7 +313,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             UpgradeAtlasLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-F upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-G upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -347,149 +333,64 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             TravelGateLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-F travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-G travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
 
-    /// <summary>
-    /// D3-F no-enter guard. This intentionally changes only the local Farmer position, never the
-    /// base Forest map, so other map mods keep ownership of their tiles. The last valid position is
-    /// restored before draw whenever movement enters a Cardcha physical footprint.
-    /// </summary>
-    private static void EnforceD3FPhysicalFootprints(Farmer player, GameLocation location, AirshipFoundationService service)
+    private static void AfterCollisionCheck(
+        GameLocation __instance,
+        Rectangle position,
+        bool isFarmer,
+        Character? character,
+        ref bool __result)
     {
-        List<Rectangle> blocked = BuildD3FBlockedRects(location, service);
-        string locationName = location.NameOrUniqueName;
-        if (blocked.Count == 0)
+        AirshipFoundationService? service = Service;
+        if (__result
+            || !isFarmer
+            || service is null
+            || !ReferenceEquals(character, Game1.player)
+            || !__instance.NameOrUniqueName.Equals(ForestLocationName, StringComparison.OrdinalIgnoreCase)
+            || !service.CanDrawForestGateForLocalPlayer())
         {
-            LastSafeLocationName = locationName;
-            LastSafePlayerPosition = player.Position;
-            HasLastSafePlayerPosition = true;
             return;
         }
 
-        Rectangle bounds = player.GetBoundingBox();
-        bool inside = blocked.Any(rect => rect.Intersects(bounds));
-        bool sameLocation = string.Equals(LastSafeLocationName, locationName, StringComparison.OrdinalIgnoreCase);
-
-        if (!sameLocation)
-        {
-            LastSafeLocationName = locationName;
-            HasLastSafePlayerPosition = false;
-        }
-
-        if (!inside)
-        {
-            LastSafePlayerPosition = player.Position;
-            HasLastSafePlayerPosition = true;
+        Point? anchor = TryResolveForestGateAnchor();
+        if (anchor is not Point gate)
             return;
-        }
 
-        if (HasLastSafePlayerPosition)
+        foreach (Rectangle solid in BuildForestGateSolidSegments(gate))
         {
-            player.Position = LastSafePlayerPosition;
-            player.Halt();
+            if (!solid.Intersects(position))
+                continue;
+            __result = true;
             return;
-        }
-
-        Point origin = player.TilePoint;
-        for (int radius = 1; radius <= 5; radius++)
-        {
-            for (int y = origin.Y - radius; y <= origin.Y + radius; y++)
-            {
-                for (int x = origin.X - radius; x <= origin.X + radius; x++)
-                {
-                    if (Math.Abs(x - origin.X) != radius && Math.Abs(y - origin.Y) != radius)
-                        continue;
-                    if (x < 0 || y < 0)
-                        continue;
-
-                    Rectangle candidate = new(x * 64 + 10, y * 64 + 30, 44, 28);
-                    if (blocked.Any(rect => rect.Intersects(candidate)))
-                        continue;
-                    try
-                    {
-                        if (location.IsTileBlockedBy(new Vector2(x, y)))
-                            continue;
-                    }
-                    catch
-                    {
-                        continue;
-                    }
-
-                    player.Position = new Vector2(x * 64f, y * 64f);
-                    player.Halt();
-                    LastSafePlayerPosition = player.Position;
-                    HasLastSafePlayerPosition = true;
-                    return;
-                }
-            }
         }
     }
 
-    private static List<Rectangle> BuildD3FBlockedRects(GameLocation location, AirshipFoundationService service)
+    private static IEnumerable<Rectangle> BuildForestGateSolidSegments(Point gate)
     {
-        List<Rectangle> result = new();
-        string name = location.NameOrUniqueName;
+        const int tile = 64;
 
-        if (name.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
-        {
-            // Large navigation desk: keep the farmer in front of it, never inside its lower body.
-            result.Add(TileRect(9, 8, 7, 3));
+        // Tall outer posts: always solid.
+        yield return new Rectangle((gate.X - 2) * tile, (gate.Y - 2) * tile, tile, tile * 4);
+        yield return new Rectangle((gate.X + 2) * tile, (gate.Y - 2) * tile, tile, tile * 4);
 
-            // Four upgrade stations. Top pair needs two physical rows; lower pair keeps one row
-            // so the bottom doorway/walking spine remains open.
-            result.Add(TileRect(3, 8, 3, 2));
-            result.Add(TileRect(18, 8, 3, 2));
-            result.Add(TileRect(6, 11, 3, 1));
-            result.Add(TileRect(15, 11, 3, 1));
-
-            // Dedicated travel gate: solid posts, open center/pad.
-            result.Add(TileRect(2, 4, 2, 3));
-            result.Add(TileRect(5, 4, 2, 3));
-            return result;
-        }
-
-        if (name.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
-        {
-            // Wall-board cluster and waiting bench.
-            result.Add(TileRect(2, 4, 12, 2));
-            result.Add(TileRect(2, 9, 6, 2));
-
-            // Boarding gate has solid side posts but an open center leading to bay (23,8).
-            result.Add(TileRect(21, 4, 2, 4));
-            result.Add(TileRect(26, 4, 2, 4));
-
-            // Cargo/service cluster on the far right.
-            result.Add(TileRect(22, 10, 4, 3));
-            return result;
-        }
-
-        if (name.Equals(ForestLocationName, StringComparison.OrdinalIgnoreCase)
-            && service.CanDrawForestGateForLocalPlayer())
-        {
-            Point? dock = TryResolveServicePointNoArgs("ResolveSkyDockTile");
-            if (dock is Point p)
-            {
-                // Do not alter Forest tiles. Only the two gate posts are no-enter; the center
-                // opening and approach lane stay walkable/actionable.
-                result.Add(TileRect(p.X - 2, p.Y - 2, 1, 4));
-                result.Add(TileRect(p.X + 2, p.Y - 2, 1, 4));
-            }
-        }
-
-        return result;
+        // Upper wooden shoulders: solid only above the entrance. The center/lower lane stays open.
+        yield return new Rectangle((gate.X - 1) * tile, (gate.Y - 2) * tile, tile, tile * 2);
+        yield return new Rectangle((gate.X + 1) * tile, (gate.Y - 2) * tile, tile, tile * 2);
     }
 
-    private static Rectangle TileRect(int x, int y, int width, int height)
-        => new(x * 64, y * 64, width * 64, height * 64);
-
-    private static Point? TryResolveServicePointNoArgs(string methodName)
+    private static Point? TryResolveForestGateAnchor()
     {
         try
         {
-            MethodInfo? method = AccessTools.DeclaredMethod(typeof(AirshipFoundationService), methodName, Type.EmptyTypes);
+            MethodInfo? method = AccessTools.DeclaredMethod(
+                typeof(AirshipFoundationService),
+                "ResolveSkyDockTile",
+                Type.EmptyTypes
+            );
             object? value = method?.Invoke(Service, Array.Empty<object>());
             return value is Point point ? point : null;
         }
