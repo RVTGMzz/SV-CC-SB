@@ -1,0 +1,182 @@
+name: Cardcha 0696D3-F Physical Blocking Travel Depth TEST
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
+      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
+      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
+      - src/Cardcha/Services/AirshipFoundationService.cs
+      - src/Cardcha/assets/airship_deck.tmx
+      - src/Cardcha/assets/sky_dock_interior.tmx
+      - tools/alpha28_0696d3f_physical_blocking_travel_depth.py
+      - tools/alpha28_0696d3f_package_audit.py
+      - .github/workflows/cardcha-alpha28-0696d3f-physical-blocking-travel-depth.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout D3-F branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup deterministic image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Run historical D3-D regression baseline
+        run: python3 tools/alpha28_0696d3d_regression.py
+
+      - name: Run D3-F physical blocking travel depth validator
+        run: python3 tools/alpha28_0696d3f_physical_blocking_travel_depth.py
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
+
+      - name: Validate render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Prove validators did not mutate production inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Patches/AirshipGateDepthPatch.cs \
+            src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha Release
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Package D3-F .70 TEST
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='0.3.0-alpha.28.0.4.14.4.5.12.70'
+          ZIP="Cardcha_v${VERSION}_0696D3F_PhysicalBlockingTravelDepthRecovery_TEST.zip"
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d3f_package_audit.py" \
+            "$ZIP" \
+            --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_PACKAGE_AUDIT.json"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Record D3-F CI identity evidence
+        id: evidence
+        shell: bash
+        env:
+          ZIP_NAME: ${{ steps.package.outputs.zip }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TAG="cardcha-0696d3f-test-${SHORT_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          package = root / 'package' / os.environ['ZIP_NAME']
+          tag = f"cardcha-0696d3f-test-{os.environ['GITHUB_SHA'][:8]}"
+          evidence = {
+              'phase': '0696D3-F-ci-evidence',
+              'runId': int(os.environ['GITHUB_RUN_ID']),
+              'runUrl': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'releaseTag': tag,
+              'releaseMode': 'prerelease',
+              'package': package.name,
+              'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
+              'd3dRegression': 'PASS',
+              'd3fStaticValidation': 'PASS',
+              'compile': 'PASS',
+              'packageAudit': 'PASS',
+              'runtimeAcceptance': 'PENDING-RON-IN-GAME',
+          }
+          out = root / 'handoff/AIRSHIP_0696D3F_CI_EVIDENCE.json'
+          out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(evidence, indent=2))
+          PY
+
+      - name: Publish D3-F TEST as GitHub prerelease
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: ${{ steps.package.outputs.zip }}
+          TAG: ${{ steps.evidence.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ZIP_PATH="$GITHUB_WORKSPACE/package/$ZIP_NAME"
+          SHA_PATH="$ZIP_PATH.sha256"
+          NOTES=$(cat <<'EOF'
+          0696D3-F TEST package for Ron runtime retest after 2026-09-17 screenshot feedback.
+
+          D3-F targets:
+          - no-enter physical footprints for Forest gate / floor 1 / floor 2 large props;
+          - no legacy blanket DrawDeckMarkers replay;
+          - four upgrade stations explicitly visible with fallback presentation;
+          - rejected yellow/static console base removed from the live deck map;
+          - obvious BOARD AIRSHIP and TRAVEL pads;
+          - radar remains an alternate travel control.
+
+          CI/static status:
+          - D3-D historical regression: PASS
+          - D3-F physical blocking/travel/depth validator: PASS
+          - Cardcha Release compile: PASS
+          - D3-F TEST package audit: PASS
+
+          Runtime acceptance remains PENDING-RON-IN-GAME. Do not call Runtime PASS until Ron tests this package in Stardew Valley.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_PHYSICAL_BLOCKING_TRAVEL_DEPTH_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_CI_EVIDENCE.json" \
+              --clobber
+          else
+            gh release create "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_PHYSICAL_BLOCKING_TRAVEL_DEPTH_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3F_CI_EVIDENCE.json" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Cardcha 0696D3-F Physical Blocking Travel Depth TEST" \
+              --notes "$NOTES"
+          fi
+          RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)
+          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          echo "D3-F prerelease: $RELEASE_URL"
