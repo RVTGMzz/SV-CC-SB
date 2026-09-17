@@ -44,11 +44,11 @@ def main() -> None:
             "Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json" in names
         )
         checks["radarAnimationAssetsPresent"] = all(
-            any(n.endswith(suffix) for n in names)
-            for suffix in (
-                "navigation_console_radar_glow.png",
-                "navigation_console_radar_sweep.png",
-                "navigation_console_radar_pings.png",
+            path in names
+            for path in (
+                "Cardcha/assets/airship_props/set01_redux/console_runtime/radar_glow_strip.png",
+                "Cardcha/assets/airship_props/set01_redux/console_runtime/radar_sweep_strip.png",
+                "Cardcha/assets/airship_props/set01_redux/console_runtime/radar_pings_strip.png",
             )
         )
 
