@@ -1,0 +1,183 @@
+name: Cardcha 0696D3-G Asset Separation Natural Collision Daylight TEST
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cardcha-alpha28-0696d2-window-environment-matrix
+    paths:
+      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
+      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
+      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
+      - src/Cardcha/Services/AirshipFoundationService.cs
+      - src/Cardcha/assets/airship_deck.tmx
+      - src/Cardcha/assets/sky_dock_interior.tmx
+      - src/Cardcha/assets/airship_props/set01_redux/navigation_console_body_d3g.png
+      - src/Cardcha/manifest.json
+      - tools/alpha28_0696d3g_asset_separation_natural_collision_daylight.py
+      - tools/alpha28_0696d3g_package_audit.py
+      - .github/workflows/cardcha-alpha28-0696d3g-asset-separation-natural-collision-daylight.yml
+
+permissions:
+  contents: write
+
+jobs:
+  validate-build-package:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout D3-G branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup deterministic image tooling
+        run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
+
+      - name: Run historical D3-D regression baseline
+        run: python3 tools/alpha28_0696d3d_regression.py
+
+      - name: Run D3-G asset separation natural collision daylight validator
+        run: python3 tools/alpha28_0696d3g_asset_separation_natural_collision_daylight.py
+
+      - name: Validate no legacy Window overlay reuse
+        run: python3 tools/validate_0696d2_no_legacy_overlay_reuse.py
+
+      - name: Validate render-depth contract
+        run: python3 tools/validate_render_depth_contract.py
+
+      - name: Prove validators did not mutate production inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --exit-code HEAD -- \
+            src/Cardcha/assets/airship_deck.tmx \
+            src/Cardcha/assets/sky_dock_interior.tmx \
+            src/Cardcha/assets/airship_props/set01_redux/navigation_console_body_d3g.png \
+            src/Cardcha/Services/AirshipFoundationService.cs \
+            src/Cardcha/Services/AirshipAmbientAnimationService.cs \
+            src/Cardcha/Patches/AirshipGateDepthPatch.cs \
+            src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs \
+            src/Cardcha/manifest.json
+
+      - name: Setup SMAPI build environment
+        uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
+
+      - name: Compile Cardcha Release
+        run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
+
+      - name: Package D3-G .71 TEST
+        id: package
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION='0.3.0-alpha.28.0.4.14.4.5.12.71'
+          ZIP="Cardcha_v${VERSION}_0696D3G_AssetSeparationNaturalCollisionDaylightRecovery_TEST.zip"
+          OUT="$GITHUB_WORKSPACE/package/Cardcha"
+          rm -rf "$GITHUB_WORKSPACE/package"
+          mkdir -p "$OUT"
+          cp src/Cardcha/manifest.json "$OUT/"
+          cp src/Cardcha/config.json "$OUT/" 2>/dev/null || true
+          cp -R src/Cardcha/assets "$OUT/"
+          cp -R src/Cardcha/i18n "$OUT/"
+          DLL=$(find src/Cardcha/bin/Release -type f -name Cardcha.dll | head -n1)
+          test -n "$DLL" -a -s "$DLL"
+          cp "$DLL" "$OUT/Cardcha.dll"
+          cd "$GITHUB_WORKSPACE/package"
+          zip -qr "$ZIP" Cardcha
+          sha256sum "$ZIP" | tee "$ZIP.sha256"
+          python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d3g_package_audit.py" \
+            "$ZIP" \
+            --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_PACKAGE_AUDIT.json"
+          echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
+
+      - name: Record D3-G CI identity evidence
+        id: evidence
+        shell: bash
+        env:
+          ZIP_NAME: ${{ steps.package.outputs.zip }}
+        run: |
+          set -euo pipefail
+          SHORT_SHA="${GITHUB_SHA:0:8}"
+          TAG="cardcha-0696d3g-test-${SHORT_SHA}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib, json, os
+          root = Path(os.environ['GITHUB_WORKSPACE'])
+          package = root / 'package' / os.environ['ZIP_NAME']
+          tag = f"cardcha-0696d3g-test-{os.environ['GITHUB_SHA'][:8]}"
+          evidence = {
+              'phase': '0696D3-G-ci-evidence',
+              'runId': int(os.environ['GITHUB_RUN_ID']),
+              'runUrl': f"https://github.com/{os.environ['GITHUB_REPOSITORY']}/actions/runs/{os.environ['GITHUB_RUN_ID']}",
+              'sourceCommit': os.environ['GITHUB_SHA'],
+              'releaseTag': tag,
+              'releaseMode': 'prerelease',
+              'package': package.name,
+              'packageSha256': hashlib.sha256(package.read_bytes()).hexdigest(),
+              'd3dRegression': 'PASS',
+              'd3gAssetTmxValidation': 'PASS',
+              'compile': 'PASS',
+              'packageAudit': 'PASS',
+              'runtimeAcceptance': 'PENDING-RON-IN-GAME',
+          }
+          out = root / 'handoff/AIRSHIP_0696D3G_CI_EVIDENCE.json'
+          out.write_text(json.dumps(evidence, indent=2) + '\n', encoding='utf-8')
+          print(json.dumps(evidence, indent=2))
+          PY
+
+      - name: Publish D3-G TEST as GitHub prerelease
+        id: release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ZIP_NAME: ${{ steps.package.outputs.zip }}
+          TAG: ${{ steps.evidence.outputs.tag }}
+        run: |
+          set -euo pipefail
+          ZIP_PATH="$GITHUB_WORKSPACE/package/$ZIP_NAME"
+          SHA_PATH="$ZIP_PATH.sha256"
+          NOTES=$(cat <<'EOF'
+          0696D3-G TEST package for Ron runtime retest after D3-F Runtime FAIL.
+
+          D3-G targets:
+          - remove the forced Farmer-position blocker that caused ghost/body desync;
+          - use native TMX 5400 collision for Room 1 / Room 2 solid bases;
+          - use segmented Forest-gate collision without blocking the center passage;
+          - materialize a transparent navigation-console production asset;
+          - move the console out of Front2 blanket ownership and the Observation Window shell to Back2;
+          - remove the lamp that intersected the TRAVEL gate;
+          - restore brighter daytime bridge ambience through native map lighting properties;
+          - preserve four visible upgrade stations, TRAVEL, BOARD AIRSHIP, and radar travel wiring.
+
+          CI/static status in this release is not Runtime PASS.
+          Runtime acceptance remains PENDING-RON-IN-GAME until Ron tests this exact package.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_CI_EVIDENCE.json" \
+              --clobber
+          else
+            gh release create "$TAG" \
+              "$ZIP_PATH" \
+              "$SHA_PATH" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_VALIDATION.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_PACKAGE_AUDIT.json" \
+              "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3G_CI_EVIDENCE.json" \
+              --target "$GITHUB_SHA" \
+              --prerelease \
+              --title "Cardcha 0696D3-G Asset Separation Natural Collision Daylight TEST" \
+              --notes "$NOTES"
+          fi
+          RELEASE_URL=$(gh release view "$TAG" --json url --jq .url)
+          echo "url=$RELEASE_URL" >> "$GITHUB_OUTPUT"
+          echo "D3-G prerelease: $RELEASE_URL"
