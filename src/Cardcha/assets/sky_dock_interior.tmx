@@ -12,6 +12,8 @@
   <property name="CardchaBackDecorPolicy" value="deprecated-removed|do-not-use-for-production-physical-art" />
   <property name="CardchaSourceBlueprint" value="handoff/AIRSHIP_ROOM_BLUEPRINT_0696.json" />
   <property name="CardchaRoomShellContract" value="0696D3C|shared-0696c-shell|doorway-x14-15|finished-room-1" />
+  <property name="CardchaD3GCollision" value="native-5400|solid-bases-only|route-board|bench|boarding-posts|cargo|center-bay-open|no-position-rewind" />
+  <property name="CardchaD3GRuntime" value="room1-native-collision-authoritative|forced-position-blocker-retired" />
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088" />
