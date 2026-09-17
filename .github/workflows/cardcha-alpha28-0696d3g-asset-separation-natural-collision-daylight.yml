@@ -14,6 +14,8 @@ on:
       - src/Cardcha/assets/sky_dock_interior.tmx
       - src/Cardcha/assets/airship_props/set01_redux/navigation_console_body_d3g.png
       - src/Cardcha/manifest.json
+      - src/Cardcha/Cardcha.csproj
+      - src/Cardcha/Directory.Build.targets
       - tools/alpha28_0696d3g_asset_separation_natural_collision_daylight.py
       - tools/alpha28_0696d3g_package_audit.py
       - .github/workflows/cardcha-alpha28-0696d3g-asset-separation-natural-collision-daylight.yml
@@ -35,7 +37,7 @@ jobs:
       - name: Setup deterministic image tooling
         run: python3 -m pip install --disable-pip-version-check Pillow==11.3.0
 
-      - name: Run historical D3-D invariants (allow D3-G manifest version bump only)
+      - name: Run historical D3-D invariants (allow D3-G version bump only)
         shell: bash
         run: |
           set -euo pipefail
@@ -48,13 +50,13 @@ jobs:
           import json
           report = json.loads(Path("handoff/AIRSHIP_0696D3D_REGRESSION_VALIDATION.json").read_text(encoding="utf-8"))
           failed = sorted(k for k, ok in report.get("checks", {}).items() if not ok)
-          expected = ["versionManifest70"]
+          expected = ["versionCsproj70", "versionManifest70", "versionTargets70"]
           if failed != expected:
               raise SystemExit(f"Historical D3-D invariant drift: expected only {expected}, got {failed}")
           validators = report.get("validators", {})
           if not all(v.get("pass") is True for v in validators.values()):
               raise SystemExit("Historical D3-A/B/C validator invariant failed")
-          print("Historical D3-D invariants PASS; only the intentional .70 -> .71 manifest bump differs.")
+          print("Historical D3-D invariants PASS; only the intentional .70 -> .71 version identity differs.")
           PY
 
       - name: Run D3-G asset separation natural collision daylight validator
@@ -78,7 +80,9 @@ jobs:
             src/Cardcha/Services/AirshipAmbientAnimationService.cs \
             src/Cardcha/Patches/AirshipGateDepthPatch.cs \
             src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs \
-            src/Cardcha/manifest.json
+            src/Cardcha/manifest.json \
+            src/Cardcha/Cardcha.csproj \
+            src/Cardcha/Directory.Build.targets
 
       - name: Setup SMAPI build environment
         uses: Pathoschild/SMAPI-ModBuildWorkflow/add-build-environment@v1
