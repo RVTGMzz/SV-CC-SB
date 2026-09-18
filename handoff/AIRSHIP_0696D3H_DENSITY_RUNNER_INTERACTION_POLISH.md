@@ -9,11 +9,10 @@ Version: `0.3.0-alpha.28.0.4.14.4.5.12.72`
 ## Status
 
 **SOURCE / ASSET / TMX / STATIC API AUDIT: PASS**  
-**GITHUB CI: BLOCKED BEFORE RUNNER**  
-**PACKAGE: NOT BUILT YET**  
-**RUNTIME: PENDING RON IN GAME**
+**GITHUB CI / RELEASE COMPILE / PACKAGE AUDIT / PRERELEASE: PASS**  
+**RUNTIME: RETEST REQUIRED**
 
-Never call CI PASS or Runtime PASS for D3-H until those exact stages really happen.
+CI/package is now proven. Never call Runtime PASS until Ron tests the exact D3-H TEST package and explicitly confirms.
 
 ## Runtime authority
 
@@ -120,45 +119,33 @@ Static/API audit result: **PASS**.
 
 The audit verifies version identity, map size, collision cells, open interaction rows, scaled asset wiring, runner placement, console ownership, TRAVEL scale, Navigation 2x scale, four sockets, lamp relocation, Window ownership, and absence of forced Farmer-position correction.
 
-## CI blocker
+## CI / package checkpoint
 
-D3-H workflow:
+Canonical successful workflow run: `35351129941`  
+Job: `105619257646`  
+Package/source commit: `cb71e28e321f1a45d3a73eac126c291e5cc455ea`
 
-`.github/workflows/cardcha-alpha28-0696d3h-density-runner-interaction-polish.yml`
+Tag: `cardcha-0696d3h-test-cb71e28e`
 
-Run:
+Package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
 
-`35347643349`
+SHA256: `7103dfa6bba242a3a14de9d8886e2c9d238e37c649e0c9a978c9c0296c640c99`
 
-Attempts: `3`
+Release: `https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
 
-Attempt 1 job: `105607896700`  
-Attempt 2 job: `105608153047`  
-Attempt 3 job: `105611724798`
+Direct package: `https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
 
-All three attempts failed before `Set up job`, with zero steps and no allocated runner.
+See also:
 
-For comparison, D3-G run `35287327146` previously received a GitHub runner, executed all 27 steps, compiled, packaged and published successfully.
-
-Therefore the current D3-H CI failure is an infrastructure/runner-allocation blocker, not evidence of a C# compile or validator failure.
-
-Do not call this CI PASS.
-
-## Local build fallback
-
-Canonical Windows fallback script:
-
-`tools/build_0696d3h_local.ps1`
-
-It runs the D3-H static validator, historical guards, Release compile, package assembly, package audit and SHA256 generation. It does not promote Runtime PASS.
+`handoff/AIRSHIP_0696D3H_CI_RELEASE_CHECKPOINT.md`
 
 ## Package status
 
-No canonical D3-H TEST ZIP exists yet.
+Canonical D3-H TEST ZIP now exists and contains a freshly compiled Cardcha.dll.
 
-Do not reuse the D3-G DLL/package and relabel it D3-H because D3-H contains C# changes in interaction, travel/station scale, ambient presentation and depth behavior.
+Package asset ID: `572700371`.
 
-A real D3-H package must contain a freshly compiled `Cardcha.dll`.
+Runtime acceptance is still pending Ron.
 
 ## Runtime acceptance
 
