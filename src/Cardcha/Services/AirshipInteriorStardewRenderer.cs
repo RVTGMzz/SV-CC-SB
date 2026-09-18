@@ -304,11 +304,27 @@ internal static class AirshipInteriorStardewRenderer
 
     private static void DrawDockMagic(SpriteBatch batch, float phase)
     {
+        // 0696D3-H: map AmbientLight owns general daylight. These are small pixel light pools
+        // only at functional anchors, so Room 1 stays readable without a screen-sized wash.
+        foreach ((Point tile, Color glow) in new[]
+        {
+            (new Point(4, 7), new Color(238, 188, 96)),
+            (new Point(10, 6), new Color(151, 121, 218)),
+            (new Point(17, 8), new Color(91, 220, 211)),
+        })
+        {
+            Vector2 light = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 30f);
+            float lightPulse = 0.62f + 0.08f * MathF.Sin(phase * 1.35f + tile.X);
+            DrawRect(batch, new Rectangle((int)light.X - 28, (int)light.Y - 16, 56, 32), glow * (0.045f * lightPulse));
+            DrawRect(batch, new Rectangle((int)light.X - 13, (int)light.Y - 8, 26, 16), glow * (0.070f * lightPulse));
+            DrawDiamond(batch, light, 3, glow * (0.42f + lightPulse * 0.10f));
+        }
+
         // Route board indicator.
-        Vector2 route = WorldToScreen(7f * 64f + 32f, 7f * 64f + 10f);
+        Vector2 route = WorldToScreen(4f * 64f + 32f, 7f * 64f + 10f);
         DrawDiamond(batch, route, 5, new Color(109,210,204) * (0.58f + 0.10f*MathF.Sin(phase*1.6f)));
         // Boarding pad is deliberately bright so the warp trigger is never invisible.
-        Vector2 bay = WorldToScreen(23f * 64f + 32f, 8f * 64f + 34f);
+        Vector2 bay = WorldToScreen(17f * 64f + 32f, 8f * 64f + 34f);
         Color teal = new Color(103,221,214);
         DrawRect(batch, new Rectangle((int)bay.X - 30, (int)bay.Y - 7, 60, 3), teal * 0.28f);
         DrawDiamond(batch, bay + new Vector2(0f, -5f), 5, teal * 0.58f);
