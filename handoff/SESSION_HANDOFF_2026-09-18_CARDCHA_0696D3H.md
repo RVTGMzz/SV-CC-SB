@@ -17,13 +17,13 @@ Current phase: `0696D3-H Density + Runner + Interaction Polish`
 
 Current status:
 
-- source/assets/TMX: **MATERIALIZED**
+- source/assets/TMX: **PASS**
 - static/API audit: **PASS**
-- GitHub CI: **BLOCKED BEFORE RUNNER**
-- Release compile: **NOT EXECUTED**
-- package audit: **NOT EXECUTED**
-- D3-H TEST ZIP: **NOT BUILT**
-- Runtime: **PENDING**
+- GitHub CI: **PASS**
+- Release compile: **PASS**
+- package audit: **PASS**
+- D3-H TEST ZIP: **READY**
+- Runtime: **RETEST REQUIRED**
 
 Do not restart D2 or redo D3-A/B/C/D/E/F/G.
 
@@ -48,20 +48,24 @@ The important user-visible changes now present in source are:
 - Window exact 4.0x wall footprint;
 - no forced Farmer-position blocker.
 
-## CI infrastructure blocker
+## Canonical CI / package checkpoint
 
-Workflow run `35347643349` failed three times before any step executed.
+Run: `35351129941`  
+Job: `105619257646`  
+Source/package commit: `cb71e28e321f1a45d3a73eac126c291e5cc455ea`  
+Tag: `cardcha-0696d3h-test-cb71e28e`  
+Package: `Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`  
+SHA256: `7103dfa6bba242a3a14de9d8886e2c9d238e37c649e0c9a978c9c0296c640c99`
 
-Jobs:
-- `105607896700`
-- `105608153047`
-- `105611724798`
+Release:
 
-No runner was allocated and no `Set up job` step appeared.
+`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
 
-D3-G run `35287327146` is the last known successful full CI/package run.
+Direct package:
 
-Do not interpret the D3-H run as a code/test failure because neither code nor tests executed.
+`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
+
+The earlier zero-step runner failures are historical and were resolved after the repository became public.
 
 ## Local fallback
 
@@ -69,20 +73,9 @@ If GitHub-hosted Actions remains blocked, use `tools/build_0696d3h_local.ps1` on
 
 ## Next action
 
-First priority is to restore a usable build executor for the private repository, then run the existing D3-H workflow unchanged.
+Ron should now test the exact D3-H .72 TEST package above in Stardew Valley against the 16-point runtime checklist in `handoff/AIRSHIP_0696D3H_CI_RELEASE_CHECKPOINT.md`.
 
-When an executor is available:
-1. run `tools/alpha28_0696d3h_density_runner_interaction_polish.py`;
-2. run no-legacy Window guard;
-3. run render-depth guard;
-4. compile Release;
-5. package version `.72`;
-6. run `tools/alpha28_0696d3h_package_audit.py`;
-7. publish D3-H prerelease;
-8. give that exact ZIP to Ron;
-9. wait for Ron runtime test before Runtime PASS.
-
-Do not fake the package using the old D3-G DLL.
+If Ron reports a runtime problem, patch incrementally from D3-H. Do not restart D2 and do not redo D3-A/B/C/D/E/F/G.
 
 ## Runtime promotion rule
 
