@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="24" height="14" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="1">
  <properties>
-  <property name="CardchaAirshipVersion" value="0.3.0-alpha.28.0.4.14.4.5.12.72" />
+  <property name="CardchaAirshipVersion" value="0.3.0-alpha.28.0.4.14.4.5.12.73" />
   <property name="CardchaAirshipRole" value="airship-bridge|navigation-core|four-independent-upgrade-stations|chacha-resonance|arcane-dock-return" />
   <property name="CardchaVisualProfile" value="airship-bridge|native-stardew-furniture|warm-wood-brass|clear-walking-spine" />
   <property name="CardchaArchitecture" value="vanilla-shell|native-furniture-and-object|no-postworld-physical-decor|depth-contract-0677" />
