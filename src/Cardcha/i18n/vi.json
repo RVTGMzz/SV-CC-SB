@@ -1228,5 +1228,8 @@
   "boss.curator.rule.short.loose_folios": "Trang Rời",
   "boss.curator.rule.short.iron_bindings": "Gáy Sắt",
   "boss.curator.rule.short.mirror_draft": "Bản Nháp Gương",
-  "boss.curator.rule.short.redacted_ledger": "Sổ Bôi Đen"
+  "boss.curator.rule.short.redacted_ledger": "Sổ Bôi Đen",
+  "airship.skydock.waiting_bench.info": "GHẾ CHỜ\\nKhu ghế dành cho hành khách đang chờ lên tàu.",
+  "airship.skydock.luggage_cart.info": "XE HÀNH LÝ\\nDùng để gom và chuyển hành lý quanh Sky Dock.",
+  "airship.skydock.cargo.info": "KIỆN HÀNG\\nCác kiện tiếp tế đang chờ được chuyển lên tàu."
 }
