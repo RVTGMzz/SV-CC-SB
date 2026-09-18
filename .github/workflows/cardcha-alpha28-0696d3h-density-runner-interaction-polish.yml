@@ -1,4 +1,5 @@
 name: Cardcha 0696D3-H Density Runner Interaction Polish TEST
+# Repository: ronvotri/CC-SB — renamed from Cardcha-Shardbound and public as of 2026-09-18.
 
 on:
   workflow_dispatch:
