@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-09-18 — CARDCHA 0696D3-J
 
-Repository: `ronvotri/CC-SB`  
+Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
 ## Read first
@@ -29,7 +29,7 @@ Canonical source/package commit: `d9665fdf34db95ff98abdd5ccbee2dcf628a9331`
 
 Package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
 
 SHA256:
 
