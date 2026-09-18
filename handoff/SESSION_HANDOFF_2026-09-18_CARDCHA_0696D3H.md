@@ -50,11 +50,12 @@ The important user-visible changes now present in source are:
 
 ## CI infrastructure blocker
 
-Workflow run `35347643349` failed twice before any step executed.
+Workflow run `35347643349` failed three times before any step executed.
 
 Jobs:
 - `105607896700`
 - `105608153047`
+- `105611724798`
 
 No runner was allocated and no `Set up job` step appeared.
 
