@@ -461,13 +461,43 @@ internal sealed class AirshipFoundationService
             Point route = ResolveSkyDockInteriorRouteTile(location);
             Point bay = ResolveSkyDockInteriorBayTile(location);
             Point lostFound = ResolveSkyDockLostFoundTile(location);
+            Point waitingBench = ResolveSkyDockWaitingBenchTile(location);
+            Point luggageCart = ResolveSkyDockLuggageCartTile(location);
+            Point cargoCrate = ResolveSkyDockCargoTile(location);
             Point interiorExit = ResolveSkyDockInteriorExitTile(location);
+
+            // 0696D3-H: the large purple wall board is Lost & Found.
+            // D3-G accidentally placed this interaction on the waiting bench.
             if (Touches(interiorAction, lostFound))
             {
-                this.Helper.Input.Suppress(e.Button); Game1.playSound("openBox"); Game1.drawObjectDialogue(ModEntry.T("airship.lostfound.empty")); return;
+                this.Helper.Input.Suppress(e.Button);
+                Game1.playSound("openBox");
+                Game1.drawObjectDialogue(ModEntry.T("airship.lostfound.empty"));
+                return;
             }
 
-            if (interiorAction == route)
+            if (Touches(interiorAction, waitingBench))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                Game1.drawObjectDialogue(ModEntry.T("airship.skydock.waiting_bench.info"));
+                return;
+            }
+
+            if (Touches(interiorAction, luggageCart))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                Game1.drawObjectDialogue(ModEntry.T("airship.skydock.luggage_cart.info"));
+                return;
+            }
+
+            if (Touches(interiorAction, cargoCrate))
+            {
+                this.Helper.Input.Suppress(e.Button);
+                Game1.drawObjectDialogue(ModEntry.T("airship.skydock.cargo.info"));
+                return;
+            }
+
+            if (Touches(interiorAction, route))
             {
                 this.Helper.Input.Suppress(e.Button);
                 if (this.MilestoneRouteAction is not null)
@@ -484,7 +514,7 @@ internal sealed class AirshipFoundationService
                 return;
             }
 
-            if (interiorAction == bay)
+            if (Touches(interiorAction, bay))
             {
                 this.Helper.Input.Suppress(e.Button);
                 if (this.WarpToAirshipBridge())
@@ -2349,36 +2379,58 @@ internal sealed class AirshipFoundationService
 
     private static Point ResolveSkyDockInteriorArrivalTile(GameLocation interior)
     {
-        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
-        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
         return new Point(width / 2, Math.Max(5, height - 4));
     }
 
     private static Point ResolveSkyDockInteriorExitTile(GameLocation interior)
     {
-        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
-        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
         return new Point(width / 2, Math.Max(1, height - 2));
     }
 
     private static Point ResolveSkyDockInteriorRouteTile(GameLocation interior)
     {
-        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
-        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
-        return new Point(Math.Clamp(width / 4, 3, width - 4), Math.Clamp(7, 3, height - 5));
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
+        return new Point(Math.Clamp(4, 2, width - 3), Math.Clamp(7, 3, height - 4));
     }
 
     private static Point ResolveSkyDockInteriorBayTile(GameLocation interior)
     {
-        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30;
-        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
         return new Point(Math.Clamp(width - 7, 4, width - 3), Math.Clamp(8, 3, height - 5));
     }
 
     private static Point ResolveSkyDockLostFoundTile(GameLocation interior)
     {
-        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 30; int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 18;
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
+        return new Point(Math.Clamp(10, 2, width - 3), Math.Clamp(6, 3, height - 3));
+    }
+
+    private static Point ResolveSkyDockWaitingBenchTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
         return new Point(Math.Clamp(5, 2, width - 3), Math.Clamp(11, 4, height - 3));
+    }
+
+    private static Point ResolveSkyDockLuggageCartTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
+        return new Point(Math.Clamp(15, 2, width - 3), Math.Clamp(12, 4, height - 2));
+    }
+
+    private static Point ResolveSkyDockCargoTile(GameLocation interior)
+    {
+        int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
+        int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
+        return new Point(Math.Clamp(21, 2, width - 3), Math.Clamp(11, 4, height - 3));
     }
 
     private static Point ResolveRegion1ArrivalTile(GameLocation region)
