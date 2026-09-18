@@ -1,7 +1,7 @@
 {
   "schemaVersion": 2,
   "workstream": "0696D2-window-environment-matrix",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.69",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.73",
   "visualAcceptance": "PENDING-RON-VISUAL",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
@@ -34,7 +34,7 @@
   "observationWindow": {
     "id": "observation_window",
     "enabled": true,
-    "productionStatus": "D2_CLEAR_TIME_MATRIX_MATERIALIZED_PENDING_RON_VISUAL",
+    "productionStatus": "D3I_PRE_FARMER_RUNTIME_FRAME_NO_MAP_SHELL",
     "footprintPx": {
       "width": 160,
       "height": 80
@@ -231,7 +231,7 @@
   "navigationConsole": {
     "id": "navigation_console",
     "enabled": true,
-    "productionStatus": "GENERATED_RADAR_8FRAME_TECHNICAL_TEST",
+    "productionStatus": "D3I_EDGE_MATTE_CLEAN_PLUS_REDUCED_RADAR_SWEEP",
     "footprintPx": {
       "width": 112,
       "height": 80
