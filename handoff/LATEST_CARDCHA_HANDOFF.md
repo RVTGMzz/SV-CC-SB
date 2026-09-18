@@ -4,66 +4,70 @@ Updated: 2026-09-18
 
 Repository: `ronvotri/CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
-Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.73`  
-Current phase: `0696D3-I Runtime Correction`  
+Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.74`  
+Current phase: `0696D3-J Collision Lanes`  
 Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3I_RUNTIME_CORRECTION_CHECKPOINT.md`
-2. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3I.md`
-3. `handoff/AIRSHIP_0696D3H_CI_RELEASE_CHECKPOINT.md`
+1. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
+2. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3J.md`
+3. `handoff/AIRSHIP_0696D3I_RUNTIME_CORRECTION_CHECKPOINT.md`
 
-## Newest runtime authority
+## Newest authority
 
-Ron's post-D3-H retest identified four remaining failures:
-- console beige/yellow matte remained;
-- electronic sweep/gauge was oversized;
-- Window still covered the Farmer's head;
-- wrong machine was enlarged;
-- BOARD AIRSHIP pad was still outside the gate.
+Ron explicitly reasserted the original 12-point room requirements after D3-I and called out that the requested object blocking had not been sufficiently delivered.
 
-D3-I directly addresses those failures.
+D3-J therefore prioritizes collision over further cosmetic work.
 
-## D3-I implementation
+## D3-J
 
-- deterministic edge-connected beige matte removal for console;
-- console sweep `0.58x`, glow/pings `0.72x`;
-- Window physical shell removed from TMX;
-- Window frame now drawn pre-Farmer with the environment/airship;
-- all four UPGRADE stations restored to `96x96`;
-- actual ChaCha Resonance station at `(21,5)` enlarged to 2x;
-- signal lamp moved to `x18-19`, with collision moved too;
-- BOARD AIRSHIP pad moved to `(17,7)` inside the gate.
+Room 1:
+- full-body collision for notice board, Lost & Found, bench, luggage, cargo;
+- side collision for boarding gate while center remains open;
+- lamp collision;
+- exact open front interaction lanes;
+- bench/luggage reflow so runner is not blocked;
+- much brighter ambient light.
+
+Room 2:
+- Navigation console full-body collision;
+- segmented TRAVEL collision;
+- four UPGRADE bases blocked;
+- lamp blocked;
+- 2x Resonance machine blocked with front interaction lane;
+- runner rerouted so no runner tile intersects collision.
+
+Runtime collision-query rectangles mirror TMX collision and never move Farmer.
 
 ## CI / package
 
-Run: `35359955694`  
-Job: `105648479702`  
-Source/package commit: `9d583dc025b3549e1a6894496146a30007c8aa31`
+Run: `35364163371`  
+Job: `105662423365`  
+Source/package commit: `d9665fdf34db95ff98abdd5ccbee2dcf628a9331`
 
-Tag: `cardcha-0696d3i-test-9d583dc0`
+Tag: `cardcha-0696d3j-test-d9665fdf`
 
 Package:
 
-`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.73_0696D3I_RuntimeCorrection_TEST.zip`
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
 
 SHA256:
 
-`9c1d87c0be737cfbb1477447295448440102ea483b93ad4e2b5710d9cdd131fe`
+`66e41d4ae5d55228951ea2ea04acf9f8d1e4de5e52fac1a8bbcacc492e22ddf4`
 
 Release:
 
-`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3i-test-9d583dc0`
+`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3j-test-d9665fdf`
 
 Direct package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3i-test-9d583dc0/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.73_0696D3I_RuntimeCorrection_TEST.zip`
+`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
 
 ## Resume instruction
 
-Continue from **D3-I .73 CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**.
+Continue from **D3-J .74 CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**.
 
-Ron must test this exact package. Only explicit in-game confirmation may set Runtime PASS.
+Ron should now test collision deliberately against every prop.
 
-If a runtime issue remains, patch incrementally from D3-I and treat Ron's screenshot/gameplay feedback as newest authority.
+Only explicit in-game confirmation may set Runtime PASS.
