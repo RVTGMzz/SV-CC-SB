@@ -1150,5 +1150,8 @@
   "boss.curator.rule.short.loose_folios": "Loose Folios",
   "boss.curator.rule.short.iron_bindings": "Iron Bindings",
   "boss.curator.rule.short.mirror_draft": "Mirror Draft",
-  "boss.curator.rule.short.redacted_ledger": "Redacted Ledger"
+  "boss.curator.rule.short.redacted_ledger": "Redacted Ledger",
+  "airship.skydock.waiting_bench.info": "WAITING BENCH\\nA seat for passengers waiting to board the Airship.",
+  "airship.skydock.luggage_cart.info": "LUGGAGE CART\\nUsed to collect and move passenger luggage around the Sky Dock.",
+  "airship.skydock.cargo.info": "CARGO PARCELS\\nSupplies waiting to be loaded onto the Airship."
 }
