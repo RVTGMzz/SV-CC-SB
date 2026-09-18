@@ -62,6 +62,10 @@ All three failed before `Set up job`; zero steps executed and no hosted runner w
 
 Last known full working CI remains D3-G run `35287327146`.
 
+## Local fallback
+
+`tools/build_0696d3h_local.ps1` is the canonical Windows fallback if GitHub-hosted Actions remains blocked. It validates, compiles Release, packages, audits and emits SHA256.
+
 ## Package
 
 There is currently **no valid D3-H .72 TEST package**.
