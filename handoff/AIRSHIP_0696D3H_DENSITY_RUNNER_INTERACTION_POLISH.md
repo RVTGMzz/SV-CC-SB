@@ -144,6 +144,14 @@ Therefore the current D3-H CI failure is an infrastructure/runner-allocation blo
 
 Do not call this CI PASS.
 
+## Local build fallback
+
+Canonical Windows fallback script:
+
+`tools/build_0696d3h_local.ps1`
+
+It runs the D3-H static validator, historical guards, Release compile, package assembly, package audit and SHA256 generation. It does not promote Runtime PASS.
+
 ## Package status
 
 No canonical D3-H TEST ZIP exists yet.
