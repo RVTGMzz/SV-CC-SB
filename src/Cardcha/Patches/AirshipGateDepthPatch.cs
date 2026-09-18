@@ -11,7 +11,7 @@ namespace Cardcha.Patches;
 /// <summary>
 /// 0696D3-H asset separation, native collision and bridge-depth recovery.
 ///
-/// Runtime authority is Ron's 2026-09-18 D3-F retest:
+/// Runtime authority is Ron's 2026-09-18 post-D3-G 12-image retest:
 /// - never correct Farmer.Position to fake collision;
 /// - Room 1 / Room 2 physical footprints belong to native map collision wherever possible;
 /// - the Forest gate uses the game's collision query for segmented solid posts/wood only;
