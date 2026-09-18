@@ -1,26 +1,9 @@
 name: Cardcha 0696D3-I Runtime Correction TEST
 
+# Historical D3-I workflow. D3-J intentionally expands native collision footprints,
+# reflows Room 1 furniture around the runner, and strengthens Room 1 lighting.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
-      - src/Cardcha/Services/AirshipInteriorStardewRenderer.cs
-      - src/Cardcha/Services/ChaChaSkillMaterialService.cs
-      - src/Cardcha/assets/airship_deck.tmx
-      - src/Cardcha/assets/sky_dock_interior.tmx
-      - src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json
-      - src/Cardcha/manifest.json
-      - src/Cardcha/Cardcha.csproj
-      - src/Cardcha/Directory.Build.targets
-      - tools/materialize_0696d3i_console_asset.py
-      - tools/alpha28_0696d3i_runtime_correction.py
-      - tools/alpha28_0696d3i_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3i-runtime-correction.yml
 
 permissions:
   contents: write
