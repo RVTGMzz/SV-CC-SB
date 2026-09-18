@@ -143,5 +143,8 @@
   "runtime": {
     "status": "PENDING_RON_IN_GAME",
     "rule": "Only Ron testing the exact future D3-H package may promote Runtime PASS."
-  }
+  },
+  "repository": "ronvotri/CC-SB",
+  "repositoryVisibility": "public",
+  "repositoryRenamedFrom": "ronvotri/Cardcha-Shardbound"
 }
