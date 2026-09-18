@@ -4,99 +4,76 @@ Updated: 2026-09-18
 
 Repository: `ronvotri/Cardcha-Shardbound`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
-Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.71`  
-Current phase: `0696D3-G Asset Separation + Natural Collision + Daylight Recovery`  
-Current status: **CI PASS / RUNTIME RETEST REQUIRED**
+Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.72`  
+Current phase: `0696D3-H Density + Runner + Interaction Polish`  
+Current status: **STATIC/API PASS / CI BLOCKED BEFORE RUNNER / PACKAGE NOT BUILT / RUNTIME PENDING**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md`
-2. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3G.md`
-3. `handoff/AIRSHIP_0696D3F_PHYSICAL_BLOCKING_TRAVEL_DEPTH_RECOVERY.md`
-4. `handoff/AIRSHIP_0696D3E_RUNTIME_INTERACTION_RENDER_DEPTH_FIX.md`
+1. `handoff/AIRSHIP_0696D3H_DENSITY_RUNNER_INTERACTION_POLISH.md`
+2. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3H.md`
+3. `handoff/AIRSHIP_0696D3H_STATIC_API_AUDIT.json`
+4. `handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md`
 
 ## Current authority
 
-D2 and D3-A/B/C/D/E/F are historical checkpoints. Do not restart or redo them.
+D2 and D3-A/B/C/D/E/F/G are historical checkpoints. Do not restart or redo them.
 
-Newest runtime authority is Ron's 2026-09-18 D3-F retest. D3-F was CI PASS but Runtime FAIL.
+Newest runtime authority is Ron's 2026-09-18 post-D3-G 12-image retest.
 
-D3-G has now been materialized specifically against those failures:
+D3-H has already been materialized against that feedback.
 
-- forced Farmer-position blocker removed;
-- Room 1 / Room 2 owned collision moved to native TMX `5400` footprints;
-- Forest gate uses segmented collision query, center passage open;
-- real transparent console production asset authored;
-- console removed from `Front2` blanket ownership;
-- Observation Window shell moved to `Back2`;
-- left lamp removed from interior TRAVEL gate footprint;
-- native day/night bridge ambient properties added;
-- four upgrade stations + TRAVEL preserved.
+## D3-H source state
 
-D3-G has not yet been runtime accepted.
+- Room 1 resized to `24x15`, exactly 2/3 old area.
+- Room 1 daylight increased.
+- Waiting bench, Lost & Found board and luggage cart visually scaled ~2/3 via nearest-neighbor.
+- Lost & Found interaction moved off the waiting bench.
+- Waiting bench / luggage / cargo get separate info interactions.
+- Native collision uses `5400` solid bases with open front interaction rows.
+- Bench/luggage/cargo are no longer full-body `Front2` blockers.
+- New Stardew-style pixel runner is map-owned on `Back2` in both rooms.
+- D3-H console restores original full machine detail with hard alpha.
+- Console stays out of `Front2`.
+- TRAVEL presentation is 1.5x.
+- Navigation upgrade presentation is 2x.
+- Four canonical upgrade sockets remain preserved.
+- Remaining lamp moved and blocked.
+- Observation Window is exact 4.0x wall footprint.
+- Forced Farmer-position collision correction remains forbidden.
 
-## CI / package checkpoint
+## Static audit
 
-Final successful workflow run: `35287327146`  
-Job: `105422447116`  
-Package/source commit: `cd056a680ba50ee5d03b0f7d200537eb76e7f276`
+Evidence:
 
-Result:
+`handoff/AIRSHIP_0696D3H_STATIC_API_AUDIT.json`
 
-- D3-D historical gameplay/asset invariants: PASS
-- D3-G static/asset/TMX contract: PASS
-- no-legacy Window overlay guard: PASS
-- render-depth contract: PASS
-- Release compile: PASS
-- package audit: PASS
-- prerelease publication: PASS
+Result: **PASS**.
 
-D3-F workflow is manual-only now because its forced-position validator is intentionally obsolete under D3-G.
+This is not CI PASS.
 
-## Current TEST package
+## CI blocker
 
-Tag:
+D3-H workflow run: `35347643349`  
+Attempts: `2`  
+Jobs: `105607896700`, `105608153047`
 
-`cardcha-0696d3g-test-cd056a68`
+Both failed before `Set up job`; zero steps executed and no hosted runner was allocated.
 
-Release:
+Last known full working CI remains D3-G run `35287327146`.
 
-`https://github.com/ronvotri/Cardcha-Shardbound/releases/tag/cardcha-0696d3g-test-cd056a68`
+## Package
 
-Package:
+There is currently **no valid D3-H .72 TEST package**.
 
-`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.71_0696D3G_AssetSeparationNaturalCollisionDaylightRecovery_TEST.zip`
-
-Asset ID:
-
-`571374818`
-
-SHA256:
-
-`05f367c54359223c882b2123cb4529f9eb04dc841e6cb5f099758504018437d8`
-
-Direct package:
-
-`https://github.com/ronvotri/Cardcha-Shardbound/releases/download/cardcha-0696d3g-test-cd056a68/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.71_0696D3G_AssetSeparationNaturalCollisionDaylightRecovery_TEST.zip`
-
-## Runtime acceptance checklist
-
-1. Room 1 collision feels native and no ghost/body desync remains.
-2. Console beige/yellow matte is gone.
-3. Observation Window and console do not blanket-cover the Farmer.
-4. Four upgrade stations remain visible/interactable.
-5. TRAVEL works and radar remains a valid alternate travel control.
-6. Interior lamp/gate intersection is gone.
-7. Daytime bridge is visibly brighter/readable than night.
-8. Forest gate blocks solid wood/posts while center passage remains usable.
-9. No central walking lane or natural interaction radius regresses.
-
-Only Ron's explicit in-game confirmation may change this checkpoint to Runtime PASS.
+The D3-G `.71` package must not be relabeled because D3-H changes C# runtime behavior and requires a fresh DLL.
 
 ## Resume instruction
 
-Resume from **D3-G `.71` CI PASS / Runtime RETEST REQUIRED**.
+Continue from **D3-H .72 source/static PASS**.
 
-Do not restore forced player-position correction, the legacy beige console base, console `Front2` blanket ownership, or full `DrawDeckMarkers` replay.
+First restore a working build executor / GitHub-hosted runner, then run the already-authored D3-H workflow, compile Release, package, audit, and publish.
 
-If Ron reports a problem, patch incrementally from D3-G and use the observed runtime behavior as authority.
+Do not modify gameplay merely to make the infrastructure failure disappear.
+
+After a real D3-H package exists, Ron must test it in game. Only Ron's explicit confirmation may change Runtime status to PASS.
