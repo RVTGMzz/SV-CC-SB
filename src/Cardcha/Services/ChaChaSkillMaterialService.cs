@@ -32,7 +32,7 @@ internal sealed class ChaChaSkillMaterialService
     private const double RegularRegionMaterialChance = 0.18d;
     private const double BossRegionMaterialChance = 1.00d;
     private static readonly Point StationVisualTile = new(21, 5);
-    private static readonly Point StationInteractionTile = new(21, 8);
+    private static readonly Point StationInteractionTile = new(21, 7);
 
     private readonly IModHelper Helper;
     private readonly IMonitor Monitor;
@@ -301,7 +301,7 @@ internal sealed class ChaChaSkillMaterialService
         Color cyan = new Color(103, 235, 244) * (0.45f + pulse * 0.30f);
         Color gold = new Color(255, 221, 130) * 0.92f;
 
-        // 0696D3-I: this is the ChaCha Resonance machine Ron asked to enlarge, not the
+        // 0696D3-J: this is the ChaCha Resonance machine Ron asked to enlarge, not the
         // four Airship UPGRADE sockets. Double the complete presentation around the same anchor.
         DrawRect(batch, new Rectangle((int)center.X - 84, (int)center.Y + 40, 168, 36), new Color(37, 31, 49) * 0.92f);
         DrawRect(batch, new Rectangle((int)center.X - 66, (int)center.Y + 8, 132, 40), new Color(70, 55, 91) * 0.96f);
