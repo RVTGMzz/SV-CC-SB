@@ -2,7 +2,7 @@
 
 Updated: 2026-09-18
 
-Repository: `ronvotri/CC-SB`  
+Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
 Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.74`  
 Current phase: `0696D3-J Collision Lanes`  
@@ -58,11 +58,11 @@ SHA256:
 
 Release:
 
-`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3j-test-d9665fdf`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/tag/cardcha-0696d3j-test-d9665fdf`
 
 Direct package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
 
 ## Resume instruction
 
