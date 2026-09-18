@@ -2,7 +2,7 @@
 
 Updated: 2026-09-18
 
-Repository: `ronvotri/CC-SB`  
+Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
 Version: `0.3.0-alpha.28.0.4.14.4.5.12.72`
 
@@ -18,7 +18,7 @@ Do not call Runtime PASS until Ron tests the exact D3-H package below in Stardew
 
 ## Public-repo transition
 
-The repository was renamed from `ronvotri/Cardcha-Shardbound` to `ronvotri/CC-SB` and made public on 2026-09-18.
+The repository was renamed from `ronvotri/Cardcha-Shardbound` to `RVTGMzz/SV-CC-SB` and made public on 2026-09-18.
 
 Earlier D3-H runs failed before `Set up job` because no hosted runner was allocated while the repository was private. After the repository became public, run `35351129941` received a hosted runner and executed the full pipeline.
 
@@ -53,7 +53,7 @@ Release ID:
 
 Release:
 
-`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
 
 Package:
 
@@ -69,7 +69,7 @@ SHA256:
 
 Direct package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
 
 ## What Ron should test
 
