@@ -10,7 +10,7 @@
   <property name="CardchaVisualAcceptance" value="PENDING-RON-IN-GAME" />
   <property name="CardchaRoomShellContract" value="0696D3H|24x15|doorway-x11-12|finished-room-1" />
   <property name="CardchaD3HCollision" value="native-5400|solid-bases|front-lanes-open|boarding-posts|lamp-blocked" />
-  <property name="CardchaD3HRunner" value="16x16-pixel-weave|purple-brass|no-antialias|door-to-boarding-pad" />
+  <property name="CardchaD3IRunner" value="16x16-pixel-weave|purple-brass|no-antialias|door-to-inside-gate-boarding-pad" />
   <property name="AmbientLight" value="25 25 25" />
   <property name="AmbientNightLight" value="105 95 85" />
   <property name="CardchaD3HLighting" value="room1-daylight-recovery|day-25-25-25|night-105-95-85" />
@@ -81,8 +81,8 @@
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
-0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5803,0,0,0,0,0,0,
+0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,5800,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,5811,5804,5804,5804,5804,5806,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,5800,0,0,0,0,0,0,0,0,0,0,0,
 0,0,0,0,0,0,0,0,0,0,0,0,5800,0,0,0,0,0,0,0,0,0,0,0,
