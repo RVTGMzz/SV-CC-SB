@@ -1,0 +1,146 @@
+{
+  "phase": "0696D3-H-static-api-audit",
+  "date": "2026-09-18",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.72",
+  "implementationCommit": "49ad816ab33a86af28ced60c2bd67fcea97d4c3d",
+  "status": "PASS",
+  "authority": "Ron post-D3-G 12-image runtime feedback",
+  "scope": {
+    "room1": "24x15 exactly 2/3 old 30x18 area; brighter daytime; scaled harbor props; native collision; open front interaction rows",
+    "room2": "map-native runner; D3-H full-detail hard-alpha console; TRAVEL 1.5x; Navigation upgrade 2x; four upgrade sockets preserved; lamp moved/blocked; Window exact 4.0x wall footprint"
+  },
+  "assetEvidence": {
+    "waitingBench": {
+      "canvas": [
+        96,
+        48
+      ],
+      "oldBBox": [
+        86,
+        40
+      ],
+      "newBBox": [
+        57,
+        27
+      ],
+      "scaleApprox": [
+        0.663,
+        0.675
+      ]
+    },
+    "lostFoundBoard": {
+      "canvas": [
+        96,
+        64
+      ],
+      "oldBBox": [
+        88,
+        59
+      ],
+      "newBBox": [
+        59,
+        39
+      ],
+      "scaleApprox": [
+        0.67,
+        0.661
+      ]
+    },
+    "luggageCart": {
+      "canvas": [
+        64,
+        64
+      ],
+      "oldBBox": [
+        55,
+        60
+      ],
+      "newBBox": [
+        37,
+        40
+      ],
+      "scaleApprox": [
+        0.673,
+        0.667
+      ]
+    },
+    "runner": {
+      "size": [
+        192,
+        16
+      ],
+      "uniqueColors": 10,
+      "alphaValues": [
+        0,
+        150,
+        220,
+        255
+      ]
+    },
+    "console": {
+      "size": [
+        112,
+        80
+      ],
+      "alphaValues": [
+        0,
+        255
+      ],
+      "transparentPixels": 1718,
+      "opaquePixels": 7242,
+      "bytesIdenticalToOriginalBase": true
+    }
+  },
+  "checks": {
+    "version72": true,
+    "room1Size24x15": true,
+    "room1CenteredDoor": true,
+    "room1DaylightRecovery": true,
+    "room1ScaledAssetsWired": true,
+    "room1RunnerMapNative": true,
+    "runnerPixelArtSmallPalette": true,
+    "noticeBoardBodyBlocked": true,
+    "lostFoundBodyBlocked": true,
+    "waitingBenchBaseBlocked": true,
+    "luggageBaseBlocked": true,
+    "cargoBaseBlocked": true,
+    "room1FrontInteractionRowsOpen": true,
+    "room1GatePostsBlockedCenterOpen": true,
+    "room1LampBlocked": true,
+    "room1HeadClipPropsNotFront2": true,
+    "lostFoundMovedOffBench": true,
+    "room1PropInfoLocalized": true,
+    "deckUsesD3HConsoleBody": true,
+    "consoleNeverReturnsToFront2": true,
+    "deckRunnerMapNative": true,
+    "travelGateOneAndHalfScale": true,
+    "navigationUpgradeTwoX": true,
+    "fourUpgradeSocketsPreserved": true,
+    "deckLampMovedAndBlocked": true,
+    "observationWindowExactWallFootprint": true,
+    "observationWindowBodyBackOwned": true,
+    "noForcedFarmerPositionCorrection": true,
+    "room1BoardingPadResolvesNewBay": true,
+    "room1FunctionalLightPoolsPresent": true
+  },
+  "ci": {
+    "status": "BLOCKED_BEFORE_RUNNER",
+    "repositoryPrivate": true,
+    "workflowRun": 35347643349,
+    "attempts": 2,
+    "attempt1Job": 105607896700,
+    "attempt2Job": 105608153047,
+    "stepsObserved": 0,
+    "runnerIdObserved": 0,
+    "lastKnownSuccessfulD3GRun": 35287327146,
+    "note": "Current GitHub-hosted runner allocation failed before Set up job. This audit must not be called CI PASS."
+  },
+  "package": {
+    "status": "NOT_BUILT",
+    "reason": "GitHub Actions job never received a runner; local environment cannot reach private GitHub repository."
+  },
+  "runtime": {
+    "status": "PENDING_RON_IN_GAME",
+    "rule": "Only Ron testing the exact future D3-H package may promote Runtime PASS."
+  }
+}
