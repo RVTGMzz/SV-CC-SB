@@ -304,7 +304,7 @@ internal static class AirshipInteriorStardewRenderer
 
     private static void DrawDockMagic(SpriteBatch batch, float phase)
     {
-        // 0696D3-H: map AmbientLight owns general daylight. These are small pixel light pools
+        // 0696D3-I: map AmbientLight owns general daylight. These are small pixel light pools
         // only at functional anchors, so Room 1 stays readable without a screen-sized wash.
         foreach ((Point tile, Color glow) in new[]
         {
@@ -324,7 +324,7 @@ internal static class AirshipInteriorStardewRenderer
         Vector2 route = WorldToScreen(4f * 64f + 32f, 7f * 64f + 10f);
         DrawDiamond(batch, route, 5, new Color(109,210,204) * (0.58f + 0.10f*MathF.Sin(phase*1.6f)));
         // Boarding pad is deliberately bright so the warp trigger is never invisible.
-        Vector2 bay = WorldToScreen(17f * 64f + 32f, 8f * 64f + 34f);
+        Vector2 bay = WorldToScreen(17f * 64f + 32f, 7f * 64f + 34f);
         Color teal = new Color(103,221,214);
         DrawRect(batch, new Rectangle((int)bay.X - 30, (int)bay.Y - 7, 60, 3), teal * 0.28f);
         DrawDiamond(batch, bay + new Vector2(0f, -5f), 5, teal * 0.58f);
