@@ -2423,7 +2423,7 @@ internal sealed class AirshipFoundationService
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
-        return new Point(Math.Clamp(15, 2, width - 3), Math.Clamp(12, 4, height - 2));
+        return new Point(Math.Clamp(9, 2, width - 3), Math.Clamp(12, 4, height - 2));
     }
 
     private static Point ResolveSkyDockCargoTile(GameLocation interior)
