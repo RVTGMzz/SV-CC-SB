@@ -124,25 +124,35 @@
     "room1FunctionalLightPoolsPresent": true
   },
   "ci": {
-    "status": "BLOCKED_BEFORE_RUNNER",
-    "repositoryPrivate": true,
-    "workflowRun": 35347643349,
-    "attempts": 3,
-    "attempt1Job": 105607896700,
-    "attempt2Job": 105608153047,
-    "stepsObserved": 0,
-    "runnerIdObserved": 0,
-    "lastKnownSuccessfulD3GRun": 35287327146,
-    "note": "Three attempts failed before Set up job with no GitHub-hosted runner allocated. D3-H source/static checks are not implicated. Private-repository Actions quota/budget is the leading hypothesis but is not account-verified here.",
-    "attempt3Job": 105611724798
+    "status": "PASS",
+    "workflowRun": 35351129941,
+    "job": 105619257646,
+    "sourceCommit": "cb71e28e321f1a45d3a73eac126c291e5cc455ea",
+    "repository": "ronvotri/CC-SB",
+    "repositoryVisibility": "public",
+    "runtimeFeedbackContract": "PASS",
+    "noLegacyWindowReuse": "PASS",
+    "renderDepthContract": "PASS",
+    "nonMutation": "PASS",
+    "smapiBuildEnvironment": "PASS",
+    "releaseCompile": "PASS",
+    "packageAudit": "PASS",
+    "prerelease": "PASS",
+    "historicalRunnerBlockerResolved": true
   },
   "package": {
-    "status": "NOT_BUILT",
-    "reason": "GitHub Actions job never received a runner; local environment cannot reach private GitHub repository."
+    "status": "READY",
+    "tag": "cardcha-0696d3h-test-cb71e28e",
+    "releaseId": 391501708,
+    "name": "Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip",
+    "assetId": 572700371,
+    "sha256": "7103dfa6bba242a3a14de9d8886e2c9d238e37c649e0c9a978c9c0296c640c99",
+    "releaseUrl": "https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e",
+    "directUrl": "https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip"
   },
   "runtime": {
-    "status": "PENDING_RON_IN_GAME",
-    "rule": "Only Ron testing the exact future D3-H package may promote Runtime PASS."
+    "status": "RETEST_REQUIRED",
+    "rule": "Only Ron testing the exact D3-H .72 TEST package may promote Runtime PASS."
   },
   "repository": "ronvotri/CC-SB",
   "repositoryVisibility": "public",
