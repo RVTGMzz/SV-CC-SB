@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-09-18 — CARDCHA 0696D3-I
 
-Repository: `ronvotri/CC-SB`  
+Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
 ## Read first
@@ -28,7 +28,7 @@ Canonical source/package commit: `9d583dc025b3549e1a6894496146a30007c8aa31`
 
 Package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3i-test-9d583dc0/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.73_0696D3I_RuntimeCorrection_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3i-test-9d583dc0/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.73_0696D3I_RuntimeCorrection_TEST.zip`
 
 SHA256:
 
