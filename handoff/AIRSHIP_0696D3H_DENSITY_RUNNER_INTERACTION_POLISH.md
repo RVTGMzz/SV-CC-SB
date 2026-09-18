@@ -2,7 +2,7 @@
 
 Updated: 2026-09-18
 
-Repository: `ronvotri/Cardcha-Shardbound`  
+Repository: `ronvotri/CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
 Version: `0.3.0-alpha.28.0.4.14.4.5.12.72`
 
