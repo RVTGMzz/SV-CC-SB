@@ -32,8 +32,9 @@ internal static class AirshipAmbientAnimationService
         new(89, 33),
     };
     private const long D1SAirshipFrameDurationMs = 550L;
-    // 0696D3-C: subtle 6.25% centered overscan. Source PNG bytes stay canonical and untouched.
-    private const float ObservationWindowPresentationScale = 4.25f;
+    // 0696D3-H: exact TMX footprint. The old 4.25x overscan made the Window read detached from the wall
+    // and could visually bleed beyond its architectural frame.
+    private const float ObservationWindowPresentationScale = 4.0f;
 
     public static bool DrawDeckAmbient(SpriteBatch batch)
     {
