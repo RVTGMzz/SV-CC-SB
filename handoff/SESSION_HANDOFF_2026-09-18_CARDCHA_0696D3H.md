@@ -63,6 +63,10 @@ D3-G run `35287327146` is the last known successful full CI/package run.
 
 Do not interpret the D3-H run as a code/test failure because neither code nor tests executed.
 
+## Local fallback
+
+If GitHub-hosted Actions remains blocked, use `tools/build_0696d3h_local.ps1` on a Windows checkout with a working Stardew/SMAPI ModBuildConfig environment. It performs validation, Release compile, ZIP assembly, package audit and SHA256 generation.
+
 ## Next action
 
 First priority is to restore a usable build executor for the private repository, then run the existing D3-H workflow unchanged.
