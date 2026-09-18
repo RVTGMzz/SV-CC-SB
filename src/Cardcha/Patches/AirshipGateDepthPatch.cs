@@ -9,7 +9,7 @@ using System.Reflection;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// 0696D3-I asset separation, native collision and bridge-depth recovery.
+/// 0696D3-J asset separation, native collision and bridge-depth recovery.
 ///
 /// Runtime authority is Ron's 2026-09-18 post-D3-G 12-image retest:
 /// - never correct Farmer.Position to fake collision;
@@ -47,7 +47,7 @@ internal static class AirshipGateDepthPatch
         if (farmerDraw is null)
         {
             monitor.Log(
-                "0696D3-I couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
+                "0696D3-J couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
                 LogLevel.Error
             );
         }
@@ -81,7 +81,7 @@ internal static class AirshipGateDepthPatch
         if (DeckMarkersMethod is null)
         {
             monitor.Log(
-                "0696D3-I couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
+                "0696D3-J couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
                 LogLevel.Error
             );
         }
@@ -113,7 +113,7 @@ internal static class AirshipGateDepthPatch
         if (collisionCheck is null)
         {
             monitor.Log(
-                "0696D3-I couldn't resolve GameLocation.isCollidingPosition; Forest gate segmented collision was not installed.",
+                "0696D3-J couldn't resolve GameLocation.isCollidingPosition; Forest gate segmented collision was not installed.",
                 LogLevel.Error
             );
         }
@@ -129,7 +129,7 @@ internal static class AirshipGateDepthPatch
         if (getActionTile is null)
         {
             monitor.Log(
-                "0696D3-I couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
+                "0696D3-J couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
                 LogLevel.Error
             );
         }
@@ -142,7 +142,7 @@ internal static class AirshipGateDepthPatch
         }
 
         monitor.Log(
-            "0696D3-I active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
+            "0696D3-J active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
             LogLevel.Info
         );
     }
@@ -158,12 +158,12 @@ internal static class AirshipGateDepthPatch
         {
             if (location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             {
-                DrawD3IDeckPass(b);
+                DrawD3JDeckPass(b);
             }
             else if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
             {
                 Point bay = ResolvePoint("ResolveSkyDockInteriorBayTile", location, new Point(17, 7));
-                DrawD3IBoardingPad(b, bay, "BOARD AIRSHIP");
+                DrawD3JBoardingPad(b, bay, "BOARD AIRSHIP");
             }
         }
 
@@ -187,14 +187,14 @@ internal static class AirshipGateDepthPatch
     private static bool SuppressLegacyDeckMarkers()
         => false;
 
-    private static void DrawD3IDeckPass(SpriteBatch batch)
+    private static void DrawD3JDeckPass(SpriteBatch batch)
     {
         AirshipAmbientAnimationService.DrawDeckAmbient(batch);
-        DrawD3ITravelGate(batch);
-        DrawD3IUpgradeStations(batch);
+        DrawD3JTravelGate(batch);
+        DrawD3JUpgradeStations(batch);
     }
 
-    private static void DrawD3ITravelGate(SpriteBatch batch)
+    private static void DrawD3JTravelGate(SpriteBatch batch)
     {
         Point tile = new(4, 5);
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
@@ -207,17 +207,17 @@ internal static class AirshipGateDepthPatch
             batch.Draw(gate, dst, Color.White);
         }
 
-        DrawD3IBoardingPad(batch, tile, "TRAVEL");
+        DrawD3JBoardingPad(batch, tile, "TRAVEL");
     }
 
-    private static void DrawD3IBoardingPad(SpriteBatch batch, Point tile, string label)
+    private static void DrawD3JBoardingPad(SpriteBatch batch, Point tile, string label)
     {
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
         float pulse = 0.72f + 0.12f * MathF.Sin(Environment.TickCount64 / 180f);
         Color cyan = new Color(95, 224, 218) * pulse;
         Color gold = new Color(229, 177, 84) * 0.78f;
 
-        // D3-I: the map-authored rug owns the physical path; runtime only gives the
+        // D3-J: the map-authored rug owns the physical path; runtime only gives the
         // destination rune a restrained pixel glow so the carpet never becomes a flat LED panel.
         DrawRect(batch, new Rectangle((int)floor.X - 45, (int)floor.Y + 7, 90, 3), gold * 0.72f);
         DrawRect(batch, new Rectangle((int)floor.X - 28, (int)floor.Y - 1, 56, 3), cyan * 0.58f);
@@ -231,7 +231,7 @@ internal static class AirshipGateDepthPatch
         batch.DrawString(Game1.smallFont, label, text, Color.White);
     }
 
-    private static void DrawD3IUpgradeStations(SpriteBatch batch)
+    private static void DrawD3JUpgradeStations(SpriteBatch batch)
     {
         Texture2D? atlas = GetUpgradeAtlas();
         int[] levels = ResolveUpgradeLevels();
@@ -257,7 +257,7 @@ internal static class AirshipGateDepthPatch
             const int halfPresentation = presentationSize / 2;
             const int topOffset = 64;
 
-            // D3-I: all four UPGRADE stations return to the same native-scale presentation. The separate
+            // D3-J: all four UPGRADE stations return to the same native-scale presentation. The separate
             // ChaCha Resonance station is the machine Ron requested at 2x.
             DrawRect(batch,
                 new Rectangle((int)center.X - Math.Max(42, halfPresentation - 8), (int)center.Y - 52,
@@ -334,7 +334,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             UpgradeAtlasLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-I upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-J upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -354,7 +354,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             TravelGateLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-I travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-J travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -370,8 +370,30 @@ internal static class AirshipGateDepthPatch
         if (__result
             || !isFarmer
             || service is null
-            || !ReferenceEquals(character, Game1.player)
-            || !__instance.NameOrUniqueName.Equals(ForestLocationName, StringComparison.OrdinalIgnoreCase)
+            || !ReferenceEquals(character, Game1.player))
+        {
+            return;
+        }
+
+        string locationName = __instance.NameOrUniqueName;
+
+        // 0696D3-J: collision-query enforcement mirrors the TMX Buildings footprints.
+        // This is a normal collision answer only; it never moves, rewinds, pins, or teleports Farmer.
+        if (locationName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            if (IntersectsAny(position, BuildD3JDeckSolidSegments()))
+                __result = true;
+            return;
+        }
+
+        if (locationName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
+        {
+            if (IntersectsAny(position, BuildD3JSkyDockSolidSegments()))
+                __result = true;
+            return;
+        }
+
+        if (!locationName.Equals(ForestLocationName, StringComparison.OrdinalIgnoreCase)
             || !service.CanDrawForestGateForLocalPlayer())
         {
             return;
@@ -381,13 +403,62 @@ internal static class AirshipGateDepthPatch
         if (anchor is not Point gate)
             return;
 
-        foreach (Rectangle solid in BuildForestGateSolidSegments(gate))
-        {
-            if (!solid.Intersects(position))
-                continue;
+        if (IntersectsAny(position, BuildForestGateSolidSegments(gate)))
             __result = true;
-            return;
+    }
+
+    private static bool IntersectsAny(Rectangle position, IEnumerable<Rectangle> solids)
+    {
+        foreach (Rectangle solid in solids)
+        {
+            if (solid.Intersects(position))
+                return true;
         }
+        return false;
+    }
+
+    private static Rectangle TileRect(int x, int y, int widthTiles, int heightTiles)
+    {
+        const int tile = 64;
+        return new Rectangle(x * tile, y * tile, widthTiles * tile, heightTiles * tile);
+    }
+
+    private static IEnumerable<Rectangle> BuildD3JSkyDockSolidSegments()
+    {
+        // Wall furniture: leave exactly the row below each prop open as the interaction lane.
+        yield return TileRect(2, 5, 5, 3);   // notice board
+        yield return TileRect(8, 5, 6, 2);   // Lost & Found
+        yield return TileRect(2, 9, 6, 3);   // waiting bench
+        yield return TileRect(8, 9, 4, 4);   // luggage cart
+        yield return TileRect(20, 9, 3, 3);  // cargo
+
+        // Boarding architecture: side furnishings/posts are solid; x17 remains the center throat.
+        yield return TileRect(14, 5, 3, 4);
+        yield return TileRect(18, 5, 3, 4);
+
+        // Wall lamp.
+        yield return TileRect(21, 5, 2, 2);
+    }
+
+    private static IEnumerable<Rectangle> BuildD3JDeckSolidSegments()
+    {
+        // Dedicated TRAVEL gate: segmented sides, center x4 open.
+        yield return TileRect(2, 4, 2, 3);
+        yield return TileRect(5, 4, 2, 3);
+
+        // Navigation console full visible body. y10 is the front interaction lane.
+        yield return TileRect(9, 5, 7, 5);
+
+        // Four UPGRADE physical bases. These block crossing through the machines while retaining
+        // natural Stardew-style walk-behind/front lanes around their upper sprite portions.
+        yield return TileRect(3, 8, 3, 1);
+        yield return TileRect(18, 8, 3, 1);
+        yield return TileRect(6, 11, 3, 1);
+        yield return TileRect(15, 11, 3, 1);
+
+        // Signal lamp and the actual 2x ChaCha Resonance machine.
+        yield return TileRect(18, 6, 2, 1);
+        yield return TileRect(20, 5, 3, 2);
     }
 
     private static IEnumerable<Rectangle> BuildForestGateSolidSegments(Point gate)
@@ -476,8 +547,11 @@ internal static class AirshipGateDepthPatch
         foreach ((string resolver, Point fallback, int radiusX, int radiusY) in new[]
         {
             ("ResolveSkyDockInteriorRouteTile", new Point(4, 7), 2, 2),
-            ("ResolveSkyDockInteriorBayTile", new Point(17, 8), 2, 2),
-            ("ResolveSkyDockLostFoundTile", new Point(10, 6), 2, 2),
+            ("ResolveSkyDockInteriorBayTile", new Point(17, 7), 2, 2),
+            ("ResolveSkyDockLostFoundTile", new Point(10, 6), 3, 2),
+            ("ResolveSkyDockWaitingBenchTile", new Point(4, 11), 3, 2),
+            ("ResolveSkyDockLuggageCartTile", new Point(9, 12), 2, 2),
+            ("ResolveSkyDockCargoTile", new Point(21, 11), 2, 2),
             ("ResolveSkyDockInteriorExitTile", new Point(12, 13), 2, 2),
         })
         {
