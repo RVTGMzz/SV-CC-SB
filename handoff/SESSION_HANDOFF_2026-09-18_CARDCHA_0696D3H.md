@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-09-18 — CARDCHA 0696D3-H
 
-Repository: `ronvotri/Cardcha-Shardbound`  
+Repository: `ronvotri/CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
 ## Read first
