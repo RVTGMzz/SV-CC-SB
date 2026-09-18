@@ -2402,7 +2402,7 @@ internal sealed class AirshipFoundationService
     {
         int width = interior.Map?.Layers.FirstOrDefault()?.LayerWidth ?? 24;
         int height = interior.Map?.Layers.FirstOrDefault()?.LayerHeight ?? 15;
-        return new Point(Math.Clamp(width - 7, 4, width - 3), Math.Clamp(8, 3, height - 5));
+        return new Point(Math.Clamp(width - 7, 4, width - 3), Math.Clamp(7, 3, height - 5));
     }
 
     private static Point ResolveSkyDockLostFoundTile(GameLocation interior)
