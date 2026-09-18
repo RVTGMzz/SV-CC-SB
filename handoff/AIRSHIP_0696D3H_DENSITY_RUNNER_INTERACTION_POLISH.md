@@ -130,12 +130,13 @@ Run:
 
 `35347643349`
 
-Attempts: `2`
+Attempts: `3`
 
 Attempt 1 job: `105607896700`  
-Attempt 2 job: `105608153047`
+Attempt 2 job: `105608153047`  
+Attempt 3 job: `105611724798`
 
-Both attempts failed before `Set up job`, with zero steps and no allocated runner.
+All three attempts failed before `Set up job`, with zero steps and no allocated runner.
 
 For comparison, D3-G run `35287327146` previously received a GitHub runner, executed all 27 steps, compiled, packaged and published successfully.
 
