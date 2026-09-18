@@ -6,7 +6,7 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0696D3-G transient Window/radar ambience.
+/// 0696D3-I transient Window/radar ambience.
 /// Physical Window and console bodies are map-native. Runtime owns only environment/motion slices:
 /// the moving airship, approved Window environment, and radar glow/sweep/pings.
 /// The console frame/body is never replayed as a runtime full-prop overlay.
@@ -35,6 +35,8 @@ internal static class AirshipAmbientAnimationService
     // 0696D3-H: exact TMX footprint. The old 4.25x overscan made the Window read detached from the wall
     // and could visually bleed beyond its architectural frame.
     private const float ObservationWindowPresentationScale = 4.0f;
+    private const float ConsoleSweepPresentationScale = 0.58f;
+    private const float ConsoleFxPresentationScale = 0.72f;
 
     public static bool DrawDeckAmbient(SpriteBatch batch)
     {
@@ -106,6 +108,24 @@ internal static class AirshipAmbientAnimationService
             SpriteEffects.None,
             0.8845f
         );
+
+        // 0696D3-I: Window frame leaves TMX entirely. Drawing it here, in the same
+        // pre-Farmer pass as the environment, guarantees the Farmer is always on top.
+        Texture2D? frame = GetTexture(config.Frame.Path);
+        if (frame is not null)
+        {
+            batch.Draw(
+                frame,
+                presentation,
+                null,
+                Color.White,
+                0f,
+                Vector2.Zero,
+                SpriteEffects.None,
+                0.8848f
+            );
+        }
+
         return true;
     }
 
@@ -122,19 +142,22 @@ internal static class AirshipAmbientAnimationService
         AirshipNavigationConsoleConfig config = manifest.NavigationConsole;
         Vector2 propTopLeft = WorldToScreen(config.WorldAnchor.TileX * 64f, config.WorldAnchor.TileY * 64f);
 
-        // 0696D3-G runtime authority: never resurrect a full console body here.
+        // 0696D3-I runtime authority: never resurrect a full console body here.
         // If ambient slices are unavailable, the transparent TMX console remains clean.
         if (!state.AmbientAssetsReady)
             return false;
 
         Rectangle viewport = ScaleViewport(config.ViewportPx, propTopLeft);
-        // Keep only animated glow/sweep/pings over the map-native transparent console body.
-        DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, viewport, 0.8850f);
-        DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, viewport, 0.8852f);
-        DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, viewport, 0.8854f);
+        Rectangle fxViewport = ScaleAroundCenter(viewport, ConsoleFxPresentationScale);
+        Rectangle sweepViewport = ScaleAroundCenter(viewport, ConsoleSweepPresentationScale);
 
-        // 0696D3-G: console frame/body is authored into TMX using the transparent
-        // navigation_console_body_d3g.png asset. Runtime owns only radar animation.
+        // 0696D3-I: Ron's runtime retest showed the electronic sweep/gauge reading far too large.
+        // Keep the static monitor size from the map asset, but shrink only animated radar FX.
+        DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, fxViewport, 0.8850f);
+        DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, sweepViewport, 0.8852f);
+        DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, fxViewport, 0.8854f);
+
+        // The physical console body is D3-I's edge-matte-cleaned TMX asset.
         return true;
     }
 
@@ -245,6 +268,18 @@ internal static class AirshipAmbientAnimationService
             (int)propTopLeft.Y + source.Y * 4,
             source.Width * 4,
             source.Height * 4
+        );
+    }
+
+    private static Rectangle ScaleAroundCenter(Rectangle source, float scale)
+    {
+        int width = Math.Max(1, (int)MathF.Round(source.Width * scale));
+        int height = Math.Max(1, (int)MathF.Round(source.Height * scale));
+        return new Rectangle(
+            source.Center.X - width / 2,
+            source.Center.Y - height / 2,
+            width,
+            height
         );
     }
 
