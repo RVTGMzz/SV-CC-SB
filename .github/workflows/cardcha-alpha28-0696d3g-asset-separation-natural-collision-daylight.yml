@@ -1,24 +1,9 @@
 name: Cardcha 0696D3-G Asset Separation Natural Collision Daylight TEST
 
+# Historical D3-G CI. D3-H intentionally changes room density, console body,
+# Window presentation scale, runner layout and travel/station presentation.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
-      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/assets/airship_deck.tmx
-      - src/Cardcha/assets/sky_dock_interior.tmx
-      - src/Cardcha/assets/airship_props/set01_redux/navigation_console_body_d3g.png
-      - src/Cardcha/manifest.json
-      - src/Cardcha/Cardcha.csproj
-      - src/Cardcha/Directory.Build.targets
-      - tools/alpha28_0696d3g_asset_separation_natural_collision_daylight.py
-      - tools/alpha28_0696d3g_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3g-asset-separation-natural-collision-daylight.yml
 
 permissions:
   contents: write
