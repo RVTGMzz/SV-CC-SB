@@ -9,7 +9,7 @@ using System.Reflection;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// 0696D3-G asset separation, native collision and bridge-depth recovery.
+/// 0696D3-H asset separation, native collision and bridge-depth recovery.
 ///
 /// Runtime authority is Ron's 2026-09-18 D3-F retest:
 /// - never correct Farmer.Position to fake collision;
@@ -47,7 +47,7 @@ internal static class AirshipGateDepthPatch
         if (farmerDraw is null)
         {
             monitor.Log(
-                "0696D3-G couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
+                "0696D3-H couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
                 LogLevel.Error
             );
         }
@@ -81,7 +81,7 @@ internal static class AirshipGateDepthPatch
         if (DeckMarkersMethod is null)
         {
             monitor.Log(
-                "0696D3-G couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
+                "0696D3-H couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
                 LogLevel.Error
             );
         }
@@ -113,7 +113,7 @@ internal static class AirshipGateDepthPatch
         if (collisionCheck is null)
         {
             monitor.Log(
-                "0696D3-G couldn't resolve GameLocation.isCollidingPosition; Forest gate segmented collision was not installed.",
+                "0696D3-H couldn't resolve GameLocation.isCollidingPosition; Forest gate segmented collision was not installed.",
                 LogLevel.Error
             );
         }
@@ -129,7 +129,7 @@ internal static class AirshipGateDepthPatch
         if (getActionTile is null)
         {
             monitor.Log(
-                "0696D3-G couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
+                "0696D3-H couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
                 LogLevel.Error
             );
         }
@@ -142,7 +142,7 @@ internal static class AirshipGateDepthPatch
         }
 
         monitor.Log(
-            "0696D3-G active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
+            "0696D3-H active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
             LogLevel.Info
         );
     }
@@ -158,11 +158,12 @@ internal static class AirshipGateDepthPatch
         {
             if (location.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             {
-                DrawD3GDeckPass(b);
+                DrawD3HDeckPass(b);
             }
             else if (location.NameOrUniqueName.Equals(SkyDockInteriorLocationName, StringComparison.OrdinalIgnoreCase))
             {
-                DrawD3GBoardingPad(b, new Point(23, 8), "BOARD AIRSHIP");
+                Point bay = ResolvePoint("ResolveSkyDockInteriorBayTile", location, new Point(17, 8));
+                DrawD3HBoardingPad(b, bay, "BOARD AIRSHIP");
             }
         }
 
@@ -186,39 +187,43 @@ internal static class AirshipGateDepthPatch
     private static bool SuppressLegacyDeckMarkers()
         => false;
 
-    private static void DrawD3GDeckPass(SpriteBatch batch)
+    private static void DrawD3HDeckPass(SpriteBatch batch)
     {
         AirshipAmbientAnimationService.DrawDeckAmbient(batch);
-        DrawD3GTravelGate(batch);
-        DrawD3GUpgradeStations(batch);
+        DrawD3HTravelGate(batch);
+        DrawD3HUpgradeStations(batch);
     }
 
-    private static void DrawD3GTravelGate(SpriteBatch batch)
+    private static void DrawD3HTravelGate(SpriteBatch batch)
     {
         Point tile = new(4, 5);
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
         Texture2D? gate = GetTravelGateTexture();
         if (gate is not null && gate.Width > 0 && gate.Height > 0)
         {
-            const int width = 244;
+            const int width = 366;
             int height = Math.Max(128, (int)MathF.Round(gate.Height * (width / (float)gate.Width)));
             Rectangle dst = new((int)floor.X - width / 2, (int)floor.Y - height + 32, width, height);
             batch.Draw(gate, dst, Color.White);
         }
 
-        DrawD3GBoardingPad(batch, tile, "TRAVEL");
+        DrawD3HBoardingPad(batch, tile, "TRAVEL");
     }
 
-    private static void DrawD3GBoardingPad(SpriteBatch batch, Point tile, string label)
+    private static void DrawD3HBoardingPad(SpriteBatch batch, Point tile, string label)
     {
         Vector2 floor = WorldToScreen(tile.X * 64f + 32f, tile.Y * 64f + 58f);
         float pulse = 0.72f + 0.12f * MathF.Sin(Environment.TickCount64 / 180f);
         Color cyan = new Color(95, 224, 218) * pulse;
         Color gold = new Color(229, 177, 84) * 0.78f;
 
-        DrawRect(batch, new Rectangle((int)floor.X - 48, (int)floor.Y + 7, 96, 5), gold);
-        DrawRect(batch, new Rectangle((int)floor.X - 38, (int)floor.Y + 1, 76, 3), cyan * 0.72f);
-        DrawDiamond(batch, new Vector2(floor.X, floor.Y - 11f), 7, cyan);
+        // D3-H: the map-authored rug owns the physical path; runtime only gives the
+        // destination rune a restrained pixel glow so the carpet never becomes a flat LED panel.
+        DrawRect(batch, new Rectangle((int)floor.X - 45, (int)floor.Y + 7, 90, 3), gold * 0.72f);
+        DrawRect(batch, new Rectangle((int)floor.X - 28, (int)floor.Y - 1, 56, 3), cyan * 0.58f);
+        DrawRect(batch, new Rectangle((int)floor.X - 18, (int)floor.Y - 8, 36, 16), cyan * (0.07f + pulse * 0.035f));
+        DrawDiamond(batch, new Vector2(floor.X, floor.Y - 11f), 8, cyan);
+        DrawDiamond(batch, new Vector2(floor.X, floor.Y - 11f), 3, Color.White * (0.55f + pulse * 0.18f));
 
         Vector2 size = Game1.smallFont.MeasureString(label);
         Vector2 text = new(floor.X - size.X / 2f, floor.Y + 18f);
@@ -226,7 +231,7 @@ internal static class AirshipGateDepthPatch
         batch.DrawString(Game1.smallFont, label, text, Color.White);
     }
 
-    private static void DrawD3GUpgradeStations(SpriteBatch batch)
+    private static void DrawD3HUpgradeStations(SpriteBatch batch)
     {
         Texture2D? atlas = GetUpgradeAtlas();
         int[] levels = ResolveUpgradeLevels();
@@ -248,18 +253,33 @@ internal static class AirshipGateDepthPatch
             DrawRect(batch, new Rectangle((int)center.X - 48, (int)center.Y + 10, 96, 16), new Color(47, 32, 29) * 0.95f);
             DrawRect(batch, new Rectangle((int)center.X - 41, (int)center.Y + 7, 82, 6), new Color(180, 120, 58) * 0.86f);
 
+            int presentationSize = i == 1 ? 192 : 96;
+            int halfPresentation = presentationSize / 2;
+            int topOffset = presentationSize == 192 ? 154 : 64;
+
+            // D3-H station glow: readable from across the room without turning into smooth neon.
+            DrawRect(batch,
+                new Rectangle((int)center.X - Math.Max(42, halfPresentation - 8), (int)center.Y - 52,
+                    Math.Max(84, presentationSize - 16), 58),
+                accent * (0.055f + pulse * 0.025f));
+            DrawRect(batch,
+                new Rectangle((int)center.X - 32, (int)center.Y - 35, 64, 38),
+                accent * (0.070f + pulse * 0.040f));
+
             if (atlas is not null && atlas.Width >= (column + 1) * UpgradeCellSize)
             {
                 int rows = Math.Max(1, atlas.Height / UpgradeCellSize);
                 int level = Math.Clamp(levels[i], 0, rows - 1);
                 Rectangle src = new(column * UpgradeCellSize, level * UpgradeCellSize, UpgradeCellSize, UpgradeCellSize);
-                Rectangle dst = new((int)center.X - 48, (int)center.Y - 64, 96, 96);
+                Rectangle dst = new((int)center.X - halfPresentation, (int)center.Y - topOffset, presentationSize, presentationSize);
                 batch.Draw(atlas, dst, src, Color.White);
             }
             else
             {
-                DrawRect(batch, new Rectangle((int)center.X - 34, (int)center.Y - 49, 68, 58), new Color(41, 47, 57) * 0.96f);
-                DrawRect(batch, new Rectangle((int)center.X - 25, (int)center.Y - 38, 50, 30), accent * 0.42f);
+                int fallbackWidth = i == 1 ? 136 : 68;
+                int fallbackHeight = i == 1 ? 116 : 58;
+                DrawRect(batch, new Rectangle((int)center.X - fallbackWidth / 2, (int)center.Y - fallbackHeight + 9, fallbackWidth, fallbackHeight), new Color(41, 47, 57) * 0.96f);
+                DrawRect(batch, new Rectangle((int)center.X - fallbackWidth / 2 + 9, (int)center.Y - fallbackHeight + 20, fallbackWidth - 18, Math.Max(30, fallbackHeight / 2)), accent * 0.42f);
             }
 
             DrawRect(batch, new Rectangle((int)center.X - 22, (int)center.Y - 26, 44, 4), accent * pulse);
@@ -313,7 +333,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             UpgradeAtlasLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-G upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-H upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -333,7 +353,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             TravelGateLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-G travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-H travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -454,10 +474,10 @@ internal static class AirshipGateDepthPatch
 
         foreach ((string resolver, Point fallback, int radiusX, int radiusY) in new[]
         {
-            ("ResolveSkyDockInteriorRouteTile", new Point(7, 7), 2, 2),
-            ("ResolveSkyDockInteriorBayTile", new Point(23, 8), 2, 2),
-            ("ResolveSkyDockLostFoundTile", new Point(5, 11), 2, 2),
-            ("ResolveSkyDockInteriorExitTile", new Point(15, 16), 2, 2),
+            ("ResolveSkyDockInteriorRouteTile", new Point(4, 7), 2, 2),
+            ("ResolveSkyDockInteriorBayTile", new Point(17, 8), 2, 2),
+            ("ResolveSkyDockLostFoundTile", new Point(10, 6), 2, 2),
+            ("ResolveSkyDockInteriorExitTile", new Point(12, 13), 2, 2),
         })
         {
             Point target = ResolvePoint(resolver, location, fallback);
