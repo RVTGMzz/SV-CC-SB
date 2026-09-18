@@ -301,19 +301,20 @@ internal sealed class ChaChaSkillMaterialService
         Color cyan = new Color(103, 235, 244) * (0.45f + pulse * 0.30f);
         Color gold = new Color(255, 221, 130) * 0.92f;
 
-        // Presentation-only Airship furniture. No map tile/collision is changed.
-        DrawRect(batch, new Rectangle((int)center.X - 42, (int)center.Y + 20, 84, 18), new Color(37, 31, 49) * 0.92f);
-        DrawRect(batch, new Rectangle((int)center.X - 33, (int)center.Y + 4, 66, 20), new Color(70, 55, 91) * 0.96f);
-        DrawRect(batch, new Rectangle((int)center.X - 25, (int)center.Y - 3, 50, 9), gold * 0.78f);
-        DrawDiamond(batch, center + new Vector2(0f, 1f), 20f + pulse * 4f, violet);
-        DrawDiamond(batch, center + new Vector2(0f, 1f), 11f + pulse * 2f, cyan);
+        // 0696D3-I: this is the ChaCha Resonance machine Ron asked to enlarge, not the
+        // four Airship UPGRADE sockets. Double the complete presentation around the same anchor.
+        DrawRect(batch, new Rectangle((int)center.X - 84, (int)center.Y + 40, 168, 36), new Color(37, 31, 49) * 0.92f);
+        DrawRect(batch, new Rectangle((int)center.X - 66, (int)center.Y + 8, 132, 40), new Color(70, 55, 91) * 0.96f);
+        DrawRect(batch, new Rectangle((int)center.X - 50, (int)center.Y - 6, 100, 18), gold * 0.78f);
+        DrawDiamond(batch, center + new Vector2(0f, 2f), 40f + pulse * 8f, violet);
+        DrawDiamond(batch, center + new Vector2(0f, 2f), 22f + pulse * 4f, cyan);
 
         if (this.MaterialTexture is not null)
         {
             for (int i = 0; i < 4; i++)
             {
                 float phase = (float)(seconds * 0.72 + i * MathHelper.PiOver2);
-                Vector2 p = center + new Vector2((float)Math.Cos(phase) * 48f, -27f + (float)Math.Sin(phase) * 13f);
+                Vector2 p = center + new Vector2((float)Math.Cos(phase) * 96f, -54f + (float)Math.Sin(phase) * 26f);
                 Rectangle source = new(i * 32, 0, 32, 32);
                 batch.Draw(
                     this.MaterialTexture,
@@ -322,7 +323,7 @@ internal sealed class ChaChaSkillMaterialService
                     Color.White * (0.74f + pulse * 0.20f),
                     0f,
                     new Vector2(16f, 16f),
-                    0.72f,
+                    1.44f,
                     SpriteEffects.None,
                     1f
                 );
@@ -337,7 +338,7 @@ internal sealed class ChaChaSkillMaterialService
             batch.DrawString(
                 Game1.smallFont,
                 text,
-                new Vector2(center.X - size.X / 2f, center.Y - 76f),
+                new Vector2(center.X - size.X / 2f, center.Y - 142f),
                 Color.White * 0.90f,
                 0f,
                 Vector2.Zero,
