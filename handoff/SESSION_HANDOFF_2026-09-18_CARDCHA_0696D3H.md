@@ -1,6 +1,6 @@
 # SESSION HANDOFF — 2026-09-18 — CARDCHA 0696D3-H
 
-Repository: `ronvotri/CC-SB`  
+Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`
 
 ## Read first
@@ -59,11 +59,11 @@ SHA256: `7103dfa6bba242a3a14de9d8886e2c9d238e37c649e0c9a978c9c0296c640c99`
 
 Release:
 
-`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
 
 Direct package:
 
-`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
 
 The earlier zero-step runner failures are historical and were resolved after the repository became public.
 
