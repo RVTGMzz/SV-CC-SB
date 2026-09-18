@@ -6,14 +6,15 @@ Repository: `ronvotri/CC-SB`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
 Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.72`  
 Current phase: `0696D3-H Density + Runner + Interaction Polish`  
-Current status: **STATIC/API PASS / CI BLOCKED BEFORE RUNNER / PACKAGE NOT BUILT / RUNTIME PENDING**
+Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3H_DENSITY_RUNNER_INTERACTION_POLISH.md`
-2. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3H.md`
-3. `handoff/AIRSHIP_0696D3H_STATIC_API_AUDIT.json`
-4. `handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md`
+1. `handoff/AIRSHIP_0696D3H_CI_RELEASE_CHECKPOINT.md`
+2. `handoff/AIRSHIP_0696D3H_DENSITY_RUNNER_INTERACTION_POLISH.md`
+3. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3H.md`
+4. `handoff/AIRSHIP_0696D3H_STATIC_API_AUDIT.json`
+5. `handoff/AIRSHIP_0696D3G_ASSET_SEPARATION_NATURAL_COLLISION_DAYLIGHT_RECOVERY.md`
 
 ## Current authority
 
@@ -52,15 +53,29 @@ Result: **PASS**.
 
 This is not CI PASS.
 
-## CI blocker
+## CI / package checkpoint
 
-D3-H workflow run: `35347643349`  
-Attempts: `3`  
-Jobs: `105607896700`, `105608153047`, `105611724798`
+Successful D3-H workflow run: `35351129941`  
+Job: `105619257646`  
+Package/source commit: `cb71e28e321f1a45d3a73eac126c291e5cc455ea`
 
-All three failed before `Set up job`; zero steps executed and no hosted runner was allocated.
+Tag: `cardcha-0696d3h-test-cb71e28e`
 
-Last known full working CI remains D3-G run `35287327146`.
+Package:
+
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
+
+SHA256:
+
+`7103dfa6bba242a3a14de9d8886e2c9d238e37c649e0c9a978c9c0296c640c99`
+
+Release:
+
+`https://github.com/ronvotri/CC-SB/releases/tag/cardcha-0696d3h-test-cb71e28e`
+
+Direct package:
+
+`https://github.com/ronvotri/CC-SB/releases/download/cardcha-0696d3h-test-cb71e28e/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.72_0696D3H_DensityRunnerInteractionPolish_TEST.zip`
 
 ## Local fallback
 
@@ -68,16 +83,12 @@ Last known full working CI remains D3-G run `35287327146`.
 
 ## Package
 
-There is currently **no valid D3-H .72 TEST package**.
+The canonical D3-H .72 TEST package is ready and must be the artifact Ron tests.
 
-The D3-G `.71` package must not be relabeled because D3-H changes C# runtime behavior and requires a fresh DLL.
+Runtime is still **RETEST REQUIRED**.
 
 ## Resume instruction
 
-Continue from **D3-H .72 source/static PASS**.
+Continue from **D3-H .72 CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**.
 
-First restore a working build executor / GitHub-hosted runner, then run the already-authored D3-H workflow, compile Release, package, audit, and publish.
-
-Do not modify gameplay merely to make the infrastructure failure disappear.
-
-After a real D3-H package exists, Ron must test it in game. Only Ron's explicit confirmation may change Runtime status to PASS.
+Ron must now test the exact D3-H .72 package in game. Only Ron's explicit confirmation may change Runtime status to PASS.
