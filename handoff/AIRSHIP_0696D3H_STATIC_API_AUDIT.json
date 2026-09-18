@@ -127,13 +127,14 @@
     "status": "BLOCKED_BEFORE_RUNNER",
     "repositoryPrivate": true,
     "workflowRun": 35347643349,
-    "attempts": 2,
+    "attempts": 3,
     "attempt1Job": 105607896700,
     "attempt2Job": 105608153047,
     "stepsObserved": 0,
     "runnerIdObserved": 0,
     "lastKnownSuccessfulD3GRun": 35287327146,
-    "note": "Current GitHub-hosted runner allocation failed before Set up job. This audit must not be called CI PASS."
+    "note": "Three attempts failed before Set up job with no GitHub-hosted runner allocated. D3-H source/static checks are not implicated. Private-repository Actions quota/budget is the leading hypothesis but is not account-verified here.",
+    "attempt3Job": 105611724798
   },
   "package": {
     "status": "NOT_BUILT",
