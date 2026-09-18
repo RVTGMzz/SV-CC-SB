@@ -1,32 +1,10 @@
 name: Cardcha 0696D3-H Density Runner Interaction Polish TEST
 # Repository: ronvotri/CC-SB — renamed from Cardcha-Shardbound and public as of 2026-09-18.
 
+# Historical D3-H workflow. D3-I intentionally changes console alpha, Window ownership,
+# ChaCha Resonance station scale, lamp placement and BOARD AIRSHIP pad position.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Patches/WorldPhysicalOverlaySafetyPatch.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/Services/AirshipAmbientAnimationService.cs
-      - src/Cardcha/Services/AirshipInteriorStardewRenderer.cs
-      - src/Cardcha/assets/airship_deck.tmx
-      - src/Cardcha/assets/sky_dock_interior.tmx
-      - src/Cardcha/assets/airship_props/set01_redux/navigation_console_body_d3h.png
-      - src/Cardcha/assets/airship_props/set01_redux/airship_runner_d3h.png
-      - src/Cardcha/assets/airship_props/set02_harbor/waiting_bench_d3h.png
-      - src/Cardcha/assets/airship_props/set02_harbor/lost_found_board_d3h.png
-      - src/Cardcha/assets/airship_props/set02_harbor/luggage_cart_d3h.png
-      - src/Cardcha/i18n/default.json
-      - src/Cardcha/i18n/vi.json
-      - src/Cardcha/manifest.json
-      - src/Cardcha/Cardcha.csproj
-      - src/Cardcha/Directory.Build.targets
-      - tools/alpha28_0696d3h_density_runner_interaction_polish.py
-      - tools/alpha28_0696d3h_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3h-density-runner-interaction-polish.yml
 
 permissions:
   contents: write
