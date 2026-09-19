@@ -397,7 +397,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            "Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.69 0686 HOLLOW CURATOR ARCHIVE RULE ADAPTATION TEST",
+            $"Cardcha! {this.ModManifest.Version} 0696D3-K COLLISION HOOK RUNTIME FIX TEST",
             LogLevel.Info
         );
     }
