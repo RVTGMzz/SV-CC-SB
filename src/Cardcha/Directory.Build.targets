@@ -1,10 +1,10 @@
 <Project>
   <PropertyGroup>
-    <Version>0.3.0-alpha.28.0.4.14.4.5.12.74</Version>
+    <Version>0.3.0-alpha.28.0.4.14.4.5.12.75</Version>
   </PropertyGroup>
 
   <!-- Keep the packaged SMAPI manifest aligned with the current Cardcha TEST build version. -->
   <Target Name="CardchaAlpha280414456114Manifest" BeforeTargets="BeforeBuild">
-    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.4.5.12.74\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
+    <Exec Command="python3 -c &quot;from pathlib import Path; import re; p=Path(r'$(MSBuildProjectDirectory)/manifest.json'); s=p.read_text(encoding='utf-8'); s=re.sub(r'\&quot;Version\&quot;\s*:\s*\&quot;[^\&quot;]+\&quot;', '\&quot;Version\&quot;: \&quot;0.3.0-alpha.28.0.4.14.4.5.12.75\&quot;', s, count=1); p.write_text(s, encoding='utf-8')&quot;" />
   </Target>
 </Project>
