@@ -1,23 +1,8 @@
 name: Cardcha 0696D3-J Collision Lanes TEST
 
+# Historical D3-J workflow. D3-K changes runtime collision hook resolution and startup identity.
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - src/Cardcha/Patches/AirshipGateDepthPatch.cs
-      - src/Cardcha/Services/AirshipFoundationService.cs
-      - src/Cardcha/Services/ChaChaSkillMaterialService.cs
-      - src/Cardcha/assets/sky_dock_interior.tmx
-      - src/Cardcha/assets/airship_deck.tmx
-      - src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json
-      - src/Cardcha/manifest.json
-      - src/Cardcha/Cardcha.csproj
-      - src/Cardcha/Directory.Build.targets
-      - tools/materialize_0696d3i_console_asset.py
-      - tools/alpha28_0696d3j_collision_lanes.py
-      - tools/alpha28_0696d3j_package_audit.py
 
 permissions:
   contents: write
