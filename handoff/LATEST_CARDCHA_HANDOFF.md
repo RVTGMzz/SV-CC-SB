@@ -11,9 +11,10 @@ Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 ## Read first
 
 1. `handoff/REPOSITORY_RELOCATION_2026-09-19.md`
-2. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
-3. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3J.md`
-4. `handoff/AIRSHIP_0696D3I_RUNTIME_CORRECTION_CHECKPOINT.md`
+2. `handoff/REPOSITORY_RELOCATION_CI_RECHECK_2026-09-19.md`
+3. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
+4. `handoff/SESSION_HANDOFF_2026-09-18_CARDCHA_0696D3J.md`
+5. `handoff/AIRSHIP_0696D3I_RUNTIME_CORRECTION_CHECKPOINT.md`
 
 ## Newest authority
 
@@ -64,6 +65,16 @@ Release:
 Direct package:
 
 `https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3j-test-d9665fdf/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.74_0696D3J_CollisionLanes_TEST.zip`
+
+## Repository relocation recheck
+
+The GitHub connection now explicitly uses the RVTGMzz account link for this repository.
+
+A D3-J rerun under `RVTGMzz/SV-CC-SB` again passed validator, render-depth guards, Release compile and package audit. Its publish step only hit the already-existing canonical tag.
+
+Workflow-only commit `65ac89115d0488527062fd67eecc3eb7abe45a01` makes future D3-J reruns preserve the first canonical release instead of failing or overwriting assets.
+
+Canonical .74 package and SHA remain unchanged.
 
 ## Resume instruction
 
