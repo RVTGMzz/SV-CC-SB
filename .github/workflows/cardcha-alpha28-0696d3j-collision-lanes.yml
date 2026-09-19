@@ -18,7 +18,6 @@ on:
       - tools/materialize_0696d3i_console_asset.py
       - tools/alpha28_0696d3j_collision_lanes.py
       - tools/alpha28_0696d3j_package_audit.py
-      - .github/workflows/cardcha-alpha28-0696d3j-collision-lanes.yml
 
 permissions:
   contents: write
@@ -155,6 +154,14 @@ jobs:
           Ron must test actual movement in this exact package.
           EOF
           )
+          # Rerun-safe release behavior:
+          # if this exact source tag already exists, keep the first canonical package untouched.
+          # Rebuild ZIP bytes may differ because compiler/zip metadata isn't fully reproducible.
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists; preserving canonical assets and skipping publish."
+            exit 0
+          fi
+
           gh release create "$TAG" \
             "$ZIP_PATH" "$ZIP_PATH.sha256" \
             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3J_COLLISION_LANES_VALIDATION.json" \
