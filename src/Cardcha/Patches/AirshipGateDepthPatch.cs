@@ -9,7 +9,7 @@ using System.Reflection;
 namespace Cardcha.Patches;
 
 /// <summary>
-/// 0696D3-K asset separation, native collision and bridge-depth recovery.
+/// 0696D3-L asset separation, native collision and bridge-depth recovery.
 ///
 /// Runtime authority is Ron's 2026-09-18 post-D3-G 12-image retest:
 /// - never correct Farmer.Position to fake collision;
@@ -47,7 +47,7 @@ internal static class AirshipGateDepthPatch
         if (farmerDraw is null)
         {
             monitor.Log(
-                "0696D3-K couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
+                "0696D3-L couldn't find Farmer.draw(SpriteBatch). Physical deck overlays remain suppressed rather than covering the player.",
                 LogLevel.Error
             );
         }
@@ -81,7 +81,7 @@ internal static class AirshipGateDepthPatch
         if (DeckMarkersMethod is null)
         {
             monitor.Log(
-                "0696D3-K couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
+                "0696D3-L couldn't resolve AirshipFoundationService.DrawDeckMarkers; no legacy deck suppression was installed.",
                 LogLevel.Error
             );
         }
@@ -94,7 +94,13 @@ internal static class AirshipGateDepthPatch
         }
 
 
-        int collisionHookCount = 0;
+        // 0696D3-L load-safety correction:
+        // D3-K proved three runtime overloads exist, but installing a generic object[]/MethodBase
+        // postfix on every collision overload caused Ron's save load to stall before world entry.
+        // Do not Harmony-patch this hot path in D3-L. Probe signatures once at startup instead,
+        // preserve the authored TMX collision in Room 1/2, and use the runtime evidence to choose
+        // one lightweight hook in the next incremental patch if the Forest gate still needs it.
+        int collisionCandidateCount = 0;
         foreach (MethodInfo candidate in AccessTools.GetDeclaredMethods(typeof(GameLocation)))
         {
             if (!candidate.Name.Equals("isCollidingPosition", StringComparison.Ordinal)
@@ -107,24 +113,29 @@ internal static class AirshipGateDepthPatch
             if (parameters.Length == 0 || parameters[0].ParameterType != typeof(Rectangle))
                 continue;
 
-            harmony.Patch(
-                candidate,
-                postfix: new HarmonyMethod(typeof(AirshipGateDepthPatch), nameof(AfterCollisionCheck))
+            collisionCandidateCount++;
+            string signature = string.Join(
+                ", ",
+                parameters.Select(parameter =>
+                    $"{parameter.ParameterType.FullName ?? parameter.ParameterType.Name} {parameter.Name}")
             );
-            collisionHookCount++;
+            monitor.Log(
+                $"0696D3-L collision signature probe [{collisionCandidateCount}]: bool GameLocation.isCollidingPosition({signature})",
+                LogLevel.Info
+            );
         }
 
-        if (collisionHookCount == 0)
+        if (collisionCandidateCount == 0)
         {
             monitor.Log(
-                "0696D3-K couldn't resolve any compatible GameLocation.isCollidingPosition overload; Airship/Forest segmented collision hooks were not installed.",
-                LogLevel.Error
+                "0696D3-L couldn't discover a compatible GameLocation.isCollidingPosition signature. No runtime collision Harmony hook is installed.",
+                LogLevel.Warn
             );
         }
         else
         {
             monitor.Log(
-                $"0696D3-K installed collision hooks on {collisionHookCount} GameLocation.isCollidingPosition overload(s).",
+                $"0696D3-L load-safe mode: observed {collisionCandidateCount} compatible GameLocation.isCollidingPosition overload(s); runtime collision Harmony postfix is intentionally disabled.",
                 LogLevel.Info
             );
         }
@@ -133,7 +144,7 @@ internal static class AirshipGateDepthPatch
         if (getActionTile is null)
         {
             monitor.Log(
-                "0696D3-K couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
+                "0696D3-L couldn't resolve AirshipFoundationService.GetActionTile; footprint interaction normalization is unavailable.",
                 LogLevel.Error
             );
         }
@@ -146,7 +157,7 @@ internal static class AirshipGateDepthPatch
         }
 
         monitor.Log(
-            "0696D3-K active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
+            "0696D3-L active: forced-position blocking removed; TMX/native collision, transparent console layering, explicit upgrade stations and travel affordances are authoritative.",
             LogLevel.Info
         );
     }
@@ -338,7 +349,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             UpgradeAtlasLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-K upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-L upgrade atlas unavailable; visible fallback stations will be used. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -358,7 +369,7 @@ internal static class AirshipGateDepthPatch
         catch (Exception ex)
         {
             TravelGateLoadFailed = true;
-            ModEntry.StaticMonitor?.Log($"0696D3-K travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
+            ModEntry.StaticMonitor?.Log($"0696D3-L travel gate art unavailable; travel pad remains visible. {ex.Message}", LogLevel.Warn);
             return null;
         }
     }
@@ -400,7 +411,7 @@ internal static class AirshipGateDepthPatch
 
         string locationName = __instance.NameOrUniqueName;
 
-        // 0696D3-K: collision-query enforcement mirrors the TMX Buildings footprints.
+        // 0696D3-L: collision-query enforcement mirrors the TMX Buildings footprints.
         // This is a normal collision answer only; it never moves, rewinds, pins, or teleports Farmer.
         if (locationName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
         {
