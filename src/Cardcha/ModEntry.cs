@@ -397,7 +397,7 @@ internal sealed class ModEntry : Mod
         WorldPhysicalOverlaySafetyPatch.Apply(harmony, this.Monitor);
 
         this.Monitor.Log(
-            $"Cardcha! {this.ModManifest.Version} 0696D3-K COLLISION HOOK RUNTIME FIX TEST",
+            $"Cardcha! {this.ModManifest.Version} 0696D3-L LOAD-SAFE SIGNATURE PROBE TEST",
             LogLevel.Info
         );
     }
