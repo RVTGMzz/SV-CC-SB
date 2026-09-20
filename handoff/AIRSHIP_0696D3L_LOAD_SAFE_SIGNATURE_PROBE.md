@@ -28,3 +28,23 @@ Therefore D3-K is **RUNTIME FAIL: SAVE-LOAD STALL**. Hook installation was not w
 4. Do not call overall Runtime PASS yet; Forest runtime collision still needs a later lightweight-hook decision.
 
 Do not restart D2 and do not redo D3-A/B/C/D/E/F/G/H/I/J/K.
+
+## CI / package authority
+
+CI run: `35524984219`  
+Job: `106115466452`  
+Source/package commit: `bcd10e92c79f2eaaef8ea3f99d9ce69455031df0`  
+Status: **PASS**
+
+Tag: `cardcha-0696d3l-test-bcd10e92`
+
+Package:
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.76_0696D3L_LoadSafeSignatureProbe_TEST.zip`
+
+SHA256:
+`751169899b02c9eab9a25ced539ad3f3b2481ba007e621eaa0b94a8053469f44`
+
+Direct package:
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3l-test-bcd10e92/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.76_0696D3L_LoadSafeSignatureProbe_TEST.zip`
+
+Current authority: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**.
