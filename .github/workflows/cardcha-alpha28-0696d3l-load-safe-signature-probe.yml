@@ -27,7 +27,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - name: Checkout D3-K branch
+      - name: Checkout D3-L branch
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
@@ -38,7 +38,7 @@ jobs:
       - name: Materialize clean console asset
         run: python3 tools/materialize_0696d3i_console_asset.py
 
-      - name: Run D3-K load-safe signature validator
+      - name: Run D3-L load-safe signature validator
         run: python3 tools/alpha28_0696d3l_load_safe_signature_probe.py
 
       - name: Validate no legacy Window overlay reuse
@@ -59,7 +59,7 @@ jobs:
       - name: Compile Cardcha Release
         run: dotnet build src/Cardcha/Cardcha.csproj -c Release --nologo
 
-      - name: Package D3-K .75 TEST
+      - name: Package D3-L .76 TEST
         id: package
         shell: bash
         run: |
@@ -82,7 +82,7 @@ jobs:
           python3 "$GITHUB_WORKSPACE/tools/alpha28_0696d3l_package_audit.py"             "$ZIP" --report "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_PACKAGE_AUDIT.json"
           echo "zip=$ZIP" >> "$GITHUB_OUTPUT"
 
-      - name: Record D3-K CI evidence
+      - name: Record D3-L CI evidence
         id: evidence
         shell: bash
         env:
@@ -115,7 +115,7 @@ jobs:
           print(json.dumps(evidence,indent=2))
           PY
 
-      - name: Publish D3-K TEST as GitHub prerelease
+      - name: Publish D3-L TEST as GitHub prerelease
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
@@ -150,4 +150,4 @@ jobs:
             exit 0
           fi
 
-          gh release create "$TAG"             "$ZIP_PATH" "$ZIP_PATH.sha256"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_COLLISION_HOOK_VALIDATION.json"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_PACKAGE_AUDIT.json"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_CI_EVIDENCE.json"             --target "$GITHUB_SHA" --prerelease             --title "Cardcha 0696D3-L Load-Safe Signature Probe TEST"             --notes "$NOTES"
+          gh release create "$TAG"             "$ZIP_PATH" "$ZIP_PATH.sha256"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_VALIDATION.json"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_PACKAGE_AUDIT.json"             "$GITHUB_WORKSPACE/handoff/AIRSHIP_0696D3L_CI_EVIDENCE.json"             --target "$GITHUB_SHA" --prerelease             --title "Cardcha 0696D3-L Load-Safe Signature Probe TEST"             --notes "$NOTES"
