@@ -74,3 +74,19 @@ If world entry succeeds, then use the captured signatures to decide whether a si
 Do not call overall Runtime PASS yet.
 
 Do not restart D2 and do not redo D3-A/B/C/D/E/F/G/H/I/J/K.
+
+
+## 2026-09-28 runtime update
+
+Ron tested the canonical D3-L .76 package. Startup proved:
+- all three `GameLocation.isCollidingPosition` signatures were discovered;
+- D3-L installed **no** runtime collision Harmony postfix;
+- Cardcha reached save-load work and completed its main persistence audit / runtime map creation.
+
+The process still hard-exited before playable world with no managed Cardcha exception.
+
+Do **not** open D3-M for the old collision hook theory yet.
+
+The same runtime also loaded Team Up 6.7.44.41, whose capture guard still installed 89 Pelipper capture/catch/pokeball Harmony prefixes. A Team Up 6.7.44.42 isolation build now disables that broad scan (hooks=0) while keeping Cardcha .76 unchanged.
+
+Current Cardcha action: **hold D3-L .76 constant while Team Up .42 is runtime-tested**.
