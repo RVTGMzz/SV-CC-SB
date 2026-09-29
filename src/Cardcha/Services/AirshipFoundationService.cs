@@ -175,6 +175,12 @@ internal sealed class AirshipFoundationService
     private bool AirshipUpgradeVisualsLoadFailed;
     private bool AirshipVisualLoadFailed;
     private bool LoggedAirshipVisualFailure;
+    // 0696D3-M: Room 1 TMX ambient properties were not sufficient at runtime on Ron's setup.
+    // Preserve the ambient value we entered with, hold a readable indoor ambient only while
+    // Cardcha_SkyDockInterior is active, then restore the previous value on exit.
+    private bool D3MInteriorLightingActive;
+    private Color D3MPreviousAmbientLight;
+    private static readonly Color D3MRoom1AmbientLight = new(255, 250, 240);
     private bool TestGateAccessActive;
     private GameLocation? DeckDecorAppliedLocation;
     private GameLocation? SkyDockDecorAppliedLocation;
@@ -323,6 +329,8 @@ internal sealed class AirshipFoundationService
     {
         if (!Context.IsWorldReady)
             return;
+
+        this.ApplyD3MInteriorLighting();
 
         long now = Environment.TickCount64;
 
@@ -582,6 +590,8 @@ internal sealed class AirshipFoundationService
     {
         if (!Context.IsWorldReady || !Context.IsMainPlayer)
             return;
+
+        this.ApplyD3MInteriorLighting(e.NewLocation);
 
         if (e.NewLocation.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             this.EnsureDeckVanillaFurniture(e.NewLocation);
@@ -3886,5 +3896,39 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
         this.AirshipVisual = null;
         this.AirshipVisualLoadFailed = false;
         this.LoggedAirshipVisualFailure = false;
+        this.D3MInteriorLightingActive = false;
+        this.D3MPreviousAmbientLight = Color.White;
+    }
+
+    private void ApplyD3MInteriorLighting(GameLocation? activeLocation = null)
+    {
+        GameLocation? location = activeLocation ?? Game1.currentLocation;
+        bool inRoom1 = location?.NameOrUniqueName.Equals(
+            SkyDockInteriorLocationName,
+            StringComparison.OrdinalIgnoreCase
+        ) == true;
+
+        if (inRoom1)
+        {
+            if (!this.D3MInteriorLightingActive)
+            {
+                this.D3MPreviousAmbientLight = Game1.ambientLight;
+                this.D3MInteriorLightingActive = true;
+                this.Monitor.Log(
+                    $"0696D3-M Room 1 lighting guard active: ambient {this.D3MPreviousAmbientLight} -> {D3MRoom1AmbientLight}.",
+                    LogLevel.Trace
+                );
+            }
+
+            Game1.ambientLight = D3MRoom1AmbientLight;
+            return;
+        }
+
+        if (!this.D3MInteriorLightingActive)
+            return;
+
+        Game1.ambientLight = this.D3MPreviousAmbientLight;
+        this.D3MInteriorLightingActive = false;
+        this.Monitor.Log("0696D3-M Room 1 lighting guard released; previous ambient restored.", LogLevel.Trace);
     }
 }
