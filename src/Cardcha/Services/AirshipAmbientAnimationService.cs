@@ -6,7 +6,7 @@ using StardewValley;
 namespace Cardcha.Services;
 
 /// <summary>
-/// 0696D3-I transient Window/radar ambience.
+/// 0696D3-M transient Window/radar ambience.
 /// Physical Window and console bodies are map-native. Runtime owns only environment/motion slices:
 /// the moving airship, approved Window environment, and radar glow/sweep/pings.
 /// The console frame/body is never replayed as a runtime full-prop overlay.
@@ -37,6 +37,17 @@ internal static class AirshipAmbientAnimationService
     private const float ObservationWindowPresentationScale = 4.0f;
     private const float ConsoleSweepPresentationScale = 0.58f;
     private const float ConsoleFxPresentationScale = 0.72f;
+
+    // 0696D3-M runtime screenshot authority:
+    // the old 0.884x/0.885x values could sort the Window/console FX in front of Farmer even
+    // though the draw call happened from Farmer.draw prefix. Keep transient wall electronics
+    // at true background depths below the nearest legal player lane.
+    private const float WindowBackdropDepth = 0.0200f;
+    private const float WindowAirshipDepth = 0.0205f;
+    private const float WindowFrameDepth = 0.0210f;
+    private const float ConsoleGlowDepth = 0.0500f;
+    private const float ConsoleSweepDepth = 0.0505f;
+    private const float ConsolePingsDepth = 0.0510f;
 
     public static bool DrawDeckAmbient(SpriteBatch batch)
     {
@@ -80,7 +91,7 @@ internal static class AirshipAmbientAnimationService
                     0f,
                     Vector2.Zero,
                     SpriteEffects.None,
-                    0.8840f
+                    WindowBackdropDepth
                 );
             }
         }
@@ -106,7 +117,7 @@ internal static class AirshipAmbientAnimationService
             0f,
             Vector2.Zero,
             SpriteEffects.None,
-            0.8845f
+            WindowAirshipDepth
         );
 
         // 0696D3-I: Window frame leaves TMX entirely. Drawing it here, in the same
@@ -122,7 +133,7 @@ internal static class AirshipAmbientAnimationService
                 0f,
                 Vector2.Zero,
                 SpriteEffects.None,
-                0.8848f
+                WindowFrameDepth
             );
         }
 
@@ -153,9 +164,9 @@ internal static class AirshipAmbientAnimationService
 
         // 0696D3-I: Ron's runtime retest showed the electronic sweep/gauge reading far too large.
         // Keep the static monitor size from the map asset, but shrink only animated radar FX.
-        DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, fxViewport, 0.8850f);
-        DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, sweepViewport, 0.8852f);
-        DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, fxViewport, 0.8854f);
+        DrawConsoleLayer(batch, state.RadarGlow, clockMs, config.ViewportPx, fxViewport, ConsoleGlowDepth);
+        DrawConsoleLayer(batch, state.RadarSweep, clockMs, config.ViewportPx, sweepViewport, ConsoleSweepDepth);
+        DrawConsoleLayer(batch, state.RadarPings, clockMs, config.ViewportPx, fxViewport, ConsolePingsDepth);
 
         // The physical console body is D3-I's edge-matte-cleaned TMX asset.
         return true;
