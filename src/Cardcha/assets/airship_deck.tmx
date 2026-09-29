@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <map version="1.10" tiledversion="1.10.2" orientation="orthogonal" renderorder="right-down" width="24" height="14" tilewidth="16" tileheight="16" infinite="0" nextlayerid="8" nextobjectid="1">
  <properties>
-  <property name="CardchaAirshipVersion" value="0.3.0-alpha.28.0.4.14.4.5.12.76" />
+  <property name="CardchaAirshipVersion" value="0.3.0-alpha.28.0.4.14.4.5.12.77" />
   <property name="CardchaAirshipRole" value="airship-bridge|navigation-core|four-independent-upgrade-stations|chacha-resonance|arcane-dock-return" />
   <property name="CardchaVisualProfile" value="airship-bridge|native-stardew-furniture|warm-wood-brass|clear-walking-spine" />
   <property name="CardchaArchitecture" value="vanilla-shell|native-furniture-and-object|no-postworld-physical-decor|depth-contract-0677" />
@@ -18,8 +18,9 @@
   <property name="AmbientNightLight" value="145 135 115" />
   <property name="CardchaD3GLighting" value="native-map-ambient|day-70-70-70|night-145-135-115" />
   <property name="CardchaD3JRunner" value="door-to-travel|detour-around-engine-base|center-gate-entry|pixel-weave" />
-  <property name="CardchaD3IDepth" value="window-runtime-pre-farmer|console-Buildings2|edge-matte-clean-alpha|no-window-map-shell|no-console-Front2" />
-  <property name="CardchaD3JCollision" value="travel-segments|console-full-body|four-upgrade-bases|lamp|resonance-body|front-lanes-open" />
+  <property name="CardchaD3IDepth" value="window-runtime-background-depth|console-Buildings2|edge-matte-clean-alpha|no-window-map-shell|no-console-Front2" />
+  <property name="CardchaD3MLayerCollision" value="window-sill-solid|upgrade-3x2-full-body|runtime-window-console-behind-farmer" />
+  <property name="CardchaD3JCollision" value="travel-segments|console-full-body|four-upgrade-full-body|window-sill|lamp|resonance-body|front-lanes-open" />
  </properties>
  <tileset firstgid="1" name="townInterior" tilewidth="16" tileheight="16" tilecount="2176" columns="32">
   <image source=".townInterior.png" width="512" height="1088" />
@@ -80,15 +81,15 @@
 4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,
 4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,
 4431,4431,5400,5400,4431,5400,5400,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,
-4431,0,5400,5400,0,5400,5400,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,0,0,5400,5400,5400,4431,
+4431,0,5400,5400,0,5400,5400,5400,5400,5400,5400,5400,5400,5400,5400,5400,5400,0,0,0,5400,5400,5400,4431,
 4431,0,5400,5400,0,5400,5400,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,5400,5400,5400,5400,5400,4431,
-4431,0,0,0,0,0,0,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,0,0,0,0,0,4431,
+4431,0,0,5400,5400,5400,0,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,5400,5400,5400,0,0,4431,
 4431,0,0,5400,5400,5400,0,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,5400,5400,5400,0,0,4431,
 4431,0,0,0,0,0,0,0,0,5400,5400,5400,5400,5400,5400,5400,0,0,0,0,0,0,0,4431,
-4431,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4431,
+4431,0,0,0,0,0,5400,5400,5400,0,0,0,0,0,0,5400,5400,5400,0,0,0,0,0,4431,
 4431,0,0,0,0,0,5400,5400,5400,0,0,0,0,0,0,5400,5400,5400,0,0,0,0,0,4431,
 4431,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,4431,
-4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,0,0,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431
+4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,0,0,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,4431,
 </data>
  </layer>
  <layer id="6" name="Buildings2" width="24" height="14">
