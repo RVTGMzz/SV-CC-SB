@@ -233,7 +233,7 @@ internal static class AirshipAmbientAnimationService
             0f,
             Vector2.Zero,
             SpriteEffects.None,
-            0.8840f
+            WindowBackdropDepth
         );
     }
 
