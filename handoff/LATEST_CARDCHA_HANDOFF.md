@@ -6,14 +6,15 @@ Repository: `RVTGMzz/SV-CC-SB`
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
 Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.76`  
 Current phase: `0696D3-L Load-Safe Signature Probe`  
-Current status: **D3-K RUNTIME FAIL (SAVE-LOAD STALL) / D3-L CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
+Current status: **D3-L WORLD ENTRY CONFIRMED / ROOM 1 LIGHTING FAIL / ROOM 2 UPGRADE COLLISION + LAYER FAIL / D3-M NARROW FIX NEXT**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_PROBE.md`
-2. `handoff/RUNTIME_PROOF_2026-09-20_CARDCHA_0696D3K.md` — historical hook-install proof only, not world-entry PASS
-3. `handoff/AIRSHIP_0696D3K_COLLISION_HOOK_RUNTIME_FIX.md`
-4. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
+1. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
+2. `handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_PROBE.md`
+3. `handoff/RUNTIME_PROOF_2026-09-20_CARDCHA_0696D3K.md` — historical hook-install proof only, not world-entry PASS
+4. `handoff/AIRSHIP_0696D3K_COLLISION_HOOK_RUNTIME_FIX.md`
+5. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
 
 ## Corrected runtime authority
 
@@ -90,3 +91,27 @@ Do **not** open D3-M for the old collision hook theory yet.
 The same runtime also loaded Team Up 6.7.44.41, whose capture guard still installed 89 Pelipper capture/catch/pokeball Harmony prefixes. A Team Up 6.7.44.42 isolation build now disables that broad scan (hooks=0) while keeping Cardcha .76 unchanged.
 
 Current Cardcha action: **hold D3-L .76 constant while Team Up .42 is runtime-tested**.
+
+
+## 2026-09-29 in-game room authority
+
+Ron supplied live screenshots confirming the current setup now reaches the playable world.
+
+This closes the earlier **world-entry blocker**, but D3-L is still **not Runtime PASS** because the screenshots expose three in-world failures:
+
+1. **Room 1 lighting fail**  
+   The room is almost completely black and ordinary navigation/props are barely readable.
+
+2. **Room 2 UPGRADE collision fail**  
+   The Farmer can stand directly on an UPGRADE pedestal. UPGRADE bodies must be solid in TMX and remain interactable from an adjacent lane.
+
+3. **Room 2 layer/draw-order fail**  
+   Environment/front-layer content can visually cover the player/companion incorrectly.
+
+New authority:
+`handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
+
+Next patch should be narrow:
+`0696D3-M Room Lighting + TMX Collision + Layer Order Runtime Fix`
+
+Do not reintroduce the broad collision Harmony postfix and do not restore forced Farmer.Position correction.
