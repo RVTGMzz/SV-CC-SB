@@ -8,6 +8,7 @@ V="0.3.0-alpha.28.0.4.14.4.5.12.78"
 
 svc=(SRC/"Services"/"AirshipFoundationService.cs").read_text(encoding="utf-8")
 anim=(SRC/"Services"/"AirshipAmbientAnimationService.cs").read_text(encoding="utf-8")
+depth_patch=(SRC/"Patches"/"AirshipGateDepthPatch.cs").read_text(encoding="utf-8")
 mod=(SRC/"ModEntry.cs").read_text(encoding="utf-8")
 ambient=json.loads((SRC/"assets"/"airship_props"/"set01_redux"/"airship_ambient_manifest.json").read_text(encoding="utf-8"))
 
@@ -76,7 +77,12 @@ checks={
     "ConsoleSweepDepth = 0.0505f",
     "ConsolePingsDepth = 0.0510f",
 )),
-"noFarmerPositionPin":"player.Position =" not in svc,
+"noFarmerPositionPin":all(t not in depth_patch for t in (
+    "player.Position =",
+    "LastSafePlayerPosition",
+    "EnforceD3FPhysicalFootprints",
+    "EnforceD3GPhysicalFootprints",
+)),
 }
 
 status="PASS" if all(checks.values()) else "FAIL"
