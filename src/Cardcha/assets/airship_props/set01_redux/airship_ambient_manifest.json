@@ -1,8 +1,8 @@
 {
   "schemaVersion": 2,
   "workstream": "0696D2-window-environment-matrix",
-  "version": "0.3.0-alpha.28.0.4.14.4.5.12.77",
-  "visualAcceptance": "D3M_RUNTIME_RETEST_REQUIRED",
+  "version": "0.3.0-alpha.28.0.4.14.4.5.12.78",
+  "visualAcceptance": "D3N_RUNTIME_RETEST_REQUIRED",
   "assetRoot": "assets/airship_props/set01_redux",
   "global": {
     "tileSize": 16,
@@ -310,5 +310,12 @@
       "Front2"
     ],
     "noSilentSubstitution": true
+  },
+  "room1CabinLighting": {
+    "phase": "0696D3-N",
+    "source": "Stardew LightSource runtime fixtures",
+    "fixtureCount": 8,
+    "room": "Cardcha_SkyDockInterior",
+    "acceptance": "PENDING-RON-IN-GAME"
   }
 }
