@@ -1,99 +1,80 @@
 # LATEST CARDCHA HANDOFF
 
-Updated: 2026-09-29
+Updated: 2026-09-30
 
 Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
-Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.77`  
-Current phase: `0696D3-M Room Lighting + TMX Collision + Layer Order Runtime Fix`  
+Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.78`  
+Current phase: `0696D3-N Cabin Light Sources Night Fix`  
 Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3M_ROOM_LIGHTING_COLLISION_LAYER_FIX.md`
-2. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
-3. `handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_PROBE.md`
+1. `handoff/AIRSHIP_0696D3N_CABIN_LIGHT_SOURCES_NIGHT_FIX.md`
+2. `handoff/AIRSHIP_0696D3M_ROOM_LIGHTING_COLLISION_LAYER_FIX.md`
+3. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
 4. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
 
 ## Latest runtime authority
 
-Ron reached the playable world on the D3-L-era setup and supplied screenshots showing three concrete room regressions:
+Ron tested Room 1 around 20:00 and supplied a screenshot where the room is nearly black even with D3-M .77 ambient recovery.
 
-- Room 1 almost completely black;
-- Room 2 UPGRADE stations walkable through their visible machine bodies;
-- Room 2 Window/console presentation layering covering Farmer/companion incorrectly.
+Therefore:
+- D3-M Room 1 night lighting = Runtime FAIL.
+- Do not solve this by only increasing `Game1.ambientLight` again.
+- D3-N adds real Stardew `LightSource` fixtures.
 
-That supersedes the earlier save-load investigation for Cardcha. Do not reopen D3-K/L collision-hook work.
+## D3-N .78
 
-## D3-M .77 corrections
+Eight room-scoped light fixtures now illuminate:
+- route board;
+- Lost & Found;
+- waiting bench;
+- luggage;
+- boarding left;
+- boarding right;
+- BOARD AIRSHIP center;
+- exit.
 
-### Room 1
-- runtime indoor ambient guard: `255 250 240`;
-- previous ambient saved on entry and restored on exit;
-- authored TMX ambient raised to `255 250 240`;
-- authored night ambient raised to `225 215 200`.
+The lights are re-added if Stardew clears them and removed on room exit/runtime reset.
 
-### Room 2 collision
-- Observation Window lower sill: `x7..16, y5`;
-- Engine UPGRADE: `x3..5, y7..8`;
-- Navigation UPGRADE: `x18..20, y7..8`;
-- Hull UPGRADE: `x6..8, y10..11`;
-- Reactor UPGRADE: `x15..17, y10..11`.
-
-All use native TMX Buildings collision. No forced Farmer position correction is used.
-
-### Room 2 layer/depth
-Window/console transient presentation now uses true background layer depths instead of the old ~0.884/0.885 values, including Window lightning.
-
-## Carry-forward locks
-
-- no broad `GameLocation.isCollidingPosition` Harmony postfix;
-- no `Farmer.Position` pin/rewind/restore;
-- TRAVEL center lane remains open;
-- BOARD AIRSHIP center throat remains open;
-- Resonance interaction remains reachable;
-- D3-L load-safe startup architecture remains.
+D3-M Room 2 collision/depth fixes remain locked.
 
 ## CI / package
 
-CI run: `36572926010`  
-Job: `109421122962`  
-Canonical source/package commit: `5a95978cfb16d40e128c248d66f0b313d8e4294b`  
+CI run: `36618505784`  
+Job: `109577593356`  
+Canonical source/package commit: `1a66357931b35bffff7a0894320e7d868880ab2c`  
 Conclusion: **SUCCESS**
 
-Tag: `cardcha-0696d3m-test-5a95978c`
+Tag: `cardcha-0696d3n-test-1a663579`
 
 Package:
-`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.77_0696D3M_RoomLightingCollisionLayer_TEST.zip`
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.78_0696D3N_CabinLightSourcesNightFix_TEST.zip`
 
 SHA256:
-`98d5b7e4e53e05e2ae731b94d266c27f5778d2b3bbc48fa01b221025b50ca412`
+`133f6decaae31ce61578dc56075c7f2059be19189fb8f4243ac97112ef7354c7`
 
 Direct package:
-`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3m-test-5a95978c/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.77_0696D3M_RoomLightingCollisionLayer_TEST.zip`
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3n-test-1a663579/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.78_0696D3N_CabinLightSourcesNightFix_TEST.zip`
 
 Static / CI:
-- D3-M room runtime validator: PASS
+- D3-N night cabin-light validator: PASS
+- D3-M collision/depth carry-forward checks: PASS
 - no legacy Window overlay reuse: PASS
 - render-depth contract: PASS
-- validator non-mutation: PASS
 - Release compile: PASS, 0 errors
 - package audit: PASS
 - prerelease publication: PASS
 
-The existing project emits 55 SMAPI analyzer warnings, mostly NetField guidance outside the D3-M patch. Do not misreport this build as zero-warning.
+Project still emits 55 pre-existing analyzer warnings, mostly NetField guidance outside this patch.
 
 ## Runtime retest focus
 
-Test only the exact .77 package.
+1. Enter Room 1 at 20:00 or later.
+2. Confirm visible light pools and readable room.
+3. Leave Room 1; confirm no light leaks into other maps.
+4. Re-enter; confirm cabin lights return.
+5. Quickly recheck Room 2 UPGRADE collision + Window/console depth.
 
-1. Room 1 readable instead of near-black.
-2. Ambient returns to normal when leaving Room 1.
-3. Cannot stand inside any of four UPGRADE machines.
-4. UPGRADE interaction remains available from adjacent lane.
-5. Cannot enter Window lower sill.
-6. Window/console no longer blanket-cover player/companion.
-7. TRAVEL, BOARD AIRSHIP, and Resonance interactions still work.
-8. No ghost-body / forced-position regression.
-
-Do not call Runtime PASS until Ron confirms this in game.
+Do not call Runtime PASS until Ron confirms this exact .78 package in game.
