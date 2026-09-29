@@ -2,24 +2,6 @@ name: Cardcha 0696D3-M Room Lighting Collision Layer TEST
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - cardcha-alpha28-0696d2-window-environment-matrix
-    paths:
-      - 'src/Cardcha/Patches/AirshipGateDepthPatch.cs'
-      - 'src/Cardcha/Services/AirshipFoundationService.cs'
-      - 'src/Cardcha/Services/AirshipAmbientAnimationService.cs'
-      - 'src/Cardcha/ModEntry.cs'
-      - 'src/Cardcha/manifest.json'
-      - 'src/Cardcha/Cardcha.csproj'
-      - 'src/Cardcha/Directory.Build.targets'
-      - 'src/Cardcha/assets/sky_dock_interior.tmx'
-      - 'src/Cardcha/assets/airship_deck.tmx'
-      - 'src/Cardcha/assets/airship_props/set01_redux/airship_ambient_manifest.json'
-      - 'tools/materialize_0696d3i_console_asset.py'
-      - 'tools/alpha28_0696d3m_room_lighting_collision_layer.py'
-      - 'tools/alpha28_0696d3m_package_audit.py'
-      - '.github/workflows/cardcha-alpha28-0696d3m-room-lighting-collision-layer.yml'
 
 permissions:
   contents: write
