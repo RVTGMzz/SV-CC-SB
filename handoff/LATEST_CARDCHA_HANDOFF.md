@@ -1,117 +1,99 @@
 # LATEST CARDCHA HANDOFF
 
-Updated: 2026-09-20
+Updated: 2026-09-29
 
 Repository: `RVTGMzz/SV-CC-SB`  
 Branch: `cardcha-alpha28-0696d2-window-environment-matrix`  
-Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.76`  
-Current phase: `0696D3-L Load-Safe Signature Probe`  
-Current status: **D3-L WORLD ENTRY CONFIRMED / ROOM 1 LIGHTING FAIL / ROOM 2 UPGRADE COLLISION + LAYER FAIL / D3-M NARROW FIX NEXT**
+Current TEST version: `0.3.0-alpha.28.0.4.14.4.5.12.77`  
+Current phase: `0696D3-M Room Lighting + TMX Collision + Layer Order Runtime Fix`  
+Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 
 ## Read first
 
-1. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
-2. `handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_PROBE.md`
-3. `handoff/RUNTIME_PROOF_2026-09-20_CARDCHA_0696D3K.md` — historical hook-install proof only, not world-entry PASS
-4. `handoff/AIRSHIP_0696D3K_COLLISION_HOOK_RUNTIME_FIX.md`
-5. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
+1. `handoff/AIRSHIP_0696D3M_ROOM_LIGHTING_COLLISION_LAYER_FIX.md`
+2. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
+3. `handoff/AIRSHIP_0696D3L_LOAD_SAFE_SIGNATURE_PROBE.md`
+4. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
 
-## Corrected runtime authority
+## Latest runtime authority
 
-Ron explicitly reported that D3-K .75 never entered the playable game after selecting the save.
+Ron reached the playable world on the D3-L-era setup and supplied screenshots showing three concrete room regressions:
 
-The supplied SMAPI log shows:
-- D3-K installed 3 compatible `GameLocation.isCollidingPosition` hooks;
-- the save and Cardcha maps started loading;
-- the log ended during post-load initialization;
-- no playable-world completion followed;
-- no Cardcha exception was emitted before the stall.
+- Room 1 almost completely black;
+- Room 2 UPGRADE stations walkable through their visible machine bodies;
+- Room 2 Window/console presentation layering covering Farmer/companion incorrectly.
 
-Therefore D3-K is **Runtime FAIL: save-load stall**.
+That supersedes the earlier save-load investigation for Cardcha. Do not reopen D3-K/L collision-hook work.
 
-## D3-L correction
+## D3-M .77 corrections
 
-- removes the generic Harmony postfix from every `GameLocation.isCollidingPosition` overload;
-- probes compatible overload signatures once at startup only;
-- preserves Room 1 / Room 2 TMX Buildings collision;
-- never writes `Farmer.Position`;
-- intentionally defers the Forest gate's extra runtime collision layer until the safe runtime signature is known.
+### Room 1
+- runtime indoor ambient guard: `255 250 240`;
+- previous ambient saved on entry and restored on exit;
+- authored TMX ambient raised to `255 250 240`;
+- authored night ambient raised to `225 215 200`.
 
-## D3-L CI / package
+### Room 2 collision
+- Observation Window lower sill: `x7..16, y5`;
+- Engine UPGRADE: `x3..5, y7..8`;
+- Navigation UPGRADE: `x18..20, y7..8`;
+- Hull UPGRADE: `x6..8, y10..11`;
+- Reactor UPGRADE: `x15..17, y10..11`.
 
-CI run: `35524984219`  
-Job: `106115466452`  
-Canonical source/package commit: `bcd10e92c79f2eaaef8ea3f99d9ce69455031df0`  
+All use native TMX Buildings collision. No forced Farmer position correction is used.
+
+### Room 2 layer/depth
+Window/console transient presentation now uses true background layer depths instead of the old ~0.884/0.885 values, including Window lightning.
+
+## Carry-forward locks
+
+- no broad `GameLocation.isCollidingPosition` Harmony postfix;
+- no `Farmer.Position` pin/rewind/restore;
+- TRAVEL center lane remains open;
+- BOARD AIRSHIP center throat remains open;
+- Resonance interaction remains reachable;
+- D3-L load-safe startup architecture remains.
+
+## CI / package
+
+CI run: `36572926010`  
+Job: `109421122962`  
+Canonical source/package commit: `5a95978cfb16d40e128c248d66f0b313d8e4294b`  
 Conclusion: **SUCCESS**
 
-Tag: `cardcha-0696d3l-test-bcd10e92`
+Tag: `cardcha-0696d3m-test-5a95978c`
 
 Package:
-
-`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.76_0696D3L_LoadSafeSignatureProbe_TEST.zip`
+`Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.77_0696D3M_RoomLightingCollisionLayer_TEST.zip`
 
 SHA256:
-
-`751169899b02c9eab9a25ced539ad3f3b2481ba007e621eaa0b94a8053469f44`
+`98d5b7e4e53e05e2ae731b94d266c27f5778d2b3bbc48fa01b221025b50ca412`
 
 Direct package:
+`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3m-test-5a95978c/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.77_0696D3M_RoomLightingCollisionLayer_TEST.zip`
 
-`https://github.com/RVTGMzz/SV-CC-SB/releases/download/cardcha-0696d3l-test-bcd10e92/Cardcha_v0.3.0-alpha.28.0.4.14.4.5.12.76_0696D3L_LoadSafeSignatureProbe_TEST.zip`
+Static / CI:
+- D3-M room runtime validator: PASS
+- no legacy Window overlay reuse: PASS
+- render-depth contract: PASS
+- validator non-mutation: PASS
+- Release compile: PASS, 0 errors
+- package audit: PASS
+- prerelease publication: PASS
 
-## Runtime acceptance order
+The existing project emits 55 SMAPI analyzer warnings, mostly NetField guidance outside the D3-M patch. Do not misreport this build as zero-warning.
 
-First and only initial question for D3-L: **does the same save reach the playable world?**
+## Runtime retest focus
 
-Expected startup evidence:
+Test only the exact .77 package.
 
-```text
-0696D3-L collision signature probe [1]: ...
-0696D3-L load-safe mode: observed <N> compatible GameLocation.isCollidingPosition overload(s); runtime collision Harmony postfix is intentionally disabled.
-Cardcha! 0.3.0-alpha.28.0.4.14.4.5.12.76 0696D3-L LOAD-SAFE SIGNATURE PROBE TEST
-```
+1. Room 1 readable instead of near-black.
+2. Ambient returns to normal when leaving Room 1.
+3. Cannot stand inside any of four UPGRADE machines.
+4. UPGRADE interaction remains available from adjacent lane.
+5. Cannot enter Window lower sill.
+6. Window/console no longer blanket-cover player/companion.
+7. TRAVEL, BOARD AIRSHIP, and Resonance interactions still work.
+8. No ghost-body / forced-position regression.
 
-If world entry succeeds, then use the captured signatures to decide whether a single lightweight Forest collision hook is needed. Only after world entry should Room 1 / Room 2 physical TMX collision be retested.
-
-Do not call overall Runtime PASS yet.
-
-Do not restart D2 and do not redo D3-A/B/C/D/E/F/G/H/I/J/K.
-
-
-## 2026-09-28 runtime update
-
-Ron tested the canonical D3-L .76 package. Startup proved:
-- all three `GameLocation.isCollidingPosition` signatures were discovered;
-- D3-L installed **no** runtime collision Harmony postfix;
-- Cardcha reached save-load work and completed its main persistence audit / runtime map creation.
-
-The process still hard-exited before playable world with no managed Cardcha exception.
-
-Do **not** open D3-M for the old collision hook theory yet.
-
-The same runtime also loaded Team Up 6.7.44.41, whose capture guard still installed 89 Pelipper capture/catch/pokeball Harmony prefixes. A Team Up 6.7.44.42 isolation build now disables that broad scan (hooks=0) while keeping Cardcha .76 unchanged.
-
-Current Cardcha action: **hold D3-L .76 constant while Team Up .42 is runtime-tested**.
-
-
-## 2026-09-29 in-game room authority
-
-Ron supplied live screenshots confirming the current setup now reaches the playable world.
-
-This closes the earlier **world-entry blocker**, but D3-L is still **not Runtime PASS** because the screenshots expose three in-world failures:
-
-1. **Room 1 lighting fail**  
-   The room is almost completely black and ordinary navigation/props are barely readable.
-
-2. **Room 2 UPGRADE collision fail**  
-   The Farmer can stand directly on an UPGRADE pedestal. UPGRADE bodies must be solid in TMX and remain interactable from an adjacent lane.
-
-3. **Room 2 layer/draw-order fail**  
-   Environment/front-layer content can visually cover the player/companion incorrectly.
-
-New authority:
-`handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
-
-Next patch should be narrow:
-`0696D3-M Room Lighting + TMX Collision + Layer Order Runtime Fix`
-
-Do not reintroduce the broad collision Harmony postfix and do not restore forced Farmer.Position correction.
+Do not call Runtime PASS until Ron confirms this in game.
