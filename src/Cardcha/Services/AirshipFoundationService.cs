@@ -181,6 +181,20 @@ internal sealed class AirshipFoundationService
     private bool D3MInteriorLightingActive;
     private Color D3MPreviousAmbientLight;
     private static readonly Color D3MRoom1AmbientLight = new(255, 250, 240);
+    // 0696D3-N: real Stardew light sources for Room 1. Ambient alone is overwritten by
+    // the game's night lighting pass around 20:00, so these fixtures illuminate through
+    // the same lightmap pipeline as vanilla lamps.
+    private static readonly (string Id, Point Tile, float Radius, int TextureIndex)[] D3NRoom1Lights =
+    {
+        ("Ronvotri.Cardcha/D3N/RouteBoard", new Point(4, 7), 3.4f, LightSource.sconceLight),
+        ("Ronvotri.Cardcha/D3N/LostFound", new Point(10, 6), 3.2f, LightSource.sconceLight),
+        ("Ronvotri.Cardcha/D3N/WaitingBench", new Point(5, 11), 3.0f, LightSource.lantern),
+        ("Ronvotri.Cardcha/D3N/Luggage", new Point(10, 11), 3.0f, LightSource.lantern),
+        ("Ronvotri.Cardcha/D3N/BoardingLeft", new Point(15, 7), 3.2f, LightSource.sconceLight),
+        ("Ronvotri.Cardcha/D3N/BoardingRight", new Point(19, 7), 3.2f, LightSource.sconceLight),
+        ("Ronvotri.Cardcha/D3N/BoardingCenter", new Point(17, 8), 4.2f, LightSource.lantern),
+        ("Ronvotri.Cardcha/D3N/Exit", new Point(12, 12), 3.6f, LightSource.lantern),
+    };
     private bool TestGateAccessActive;
     private GameLocation? DeckDecorAppliedLocation;
     private GameLocation? SkyDockDecorAppliedLocation;
@@ -330,7 +344,7 @@ internal sealed class AirshipFoundationService
         if (!Context.IsWorldReady)
             return;
 
-        this.ApplyD3MInteriorLighting();
+        this.ApplyD3NInteriorLighting();
 
         long now = Environment.TickCount64;
 
@@ -591,7 +605,7 @@ internal sealed class AirshipFoundationService
         if (!Context.IsWorldReady || !Context.IsMainPlayer)
             return;
 
-        this.ApplyD3MInteriorLighting(e.NewLocation);
+        this.ApplyD3NInteriorLighting(e.NewLocation);
 
         if (e.NewLocation.NameOrUniqueName.Equals(DeckLocationName, StringComparison.OrdinalIgnoreCase))
             this.EnsureDeckVanillaFurniture(e.NewLocation);
@@ -3896,11 +3910,12 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
         this.AirshipVisual = null;
         this.AirshipVisualLoadFailed = false;
         this.LoggedAirshipVisualFailure = false;
+        this.RemoveD3NRoom1Lights();
         this.D3MInteriorLightingActive = false;
         this.D3MPreviousAmbientLight = Color.White;
     }
 
-    private void ApplyD3MInteriorLighting(GameLocation? activeLocation = null)
+    private void ApplyD3NInteriorLighting(GameLocation? activeLocation = null)
     {
         GameLocation? location = activeLocation ?? Game1.currentLocation;
         bool inRoom1 = location?.NameOrUniqueName.Equals(
@@ -3915,20 +3930,52 @@ private static void TryAddInteriorChest(GameLocation location, Point tile)
                 this.D3MPreviousAmbientLight = Game1.ambientLight;
                 this.D3MInteriorLightingActive = true;
                 this.Monitor.Log(
-                    $"0696D3-M Room 1 lighting guard active: ambient {this.D3MPreviousAmbientLight} -> {D3MRoom1AmbientLight}.",
+                    $"0696D3-N Room 1 lighting active: ambient {this.D3MPreviousAmbientLight} -> {D3MRoom1AmbientLight}; installing cabin fixtures.",
                     LogLevel.Trace
                 );
             }
 
             Game1.ambientLight = D3MRoom1AmbientLight;
+            this.EnsureD3NRoom1Lights();
             return;
         }
 
         if (!this.D3MInteriorLightingActive)
             return;
 
+        this.RemoveD3NRoom1Lights();
         Game1.ambientLight = this.D3MPreviousAmbientLight;
         this.D3MInteriorLightingActive = false;
-        this.Monitor.Log("0696D3-M Room 1 lighting guard released; previous ambient restored.", LogLevel.Trace);
+        this.Monitor.Log("0696D3-N Room 1 lighting released; cabin fixtures removed and previous ambient restored.", LogLevel.Trace);
+    }
+
+    private void EnsureD3NRoom1Lights()
+    {
+        foreach ((string id, Point tile, float radius, int textureIndex) in D3NRoom1Lights)
+        {
+            if (Game1.currentLightSources.ContainsKey(id))
+                continue;
+
+            Vector2 position = new(tile.X * Game1.tileSize + Game1.tileSize / 2f, tile.Y * Game1.tileSize + Game1.tileSize / 2f);
+            Game1.currentLightSources.Add(
+                id,
+                new LightSource(
+                    id,
+                    textureIndex,
+                    position,
+                    radius,
+                    Color.Black,
+                    LightSource.LightContext.MapLight,
+                    0L,
+                    SkyDockInteriorLocationName
+                )
+            );
+        }
+    }
+
+    private void RemoveD3NRoom1Lights()
+    {
+        foreach ((string id, _, _, _) in D3NRoom1Lights)
+            Game1.currentLightSources.Remove(id);
     }
 }
