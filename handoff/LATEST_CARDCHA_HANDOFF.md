@@ -10,10 +10,11 @@ Current status: **CI PASS / PACKAGE READY / RUNTIME RETEST REQUIRED**
 
 ## Read first
 
-1. `handoff/AIRSHIP_0696D3N_CABIN_LIGHT_SOURCES_NIGHT_FIX.md`
-2. `handoff/AIRSHIP_0696D3M_ROOM_LIGHTING_COLLISION_LAYER_FIX.md`
-3. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
-4. `handoff/AIRSHIP_0696D3J_COLLISION_LANES_CHECKPOINT.md`
+1. `handoff/NEXT_CHAT_PROMPT_2026-09-30_CARDCHA_0696D3N.md`
+2. `handoff/AIRSHIP_0696D3N_CABIN_LIGHT_SOURCES_NIGHT_FIX.md`
+3. `handoff/SESSION_HANDOFF_2026-09-30_CARDCHA_0696D3N.md`
+4. `handoff/AIRSHIP_0696D3M_ROOM_LIGHTING_COLLISION_LAYER_FIX.md`
+5. `handoff/RUNTIME_FEEDBACK_2026-09-29_D3L_ROOM_COLLISION_LIGHTING.md`
 
 ## Latest runtime authority
 
@@ -78,3 +79,10 @@ Project still emits 55 pre-existing analyzer warnings, mostly NetField guidance 
 5. Quickly recheck Room 2 UPGRADE collision + Window/console depth.
 
 Do not call Runtime PASS until Ron confirms this exact .78 package in game.
+
+
+## Next-chat authority
+
+Use `handoff/NEXT_CHAT_PROMPT_2026-09-30_CARDCHA_0696D3N.md` for the next session.
+
+The older `handoff/NEXT_CHAT_PROMPT_2026-09-19_CARDCHA_0696D3K.md` is historical only and must not be treated as current authority.
